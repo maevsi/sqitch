@@ -1,7 +1,7 @@
 #!/bin/sh
 
 THIS=$(dirname "$(readlink -f "$0")")
-image=maevsi/maevsi-database-migrations
+image=maevsi/sqitch
 
 docker build -t "$image:build" --target build "$THIS" # --progress plain
 

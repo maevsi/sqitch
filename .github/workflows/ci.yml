@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+  release:
+    types: [published]
+
+jobs:
+  prepare_jobs:
+    name: 'Prepare: job optimization'
+    runs-on: ubuntu-latest
+    outputs:
+      pr: ${{ steps.pr.outputs.pr }}
+    steps:
+      - name: Checkout git repository
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Get current PR
+        id: pr
+        uses: 8BitJonny/gh-get-current-pr@2.2.0
+        with:
+          sha: ${{ github.event.pull_request.head.sha }}
+  build:
+    name: Build
+    uses: dargmuesli/github-actions/.github/workflows/docker-ghcr.yml@0.38.1
+    needs: prepare_jobs
+    if: needs.prepare_jobs.outputs.pr_found != 'true' || github.event_name != 'push'
+    permissions:
+      packages: write
+  release-semantic:
+    needs: build
+    name: Release (semantic)
+    uses: dargmuesli/github-actions/.github/workflows/release-semantic.yml@0.38.1
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    with:
+      CACHE_PATH: pnpm-lock.yaml
