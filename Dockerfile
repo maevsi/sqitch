@@ -23,7 +23,7 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
       libdbd-pg-perl postgresql-client sqitch
 
-COPY ./ ./
+COPY ./src ./
 
 RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && docker-entrypoint.sh postgres & \
@@ -36,6 +36,7 @@ FROM alpine:3.18.0 AS validate
 
 WORKDIR /srv/app
 
+COPY ./schema ./
 COPY --from=build /srv/app ./
 
 RUN diff schema.sql schema.definition.sql
