@@ -11,7 +11,7 @@ jobs:
     name: 'Prepare: job optimization'
     runs-on: ubuntu-latest
     outputs:
-      pr: ${{ steps.pr.outputs.pr }}
+      pr_found: ${{ steps.pr.outputs.pr_found }}
     steps:
       - name: Checkout git repository
         uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
