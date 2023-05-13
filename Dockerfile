@@ -12,7 +12,7 @@ CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:15.2 AS build
+FROM postgres:15.3 AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD=postgres
@@ -23,19 +23,20 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
       libdbd-pg-perl postgresql-client sqitch
 
-COPY ./ ./
+COPY ./src ./
 
 RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U postgres -p 5432; do sleep 1; done \
   && sqitch deploy -t db:pg://postgres:postgres@/maevsi \
-  && pg_dump -s -h localhost -U postgres -p 5432 maevsi > schema.sql
+  && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql
 
 ##############################
 FROM alpine:3.18.0 AS validate
 
 WORKDIR /srv/app
 
+COPY ./schema ./
 COPY --from=build /srv/app ./
 
 RUN diff schema.sql schema.definition.sql
