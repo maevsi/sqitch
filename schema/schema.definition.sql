@@ -3225,7 +3225,7 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 -- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING ((author_account_username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((author_account_username = current_setting('jwt.claims.username'::text, true)) AND (account_username <> current_setting('jwt.claims.username'::text, true))));
 
 
 --
