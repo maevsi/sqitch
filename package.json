@@ -1,4 +1,5 @@
 {
+  "name": "@maevsi/sqitch",
   "private": true,
   "engines": {
     "node": "20"
