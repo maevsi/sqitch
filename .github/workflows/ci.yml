@@ -27,6 +27,8 @@ jobs:
     name: Release (semantic, dry)
     uses: dargmuesli/github-actions/.github/workflows/release-semantic-next.yml@0.40.3
     if: needs.prepare_jobs.outputs.pr_found == 'false' || github.event_name == 'pull_request'
+    permissions:
+      packages: write
     secrets:
       PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     with:
@@ -45,6 +47,8 @@ jobs:
     needs: build
     name: Release (semantic)
     uses: dargmuesli/github-actions/.github/workflows/release-semantic-next.yml@0.40.3
+    permissions:
+      packages: write
     secrets:
       PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     with:
