@@ -12,7 +12,7 @@ CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:15.3 AS build
+FROM postgres:15.3@sha256:546445ad21cb5893c0997080b831ee45945e798c4359270e16413c8bd93575db AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD=postgres
@@ -32,7 +32,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql
 
 ##############################
-FROM alpine:3.18.0 AS validate
+FROM alpine:3.18.0@sha256:02bb6f428431fbc2809c5d1b41eab5a68350194fb508869a33cb1af4444c9b11 AS validate
 
 WORKDIR /srv/app
 
