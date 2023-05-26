@@ -1,6 +1,13 @@
 # Sqitch
 
+[<img src="https://sqitch.org/img/sqitch-logo.svg" alt="Sqitch" width="1000"/>](https://sqitch.org/)
+
 [Sqitch](https://sqitch.org/) is maevsi's database migration tool.
+
+The `src` directory in this repository contains a `sqitch` executable that you can use to interact with the migrations residing in the directory's subdirectories.
+For example, run `./sqitch deploy` to fill the database with structure like tables, types and policies.
+
+In case you want to be able to simple call `sqitch deploy` without `./` instead, add an `alias sqitch="./sqitch"` to your shell configuration (`~/.bashrc`, `~/.zshrc`, ...).
 
 ## Database Diagram
 
