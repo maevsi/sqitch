@@ -1,3 +1,10 @@
+## [1.17.1](https://github.com/maevsi/sqitch/compare/1.17.0...1.17.1) (2023-05-29)
+
+
+### Bug Fixes
+
+* schedule release ([9037d37](https://github.com/maevsi/sqitch/commit/9037d3770691a0ccb1b076097a2d83723876ed4b))
+
 # [1.17.0](https://github.com/maevsi/sqitch/compare/1.16.0...1.17.0) (2023-05-15)
 
 
