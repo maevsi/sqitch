@@ -12,7 +12,7 @@ CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:15.3@sha256:66e4aeefb3ee58f6ab5452128e400c42b051dc571c2cf1492fd12f998b136d80 AS build
+FROM postgres:15.3@sha256:475a0d447384a5353a366db110bbf8b982b825aff53cdcf39e88dc2b97d1c7e1 AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD=postgres
