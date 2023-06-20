@@ -43,7 +43,7 @@ BEGIN
     _new_account.email_address_verification_valid_until
   INTO _new_account_notify;
 
-  INSERT INTO maevsi.contact(account_username, author_account_username) VALUES (_new_account.username, _new_account.username);
+  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account.id, _new_account.id);
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',

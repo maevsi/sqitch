@@ -5,7 +5,7 @@
 BEGIN;
 
 CREATE TYPE maevsi.event_unlock_response AS (
-  author_username TEXT,
+  author_account_id TEXT,
   event_slug TEXT,
   jwt maevsi.jwt
 );

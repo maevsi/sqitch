@@ -10,24 +10,24 @@ BEGIN;
 
 CREATE FUNCTION maevsi.upload_create(
   size_byte BIGINT
-) RETURNS UUID AS $$
+) RETURNS maevsi.upload AS $$
 DECLARE
-    _id UUID;
+    _upload maevsi.upload;
 BEGIN
   IF (COALESCE((
     SELECT SUM(upload.size_byte)
     FROM maevsi.upload
-    WHERE username = current_setting('jwt.claims.username', true)::TEXT
+    WHERE account_id = current_setting('jwt.claims.account_id', true)::UUID
   ), 0) + $1 <= (
     SELECT upload_quota_bytes
     FROM maevsi_private.account
-    WHERE username = current_setting('jwt.claims.username', true)::TEXT
+    WHERE account_id = current_setting('jwt.claims.account_id', true)::UUID
   )) THEN
-    INSERT INTO maevsi.upload (username, size_byte)
-    VALUES (current_setting('jwt.claims.username', true)::TEXT, $1)
-    RETURNING upload.uuid INTO _id;
+    INSERT INTO maevsi.upload(account_id, size_byte)
+    VALUES (current_setting('jwt.claims.account_id', true)::UUID, $1)
+    RETURNING upload.id INTO _upload;
 
-    RETURN _id;
+    RETURN _upload;
   ELSE
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
   END IF;

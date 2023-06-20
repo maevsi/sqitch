@@ -16,28 +16,28 @@ CREATE FUNCTION maevsi.event_unlock(
 DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
-  _event_id BIGINT;
+  _event_id UUID;
 BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
   _jwt := (
     _jwt_id,
     current_setting('jwt.claims.role', true)::TEXT,
-    current_setting('jwt.claims.username', true)::TEXT,
+    current_setting('jwt.claims.account_id', true)::UUID,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
     current_setting('jwt.claims.exp', true)::BIGINT
   )::maevsi.jwt;
 
   UPDATE maevsi_private.jwt
   SET token = _jwt
-  WHERE uuid = _jwt_id;
+  WHERE id = _jwt_id;
 
   _event_id := (
     SELECT event_id FROM maevsi.invitation
-    WHERE invitation.uuid = $1
+    WHERE invitation.id = $1
   );
 
   IF (_event_id IS NOT NULL) THEN
-    RETURN (SELECT (author_username, slug, _jwt)::maevsi.event_unlock_response
+    RETURN (SELECT (author_account_id, slug, _jwt)::maevsi.event_unlock_response
     FROM maevsi.event
     WHERE id = _event_id);
   ELSE

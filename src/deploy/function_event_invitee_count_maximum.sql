@@ -11,7 +11,7 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.event_invitee_count_maximum(
-  event_id BIGINT
+  event_id UUID
 ) RETURNS INTEGER AS $$
 BEGIN
   RETURN (
@@ -29,15 +29,15 @@ BEGIN
                 "event".invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
               )
             )
-        OR  "event".author_username = current_setting('jwt.claims.username', true)::TEXT
+        OR  "event".author_account_id = current_setting('jwt.claims.account_id', true)::UUID
         OR  "event".id IN (SELECT maevsi_private.events_invited())
       )
   );
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(BIGINT) IS 'Add a function that returns the maximum invitee count of an accessible event.';
+COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(UUID) IS 'Add a function that returns the maximum invitee count of an accessible event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_invitee_count_maximum(BIGINT) TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.event_invitee_count_maximum(UUID) TO maevsi_account, maevsi_anonymous;
 
 COMMIT;

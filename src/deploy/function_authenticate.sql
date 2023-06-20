@@ -40,7 +40,7 @@ BEGIN
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = maevsi.crypt($2, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, 'maevsi_account', updated.username, NULL, _jwt_exp
+    ) SELECT _jwt_id, 'maevsi_account', updated.id, NULL, _jwt_exp
       FROM updated
       INTO _jwt;
 
@@ -49,7 +49,7 @@ BEGIN
     END IF;
   END IF;
 
-  INSERT INTO maevsi_private.jwt(uuid, token) VALUES (_jwt_id, _jwt);
+  INSERT INTO maevsi_private.jwt(id, token) VALUES (_jwt_id, _jwt);
   RETURN _jwt;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;

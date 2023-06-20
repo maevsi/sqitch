@@ -5,7 +5,7 @@
 BEGIN;
 
 CREATE TABLE maevsi_private.account (
-  id                                         BIGSERIAL PRIMARY KEY,
+  id                                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   created                                    TIMESTAMP NOT NULL DEFAULT NOW(),
   email_address                              TEXT NOT NULL CHECK (char_length(email_address) < 320 AND email_address ~ '^.+@.+\..+$' AND email_address ~ '^[^A-Z]+$') UNIQUE,
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
