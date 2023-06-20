@@ -8,6 +8,6 @@ CREATE TYPE maevsi.invitation_feedback_paper AS ENUM (
   'digital'
 );
 
-COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: paper, digital.';
+COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
 
 COMMIT;

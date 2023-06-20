@@ -159,7 +159,7 @@ ALTER TYPE maevsi.invitation_feedback_paper OWNER TO postgres;
 -- Name: TYPE invitation_feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: paper, digital.';
+COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
 
 
 --
