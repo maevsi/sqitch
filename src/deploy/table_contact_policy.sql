@@ -37,7 +37,7 @@ CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (
 CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (
   author_account_username = current_setting('jwt.claims.username', true)::TEXT
   AND
-  account_username != current_setting('jwt.claims.username', true)::TEXT
+  account_username IS DISTINCT FROM current_setting('jwt.claims.username', true)::TEXT
 );
 
 COMMIT;
