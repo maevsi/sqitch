@@ -20,7 +20,7 @@ DECLARE
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, 'maevsi_anonymous', NULL, maevsi.invitation_claim_array(), _jwt_exp)::maevsi.jwt;
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF ($1 IS NOT NULL AND $2 IS NOT NULL) THEN
     IF ((
         SELECT account.email_address_verification
@@ -40,7 +40,7 @@ BEGIN
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = maevsi.crypt($2, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, 'maevsi_account', updated.id, NULL, _jwt_exp
+    ) SELECT _jwt_id, updated.id, updated.username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
       INTO _jwt;
 

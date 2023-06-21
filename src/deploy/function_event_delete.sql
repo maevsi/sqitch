@@ -13,7 +13,7 @@ CREATE FUNCTION maevsi.event_delete(
   "password" TEXT
 ) RETURNS maevsi.event AS $$
 DECLARE
-  _current_account_id TEXT;
+  _current_account_id UUID;
   _event_deleted maevsi.event;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;

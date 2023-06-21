@@ -12,7 +12,7 @@ CREATE FUNCTION maevsi.account_delete(
   "password" TEXT
 ) RETURNS VOID AS $$
 DECLARE
-  _current_account_id TEXT;
+  _current_account_id UUID;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;
 

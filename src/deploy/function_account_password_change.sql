@@ -13,7 +13,7 @@ CREATE FUNCTION maevsi.account_password_change(
   password_new TEXT
 ) RETURNS VOID AS $$
 DECLARE
-  _current_account_id TEXT;
+  _current_account_id UUID;
 BEGIN
   IF (char_length($2) < 8) THEN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
