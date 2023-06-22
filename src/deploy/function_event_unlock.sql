@@ -11,41 +11,58 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.event_unlock(
-  invitation_code UUID
+  invitation_id UUID
 ) RETURNS maevsi.event_unlock_response AS $$
 DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
-  _event_id BIGINT;
+  _event maevsi.event;
+  _event_author_account_username TEXT;
+  _event_id UUID;
 BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
   _jwt := (
     _jwt_id,
-    current_setting('jwt.claims.role', true)::TEXT,
-    current_setting('jwt.claims.username', true)::TEXT,
+    current_setting('jwt.claims.account_id', true)::UUID,
+    current_setting('jwt.claims.account_username', true)::TEXT,
+    current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
-    current_setting('jwt.claims.exp', true)::BIGINT
+    current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
   UPDATE maevsi_private.jwt
   SET token = _jwt
-  WHERE uuid = _jwt_id;
+  WHERE id = _jwt_id;
 
   _event_id := (
     SELECT event_id FROM maevsi.invitation
-    WHERE invitation.uuid = $1
+    WHERE invitation.id = $1
   );
 
-  IF (_event_id IS NOT NULL) THEN
-    RETURN (SELECT (author_username, slug, _jwt)::maevsi.event_unlock_response
-    FROM maevsi.event
-    WHERE id = _event_id);
-  ELSE
-    RAISE 'No event for this invitation code found!' USING ERRCODE = 'no_data_found';
+  IF (_event_id IS NULL) THEN
+    RAISE 'No invitation for this invitation id found!' USING ERRCODE = 'no_data_found';
   END IF;
+
+  _event := (
+    SELECT author_account_id, slug
+    FROM maevsi.event
+    WHERE id = _event_id
+  );
+
+  IF (_event IS NULL) THEN
+    RAISE 'No event for this invitation id found!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  _event_author_account_username := maevsi.account_username_by_id(_event.author_account_id);
+
+  IF (_event_author_account_username IS NULL) THEN
+    RAISE 'No event author username for this invitation id found!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  RETURN (_event_author_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
 END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_unlock(UUID) IS 'Allows to enter invitation codes.';
+COMMENT ON FUNCTION maevsi.event_unlock(UUID) IS 'Assigns an invitation to the current session.';
 
 GRANT EXECUTE ON FUNCTION maevsi.event_unlock(UUID) TO maevsi_account, maevsi_anonymous;
 

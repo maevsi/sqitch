@@ -1,7 +1,6 @@
 -- Deploy maevsi:table_profile_picture to pg
 -- requires: schema_public
--- requires: schema_private
--- requires: table_account
+-- requires: table_account_public
 -- requires: table_upload
 -- requires: role_account
 -- requires: role_anonymous
@@ -10,15 +9,15 @@
 BEGIN;
 
 CREATE TABLE maevsi.profile_picture (
-  id                    BIGSERIAL PRIMARY KEY,
-  upload_storage_key    TEXT NOT NULL REFERENCES maevsi.upload(storage_key) ON DELETE CASCADE,
-  username              TEXT NOT NULL REFERENCES maevsi_private.account(username) ON DELETE CASCADE UNIQUE
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id    UUID NOT NULL REFERENCES maevsi.account(id) UNIQUE,
+  upload_id     UUID NOT NULL REFERENCES maevsi.upload(id)
 );
 
-COMMENT ON TABLE maevsi.profile_picture IS 'Mapping of usernames to upload storage keys.';
+COMMENT ON TABLE maevsi.profile_picture IS 'Mapping of account ids to upload ids.';
 COMMENT ON COLUMN maevsi.profile_picture.id IS E'@omit create,update\nThe profile picture''s internal id.';
-COMMENT ON COLUMN maevsi.profile_picture.upload_storage_key IS 'The upload''s storage key.';
-COMMENT ON COLUMN maevsi.profile_picture.username IS 'The account''s username.';
+COMMENT ON COLUMN maevsi.profile_picture.account_id IS 'The account''s id.';
+COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_account, maevsi_anonymous, maevsi_tusd;
 GRANT INSERT, DELETE, UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
@@ -31,21 +30,21 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
   TRUE
 );
 
--- Only allow inserts with a username that matches the invoker's username.
+-- Only allow inserts with a account id that matches the invoker's account id.
 CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK (
-  username = current_setting('jwt.claims.username', true)::TEXT
+  account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
--- Only allow updates to the item with the username that matches the invoker's username.
+-- Only allow updates to the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING (
-  username = current_setting('jwt.claims.username', true)::TEXT
+  account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
--- Only allow deletes for the item with the username that matches the invoker's username.
+-- Only allow deletes for the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (
     (SELECT current_user) = 'maevsi_tusd'
   OR
-    username = current_setting('jwt.claims.username', true)::TEXT
+    account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
 COMMIT;
