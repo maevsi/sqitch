@@ -2,15 +2,15 @@
 -- requires: schema_public
 -- requires: role_account
 -- requires: role_anonymous
--- requires: table_account
+-- requires: table_account_public
 
 BEGIN;
 
 CREATE TABLE maevsi.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id            UUID REFERENCES maevsi_private.account(id),
+  account_id            UUID REFERENCES maevsi.account(id),
   "address"             TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
-  author_account_id     UUID NOT NULL REFERENCES maevsi_private.account(id) ON DELETE CASCADE,
+  author_account_id     UUID NOT NULL REFERENCES maevsi.account(id) ON DELETE CASCADE,
   email_address         TEXT CHECK (char_length(email_address) < 320 AND email_address ~ '^.+@.+\..+$' AND email_address ~ '^[^A-Z]+$'),
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED,
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) < 100),

@@ -1,7 +1,6 @@
 -- Deploy maevsi:table_event to pg
 -- requires: schema_public
--- requires: schema_private
--- requires: table_account
+-- requires: table_account_public
 -- requires: role_account
 -- requires: role_tusd
 
@@ -9,7 +8,7 @@ BEGIN;
 
 CREATE TABLE maevsi.upload (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id     UUID NOT NULL REFERENCES maevsi_private.account(id),
+  account_id     UUID NOT NULL REFERENCES maevsi.account(id),
   size_byte      BIGINT NOT NULL CHECK (size_byte > 0),
   storage_key    TEXT UNIQUE
 );

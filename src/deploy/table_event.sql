@@ -1,16 +1,15 @@
 -- Deploy maevsi:table_event to pg
 -- requires: schema_public
--- requires: schema_private
 -- requires: role_account
 -- requires: role_anonymous
--- requires: table_account
+-- requires: table_account_public
 -- requires: enum_event_visibility
 
 BEGIN;
 
 CREATE TABLE maevsi.event (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  author_account_id        UUID NOT NULL REFERENCES maevsi_private.account(id),
+  author_account_id        UUID NOT NULL REFERENCES maevsi.account(id),
   "description"            TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
   invitee_count_maximum    INTEGER CHECK (invitee_count_maximum > 0),

@@ -2,7 +2,7 @@
 -- requires: privilege_execute_revoke
 -- requires: schema_public
 -- requires: role_account
--- requires: table_account
+-- requires: table_account_private
 -- requires: table_event
 -- requires: extension_pgcrypto
 

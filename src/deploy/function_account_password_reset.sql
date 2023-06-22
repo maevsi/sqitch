@@ -3,7 +3,7 @@
 -- requires: schema_public
 -- requires: schema_private
 -- requires: role_anonymous
--- requires: table_account
+-- requires: table_account_private
 -- requires: extension_pgcrypto
 
 BEGIN;

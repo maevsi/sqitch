@@ -237,32 +237,6 @@ COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Set
 
 
 --
--- Name: account_is_existing(text); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_is_existing(username text) RETURNS boolean
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
-BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = $1)) THEN
-    RETURN TRUE;
-  ELSE
-    RETURN FALSE;
-  END IF;
-END;
-$_$;
-
-
-ALTER FUNCTION maevsi.account_is_existing(username text) OWNER TO postgres;
-
---
--- Name: FUNCTION account_is_existing(username text); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_is_existing(username text) IS 'Shows if an account exists.';
-
-
---
 -- Name: account_password_change(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -357,11 +331,12 @@ BEGIN
       WHERE account.email_address = $1
       RETURNING *
   ) SELECT
-    updated.username,
+    account.username,
     updated.email_address,
     updated.password_reset_verification,
     updated.password_reset_verification_valid_until
-    FROM updated
+    FROM updated, maevsi.account
+    WHERE updated.id = account.id
     INTO _notify_data;
 
   IF (_notify_data IS NULL) THEN
@@ -396,14 +371,15 @@ CREATE FUNCTION maevsi.account_registration(username text, email_address text, p
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _new_account maevsi_private.account;
+  _new_account_private maevsi_private.account;
+  _new_account_public maevsi.account;
   _new_account_notify RECORD;
 BEGIN
   IF (char_length($3) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = $1)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = $1)) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
@@ -411,18 +387,22 @@ BEGIN
     RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
-  INSERT INTO maevsi_private.account(username, email_address, password_hash, last_activity) VALUES
-    ($1, $2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
-    RETURNING * INTO _new_account;
+  INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
+    ($2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
+    RETURNING * INTO _new_account_private;
+
+  INSERT INTO maevsi.account(id, username) VALUES
+    (_new_account_private.id, $1)
+    RETURNING * INTO _new_account_public;
 
   SELECT
-    _new_account.username,
-    _new_account.email_address,
-    _new_account.email_address_verification,
-    _new_account.email_address_verification_valid_until
+    _new_account_public.username,
+    _new_account_private.email_address,
+    _new_account_private.email_address_verification,
+    _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
-  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account.id, _new_account.id);
+  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -466,11 +446,12 @@ BEGIN
       WHERE account.id = $1
       RETURNING *
   ) SELECT
-    updated.username,
+    account.username,
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated
+    FROM updated, maevsi.account
+    WHERE updated.id = account.id
     INTO _new_account_notify;
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
@@ -516,28 +497,6 @@ COMMENT ON FUNCTION maevsi.account_upload_quota_bytes() IS 'Gets the total uploa
 
 
 --
--- Name: account_username_by_id(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_username_by_id(account_id uuid) RETURNS text
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
-BEGIN
-  RETURN (SELECT username FROM maevsi_private.account WHERE account_id = $1);
-END;
-$_$;
-
-
-ALTER FUNCTION maevsi.account_username_by_id(account_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION account_username_by_id(account_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_username_by_id(account_id uuid) IS 'Gets the username of an account with the given account id.';
-
-
---
 -- Name: authenticate(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -545,6 +504,7 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
+    _account_id UUID;
     _jwt_id UUID := gen_random_uuid();
     _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
     _jwt maevsi.jwt;
@@ -553,12 +513,18 @@ BEGIN
     -- Authenticate as guest.
     _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF ($1 IS NOT NULL AND $2 IS NOT NULL) THEN
+    SELECT id FROM maevsi.account WHERE username = $1 INTO _account_id;
+
+    IF (_account_id IS NULL) THEN
+      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
+    END IF;
+
     IF ((
         SELECT account.email_address_verification
         FROM maevsi_private.account
         WHERE
-              account.username = $1
-          AND account.password_hash = maevsi.crypt($2, account.password_hash)
+              account_private.id = _account_id.id
+          AND account_private.password_hash = maevsi.crypt($2, account_private.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
@@ -567,17 +533,17 @@ BEGIN
       UPDATE maevsi_private.account
       SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
       WHERE
-            account.username = $1
-        AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = maevsi.crypt($2, account.password_hash)
+            account_private.id = _account_id.id
+        AND account_private.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
+        AND account_private.password_hash = maevsi.crypt($2, account_private.password_hash)
       RETURNING *
     ) SELECT _jwt_id, updated.id, updated.username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
       INTO _jwt;
 
-    IF (_jwt IS NULL) THEN
-      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
-    END IF;
+    -- IF (_jwt IS NULL) THEN
+    --   RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
+    -- END IF;
   END IF;
 
   INSERT INTO maevsi_private.jwt(id, token) VALUES (_jwt_id, _jwt);
@@ -1438,6 +1404,40 @@ COMMENT ON FUNCTION maevsi_private.notify() IS 'Triggers a pg_notify for the giv
 
 
 --
+-- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account (
+    id uuid NOT NULL,
+    username text NOT NULL,
+    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+);
+
+
+ALTER TABLE maevsi.account OWNER TO postgres;
+
+--
+-- Name: TABLE account; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account IS 'Public account data.';
+
+
+--
+-- Name: COLUMN account.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account.id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.username; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1769,9 +1769,7 @@ CREATE TABLE maevsi_private.account (
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
-    username text NOT NULL,
-    CONSTRAINT account_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text) AND (email_address ~ '^[^A-Z]+$'::text))),
-    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+    CONSTRAINT account_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text) AND (email_address ~ '^[^A-Z]+$'::text)))
 );
 
 
@@ -1781,7 +1779,7 @@ ALTER TABLE maevsi_private.account OWNER TO postgres;
 -- Name: TABLE account; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi_private.account IS 'Account data.';
+COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 
 
 --
@@ -1852,13 +1850,6 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
-
-
---
--- Name: COLUMN account.username; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.account.username IS 'The account''s username.';
 
 
 --
@@ -2449,6 +2440,22 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
+-- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account
+    ADD CONSTRAINT account_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account
+    ADD CONSTRAINT account_username_key UNIQUE (username);
+
+
+--
 -- Name: contact contact_author_account_id_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -2574,14 +2581,6 @@ ALTER TABLE ONLY maevsi_private.account
 
 ALTER TABLE ONLY maevsi_private.account
     ADD CONSTRAINT account_pkey PRIMARY KEY (id);
-
-
---
--- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.account
-    ADD CONSTRAINT account_username_key UNIQUE (username);
 
 
 --
@@ -2793,11 +2792,19 @@ CREATE TRIGGER maevsi_private_notification BEFORE INSERT ON maevsi_private.notif
 
 
 --
+-- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account
+    ADD CONSTRAINT account_id_fkey FOREIGN KEY (id) REFERENCES maevsi_private.account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi_private.account(id);
+    ADD CONSTRAINT contact_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -2805,7 +2812,7 @@ ALTER TABLE ONLY maevsi.contact
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi_private.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT contact_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
 
 
 --
@@ -2813,7 +2820,7 @@ ALTER TABLE ONLY maevsi.contact
 --
 
 ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi_private.account(id);
+    ADD CONSTRAINT event_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -2821,7 +2828,7 @@ ALTER TABLE ONLY maevsi.event
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi_private.account(id);
+    ADD CONSTRAINT event_group_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -2861,7 +2868,7 @@ ALTER TABLE ONLY maevsi.invitation
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
-    ADD CONSTRAINT profile_picture_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi_private.account(id);
+    ADD CONSTRAINT profile_picture_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -2877,7 +2884,7 @@ ALTER TABLE ONLY maevsi.profile_picture
 --
 
 ALTER TABLE ONLY maevsi.upload
-    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi_private.account(id);
+    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -2926,6 +2933,19 @@ ALTER TABLE ONLY sqitch.tags
 
 ALTER TABLE ONLY sqitch.tags
     ADD CONSTRAINT tags_project_fkey FOREIGN KEY (project) REFERENCES sqitch.projects(project) ON UPDATE CASCADE;
+
+
+--
+-- Name: account; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
 
 
 --
@@ -3130,15 +3150,6 @@ GRANT ALL ON FUNCTION maevsi.account_email_address_verification(code uuid) TO ma
 
 
 --
--- Name: FUNCTION account_is_existing(username text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_is_existing(username text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_is_existing(username text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.account_is_existing(username text) TO maevsi_anonymous;
-
-
---
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -3184,15 +3195,6 @@ GRANT ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, langu
 
 REVOKE ALL ON FUNCTION maevsi.account_upload_quota_bytes() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_upload_quota_bytes() TO maevsi_account;
-
-
---
--- Name: FUNCTION account_username_by_id(account_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_username_by_id(account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_username_by_id(account_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.account_username_by_id(account_id uuid) TO maevsi_anonymous;
 
 
 --
@@ -3622,6 +3624,14 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 --
 
 REVOKE ALL ON FUNCTION maevsi_private.notify() FROM PUBLIC;
+
+
+--
+-- Name: TABLE account; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
 
 
 --

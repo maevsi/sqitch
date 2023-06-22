@@ -1,7 +1,6 @@
 -- Deploy maevsi:table_profile_picture to pg
 -- requires: schema_public
--- requires: schema_private
--- requires: table_account
+-- requires: table_account_public
 -- requires: table_upload
 -- requires: role_account
 -- requires: role_anonymous
@@ -11,7 +10,7 @@ BEGIN;
 
 CREATE TABLE maevsi.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  account_id    UUID NOT NULL REFERENCES maevsi_private.account(id) UNIQUE,
+  account_id    UUID NOT NULL REFERENCES maevsi.account(id) UNIQUE,
   upload_id     UUID NOT NULL REFERENCES maevsi.upload(id)
 );
 
