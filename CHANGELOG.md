@@ -1,3 +1,10 @@
+## [1.17.3](https://github.com/maevsi/sqitch/compare/1.17.2...1.17.3) (2023-06-23)
+
+
+### Bug Fixes
+
+* **contact:** account for null in inequality check ([7a0873e](https://github.com/maevsi/sqitch/commit/7a0873e0bfee8e66a2c44b33c309cff5ef23ae9e))
+
 ## [1.17.2](https://github.com/maevsi/sqitch/compare/1.17.1...1.17.2) (2023-06-10)
 
 
