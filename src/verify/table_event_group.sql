@@ -3,7 +3,7 @@
 BEGIN;
 
 SELECT id,
-       author_username,
+       author_account_id,
        "description",
        is_archived,
        "name",

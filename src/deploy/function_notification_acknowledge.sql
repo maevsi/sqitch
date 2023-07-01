@@ -7,7 +7,7 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.notification_acknowledge(
-  id BIGINT,
+  id UUID,
   is_acknowledged BOOLEAN
 ) RETURNS VOID AS $$
 BEGIN
@@ -19,8 +19,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.notification_acknowledge(BIGINT, BOOLEAN) IS 'Allows to set the acknowledgement state of a notification.';
+COMMENT ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) IS 'Allows to set the acknowledgement state of a notification.';
 
-GRANT EXECUTE ON FUNCTION maevsi.notification_acknowledge(BIGINT, BOOLEAN) TO maevsi_stomper;
+GRANT EXECUTE ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) TO maevsi_stomper;
 
 COMMIT;

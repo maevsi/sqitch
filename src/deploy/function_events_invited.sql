@@ -10,13 +10,13 @@
 BEGIN;
 
 CREATE FUNCTION maevsi_private.events_invited()
-RETURNS TABLE (event_id BIGINT) AS $$
+RETURNS TABLE (event_id UUID) AS $$
 BEGIN
   RETURN QUERY
   SELECT invitation.event_id FROM maevsi.invitation
   WHERE
-      invitation.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_username = current_setting('jwt.claims.username', true)::TEXT) -- The contact selection does not return rows where account_username "IS" null due to the equality comparison.
-  OR  invitation.uuid = ANY (maevsi.invitation_claim_array());
+      invitation.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID) -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+  OR  invitation.id = ANY (maevsi.invitation_claim_array());
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
