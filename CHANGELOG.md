@@ -1,3 +1,10 @@
+## [1.17.9](https://github.com/maevsi/sqitch/compare/1.17.8...1.17.9) (2023-08-26)
+
+
+### Bug Fixes
+
+* **docker:** correct `target` secret name ([bbdb6c6](https://github.com/maevsi/sqitch/commit/bbdb6c66203f2989fd0699338ce2912e1a8f070a))
+
 ## [1.17.8](https://github.com/maevsi/sqitch/compare/1.17.7...1.17.8) (2023-08-26)
 
 
