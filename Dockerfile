@@ -45,6 +45,8 @@ RUN diff schema.sql schema.definition.sql
 ##############################
 FROM sqitch/sqitch@sha256:4ff357cada9dbdb5ef9a2a6a0f93d92fed5a06a53aec606d3e243533213e40dc AS production
 
+ENV ENV=production
+
 WORKDIR /srv/app
 
 COPY ./docker-entrypoint.sh /usr/local/bin/

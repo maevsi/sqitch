@@ -1,13 +1,15 @@
 #!/bin/sh
 set -e
 
+THIS=$(dirname "$(readlink -f "$0")")
 SQITCH_TARGET=''
 
-if [ "$NODE_ENV" = "production" ]; then
+if [ "$ENV" = "production" ]; then
     SQITCH_TARGET="$(cat /run/secrets/sqitch_target)"
 else
-    SQITCH_TARGET="$(cat "$PWD/SQITCH_TARGET.env")"
+    SQITCH_TARGET="$(cat "$THIS/SQITCH_TARGET.env")"
 fi
+
 export SQITCH_TARGET
 
 exec /bin/sh -c "$*"
