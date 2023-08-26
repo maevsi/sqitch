@@ -1,3 +1,10 @@
+## [1.17.10](https://github.com/maevsi/sqitch/compare/1.17.9...1.17.10) (2023-08-26)
+
+
+### Bug Fixes
+
+* **docker:** correct production environment variable ([db4f23f](https://github.com/maevsi/sqitch/commit/db4f23f02afbbf3ca6b36c6f65abcc31f02ebb50))
+
 ## [1.17.9](https://github.com/maevsi/sqitch/compare/1.17.8...1.17.9) (2023-08-26)
 
 
