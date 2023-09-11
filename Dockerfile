@@ -1,5 +1,5 @@
 ##############################
-FROM sqitch/sqitch@sha256:4ff357cada9dbdb5ef9a2a6a0f93d92fed5a06a53aec606d3e243533213e40dc AS development
+FROM sqitch/sqitch@sha256:adcb12a95537d8ebc9465a0ad5cb97e4764e1e5e57f3adf8c37883469e9e3439 AS development
 
 WORKDIR /srv/app
 
@@ -43,7 +43,7 @@ RUN diff schema.sql schema.definition.sql
 
 
 ##############################
-FROM sqitch/sqitch@sha256:4ff357cada9dbdb5ef9a2a6a0f93d92fed5a06a53aec606d3e243533213e40dc AS production
+FROM sqitch/sqitch@sha256:adcb12a95537d8ebc9465a0ad5cb97e4764e1e5e57f3adf8c37883469e9e3439 AS production
 
 ENV ENV=production
 
