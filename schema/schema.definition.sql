@@ -1360,7 +1360,7 @@ CREATE TABLE maevsi.contact (
     phone_number text,
     url text,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
-    CONSTRAINT contact_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text) AND (email_address ~ '^[^A-Z]+$'::text))),
+    CONSTRAINT contact_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text))),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(9[976]\d|8[987530]\d|6[987]\d|5[90]\d|42\d|3[875]\d|2[98654321]\d|9[8543210]|8[6421]|6[6543210]|5[87654321]|4[987654310]|3[9643210]|2[70]|7|1)\d{1,14}$'::text)),
@@ -1892,7 +1892,7 @@ CREATE TABLE maevsi_private.account (
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
     username text NOT NULL,
-    CONSTRAINT account_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text) AND (email_address ~ '^[^A-Z]+$'::text))),
+    CONSTRAINT account_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text))),
     CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
 );
 
