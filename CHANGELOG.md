@@ -1,3 +1,14 @@
+## [2.0.0-beta.1](https://github.com/maevsi/sqitch/compare/1.17.11...2.0.0-beta.1) (2023-09-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove email address case restriction
+
+### Features
+
+* remove email address case restriction ([41e7eee](https://github.com/maevsi/sqitch/commit/41e7eeebff7482361f648a6e7ace53deaeab328f))
+
 ## [1.17.11](https://github.com/maevsi/sqitch/compare/1.17.10...1.17.11) (2023-09-09)
 
 
