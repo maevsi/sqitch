@@ -21,7 +21,7 @@ WORKDIR /srv/app
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
-      libdbd-pg-perl postgresql-client sqitch
+      sqitch=1.3.1-1
 
 COPY ./src ./
 
