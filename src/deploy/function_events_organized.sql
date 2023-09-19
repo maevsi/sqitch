@@ -8,11 +8,11 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.events_organized()
-RETURNS TABLE (event_id BIGINT) AS $$
+RETURNS TABLE (event_id UUID) AS $$
 BEGIN
   RETURN QUERY
     SELECT id FROM maevsi.event
-    WHERE "event".author_username = current_setting('jwt.claims.username', true)::TEXT;
+    WHERE "event".author_account_id = current_setting('jwt.claims.account_id', true)::UUID;
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 

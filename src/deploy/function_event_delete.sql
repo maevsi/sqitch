@@ -2,28 +2,28 @@
 -- requires: privilege_execute_revoke
 -- requires: schema_public
 -- requires: role_account
--- requires: table_account
+-- requires: table_account_private
 -- requires: table_event
 -- requires: extension_pgcrypto
 
 BEGIN;
 
 CREATE FUNCTION maevsi.event_delete(
-  id BIGINT,
+  id UUID,
   "password" TEXT
 ) RETURNS maevsi.event AS $$
 DECLARE
-  _current_username TEXT;
+  _current_account_id UUID;
   _event_deleted maevsi.event;
 BEGIN
-  _current_username := current_setting('jwt.claims.username', true)::TEXT;
+  _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = _current_username AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
     DELETE
       FROM maevsi.event
       WHERE
             "event".id = $1
-        AND "event".author_username = _current_username
+        AND "event".author_account_id = _current_account_id
       RETURNING * INTO _event_deleted;
 
     IF (_event_deleted IS NULL) THEN
@@ -37,8 +37,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_delete(BIGINT, TEXT) IS 'Allows to delete an event.';
+COMMENT ON FUNCTION maevsi.event_delete(UUID, TEXT) IS 'Allows to delete an event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_delete(BIGINT, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi.event_delete(UUID, TEXT) TO maevsi_account;
 
 COMMIT;

@@ -1,16 +1,15 @@
 -- Deploy maevsi:table_event to pg
 -- requires: schema_public
--- requires: schema_private
 -- requires: role_account
 -- requires: role_anonymous
--- requires: table_account
+-- requires: table_account_public
 -- requires: enum_event_visibility
 
 BEGIN;
 
 CREATE TABLE maevsi.event (
-  id                       BIGSERIAL PRIMARY KEY,
-  author_username          TEXT NOT NULL REFERENCES maevsi_private.account(username),
+  id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_account_id        UUID NOT NULL REFERENCES maevsi.account(id),
   "description"            TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
   invitee_count_maximum    INTEGER CHECK (invitee_count_maximum > 0),
@@ -23,12 +22,12 @@ CREATE TABLE maevsi.event (
   "start"                  TIMESTAMP WITH TIME ZONE NOT NULL,
   "url"                    TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
   visibility               maevsi.event_visibility NOT NULL,
-  UNIQUE (author_username, slug)
+  UNIQUE (author_account_id, slug)
 );
 
 COMMENT ON TABLE maevsi.event IS 'An event.';
 COMMENT ON COLUMN maevsi.event.id IS E'@omit create,update\nThe event''s internal id.';
-COMMENT ON COLUMN maevsi.event.author_username IS 'The event author''s username.';
+COMMENT ON COLUMN maevsi.event.author_account_id IS 'The event author''s id.';
 COMMENT ON COLUMN maevsi.event.description IS 'The event''s description.';
 COMMENT ON COLUMN maevsi.event.end IS 'The event''s end date and time, with timezone.';
 COMMENT ON COLUMN maevsi.event.invitee_count_maximum IS 'The event''s maximum invitee count.';

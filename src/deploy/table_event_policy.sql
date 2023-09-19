@@ -11,8 +11,6 @@ BEGIN;
 GRANT SELECT ON TABLE maevsi.event TO maevsi_account, maevsi_anonymous;
 GRANT INSERT, UPDATE, DELETE ON TABLE maevsi.event TO maevsi_account;
 
-GRANT USAGE ON SEQUENCE maevsi.event_id_seq TO maevsi_account;
-
 ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 
 -- Only display events that are public and not full.
@@ -29,18 +27,18 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
           invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
         )
       )
-  OR  author_username = current_setting('jwt.claims.username', true)::TEXT
+  OR  author_account_id = current_setting('jwt.claims.account_id', true)::UUID
   OR  id IN (SELECT maevsi_private.events_invited())
 );
 
 -- Only allow inserts for events authored by the current user.
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (
-  author_username = current_setting('jwt.claims.username', true)::TEXT
+  author_account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
 -- Only allow updates for events authored by the current user.
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (
-  author_username = current_setting('jwt.claims.username', true)::TEXT
+  author_account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
 COMMIT;

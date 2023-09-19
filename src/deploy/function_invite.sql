@@ -6,7 +6,7 @@
 -- requires: table_event
 -- requires: table_contact
 -- requires: schema_private
--- requires: table_account
+-- requires: table_account_private
 -- requires: table_profile_picture
 -- requires: table_notification
 -- requires: role_account
@@ -14,13 +14,14 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.invite(
-  invitation_id BIGINT,
+  invitation_id UUID,
   "language" TEXT
 ) RETURNS VOID AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
+  _eventAuthorProfilePictureAccountId UUID;
   _eventAuthorProfilePictureUploadStorageKey TEXT;
   _invitation RECORD;
 BEGIN
@@ -43,13 +44,13 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_username, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
+  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_contact.account_username IS NULL) THEN
+  IF (_contact.account_id IS NULL) THEN
     IF (_contact.email_address IS NULL) THEN
       RAISE 'Contact email address not accessible!' USING ERRCODE = 'no_data_found';
     ELSE
@@ -57,7 +58,7 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM maevsi_private.account INTO _email_address WHERE account.username = _contact.account_username;
+    SELECT email_address FROM maevsi_private.account INTO _email_address WHERE account.id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -65,7 +66,8 @@ BEGIN
   END IF;
 
   -- Event author profile picture storage key
-  SELECT upload_storage_key FROM maevsi.profile_picture INTO _eventAuthorProfilePictureUploadStorageKey WHERE profile_picture.username = _event.author_username;
+  SELECT account_id FROM maevsi.profile_picture INTO _eventAuthorProfilePictureAccountId WHERE profile_picture.account_id = _event.author_account_id;
+  SELECT storage_key FROM maevsi.upload INTO _eventAuthorProfilePictureUploadStorageKey WHERE upload.account_id = _eventAuthorProfilePictureAccountId;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -75,7 +77,7 @@ BEGIN
           'emailAddress', _email_address,
           'event', _event,
           'eventAuthorProfilePictureUploadStorageKey', _eventAuthorProfilePictureUploadStorageKey,
-          'invitationUuid', _invitation.uuid
+          'invitationUuid', _invitation.id
         ),
         'template', jsonb_build_object('language', $2)
       ))
@@ -83,8 +85,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.invite(BIGINT, TEXT) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION maevsi.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.';
 
-GRANT EXECUTE ON FUNCTION maevsi.invite(BIGINT, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi.invite(UUID, TEXT) TO maevsi_account;
 
 COMMIT;
