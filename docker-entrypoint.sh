@@ -7,7 +7,7 @@ SQITCH_TARGET=''
 if [ "$ENV" = "production" ]; then
     SQITCH_TARGET="$(cat /run/secrets/sqitch_target)"
 else
-    SQITCH_TARGET="$(cat "$THIS/SQITCH_TARGET.env")"
+    SQITCH_TARGET="$(cat "$THIS/src/SQITCH_TARGET.env")"
 fi
 
 export SQITCH_TARGET

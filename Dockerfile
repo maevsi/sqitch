@@ -3,12 +3,10 @@ FROM sqitch/sqitch@sha256:adcb12a95537d8ebc9465a0ad5cb97e4764e1e5e57f3adf8c37883
 
 WORKDIR /srv/app
 
-COPY ./docker-entrypoint.sh /usr/local/bin/
-
 VOLUME /srv/app
 
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
+ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
+CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
