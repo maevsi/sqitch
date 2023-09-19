@@ -39,7 +39,7 @@ WORKDIR /srv/app
 COPY ./schema ./
 COPY --from=build /srv/app ./
 
-RUN diff schema.sql schema.definition.sql
+RUN diff schema.definition.sql schema.sql
 
 
 ##############################
