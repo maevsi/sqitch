@@ -1461,7 +1461,7 @@ CREATE SEQUENCE maevsi.contact_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.contact_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.contact_id_seq OWNER TO postgres;
 
 --
 -- Name: contact_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1552,7 +1552,7 @@ CREATE SEQUENCE maevsi.event_group_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.event_group_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.event_group_id_seq OWNER TO postgres;
 
 --
 -- Name: event_group_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1615,7 +1615,7 @@ CREATE SEQUENCE maevsi.event_grouping_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.event_grouping_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.event_grouping_id_seq OWNER TO postgres;
 
 --
 -- Name: event_grouping_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1636,7 +1636,7 @@ CREATE SEQUENCE maevsi.event_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.event_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.event_id_seq OWNER TO postgres;
 
 --
 -- Name: event_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1724,7 +1724,7 @@ CREATE SEQUENCE maevsi.invitation_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.invitation_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.invitation_id_seq OWNER TO postgres;
 
 --
 -- Name: invitation_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1787,7 +1787,7 @@ CREATE SEQUENCE maevsi.profile_picture_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.profile_picture_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.profile_picture_id_seq OWNER TO postgres;
 
 --
 -- Name: profile_picture_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1867,7 +1867,7 @@ CREATE SEQUENCE maevsi.upload_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi.upload_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi.upload_id_seq OWNER TO postgres;
 
 --
 -- Name: upload_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
@@ -1995,7 +1995,7 @@ CREATE SEQUENCE maevsi_private.account_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi_private.account_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi_private.account_id_seq OWNER TO postgres;
 
 --
 -- Name: account_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi_private; Owner: postgres
@@ -2057,7 +2057,7 @@ CREATE SEQUENCE maevsi_private.jwt_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi_private.jwt_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi_private.jwt_id_seq OWNER TO postgres;
 
 --
 -- Name: jwt_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi_private; Owner: postgres
@@ -2136,7 +2136,7 @@ CREATE SEQUENCE maevsi_private.notification_id_seq
     CACHE 1;
 
 
-ALTER TABLE maevsi_private.notification_id_seq OWNER TO postgres;
+ALTER SEQUENCE maevsi_private.notification_id_seq OWNER TO postgres;
 
 --
 -- Name: notification_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi_private; Owner: postgres
@@ -3989,7 +3989,7 @@ GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi_tusd;
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: -; Owner: postgres
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE ALL ON FUNCTIONS  FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE ALL ON FUNCTIONS FROM PUBLIC;
 
 
 --

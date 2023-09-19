@@ -12,7 +12,7 @@ CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:15.4@sha256:d0c68cd506cde10ddd890e77f98339a4f05810ffba99c881061a12b30a0525c9 AS build
+FROM postgres:16.0@sha256:bf0c7de8c8eadc8c86c631999b050e988a21c80530808f011bd864c899763e0f AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD=postgres
@@ -21,7 +21,7 @@ WORKDIR /srv/app
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
-      libdbd-pg-perl postgresql-client sqitch
+      sqitch=1.3.1-1
 
 COPY ./src ./
 
@@ -39,7 +39,7 @@ WORKDIR /srv/app
 COPY ./schema ./
 COPY --from=build /srv/app ./
 
-RUN diff schema.sql schema.definition.sql
+RUN diff schema.definition.sql schema.sql
 
 
 ##############################
