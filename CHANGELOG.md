@@ -1,3 +1,10 @@
+## [2.1.0](https://github.com/maevsi/sqitch/compare/2.0.0...2.1.0) (2023-09-26)
+
+
+### Features
+
+* **authenticate:** readd token check ([a17edf6](https://github.com/maevsi/sqitch/commit/a17edf6e98dc94551f2f659cb0e05e243cc24ce1))
+
 ## [2.0.0](https://github.com/maevsi/sqitch/compare/1.17.11...2.0.0) (2023-09-26)
 
 
