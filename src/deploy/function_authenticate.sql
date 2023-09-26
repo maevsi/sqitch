@@ -14,10 +14,10 @@ CREATE FUNCTION maevsi.authenticate(
   "password" TEXT
 ) RETURNS maevsi.jwt AS $$
 DECLARE
-    _account_id UUID;
-    _jwt_id UUID := gen_random_uuid();
-    _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
-    _jwt maevsi.jwt;
+  _account_id UUID;
+  _jwt_id UUID := gen_random_uuid();
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt maevsi.jwt;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
     -- Authenticate as guest.
@@ -51,9 +51,9 @@ BEGIN
       FROM updated
       INTO _jwt;
 
-    -- IF (_jwt IS NULL) THEN
-    --   RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
-    -- END IF;
+    IF (_jwt IS NULL) THEN
+      RAISE 'Could not get token!' USING ERRCODE = 'no_data_found';
+    END IF;
   END IF;
 
   INSERT INTO maevsi_private.jwt(id, token) VALUES (_jwt_id, _jwt);
