@@ -1,3 +1,10 @@
+## [2.0.0-beta.4](https://github.com/maevsi/sqitch/compare/2.0.0-beta.3...2.0.0-beta.4) (2023-09-26)
+
+
+### Features
+
+* **sql:** use uuids instead of ids ([277ec7f](https://github.com/maevsi/sqitch/commit/277ec7f759075395aaf507f45b1d294092b35c31))
+
 ## [2.0.0-beta.3](https://github.com/maevsi/sqitch/compare/2.0.0-beta.2...2.0.0-beta.3) (2023-09-26)
 
 
