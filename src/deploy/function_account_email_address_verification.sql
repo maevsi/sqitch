@@ -4,7 +4,7 @@
 -- requires: schema_public
 -- requires: role_account
 -- requires: role_anonymous
--- requires: table_account
+-- requires: table_account_private
 
 BEGIN;
 

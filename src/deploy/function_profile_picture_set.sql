@@ -7,23 +7,22 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.profile_picture_set(
-  storage_key TEXT
+  upload_id UUID
 ) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO maevsi.profile_picture(username, upload_storage_key)
+  INSERT INTO maevsi.profile_picture(account_id, upload_id)
   VALUES (
-    current_setting('jwt.claims.username', true)::TEXT,
+    current_setting('jwt.claims.account_id', true)::UUID,
     $1
   )
-  ON CONFLICT (username)
+  ON CONFLICT (account_id)
   DO UPDATE
-  SET upload_storage_key = $1;
+  SET upload_id = $1;
 END;
 $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;
 
-COMMENT ON FUNCTION maevsi.profile_picture_set(TEXT) IS 'Sets the picture with the given storage key as the invoker''s profile picture.';
+COMMENT ON FUNCTION maevsi.profile_picture_set(UUID) IS 'Sets the picture with the given upload id as the invoker''s profile picture.';
 
-GRANT EXECUTE ON FUNCTION maevsi.profile_picture_set(TEXT) TO maevsi_account;
-GRANT USAGE ON SEQUENCE maevsi.profile_picture_id_seq TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi.profile_picture_set(UUID) TO maevsi_account;
 
 COMMIT;

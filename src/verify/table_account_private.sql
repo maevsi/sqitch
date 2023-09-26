@@ -1,4 +1,4 @@
--- Verify maevsi:table_account on pg
+-- Verify maevsi:table_account_private on pg
 
 BEGIN;
 
@@ -11,8 +11,7 @@ SELECT id,
        password_hash,
        password_reset_verification,
        password_reset_verification_valid_until,
-       upload_quota_bytes,
-       username
+       upload_quota_bytes
 FROM maevsi_private.account WHERE FALSE;
 
 DO $$
