@@ -11,8 +11,8 @@ CREATE TABLE maevsi.contact (
   account_username           TEXT REFERENCES maevsi_private.account(username),
   "address"                  TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
   author_account_username    TEXT NOT NULL REFERENCES maevsi_private.account(username) ON DELETE CASCADE,
-  email_address              TEXT CHECK (char_length(email_address) < 320 AND email_address ~ '^.+@.+\..+$'),
-  email_address_hash         TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED,
+  email_address              TEXT CHECK (char_length(email_address) < 255), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
+  email_address_hash         TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name                 TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) < 100),
   last_name                  TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) < 100),
   phone_number               TEXT CHECK (phone_number ~ '^\+(9[976]\d|8[987530]\d|6[987]\d|5[90]\d|42\d|3[875]\d|2[98654321]\d|9[8543210]|8[6421]|6[6543210]|5[87654321]|4[987654310]|3[9643210]|2[70]|7|1)\d{1,14}$'),

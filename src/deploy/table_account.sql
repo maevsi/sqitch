@@ -7,7 +7,7 @@ BEGIN;
 CREATE TABLE maevsi_private.account (
   id                                         BIGSERIAL PRIMARY KEY,
   created                                    TIMESTAMP NOT NULL DEFAULT NOW(),
-  email_address                              TEXT NOT NULL CHECK (char_length(email_address) < 320 AND email_address ~ '^.+@.+\..+$') UNIQUE,
+  email_address                              TEXT NOT NULL CHECK (char_length(email_address) < 255) UNIQUE, -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
   email_address_verification_valid_until     TIMESTAMP,
   last_activity                              TIMESTAMP NOT NULL DEFAULT NOW(),
