@@ -1,4 +1,4 @@
--- Revert maevsi:table_account from pg
+-- Revert maevsi:table_account_private from pg
 
 BEGIN;
 

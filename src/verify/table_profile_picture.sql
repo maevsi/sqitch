@@ -3,8 +3,8 @@
 BEGIN;
 
 SELECT id,
-       upload_storage_key,
-       username
+       account_id,
+       upload_id
 FROM maevsi.profile_picture WHERE FALSE;
 
 DO $$

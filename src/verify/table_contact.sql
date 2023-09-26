@@ -3,9 +3,9 @@
 BEGIN;
 
 SELECT id,
-       account_username,
+       account_id,
        "address",
-       author_account_username,
+       author_account_id,
        email_address,
        email_address_hash,
        first_name,

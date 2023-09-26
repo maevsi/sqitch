@@ -2,14 +2,14 @@
 -- requires: privilege_execute_revoke
 -- requires: schema_public
 -- requires: schema_private
--- requires: table_account
+-- requires: table_account_private
 -- requires: role_account
 
 BEGIN;
 
 CREATE FUNCTION maevsi.account_upload_quota_bytes() RETURNS BIGINT AS $$
 BEGIN
-  RETURN (SELECT upload_quota_bytes FROM maevsi_private.account WHERE account.username = current_setting('jwt.claims.username', true)::TEXT);
+  RETURN (SELECT upload_quota_bytes FROM maevsi_private.account WHERE account.id = current_setting('jwt.claims.account_id', true)::UUID);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 

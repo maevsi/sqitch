@@ -3,8 +3,7 @@
 BEGIN;
 
 SELECT id,
-       username,
-       uuid,
+       account_id,
        size_byte,
        storage_key
 FROM maevsi.upload WHERE FALSE;

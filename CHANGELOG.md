@@ -1,3 +1,45 @@
+## [2.0.0-beta.4](https://github.com/maevsi/sqitch/compare/2.0.0-beta.3...2.0.0-beta.4) (2023-09-26)
+
+
+### Features
+
+* **sql:** use uuids instead of ids ([277ec7f](https://github.com/maevsi/sqitch/commit/277ec7f759075395aaf507f45b1d294092b35c31))
+
+## [2.0.0-beta.3](https://github.com/maevsi/sqitch/compare/2.0.0-beta.2...2.0.0-beta.3) (2023-09-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **contact:** use `E.164` phone number format
+* **email:** shorten and loosen format
+
+### Features
+
+* **contact:** use `E.164` phone number format ([92ac35d](https://github.com/maevsi/sqitch/commit/92ac35d22795f5ec8a1861c94a151bf76c735949))
+* **email:** shorten and loosen format ([9e6c62b](https://github.com/maevsi/sqitch/commit/9e6c62b8bf592bec1c657215b3f7ffc930217fc0))
+
+## [2.0.0-beta.2](https://github.com/maevsi/sqitch/compare/2.0.0-beta.1...2.0.0-beta.2) (2023-09-19)
+
+
+### ⚠ BREAKING CHANGES
+
+* **docker:** mount entrypoint
+
+### Features
+
+* **docker:** mount entrypoint ([2572193](https://github.com/maevsi/sqitch/commit/25721933e677297ddf2af6d3f19e0ca0190887ab))
+
+## [2.0.0-beta.1](https://github.com/maevsi/sqitch/compare/1.17.11...2.0.0-beta.1) (2023-09-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove email address case restriction
+
+### Features
+
+* remove email address case restriction ([41e7eee](https://github.com/maevsi/sqitch/commit/41e7eeebff7482361f648a6e7ace53deaeab328f))
+
 ## [1.17.11](https://github.com/maevsi/sqitch/compare/1.17.10...1.17.11) (2023-09-09)
 
 

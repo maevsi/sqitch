@@ -82,10 +82,11 @@ COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
 
 CREATE TYPE maevsi.jwt AS (
 	id uuid,
-	role text,
-	username text,
+	account_id uuid,
+	account_username text,
+	exp bigint,
 	invitations uuid[],
-	exp bigint
+	role text
 );
 
 
@@ -96,7 +97,7 @@ ALTER TYPE maevsi.jwt OWNER TO postgres;
 --
 
 CREATE TYPE maevsi.event_unlock_response AS (
-	author_username text,
+	author_account_username text,
 	event_slug text,
 	jwt maevsi.jwt
 );
@@ -170,15 +171,15 @@ CREATE FUNCTION maevsi.account_delete(password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _current_username TEXT;
+  _current_account_id UUID;
 BEGIN
-  _current_username := current_setting('jwt.claims.username', true)::TEXT;
+  _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = _current_username AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
-    IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.author_username = _current_username)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
+    IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.author_account_id = _current_account_id)) THEN
       RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
     ELSE
-      DELETE FROM maevsi_private.account WHERE account.username = _current_username;
+      DELETE FROM maevsi_private.account WHERE account.id = _current_account_id;
     END IF;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -236,32 +237,6 @@ COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Set
 
 
 --
--- Name: account_is_existing(text); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_is_existing(username text) RETURNS boolean
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
-BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = $1)) THEN
-    RETURN TRUE;
-  ELSE
-    RETURN FALSE;
-  END IF;
-END;
-$_$;
-
-
-ALTER FUNCTION maevsi.account_is_existing(username text) OWNER TO postgres;
-
---
--- Name: FUNCTION account_is_existing(username text); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_is_existing(username text) IS 'Shows if an account exists.';
-
-
---
 -- Name: account_password_change(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -269,16 +244,16 @@ CREATE FUNCTION maevsi.account_password_change(password_current text, password_n
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _current_username TEXT;
+  _current_account_id UUID;
 BEGIN
   IF (char_length($2) < 8) THEN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  _current_username := current_setting('jwt.claims.username', true)::TEXT;
+  _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = _current_username AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
-    UPDATE maevsi_private.account SET password_hash = maevsi.crypt($2, maevsi.gen_salt('bf')) WHERE account.username = _current_username;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
+    UPDATE maevsi_private.account SET password_hash = maevsi.crypt($2, maevsi.gen_salt('bf')) WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -356,11 +331,12 @@ BEGIN
       WHERE account.email_address = $1
       RETURNING *
   ) SELECT
-    updated.username,
+    account.username,
     updated.email_address,
     updated.password_reset_verification,
     updated.password_reset_verification_valid_until
-    FROM updated
+    FROM updated, maevsi.account
+    WHERE updated.id = account.id
     INTO _notify_data;
 
   IF (_notify_data IS NULL) THEN
@@ -391,18 +367,19 @@ COMMENT ON FUNCTION maevsi.account_password_reset_request(email_address text, la
 -- Name: account_registration(text, text, text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) RETURNS void
+CREATE FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _new_account maevsi_private.account;
+  _new_account_private maevsi_private.account;
+  _new_account_public maevsi.account;
   _new_account_notify RECORD;
 BEGIN
   IF (char_length($3) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = $1)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = $1)) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
@@ -410,18 +387,22 @@ BEGIN
     RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
-  INSERT INTO maevsi_private.account(username, email_address, password_hash, last_activity) VALUES
-    ($1, $2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
-    RETURNING * INTO _new_account;
+  INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
+    ($2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
+    RETURNING * INTO _new_account_private;
+
+  INSERT INTO maevsi.account(id, username) VALUES
+    (_new_account_private.id, $1)
+    RETURNING * INTO _new_account_public;
 
   SELECT
-    _new_account.username,
-    _new_account.email_address,
-    _new_account.email_address_verification,
-    _new_account.email_address_verification_valid_until
+    _new_account_public.username,
+    _new_account_private.email_address,
+    _new_account_private.email_address_verification,
+    _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
-  INSERT INTO maevsi.contact(account_username, author_account_username) VALUES (_new_account.username, _new_account.username);
+  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -430,6 +411,8 @@ BEGIN
       'template', jsonb_build_object('language', $4)
     ))
   );
+
+  RETURN _new_account_public.id;
 END;
 $_$;
 
@@ -444,10 +427,10 @@ COMMENT ON FUNCTION maevsi.account_registration(username text, email_address tex
 
 
 --
--- Name: account_registration_refresh(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_registration_refresh(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.account_registration_refresh(username text, language text) RETURNS void
+CREATE FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
@@ -455,21 +438,22 @@ DECLARE
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
-  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = $1)) THEN
-    RAISE 'An account with this username does not exists!' USING ERRCODE = 'invalid_parameter_value';
+  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
+    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
     UPDATE maevsi_private.account
       SET email_address_verification = DEFAULT
-      WHERE account.username = $1
+      WHERE account.id = $1
       RETURNING *
   ) SELECT
-    updated.username,
+    account.username,
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated
+    FROM updated, maevsi.account
+    WHERE updated.id = account.id
     INTO _new_account_notify;
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
@@ -483,13 +467,13 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.account_registration_refresh(username text, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) OWNER TO postgres;
 
 --
--- Name: FUNCTION account_registration_refresh(username text, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.account_registration_refresh(username text, language text) IS 'Refreshes an account''s email address verification validity period.';
+COMMENT ON FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.';
 
 
 --
@@ -500,7 +484,7 @@ CREATE FUNCTION maevsi.account_upload_quota_bytes() RETURNS bigint
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  RETURN (SELECT upload_quota_bytes FROM maevsi_private.account WHERE account.username = current_setting('jwt.claims.username', true)::TEXT);
+  RETURN (SELECT upload_quota_bytes FROM maevsi_private.account WHERE account.id = current_setting('jwt.claims.account_id', true)::UUID);
 END;
 $$;
 
@@ -522,19 +506,26 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
+    _account_id UUID;
     _jwt_id UUID := gen_random_uuid();
     _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
     _jwt maevsi.jwt;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, 'maevsi_anonymous', NULL, maevsi.invitation_claim_array(), _jwt_exp)::maevsi.jwt;
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF ($1 IS NOT NULL AND $2 IS NOT NULL) THEN
+    SELECT id FROM maevsi.account WHERE account.username = $1 INTO _account_id;
+
+    IF (_account_id IS NULL) THEN
+      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
+    END IF;
+
     IF ((
         SELECT account.email_address_verification
         FROM maevsi_private.account
         WHERE
-              account.username = $1
+              account.id = _account_id
           AND account.password_hash = maevsi.crypt($2, account.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
@@ -544,20 +535,20 @@ BEGIN
       UPDATE maevsi_private.account
       SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
       WHERE
-            account.username = $1
+            account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = maevsi.crypt($2, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, 'maevsi_account', updated.username, NULL, _jwt_exp
+    ) SELECT _jwt_id, updated.id, $1, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
       INTO _jwt;
 
-    IF (_jwt IS NULL) THEN
-      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
-    END IF;
+    -- IF (_jwt IS NULL) THEN
+    --   RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
+    -- END IF;
   END IF;
 
-  INSERT INTO maevsi_private.jwt(uuid, token) VALUES (_jwt_id, _jwt);
+  INSERT INTO maevsi_private.jwt(id, token) VALUES (_jwt_id, _jwt);
   RETURN _jwt;
 END;
 $_$;
@@ -581,8 +572,8 @@ SET default_table_access_method = heap;
 --
 
 CREATE TABLE maevsi.event (
-    id bigint NOT NULL,
-    author_username text NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    author_account_id uuid NOT NULL,
     description text,
     "end" timestamp with time zone,
     invitee_count_maximum integer,
@@ -622,10 +613,10 @@ The event''s internal id.';
 
 
 --
--- Name: COLUMN event.author_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.author_username IS 'The event author''s username.';
+COMMENT ON COLUMN maevsi.event.author_account_id IS 'The event author''s id.';
 
 
 --
@@ -713,24 +704,24 @@ COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 
 
 --
--- Name: event_delete(bigint, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_delete(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_delete(id bigint, password text) RETURNS maevsi.event
+CREATE FUNCTION maevsi.event_delete(id uuid, password text) RETURNS maevsi.event
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _current_username TEXT;
+  _current_account_id UUID;
   _event_deleted maevsi.event;
 BEGIN
-  _current_username := current_setting('jwt.claims.username', true)::TEXT;
+  _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = _current_username AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
     DELETE
       FROM maevsi.event
       WHERE
             "event".id = $1
-        AND "event".author_username = _current_username
+        AND "event".author_account_id = _current_account_id
       RETURNING * INTO _event_deleted;
 
     IF (_event_deleted IS NULL) THEN
@@ -745,20 +736,20 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.event_delete(id bigint, password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_delete(id uuid, password text) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_delete(id bigint, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_delete(id uuid, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_delete(id bigint, password text) IS 'Allows to delete an event.';
+COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to delete an event.';
 
 
 --
--- Name: event_invitee_count_maximum(bigint); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_invitee_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_invitee_count_maximum(event_id bigint) RETURNS integer
+CREATE FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $_$
 BEGIN
@@ -777,7 +768,7 @@ BEGIN
                 "event".invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
               )
             )
-        OR  "event".author_username = current_setting('jwt.claims.username', true)::TEXT
+        OR  "event".author_account_id = current_setting('jwt.claims.account_id', true)::UUID
         OR  "event".id IN (SELECT maevsi_private.events_invited())
       )
   );
@@ -785,24 +776,24 @@ END
 $_$;
 
 
-ALTER FUNCTION maevsi.event_invitee_count_maximum(event_id bigint) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_invitee_count_maximum(event_id bigint); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(event_id bigint) IS 'Add a function that returns the maximum invitee count of an accessible event.';
+COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) IS 'Add a function that returns the maximum invitee count of an accessible event.';
 
 
 --
--- Name: event_is_existing(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_is_existing(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_is_existing(author_username text, slug text) RETURNS boolean
+CREATE FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) RETURNS boolean
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $_$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".author_username = $1 AND "event".slug = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".author_account_id = $1 AND "event".slug = $2)) THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
@@ -811,75 +802,92 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.event_is_existing(author_username text, slug text) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_is_existing(author_username text, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(author_account_id uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_is_existing(author_username text, slug text) IS 'Shows if an event exists.';
+COMMENT ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) IS 'Shows if an event exists.';
 
 
 --
 -- Name: event_unlock(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_unlock(invitation_code uuid) RETURNS maevsi.event_unlock_response
+CREATE FUNCTION maevsi.event_unlock(invitation_id uuid) RETURNS maevsi.event_unlock_response
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
-  _event_id BIGINT;
+  _event maevsi.event;
+  _event_author_account_username TEXT;
+  _event_id UUID;
 BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
   _jwt := (
     _jwt_id,
-    current_setting('jwt.claims.role', true)::TEXT,
-    current_setting('jwt.claims.username', true)::TEXT,
+    current_setting('jwt.claims.account_id', true)::UUID,
+    current_setting('jwt.claims.account_username', true)::TEXT,
+    current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
-    current_setting('jwt.claims.exp', true)::BIGINT
+    current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
   UPDATE maevsi_private.jwt
   SET token = _jwt
-  WHERE uuid = _jwt_id;
+  WHERE id = _jwt_id;
 
   _event_id := (
     SELECT event_id FROM maevsi.invitation
-    WHERE invitation.uuid = $1
+    WHERE invitation.id = $1
   );
 
-  IF (_event_id IS NOT NULL) THEN
-    RETURN (SELECT (author_username, slug, _jwt)::maevsi.event_unlock_response
-    FROM maevsi.event
-    WHERE id = _event_id);
-  ELSE
-    RAISE 'No event for this invitation code found!' USING ERRCODE = 'no_data_found';
+  IF (_event_id IS NULL) THEN
+    RAISE 'No invitation for this invitation id found!' USING ERRCODE = 'no_data_found';
   END IF;
+
+  _event := (
+    SELECT author_account_id, slug
+    FROM maevsi.event
+    WHERE id = _event_id
+  );
+
+  IF (_event IS NULL) THEN
+    RAISE 'No event for this invitation id found!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  _event_author_account_username := maevsi.account_username_by_id(_event.author_account_id);
+
+  IF (_event_author_account_username IS NULL) THEN
+    RAISE 'No event author username for this invitation id found!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  RETURN (_event_author_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
 END $_$;
 
 
-ALTER FUNCTION maevsi.event_unlock(invitation_code uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_unlock(invitation_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_unlock(invitation_code uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_unlock(invitation_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_unlock(invitation_code uuid) IS 'Allows to enter invitation codes.';
+COMMENT ON FUNCTION maevsi.event_unlock(invitation_id uuid) IS 'Assigns an invitation to the current session.';
 
 
 --
 -- Name: events_organized(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.events_organized() RETURNS TABLE(event_id bigint)
+CREATE FUNCTION maevsi.events_organized() RETURNS TABLE(event_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
   RETURN QUERY
     SELECT id FROM maevsi.event
-    WHERE "event".author_username = current_setting('jwt.claims.username', true)::TEXT;
+    WHERE "event".author_account_id = current_setting('jwt.claims.account_id', true)::UUID;
 END
 $$;
 
@@ -919,13 +927,13 @@ COMMENT ON FUNCTION maevsi.invitation_claim_array() IS 'Returns the current invi
 -- Name: invitation_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitation_contact_ids() RETURNS TABLE(contact_id bigint)
+CREATE FUNCTION maevsi.invitation_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
   RETURN QUERY
     SELECT invitation.contact_id FROM maevsi.invitation
-    WHERE uuid = ANY (maevsi.invitation_claim_array())
+    WHERE id = ANY (maevsi.invitation_claim_array())
     OR    event_id IN (SELECT maevsi.events_organized());
 END;
 $$;
@@ -941,16 +949,17 @@ COMMENT ON FUNCTION maevsi.invitation_contact_ids() IS 'Returns contact ids that
 
 
 --
--- Name: invite(bigint, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invite(invitation_id bigint, language text) RETURNS void
+CREATE FUNCTION maevsi.invite(invitation_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
+  _eventAuthorProfilePictureAccountId UUID;
   _eventAuthorProfilePictureUploadStorageKey TEXT;
   _invitation RECORD;
 BEGIN
@@ -973,13 +982,13 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_username, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
+  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_contact.account_username IS NULL) THEN
+  IF (_contact.account_id IS NULL) THEN
     IF (_contact.email_address IS NULL) THEN
       RAISE 'Contact email address not accessible!' USING ERRCODE = 'no_data_found';
     ELSE
@@ -987,7 +996,7 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM maevsi_private.account INTO _email_address WHERE account.username = _contact.account_username;
+    SELECT email_address FROM maevsi_private.account INTO _email_address WHERE account.id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -995,7 +1004,8 @@ BEGIN
   END IF;
 
   -- Event author profile picture storage key
-  SELECT upload_storage_key FROM maevsi.profile_picture INTO _eventAuthorProfilePictureUploadStorageKey WHERE profile_picture.username = _event.author_username;
+  SELECT account_id FROM maevsi.profile_picture INTO _eventAuthorProfilePictureAccountId WHERE profile_picture.account_id = _event.author_account_id;
+  SELECT storage_key FROM maevsi.upload INTO _eventAuthorProfilePictureUploadStorageKey WHERE upload.account_id = _eventAuthorProfilePictureAccountId;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -1005,7 +1015,7 @@ BEGIN
           'emailAddress', _email_address,
           'event', _event,
           'eventAuthorProfilePictureUploadStorageKey', _eventAuthorProfilePictureUploadStorageKey,
-          'invitationUuid', _invitation.uuid
+          'invitationUuid', _invitation.id
         ),
         'template', jsonb_build_object('language', $2)
       ))
@@ -1014,20 +1024,20 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.invite(invitation_id bigint, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.invite(invitation_id uuid, language text) OWNER TO postgres;
 
 --
--- Name: FUNCTION invite(invitation_id bigint, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(invitation_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invite(invitation_id bigint, language text) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION maevsi.invite(invitation_id uuid, language text) IS 'Adds a notification for the invitation channel.';
 
 
 --
--- Name: invitee_count(bigint); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: invitee_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitee_count(event_id bigint) RETURNS integer
+CREATE FUNCTION maevsi.invitee_count(event_id uuid) RETURNS integer
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $_$
 BEGIN
@@ -1036,13 +1046,13 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.invitee_count(event_id bigint) OWNER TO postgres;
+ALTER FUNCTION maevsi.invitee_count(event_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION invitee_count(event_id bigint); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invitee_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invitee_count(event_id bigint) IS 'Returns the invitee count for an event.';
+COMMENT ON FUNCTION maevsi.invitee_count(event_id uuid) IS 'Returns the invitee count for an event.';
 
 
 --
@@ -1056,9 +1066,9 @@ DECLARE
   _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', NOW()::TIMESTAMP)));
   _jwt maevsi.jwt;
 BEGIN
-  SELECT (token).id, (token).role, (token).username, (token).invitations, (token)."exp" INTO _jwt
+  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
   FROM maevsi_private.jwt
-  WHERE   uuid = $1
+  WHERE   id = $1
   AND     (token)."exp" >= _epoch_now;
 
   IF (_jwt IS NULL) THEN
@@ -1066,16 +1076,16 @@ BEGIN
   ELSE
     UPDATE maevsi_private.jwt
     SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE uuid = $1;
+    WHERE id = $1;
 
     UPDATE maevsi_private.account
     SET last_activity = DEFAULT
-    WHERE account.username = _jwt.username;
+    WHERE account.id = _jwt.account_id;
 
     RETURN (
       SELECT token
       FROM maevsi_private.jwt
-      WHERE   uuid = $1
+      WHERE   id = $1
       AND     (token)."exp" >= _epoch_now
     );
   END IF;
@@ -1093,10 +1103,10 @@ COMMENT ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
--- Name: notification_acknowledge(bigint, boolean); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.notification_acknowledge(id bigint, is_acknowledged boolean) RETURNS void
+CREATE FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 BEGIN
@@ -1109,42 +1119,42 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.notification_acknowledge(id bigint, is_acknowledged boolean) OWNER TO postgres;
+ALTER FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO postgres;
 
 --
--- Name: FUNCTION notification_acknowledge(id bigint, is_acknowledged boolean); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.notification_acknowledge(id bigint, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.';
+COMMENT ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.';
 
 
 --
--- Name: profile_picture_set(text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: profile_picture_set(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.profile_picture_set(storage_key text) RETURNS void
+CREATE FUNCTION maevsi.profile_picture_set(upload_id uuid) RETURNS void
     LANGUAGE plpgsql STRICT
     AS $_$
 BEGIN
-  INSERT INTO maevsi.profile_picture(username, upload_storage_key)
+  INSERT INTO maevsi.profile_picture(account_id, upload_id)
   VALUES (
-    current_setting('jwt.claims.username', true)::TEXT,
+    current_setting('jwt.claims.account_id', true)::UUID,
     $1
   )
-  ON CONFLICT (username)
+  ON CONFLICT (account_id)
   DO UPDATE
-  SET upload_storage_key = $1;
+  SET upload_id = $1;
 END;
 $_$;
 
 
-ALTER FUNCTION maevsi.profile_picture_set(storage_key text) OWNER TO postgres;
+ALTER FUNCTION maevsi.profile_picture_set(upload_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION profile_picture_set(storage_key text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION profile_picture_set(upload_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.profile_picture_set(storage_key text) IS 'Sets the picture with the given storage key as the invoker''s profile picture.';
+COMMENT ON FUNCTION maevsi.profile_picture_set(upload_id uuid) IS 'Sets the picture with the given upload id as the invoker''s profile picture.';
 
 
 --
@@ -1160,8 +1170,8 @@ BEGIN
   IF
       TG_OP = 'UPDATE'
     AND ( -- Invited.
-      OLD.uuid = ANY (maevsi.invitation_claim_array())
-      OR  OLD.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_username = current_setting('jwt.claims.username', true)::TEXT)
+      OLD.id = ANY (maevsi.invitation_claim_array())
+      OR  OLD.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID)
     )
     AND
       EXISTS (
@@ -1188,29 +1198,80 @@ COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller 
 
 
 --
+-- Name: upload; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.upload (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    size_byte bigint NOT NULL,
+    storage_key text,
+    CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
+);
+
+
+ALTER TABLE maevsi.upload OWNER TO postgres;
+
+--
+-- Name: TABLE upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.upload IS 'An upload.';
+
+
+--
+-- Name: COLUMN upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.id IS '@omit create,update
+The upload''s internal id.';
+
+
+--
+-- Name: COLUMN upload.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.account_id IS 'The uploader''s account id.';
+
+
+--
+-- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.size_byte IS 'The upload''s size in bytes.';
+
+
+--
+-- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.storage_key IS 'The upload''s storage key.';
+
+
+--
 -- Name: upload_create(bigint); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.upload_create(size_byte bigint) RETURNS uuid
+CREATE FUNCTION maevsi.upload_create(size_byte bigint) RETURNS maevsi.upload
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-    _id UUID;
+    _upload maevsi.upload;
 BEGIN
   IF (COALESCE((
     SELECT SUM(upload.size_byte)
     FROM maevsi.upload
-    WHERE username = current_setting('jwt.claims.username', true)::TEXT
+    WHERE upload.account_id = current_setting('jwt.claims.account_id', true)::UUID
   ), 0) + $1 <= (
     SELECT upload_quota_bytes
     FROM maevsi_private.account
-    WHERE username = current_setting('jwt.claims.username', true)::TEXT
+    WHERE account.id = current_setting('jwt.claims.account_id', true)::UUID
   )) THEN
-    INSERT INTO maevsi.upload (username, size_byte)
-    VALUES (current_setting('jwt.claims.username', true)::TEXT, $1)
-    RETURNING upload.uuid INTO _id;
+    INSERT INTO maevsi.upload(account_id, size_byte)
+    VALUES (current_setting('jwt.claims.account_id', true)::UUID, $1)
+    RETURNING upload.id INTO _upload;
 
-    RETURN _id;
+    RETURN _upload;
   ELSE
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
   END IF;
@@ -1291,15 +1352,15 @@ COMMENT ON FUNCTION maevsi_private.account_password_reset_verification_valid_unt
 -- Name: events_invited(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_private.events_invited() RETURNS TABLE(event_id bigint)
+CREATE FUNCTION maevsi_private.events_invited() RETURNS TABLE(event_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
   RETURN QUERY
   SELECT invitation.event_id FROM maevsi.invitation
   WHERE
-      invitation.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_username = current_setting('jwt.claims.username', true)::TEXT) -- The contact selection does not return rows where account_username "IS" null due to the equality comparison.
-  OR  invitation.uuid = ANY (maevsi.invitation_claim_array());
+      invitation.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID) -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+  OR  invitation.id = ANY (maevsi.invitation_claim_array());
 END
 $$;
 
@@ -1345,14 +1406,48 @@ COMMENT ON FUNCTION maevsi_private.notify() IS 'Triggers a pg_notify for the giv
 
 
 --
+-- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account (
+    id uuid NOT NULL,
+    username text NOT NULL,
+    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+);
+
+
+ALTER TABLE maevsi.account OWNER TO postgres;
+
+--
+-- Name: TABLE account; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account IS 'Public account data.';
+
+
+--
+-- Name: COLUMN account.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account.id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.username; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.contact (
-    id bigint NOT NULL,
-    account_username text,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid,
     address text,
-    author_account_username text NOT NULL,
+    author_account_id uuid NOT NULL,
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
@@ -1360,10 +1455,10 @@ CREATE TABLE maevsi.contact (
     phone_number text,
     url text,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
-    CONSTRAINT contact_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text) AND (email_address ~ '^[^A-Z]+$'::text))),
+    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
-    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(9[976]\d|8[987530]\d|6[987]\d|5[90]\d|42\d|3[875]\d|2[98654321]\d|9[8543210]|8[6421]|6[6543210]|5[87654321]|4[987654310]|3[9643210]|2[70]|7|1)\d{1,14}$'::text)),
+    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -1386,10 +1481,10 @@ The contact''s internal id.';
 
 
 --
--- Name: COLUMN contact.account_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.account_username IS 'The contact account''s username.';
+COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
 
 
 --
@@ -1400,10 +1495,10 @@ COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
 
 
 --
--- Name: COLUMN contact.author_account_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.author_account_username IS 'The contact author''s username.';
+COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
 
 
 --
@@ -1450,33 +1545,12 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 
 --
--- Name: contact_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
---
-
-CREATE SEQUENCE maevsi.contact_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.contact_id_seq OWNER TO postgres;
-
---
--- Name: contact_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.contact_id_seq OWNED BY maevsi.contact.id;
-
-
---
 -- Name: event_group; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.event_group (
-    id bigint NOT NULL,
-    author_username text NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    author_account_id uuid NOT NULL,
     description text,
     is_archived boolean DEFAULT false NOT NULL,
     name text NOT NULL,
@@ -1505,10 +1579,10 @@ The event group''s internal id.';
 
 
 --
--- Name: COLUMN event_group.author_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_group.author_username IS 'The event group author''s username.';
+COMMENT ON COLUMN maevsi.event_group.author_account_id IS 'The event group author''s id.';
 
 
 --
@@ -1541,34 +1615,13 @@ The event group''s name, slugified.';
 
 
 --
--- Name: event_group_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
---
-
-CREATE SEQUENCE maevsi.event_group_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.event_group_id_seq OWNER TO postgres;
-
---
--- Name: event_group_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.event_group_id_seq OWNED BY maevsi.event_group.id;
-
-
---
 -- Name: event_grouping; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.event_grouping (
-    id bigint NOT NULL,
-    event_group_id bigint NOT NULL,
-    event_id bigint NOT NULL
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_group_id uuid NOT NULL,
+    event_id uuid NOT NULL
 );
 
 
@@ -1604,58 +1657,15 @@ COMMENT ON COLUMN maevsi.event_grouping.event_id IS 'The event grouping''s inter
 
 
 --
--- Name: event_grouping_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
---
-
-CREATE SEQUENCE maevsi.event_grouping_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.event_grouping_id_seq OWNER TO postgres;
-
---
--- Name: event_grouping_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.event_grouping_id_seq OWNED BY maevsi.event_grouping.id;
-
-
---
--- Name: event_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
---
-
-CREATE SEQUENCE maevsi.event_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.event_id_seq OWNER TO postgres;
-
---
--- Name: event_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.event_id_seq OWNED BY maevsi.event.id;
-
-
---
 -- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.invitation (
-    id bigint NOT NULL,
-    contact_id bigint NOT NULL,
-    event_id bigint NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    contact_id uuid NOT NULL,
+    event_id uuid NOT NULL,
     feedback maevsi.invitation_feedback,
-    feedback_paper maevsi.invitation_feedback_paper,
-    uuid uuid DEFAULT gen_random_uuid() NOT NULL
+    feedback_paper maevsi.invitation_feedback_paper
 );
 
 
@@ -1705,42 +1715,13 @@ COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper f
 
 
 --
--- Name: COLUMN invitation.uuid; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.uuid IS '@omit create,update
-The invitations''s invitation code.';
-
-
---
--- Name: invitation_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
---
-
-CREATE SEQUENCE maevsi.invitation_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.invitation_id_seq OWNER TO postgres;
-
---
--- Name: invitation_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.invitation_id_seq OWNED BY maevsi.invitation.id;
-
-
---
 -- Name: profile_picture; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.profile_picture (
-    id bigint NOT NULL,
-    upload_storage_key text NOT NULL,
-    username text NOT NULL
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    upload_id uuid NOT NULL
 );
 
 
@@ -1750,7 +1731,7 @@ ALTER TABLE maevsi.profile_picture OWNER TO postgres;
 -- Name: TABLE profile_picture; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.profile_picture IS 'Mapping of usernames to upload storage keys.';
+COMMENT ON TABLE maevsi.profile_picture IS 'Mapping of account ids to upload ids.';
 
 
 --
@@ -1762,118 +1743,17 @@ The profile picture''s internal id.';
 
 
 --
--- Name: COLUMN profile_picture.upload_storage_key; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN profile_picture.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.profile_picture.upload_storage_key IS 'The upload''s storage key.';
-
-
---
--- Name: COLUMN profile_picture.username; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.profile_picture.username IS 'The account''s username.';
+COMMENT ON COLUMN maevsi.profile_picture.account_id IS 'The account''s id.';
 
 
 --
--- Name: profile_picture_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
+-- Name: COLUMN profile_picture.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE SEQUENCE maevsi.profile_picture_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.profile_picture_id_seq OWNER TO postgres;
-
---
--- Name: profile_picture_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.profile_picture_id_seq OWNED BY maevsi.profile_picture.id;
-
-
---
--- Name: upload; Type: TABLE; Schema: maevsi; Owner: postgres
---
-
-CREATE TABLE maevsi.upload (
-    id bigint NOT NULL,
-    size_byte bigint NOT NULL,
-    storage_key text,
-    username text NOT NULL,
-    uuid uuid DEFAULT gen_random_uuid() NOT NULL,
-    CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
-);
-
-
-ALTER TABLE maevsi.upload OWNER TO postgres;
-
---
--- Name: TABLE upload; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON TABLE maevsi.upload IS 'An upload.';
-
-
---
--- Name: COLUMN upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.id IS '@omit create,update
-The upload''s internal id.';
-
-
---
--- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.size_byte IS 'The upload''s size in bytes.';
-
-
---
--- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.storage_key IS 'The upload''s storage key.';
-
-
---
--- Name: COLUMN upload.username; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.username IS 'The uploader''s username.';
-
-
---
--- Name: COLUMN upload.uuid; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.uuid IS 'The upload''s UUID.';
-
-
---
--- Name: upload_id_seq; Type: SEQUENCE; Schema: maevsi; Owner: postgres
---
-
-CREATE SEQUENCE maevsi.upload_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi.upload_id_seq OWNER TO postgres;
-
---
--- Name: upload_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi; Owner: postgres
---
-
-ALTER SEQUENCE maevsi.upload_id_seq OWNED BY maevsi.upload.id;
+COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 
 --
@@ -1881,7 +1761,7 @@ ALTER SEQUENCE maevsi.upload_id_seq OWNED BY maevsi.upload.id;
 --
 
 CREATE TABLE maevsi_private.account (
-    id bigint NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     created timestamp without time zone DEFAULT now() NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
@@ -1891,9 +1771,7 @@ CREATE TABLE maevsi_private.account (
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
-    username text NOT NULL,
-    CONSTRAINT account_email_address_check CHECK (((char_length(email_address) < 320) AND (email_address ~ '^.+@.+\..+$'::text) AND (email_address ~ '^[^A-Z]+$'::text))),
-    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+    CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
 
 
@@ -1903,7 +1781,7 @@ ALTER TABLE maevsi_private.account OWNER TO postgres;
 -- Name: TABLE account; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi_private.account IS 'Account data.';
+COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 
 
 --
@@ -1977,41 +1855,12 @@ COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s u
 
 
 --
--- Name: COLUMN account.username; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.account.username IS 'The account''s username.';
-
-
---
--- Name: account_id_seq; Type: SEQUENCE; Schema: maevsi_private; Owner: postgres
---
-
-CREATE SEQUENCE maevsi_private.account_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi_private.account_id_seq OWNER TO postgres;
-
---
--- Name: account_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi_private; Owner: postgres
---
-
-ALTER SEQUENCE maevsi_private.account_id_seq OWNED BY maevsi_private.account.id;
-
-
---
 -- Name: jwt; Type: TABLE; Schema: maevsi_private; Owner: postgres
 --
 
 CREATE TABLE maevsi_private.jwt (
-    id bigint NOT NULL,
-    token maevsi.jwt NOT NULL,
-    uuid uuid DEFAULT gen_random_uuid() NOT NULL
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token maevsi.jwt NOT NULL
 );
 
 
@@ -2039,39 +1888,11 @@ COMMENT ON COLUMN maevsi_private.jwt.token IS 'The token.';
 
 
 --
--- Name: COLUMN jwt.uuid; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.jwt.uuid IS 'The token''s UUID.';
-
-
---
--- Name: jwt_id_seq; Type: SEQUENCE; Schema: maevsi_private; Owner: postgres
---
-
-CREATE SEQUENCE maevsi_private.jwt_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi_private.jwt_id_seq OWNER TO postgres;
-
---
--- Name: jwt_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi_private; Owner: postgres
---
-
-ALTER SEQUENCE maevsi_private.jwt_id_seq OWNED BY maevsi_private.jwt.id;
-
-
---
 -- Name: notification; Type: TABLE; Schema: maevsi_private; Owner: postgres
 --
 
 CREATE TABLE maevsi_private.notification (
-    id bigint NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     channel text NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
@@ -2122,27 +1943,6 @@ COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s pa
 --
 
 COMMENT ON COLUMN maevsi_private.notification."timestamp" IS 'The notification''s timestamp.';
-
-
---
--- Name: notification_id_seq; Type: SEQUENCE; Schema: maevsi_private; Owner: postgres
---
-
-CREATE SEQUENCE maevsi_private.notification_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE maevsi_private.notification_id_seq OWNER TO postgres;
-
---
--- Name: notification_id_seq; Type: SEQUENCE OWNED BY; Schema: maevsi_private; Owner: postgres
---
-
-ALTER SEQUENCE maevsi_private.notification_id_seq OWNED BY maevsi_private.notification.id;
 
 
 --
@@ -2642,81 +2442,27 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
--- Name: contact id; Type: DEFAULT; Schema: maevsi; Owner: postgres
+-- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.contact ALTER COLUMN id SET DEFAULT nextval('maevsi.contact_id_seq'::regclass);
-
-
---
--- Name: event id; Type: DEFAULT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.event ALTER COLUMN id SET DEFAULT nextval('maevsi.event_id_seq'::regclass);
+ALTER TABLE ONLY maevsi.account
+    ADD CONSTRAINT account_pkey PRIMARY KEY (id);
 
 
 --
--- Name: event_group id; Type: DEFAULT; Schema: maevsi; Owner: postgres
+-- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_group ALTER COLUMN id SET DEFAULT nextval('maevsi.event_group_id_seq'::regclass);
-
-
---
--- Name: event_grouping id; Type: DEFAULT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.event_grouping ALTER COLUMN id SET DEFAULT nextval('maevsi.event_grouping_id_seq'::regclass);
+ALTER TABLE ONLY maevsi.account
+    ADD CONSTRAINT account_username_key UNIQUE (username);
 
 
 --
--- Name: invitation id; Type: DEFAULT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.invitation ALTER COLUMN id SET DEFAULT nextval('maevsi.invitation_id_seq'::regclass);
-
-
---
--- Name: profile_picture id; Type: DEFAULT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.profile_picture ALTER COLUMN id SET DEFAULT nextval('maevsi.profile_picture_id_seq'::regclass);
-
-
---
--- Name: upload id; Type: DEFAULT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.upload ALTER COLUMN id SET DEFAULT nextval('maevsi.upload_id_seq'::regclass);
-
-
---
--- Name: account id; Type: DEFAULT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.account ALTER COLUMN id SET DEFAULT nextval('maevsi_private.account_id_seq'::regclass);
-
-
---
--- Name: jwt id; Type: DEFAULT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.jwt ALTER COLUMN id SET DEFAULT nextval('maevsi_private.jwt_id_seq'::regclass);
-
-
---
--- Name: notification id; Type: DEFAULT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.notification ALTER COLUMN id SET DEFAULT nextval('maevsi_private.notification_id_seq'::regclass);
-
-
---
--- Name: contact contact_author_account_username_account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_author_account_id_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_username_account_username_key UNIQUE (author_account_username, account_username);
+    ADD CONSTRAINT contact_author_account_id_account_id_key UNIQUE (author_account_id, account_id);
 
 
 --
@@ -2728,19 +2474,19 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: event event_author_username_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_username_slug_key UNIQUE (author_username, slug);
+    ADD CONSTRAINT event_author_account_id_slug_key UNIQUE (author_account_id, slug);
 
 
 --
--- Name: event_group event_group_author_username_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_group event_group_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_username_slug_key UNIQUE (author_username, slug);
+    ADD CONSTRAINT event_group_author_account_id_slug_key UNIQUE (author_account_id, slug);
 
 
 --
@@ -2792,11 +2538,11 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
--- Name: invitation invitation_uuid_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_uuid_key UNIQUE (uuid);
+ALTER TABLE ONLY maevsi.profile_picture
+    ADD CONSTRAINT profile_picture_account_id_key UNIQUE (account_id);
 
 
 --
@@ -2805,14 +2551,6 @@ ALTER TABLE ONLY maevsi.invitation
 
 ALTER TABLE ONLY maevsi.profile_picture
     ADD CONSTRAINT profile_picture_pkey PRIMARY KEY (id);
-
-
---
--- Name: profile_picture profile_picture_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.profile_picture
-    ADD CONSTRAINT profile_picture_username_key UNIQUE (username);
 
 
 --
@@ -2832,14 +2570,6 @@ ALTER TABLE ONLY maevsi.upload
 
 
 --
--- Name: upload upload_uuid_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.upload
-    ADD CONSTRAINT upload_uuid_key UNIQUE (uuid);
-
-
---
 -- Name: account account_email_address_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2856,14 +2586,6 @@ ALTER TABLE ONLY maevsi_private.account
 
 
 --
--- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.account
-    ADD CONSTRAINT account_username_key UNIQUE (username);
-
-
---
 -- Name: jwt jwt_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2877,14 +2599,6 @@ ALTER TABLE ONLY maevsi_private.jwt
 
 ALTER TABLE ONLY maevsi_private.jwt
     ADD CONSTRAINT jwt_token_key UNIQUE (token);
-
-
---
--- Name: jwt jwt_uuid_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.jwt
-    ADD CONSTRAINT jwt_uuid_key UNIQUE (uuid);
 
 
 --
@@ -2968,31 +2682,31 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_event_author_username; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_event_author_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_author_username ON maevsi.event USING btree (author_username);
-
-
---
--- Name: INDEX idx_event_author_username; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_author_username IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_event_author_account_id ON maevsi.event USING btree (author_account_id);
 
 
 --
--- Name: idx_event_group_author_username; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_group_author_username ON maevsi.event_group USING btree (author_username);
+COMMENT ON INDEX maevsi.idx_event_author_account_id IS 'Speeds up reverse foreign key lookups.';
 
 
 --
--- Name: INDEX idx_event_group_author_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: idx_event_group_author_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_group_author_username IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_event_group_author_account_id ON maevsi.event_group USING btree (author_account_id);
+
+
+--
+-- Name: INDEX idx_event_group_author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_event_group_author_account_id IS 'Speeds up reverse foreign key lookups.';
 
 
 --
@@ -3080,35 +2794,43 @@ CREATE TRIGGER maevsi_private_notification BEFORE INSERT ON maevsi_private.notif
 
 
 --
--- Name: contact contact_account_username_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account
+    ADD CONSTRAINT account_id_fkey FOREIGN KEY (id) REFERENCES maevsi_private.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_account_username_fkey FOREIGN KEY (account_username) REFERENCES maevsi_private.account(username);
+    ADD CONSTRAINT contact_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: contact contact_author_account_username_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_username_fkey FOREIGN KEY (author_account_username) REFERENCES maevsi_private.account(username) ON DELETE CASCADE;
+    ADD CONSTRAINT contact_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
 
 
 --
--- Name: event event_author_username_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_username_fkey FOREIGN KEY (author_username) REFERENCES maevsi_private.account(username);
+    ADD CONSTRAINT event_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: event_group event_group_author_username_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_group event_group_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_username_fkey FOREIGN KEY (author_username) REFERENCES maevsi_private.account(username);
+    ADD CONSTRAINT event_group_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -3144,27 +2866,27 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
--- Name: profile_picture profile_picture_upload_storage_key_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
-    ADD CONSTRAINT profile_picture_upload_storage_key_fkey FOREIGN KEY (upload_storage_key) REFERENCES maevsi.upload(storage_key) ON DELETE CASCADE;
+    ADD CONSTRAINT profile_picture_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: profile_picture profile_picture_username_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
-    ADD CONSTRAINT profile_picture_username_fkey FOREIGN KEY (username) REFERENCES maevsi_private.account(username) ON DELETE CASCADE;
+    ADD CONSTRAINT profile_picture_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
 
 
 --
--- Name: upload upload_username_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: upload upload_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.upload
-    ADD CONSTRAINT upload_username_fkey FOREIGN KEY (username) REFERENCES maevsi_private.account(username);
+    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -3216,6 +2938,19 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
+-- Name: account; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
+
+
+--
 -- Name: contact; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3225,28 +2960,28 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 -- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((author_account_username = current_setting('jwt.claims.username'::text, true)) AND (account_username IS DISTINCT FROM current_setting('jwt.claims.username'::text, true))));
+CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) AND (account_id IS DISTINCT FROM (current_setting('jwt.claims.account_id'::text, true))::uuid)));
 
 
 --
 -- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK ((author_account_username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK ((author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid));
 
 
 --
 -- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (((account_username = current_setting('jwt.claims.username'::text, true)) OR (author_account_username = current_setting('jwt.claims.username'::text, true)) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (((account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) OR (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
 
 
 --
 -- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((author_account_username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid));
 
 
 --
@@ -3271,21 +3006,21 @@ ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 -- Name: event event_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((author_username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid));
 
 
 --
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id)))) OR (author_username = current_setting('jwt.claims.username'::text, true)) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id)))) OR (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
 -- Name: event event_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_update ON maevsi.event FOR UPDATE USING ((author_username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY event_update ON maevsi.event FOR UPDATE USING ((author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid));
 
 
 --
@@ -3307,25 +3042,25 @@ CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING ((event_id
 
 CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_invitee_count_maximum(event_id) IS NULL) OR (maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id))) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.author_account_username = current_setting('jwt.claims.username'::text, true))))));
+  WHERE (contact.author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)))));
 
 
 --
 -- Name: invitation invitation_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((uuid = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
+CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_username = current_setting('jwt.claims.username'::text, true)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
+  WHERE (contact.account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
 
 
 --
 -- Name: invitation invitation_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((uuid = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
+CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_username = current_setting('jwt.claims.username'::text, true)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
+  WHERE (contact.account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
 
 
 --
@@ -3338,14 +3073,14 @@ ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 -- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (username = current_setting('jwt.claims.username'::text, true))));
+CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
 
 
 --
 -- Name: profile_picture profile_picture_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK ((username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK ((account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid));
 
 
 --
@@ -3359,7 +3094,7 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 -- Name: profile_picture profile_picture_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING ((username = current_setting('jwt.claims.username'::text, true)));
+CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING ((account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid));
 
 
 --
@@ -3379,7 +3114,7 @@ CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT C
 -- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (username = current_setting('jwt.claims.username'::text, true))));
+CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
 
 
 --
@@ -3417,15 +3152,6 @@ GRANT ALL ON FUNCTION maevsi.account_email_address_verification(code uuid) TO ma
 
 
 --
--- Name: FUNCTION account_is_existing(username text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_is_existing(username text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_is_existing(username text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.account_is_existing(username text) TO maevsi_anonymous;
-
-
---
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -3458,11 +3184,11 @@ GRANT ALL ON FUNCTION maevsi.account_registration(username text, email_address t
 
 
 --
--- Name: FUNCTION account_registration_refresh(username text, language text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.account_registration_refresh(username text, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_registration_refresh(username text, language text) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) TO maevsi_anonymous;
 
 
 --
@@ -3560,38 +3286,38 @@ GRANT SELECT ON TABLE maevsi.event TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION event_delete(id bigint, password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_delete(id uuid, password text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_delete(id bigint, password text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_delete(id bigint, password text) TO maevsi_account;
-
-
---
--- Name: FUNCTION event_invitee_count_maximum(event_id bigint); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id bigint) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id bigint) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id bigint) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_delete(id uuid, password text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_delete(id uuid, password text) TO maevsi_account;
 
 
 --
--- Name: FUNCTION event_is_existing(author_username text, slug text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_is_existing(author_username text, slug text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_is_existing(author_username text, slug text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_is_existing(author_username text, slug text) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION event_unlock(invitation_code uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(author_account_id uuid, slug text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_unlock(invitation_code uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_code uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_code uuid) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION event_unlock(invitation_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) TO maevsi_anonymous;
 
 
 --
@@ -3664,20 +3390,20 @@ GRANT ALL ON FUNCTION maevsi.invitation_contact_ids() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION invite(invitation_id bigint, language text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(invitation_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.invite(invitation_id bigint, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invite(invitation_id bigint, language text) TO maevsi_account;
+REVOKE ALL ON FUNCTION maevsi.invite(invitation_id uuid, language text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.invite(invitation_id uuid, language text) TO maevsi_account;
 
 
 --
--- Name: FUNCTION invitee_count(event_id bigint); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invitee_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.invitee_count(event_id bigint) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitee_count(event_id bigint) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitee_count(event_id bigint) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.invitee_count(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_anonymous;
 
 
 --
@@ -3690,11 +3416,11 @@ GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION notification_acknowledge(id bigint, is_acknowledged boolean); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id bigint, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id bigint, is_acknowledged boolean) TO maevsi_stomper;
+REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_stomper;
 
 
 --
@@ -3838,11 +3564,11 @@ REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBL
 
 
 --
--- Name: FUNCTION profile_picture_set(storage_key text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION profile_picture_set(upload_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.profile_picture_set(storage_key text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.profile_picture_set(storage_key text) TO maevsi_account;
+REVOKE ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) TO maevsi_account;
 
 
 --
@@ -3852,6 +3578,14 @@ GRANT ALL ON FUNCTION maevsi.profile_picture_set(storage_key text) TO maevsi_acc
 REVOKE ALL ON FUNCTION maevsi.trigger_invitation_update() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE upload; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
+GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi_tusd;
 
 
 --
@@ -3895,18 +3629,19 @@ REVOKE ALL ON FUNCTION maevsi_private.notify() FROM PUBLIC;
 
 
 --
+-- Name: TABLE account; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
+
+
+--
 -- Name: TABLE contact; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.contact TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
-
-
---
--- Name: SEQUENCE contact_id_seq; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT USAGE ON SEQUENCE maevsi.contact_id_seq TO maevsi_account;
 
 
 --
@@ -3918,32 +3653,11 @@ GRANT SELECT ON TABLE maevsi.event_group TO maevsi_anonymous;
 
 
 --
--- Name: SEQUENCE event_group_id_seq; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT USAGE ON SEQUENCE maevsi.event_group_id_seq TO maevsi_account;
-
-
---
 -- Name: TABLE event_grouping; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.event_grouping TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.event_grouping TO maevsi_anonymous;
-
-
---
--- Name: SEQUENCE event_grouping_id_seq; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT USAGE ON SEQUENCE maevsi.event_grouping_id_seq TO maevsi_account;
-
-
---
--- Name: SEQUENCE event_id_seq; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT USAGE ON SEQUENCE maevsi.event_id_seq TO maevsi_account;
 
 
 --
@@ -3955,34 +3669,12 @@ GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
 
 
 --
--- Name: SEQUENCE invitation_id_seq; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT USAGE ON SEQUENCE maevsi.invitation_id_seq TO maevsi_account;
-
-
---
 -- Name: TABLE profile_picture; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
 GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
-
-
---
--- Name: SEQUENCE profile_picture_id_seq; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT USAGE ON SEQUENCE maevsi.profile_picture_id_seq TO maevsi_account;
-
-
---
--- Name: TABLE upload; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
-GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi_tusd;
 
 
 --

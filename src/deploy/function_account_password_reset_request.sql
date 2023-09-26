@@ -2,7 +2,7 @@
 -- requires: privilege_execute_revoke
 -- requires: schema_public
 -- requires: schema_private
--- requires: table_account
+-- requires: table_account_private
 -- requires: table_notification
 -- requires: role_anonymous
 
@@ -21,11 +21,12 @@ BEGIN
       WHERE account.email_address = $1
       RETURNING *
   ) SELECT
-    updated.username,
+    account.username,
     updated.email_address,
     updated.password_reset_verification,
     updated.password_reset_verification_valid_until
-    FROM updated
+    FROM updated, maevsi.account
+    WHERE updated.id = account.id
     INTO _notify_data;
 
   IF (_notify_data IS NULL) THEN

@@ -2,14 +2,14 @@
 -- requires: privilege_execute_revoke
 -- requires: schema_public
 -- requires: schema_private
--- requires: table_account
+-- requires: table_account_private
 -- requires: table_notification
 -- requires: role_anonymous
 
 BEGIN;
 
 CREATE FUNCTION maevsi.account_registration_refresh(
-  username TEXT,
+  account_id UUID,
   "language" TEXT
 ) RETURNS VOID AS $$
 DECLARE
@@ -17,21 +17,22 @@ DECLARE
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
-  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.username = $1)) THEN
-    RAISE 'An account with this username does not exists!' USING ERRCODE = 'invalid_parameter_value';
+  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
+    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
     UPDATE maevsi_private.account
       SET email_address_verification = DEFAULT
-      WHERE account.username = $1
+      WHERE account.id = $1
       RETURNING *
   ) SELECT
-    updated.username,
+    account.username,
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated
+    FROM updated, maevsi.account
+    WHERE updated.id = account.id
     INTO _new_account_notify;
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
@@ -44,8 +45,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.account_registration_refresh(TEXT, TEXT) IS 'Refreshes an account''s email address verification validity period.';
+COMMENT ON FUNCTION maevsi.account_registration_refresh(UUID, TEXT) IS 'Refreshes an account''s email address verification validity period.';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_registration_refresh(TEXT, TEXT) TO maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.account_registration_refresh(UUID, TEXT) TO maevsi_anonymous;
 
 COMMIT;
