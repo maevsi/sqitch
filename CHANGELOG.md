@@ -1,3 +1,19 @@
+## [3.0.0](https://github.com/maevsi/sqitch/compare/2.1.0...3.0.0) (2023-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **upload:** extract policy
+
+### Features
+
+* **upload:** extract policy ([36345ca](https://github.com/maevsi/sqitch/commit/36345ca7ae14e73f460c498810439644e481ff03))
+
+
+### Bug Fixes
+
+* **upload:** show for profile pictures ([dc2d592](https://github.com/maevsi/sqitch/commit/dc2d59233eb108100aa8ae1d4580de16d31971bb))
+
 ## [2.1.0](https://github.com/maevsi/sqitch/compare/2.0.0...2.1.0) (2023-09-26)
 
 
