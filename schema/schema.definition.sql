@@ -3114,7 +3114,8 @@ CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT C
 -- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) OR (id IN ( SELECT profile_picture.upload_id
+   FROM maevsi.profile_picture))));
 
 
 --
@@ -3585,6 +3586,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
 --
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.upload TO maevsi_anonymous;
 GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi_tusd;
 
 
