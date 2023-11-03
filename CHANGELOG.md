@@ -1,3 +1,11 @@
+## [3.0.4](https://github.com/maevsi/sqitch/compare/3.0.3...3.0.4) (2023-11-03)
+
+
+### Bug Fixes
+
+* **invite:** correct output ([b882541](https://github.com/maevsi/sqitch/commit/b88254186d755278d76b52718edd00b2d42ebf78))
+* **policy:** widen null checks ([6323cc4](https://github.com/maevsi/sqitch/commit/6323cc45da8d81798ab07d53e17c987dad5a569f))
+
 ## [3.0.3](https://github.com/maevsi/sqitch/compare/3.0.2...3.0.3) (2023-11-03)
 
 
