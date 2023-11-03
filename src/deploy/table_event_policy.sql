@@ -30,7 +30,7 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
   OR  (
     NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
     AND
-    author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+    author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
   )
   OR  id IN (SELECT maevsi_private.events_invited())
 );
@@ -39,14 +39,14 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
-  author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 -- Only allow updates for events authored by the current user.
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
-  author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 COMMIT;
