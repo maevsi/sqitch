@@ -23,7 +23,7 @@ BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
   _jwt := (
     _jwt_id,
-    current_setting('jwt.claims.account_id', true)::UUID,
+    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID, -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
@@ -43,17 +43,20 @@ BEGIN
     RAISE 'No invitation for this invitation id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  _event := (
-    SELECT author_account_id, slug
+  SELECT *
     FROM maevsi.event
     WHERE id = _event_id
-  );
+    INTO _event;
 
   IF (_event IS NULL) THEN
     RAISE 'No event for this invitation id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  _event_author_account_username := maevsi.account_username_by_id(_event.author_account_id);
+  _event_author_account_username := (
+    SELECT username
+    FROM maevsi.account
+    WHERE id = _event.author_account_id
+  );
 
   IF (_event_author_account_username IS NULL) THEN
     RAISE 'No event author username for this invitation id found!' USING ERRCODE = 'no_data_found';

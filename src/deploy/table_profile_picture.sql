@@ -32,11 +32,15 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 
 -- Only allow inserts with a account id that matches the invoker's account id.
 CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK (
+  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  AND
   account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
 -- Only allow updates to the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING (
+  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  AND
   account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
@@ -44,7 +48,11 @@ CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING 
 CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (
     (SELECT current_user) = 'maevsi_tusd'
   OR
-    account_id = current_setting('jwt.claims.account_id', true)::UUID
+    (
+      NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+      AND
+      account_id = current_setting('jwt.claims.account_id', true)::UUID
+    )
 );
 
 COMMIT;

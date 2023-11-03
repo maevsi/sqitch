@@ -27,17 +27,25 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
           invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
         )
       )
-  OR  author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+  OR  (
+    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+    AND
+    author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+  )
   OR  id IN (SELECT maevsi_private.events_invited())
 );
 
 -- Only allow inserts for events authored by the current user.
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (
+  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  AND
   author_account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 
 -- Only allow updates for events authored by the current user.
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (
+  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  AND
   author_account_id = current_setting('jwt.claims.account_id', true)::UUID
 );
 

@@ -12,7 +12,7 @@ CREATE FUNCTION maevsi.profile_picture_set(
 BEGIN
   INSERT INTO maevsi.profile_picture(account_id, upload_id)
   VALUES (
-    current_setting('jwt.claims.account_id', true)::UUID,
+    current_setting('jwt.claims.account_id')::UUID,
     $1
   )
   ON CONFLICT (account_id)

@@ -9,7 +9,7 @@ BEGIN;
 
 CREATE FUNCTION maevsi.account_upload_quota_bytes() RETURNS BIGINT AS $$
 BEGIN
-  RETURN (SELECT upload_quota_bytes FROM maevsi_private.account WHERE account.id = current_setting('jwt.claims.account_id', true)::UUID);
+  RETURN (SELECT upload_quota_bytes FROM maevsi_private.account WHERE account.id = current_setting('jwt.claims.account_id')::UUID);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 

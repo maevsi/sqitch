@@ -19,7 +19,16 @@ ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
 -- Only display invitations to events organized by oneself.
 CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
       id = ANY (maevsi.invitation_claim_array())
-  OR  contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID)
+  OR
+  (
+    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+    AND
+    contact_id IN (
+      SELECT id
+      FROM maevsi.contact
+      WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+    )
+  )
   OR  event_id IN (SELECT maevsi.events_organized())
 );
 
@@ -33,7 +42,16 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
     OR
     maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id)
   )
-  AND contact_id IN (SELECT id FROM maevsi.contact WHERE contact.author_account_id = current_setting('jwt.claims.account_id', true)::UUID)
+  AND
+  (
+    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+    AND
+    contact_id IN (
+      SELECT id
+      FROM maevsi.contact
+      WHERE contact.author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+    )
+  )
 );
 
 -- Only allow updates to invitations issued to oneself through invitation claims.
@@ -41,7 +59,16 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
 -- Only allow updates to invitations to events organized by oneself.
 CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
   id = ANY (maevsi.invitation_claim_array())
-  OR  contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID)
+  OR
+  (
+    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+    AND
+    contact_id IN (
+      SELECT id
+      FROM maevsi.contact
+      WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+    )
+  )
   OR  event_id IN (SELECT maevsi.events_organized())
 );
 
@@ -58,7 +85,16 @@ BEGIN
       TG_OP = 'UPDATE'
     AND ( -- Invited.
       OLD.id = ANY (maevsi.invitation_claim_array())
-      OR  OLD.contact_id IN (SELECT id FROM maevsi.contact WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID)
+      OR
+      (
+        NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+        AND
+        OLD.contact_id IN (
+          SELECT id
+          FROM maevsi.contact
+          WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+        )
+      )
     )
     AND
       EXISTS (
