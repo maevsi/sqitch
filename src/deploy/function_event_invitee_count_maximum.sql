@@ -29,7 +29,11 @@ BEGIN
                 "event".invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
               )
             )
-        OR  "event".author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        OR (
+          NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+          AND
+          "event".author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        )
         OR  "event".id IN (SELECT maevsi_private.events_invited())
       )
   );
