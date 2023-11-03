@@ -2,8 +2,8 @@
 
 BEGIN;
 
-DROP POLICY upload_delete ON maevsi.event;
-DROP POLICY upload_select ON maevsi.event;
-DROP POLICY upload_update ON maevsi.event;
+DROP POLICY upload_delete_using ON maevsi.upload;
+DROP POLICY upload_select_using ON maevsi.upload;
+DROP POLICY upload_update_using ON maevsi.upload;
 
 COMMIT;

@@ -20,7 +20,11 @@ ALTER TABLE maevsi.upload ENABLE ROW LEVEL SECURITY;
 CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (
     (SELECT current_user) = 'maevsi_tusd'
   OR
-    account_id = current_setting('jwt.claims.account_id', true)::UUID
+    (
+      NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+      AND
+      account_id = current_setting('jwt.claims.account_id', true)::UUID
+    )
   OR
     id IN (SELECT upload_id FROM maevsi.profile_picture)
 );

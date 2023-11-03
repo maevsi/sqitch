@@ -9,10 +9,17 @@ BEGIN;
 
 CREATE FUNCTION maevsi.events_organized()
 RETURNS TABLE (event_id UUID) AS $$
+DECLARE
+  account_id UUID;
 BEGIN
+  account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+
   RETURN QUERY
     SELECT id FROM maevsi.event
-    WHERE "event".author_account_id = current_setting('jwt.claims.account_id', true)::UUID;
+    WHERE
+      account_id IS NOT NULL
+      AND
+      "event".author_account_id = account_id;
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 

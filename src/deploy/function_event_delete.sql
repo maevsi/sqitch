@@ -16,7 +16,7 @@ DECLARE
   _current_account_id UUID;
   _event_deleted maevsi.event;
 BEGIN
-  _current_account_id := current_setting('jwt.claims.account_id', true)::UUID;
+  _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
   IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
     DELETE
