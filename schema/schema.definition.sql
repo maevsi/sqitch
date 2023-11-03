@@ -973,8 +973,8 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _eventAuthorProfilePictureAccountId UUID;
-  _eventAuthorProfilePictureUploadStorageKey TEXT;
+  _event_author_profile_picture_upload_storage_key TEXT;
+  _event_author_username TEXT;
   _invitation RECORD;
 BEGIN
   -- Invitation UUID
@@ -1017,9 +1017,11 @@ BEGIN
     END IF;
   END IF;
 
+  -- Event author username
+  SELECT username FROM maevsi.account INTO _event_author_username WHERE account.id = _event.author_account_id;
+
   -- Event author profile picture storage key
-  SELECT account_id FROM maevsi.profile_picture INTO _eventAuthorProfilePictureAccountId WHERE profile_picture.account_id = _event.author_account_id;
-  SELECT storage_key FROM maevsi.upload INTO _eventAuthorProfilePictureUploadStorageKey WHERE upload.account_id = _eventAuthorProfilePictureAccountId;
+  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.account_id = _event.author_account_id;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -1028,8 +1030,9 @@ BEGIN
         'data', jsonb_build_object(
           'emailAddress', _email_address,
           'event', _event,
-          'eventAuthorProfilePictureUploadStorageKey', _eventAuthorProfilePictureUploadStorageKey,
-          'invitationUuid', _invitation.id
+          'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
+          'eventAuthorUsername', _event_author_username,
+          'invitationId', _invitation.id
         ),
         'template', jsonb_build_object('language', $2)
       ))
@@ -1192,7 +1195,7 @@ BEGIN
         OLD.contact_id IN (
           SELECT id
           FROM maevsi.contact
-          WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+          WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
         )
       )
     )
@@ -2994,28 +2997,28 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 -- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) AND (account_id IS DISTINCT FROM (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND (account_id IS DISTINCT FROM (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid) OR (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
 
 
 --
 -- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -3040,21 +3043,21 @@ ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 -- Name: event event_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id)))) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id)))) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
 -- Name: event event_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_update ON maevsi.event FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY event_update ON maevsi.event FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -3076,7 +3079,7 @@ CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING ((event_id
 
 CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_invitee_count_maximum(event_id) IS NULL) OR (maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id))) AND (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.author_account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid))))));
+  WHERE (contact.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))));
 
 
 --
@@ -3085,7 +3088,7 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((ev
 
 CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = ANY (maevsi.invitation_claim_array())) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
+  WHERE (contact.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
 
 
 --
@@ -3094,7 +3097,7 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = AN
 
 CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = ANY (maevsi.invitation_claim_array())) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
+  WHERE (contact.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
 
 
 --
@@ -3107,14 +3110,14 @@ ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 -- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid))));
+CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))));
 
 
 --
 -- Name: profile_picture profile_picture_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -3128,7 +3131,7 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 -- Name: profile_picture profile_picture_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)));
+CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -3148,7 +3151,7 @@ CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT C
 -- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (current_setting('jwt.claims.account_id'::text, true))::uuid)) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)) OR (id IN ( SELECT profile_picture.upload_id
    FROM maevsi.profile_picture))));
 
 

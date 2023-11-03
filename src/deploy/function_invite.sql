@@ -21,8 +21,8 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _eventAuthorProfilePictureAccountId UUID;
-  _eventAuthorProfilePictureUploadStorageKey TEXT;
+  _event_author_profile_picture_upload_storage_key TEXT;
+  _event_author_username TEXT;
   _invitation RECORD;
 BEGIN
   -- Invitation UUID
@@ -65,9 +65,11 @@ BEGIN
     END IF;
   END IF;
 
+  -- Event author username
+  SELECT username FROM maevsi.account INTO _event_author_username WHERE account.id = _event.author_account_id;
+
   -- Event author profile picture storage key
-  SELECT account_id FROM maevsi.profile_picture INTO _eventAuthorProfilePictureAccountId WHERE profile_picture.account_id = _event.author_account_id;
-  SELECT storage_key FROM maevsi.upload INTO _eventAuthorProfilePictureUploadStorageKey WHERE upload.account_id = _eventAuthorProfilePictureAccountId;
+  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.account_id = _event.author_account_id;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -76,8 +78,9 @@ BEGIN
         'data', jsonb_build_object(
           'emailAddress', _email_address,
           'event', _event,
-          'eventAuthorProfilePictureUploadStorageKey', _eventAuthorProfilePictureUploadStorageKey,
-          'invitationUuid', _invitation.id
+          'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
+          'eventAuthorUsername', _event_author_username,
+          'invitationId', _invitation.id
         ),
         'template', jsonb_build_object('language', $2)
       ))

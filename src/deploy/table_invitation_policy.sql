@@ -26,7 +26,7 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+      WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
   OR  event_id IN (SELECT maevsi.events_organized())
@@ -49,7 +49,7 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.author_account_id = current_setting('jwt.claims.account_id', true)::UUID
+      WHERE contact.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
 );
@@ -66,7 +66,7 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+      WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
   OR  event_id IN (SELECT maevsi.events_organized())
@@ -92,7 +92,7 @@ BEGIN
         OLD.contact_id IN (
           SELECT id
           FROM maevsi.contact
-          WHERE contact.account_id = current_setting('jwt.claims.account_id', true)::UUID
+          WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
         )
       )
     )

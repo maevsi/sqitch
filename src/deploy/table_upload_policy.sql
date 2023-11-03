@@ -23,7 +23,7 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (
     (
       NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
       AND
-      account_id = current_setting('jwt.claims.account_id', true)::UUID
+      account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   OR
     id IN (SELECT upload_id FROM maevsi.profile_picture)
