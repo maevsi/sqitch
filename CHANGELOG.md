@@ -1,3 +1,11 @@
+## [3.0.3](https://github.com/maevsi/sqitch/compare/3.0.2...3.0.3) (2023-11-03)
+
+
+### Bug Fixes
+
+* account for empty account id ([fc75db7](https://github.com/maevsi/sqitch/commit/fc75db7b6dff797b30da372ba652244e6d03cba0))
+* **upload:** correct revert script ([4bf4e9c](https://github.com/maevsi/sqitch/commit/4bf4e9c4730fc8fae10aff54cc6bf1c4f4c6396c))
+
 ## [3.0.2](https://github.com/maevsi/sqitch/compare/3.0.1...3.0.2) (2023-10-28)
 
 
