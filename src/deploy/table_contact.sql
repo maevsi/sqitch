@@ -34,4 +34,44 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_contact_policy`.
 
+CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS TRIGGER AS $$
+  BEGIN
+    IF (
+      -- invoked without account it
+      NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NULL
+      OR
+      -- invoked with account it
+      -- and
+      (
+        -- updating own account's contact
+        OLD.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        AND
+        OLD.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        AND
+        (
+          -- trying to detach from account
+          NEW.account_id != OLD.account_id
+          OR
+          NEW.author_account_id != OLD.author_account_id
+        )
+      )
+    ) THEN
+      RAISE 'You cannot remove the association of your account''s own contact with your account.' USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    RETURN NEW;
+  END;
+$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+
+COMMENT ON FUNCTION maevsi.trigger_contact_update_account_id() IS 'Prevents invalid updates to contacts.';
+
+GRANT EXECUTE ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_account;
+
+CREATE TRIGGER maevsi_trigger_contact_update_account_id
+  BEFORE
+    UPDATE OF account_id, author_account_id
+  ON maevsi.contact
+  FOR EACH ROW
+  EXECUTE PROCEDURE maevsi.trigger_contact_update_account_id();
+
 COMMIT;

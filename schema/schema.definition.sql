@@ -1177,6 +1177,51 @@ COMMENT ON FUNCTION maevsi.profile_picture_set(upload_id uuid) IS 'Sets the pict
 
 
 --
+-- Name: trigger_contact_update_account_id(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF (
+      -- invoked without account it
+      NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NULL
+      OR
+      -- invoked with account it
+      -- and
+      (
+        -- updating own account's contact
+        OLD.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        AND
+        OLD.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        AND
+        (
+          -- trying to detach from account
+          NEW.account_id != OLD.account_id
+          OR
+          NEW.author_account_id != OLD.author_account_id
+        )
+      )
+    ) THEN
+      RAISE 'You cannot remove the association of your account''s own contact with your account.' USING ERRCODE = 'foreign_key_violation';
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_contact_update_account_id() OWNER TO postgres;
+
+--
+-- Name: FUNCTION trigger_contact_update_account_id(); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.trigger_contact_update_account_id() IS 'Prevents invalid updates to contacts.';
+
+
+--
 -- Name: trigger_invitation_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -2812,6 +2857,13 @@ CREATE TRIGGER maevsi_invitation_update BEFORE UPDATE ON maevsi.invitation FOR E
 
 
 --
+-- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, author_account_id ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+
+
+--
 -- Name: account maevsi_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
 --
 
@@ -3609,6 +3661,14 @@ REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBL
 
 REVOKE ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION trigger_contact_update_account_id(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_contact_update_account_id() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_account;
 
 
 --
