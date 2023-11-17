@@ -1,3 +1,10 @@
+## [3.0.7](https://github.com/maevsi/sqitch/compare/3.0.6...3.0.7) (2023-11-17)
+
+
+### Bug Fixes
+
+* **contact:** prevent changes to own contact ([0c9d9e0](https://github.com/maevsi/sqitch/commit/0c9d9e07909a7d4d6df54106206a9eabdcca11ae))
+
 ## [3.0.6](https://github.com/maevsi/sqitch/compare/3.0.5...3.0.6) (2023-11-17)
 
 
