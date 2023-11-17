@@ -973,6 +973,7 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
+  _event_author_profile_picture_upload_id UUID;
   _event_author_profile_picture_upload_storage_key TEXT;
   _event_author_username TEXT;
   _invitation RECORD;
@@ -1021,7 +1022,8 @@ BEGIN
   SELECT username FROM maevsi.account INTO _event_author_username WHERE account.id = _event.author_account_id;
 
   -- Event author profile picture storage key
-  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.account_id = _event.author_account_id;
+  SELECT upload_id FROM maevsi.profile_picture INTO _event_author_profile_picture_upload_id WHERE profile_picture.account_id = _event.author_account_id;
+  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.id = _event_author_profile_picture_upload_id;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
