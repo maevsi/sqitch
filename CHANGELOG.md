@@ -1,3 +1,10 @@
+## [3.0.6](https://github.com/maevsi/sqitch/compare/3.0.5...3.0.6) (2023-11-17)
+
+
+### Bug Fixes
+
+* **invite:** correct profile picture ([2fb5d4a](https://github.com/maevsi/sqitch/commit/2fb5d4a60f2b7fa6469c76206e34f26ce9f35563))
+
 ## [3.0.5](https://github.com/maevsi/sqitch/compare/3.0.4...3.0.5) (2023-11-11)
 
 
