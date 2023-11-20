@@ -1,3 +1,10 @@
+## [3.0.8](https://github.com/maevsi/sqitch/compare/3.0.7...3.0.8) (2023-11-20)
+
+
+### Bug Fixes
+
+* **contact:** revert trigger creation ([3f4e92d](https://github.com/maevsi/sqitch/commit/3f4e92ddebac9fb23f1efcab89bf41b51bab2c16))
+
 ## [3.0.7](https://github.com/maevsi/sqitch/compare/3.0.6...3.0.7) (2023-11-17)
 
 
