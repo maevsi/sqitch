@@ -1,5 +1,5 @@
 ##############################
-FROM sqitch/sqitch@sha256:acd47c19ba4cb1005eaeb17500c6236d462559dc7b2acfdf68d955adb72ed122 AS development
+FROM sqitch/sqitch:v1.4.0.2 AS development
 
 WORKDIR /srv/app
 
@@ -10,7 +10,7 @@ CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:16.1@sha256:a3a4524686403f8c29447a52dea7452923c1bb5d26b33793b93b5e703cd508a4 AS build
+FROM postgres:16.1 AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD=postgres
@@ -30,7 +30,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql
 
 ##############################
-FROM alpine:3.18.4@sha256:eece025e432126ce23f223450a0326fbebde39cdf496a85d8c016293fc851978 AS validate
+FROM alpine:3.18.4 AS validate
 
 WORKDIR /srv/app
 
@@ -41,7 +41,7 @@ RUN diff schema.definition.sql schema.sql
 
 
 ##############################
-FROM sqitch/sqitch@sha256:acd47c19ba4cb1005eaeb17500c6236d462559dc7b2acfdf68d955adb72ed122 AS production
+FROM sqitch/sqitch:v1.4.0.2 AS production
 
 ENV ENV=production
 
