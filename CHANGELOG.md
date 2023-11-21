@@ -1,3 +1,10 @@
+## [3.1.0](https://github.com/maevsi/sqitch/compare/3.0.8...3.1.0) (2023-11-21)
+
+
+### Features
+
+* **grafana:** add database and role ([d863139](https://github.com/maevsi/sqitch/commit/d863139f3df2e0a13af89c5bc095821e72ad5359))
+
 ## [3.0.8](https://github.com/maevsi/sqitch/compare/3.0.7...3.0.8) (2023-11-20)
 
 
