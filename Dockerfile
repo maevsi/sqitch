@@ -19,7 +19,15 @@ WORKDIR /srv/app
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
-      sqitch=1.3.1-1
+      sqitch=1.3.1-1 \
+  && mkdir -p /run/secrets \
+  && echo "grafana" > /run/secrets/postgres_role_grafana_username \
+  && echo "placeholder" | tee \
+    /run/secrets/postgres_role_grafana_password \
+    /run/secrets/postgres_role_maevsi-postgraphile_password \
+    /run/secrets/postgres_role_maevsi-stomper_password \
+    /run/secrets/postgres_role_maevsi-tusd_password \
+    /dev/null
 
 COPY ./src ./
 
