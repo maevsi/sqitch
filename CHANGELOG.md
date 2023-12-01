@@ -1,3 +1,10 @@
+## [3.1.1](https://github.com/maevsi/sqitch/compare/3.1.0...3.1.1) (2023-12-01)
+
+
+### Bug Fixes
+
+* **role-grafana:** correct variable usage ([5cedd46](https://github.com/maevsi/sqitch/commit/5cedd46398a653a66759161a735603acf0d9223e))
+
 ## [3.1.0](https://github.com/maevsi/sqitch/compare/3.0.8...3.1.0) (2023-11-21)
 
 
