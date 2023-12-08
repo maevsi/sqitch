@@ -38,7 +38,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql
 
 ##############################
-FROM alpine:3.18.5 AS validate
+FROM alpine:3.19.0 AS validate
 
 WORKDIR /srv/app
 
