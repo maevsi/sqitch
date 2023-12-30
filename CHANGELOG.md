@@ -1,3 +1,10 @@
+## [3.2.0](https://github.com/maevsi/sqitch/compare/3.1.3...3.2.0) (2023-12-30)
+
+
+### Features
+
+* **authenticate:** allow function execution by account role ([9322aa8](https://github.com/maevsi/sqitch/commit/9322aa83c4763207263ab00621a1e2cd40d1987b))
+
 ## [3.1.3](https://github.com/maevsi/sqitch/compare/3.1.2...3.1.3) (2023-12-23)
 
 
