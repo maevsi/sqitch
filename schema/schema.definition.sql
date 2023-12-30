@@ -3310,6 +3310,7 @@ REVOKE ALL ON FUNCTION maevsi.armor(bytea, text[], text[]) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.authenticate(username text, password text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_anonymous;
 
 
