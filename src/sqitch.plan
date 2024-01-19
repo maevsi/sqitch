@@ -62,3 +62,7 @@ function_notification_acknowledge [privilege_execute_revoke schema_public schema
 function_account_upload_quota_bytes [privilege_execute_revoke schema_public schema_private table_account_private role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Gets the total upload quota in bytes for the invoking account.
 database_grafana 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Create observation dashboard's database.
 role_grafana [database_grafana] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role grafana.
+enum_event_category 2024-01-19T14:03:33Z marlon <marlon@t14s> # enum_event_category\n     deploy/enum_event_category.sql\n     revert/enum_event_category.sql\n     verify/enum_event_category.sql
+table_user_interest 2024-01-19T14:06:54Z marlon <marlon@t14s> # table_user_interest\n     deploy/table_user_interest.sql\n     revert/table_user_interest.sql\n     verify/table_user_interest.sql
+table_event_category_mapping 2024-01-19T14:10:16Z marlon <marlon@t14s> # table_event_category_mapping\n     deploy/table_event_category_mapping.sql\n     revert/table_event_category_mapping.sql\n     verify/table_event_category_mapping.sql
+table_event_recommendation 2024-01-19T14:12:12Z marlon <marlon@t14s> #    table_event_recommendation\n     deploy/table_event_recommendation.sql\n     revert/table_event_recommendation.sql\n     verify/table_event_recommendation.sql
