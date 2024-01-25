@@ -18,7 +18,7 @@ CREATE TYPE maevsi.event_category AS ENUM (
     'performing_arts',
     'seminars',
     'sports_and_active_life',
-    'visual_arts', 
+    'visual_arts' 
 );
 
 COMMIT;

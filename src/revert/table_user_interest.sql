@@ -2,6 +2,6 @@
 
 BEGIN;
 
-DROP TABLE maevsi.table_user_interest;
+DROP TABLE maevsi.user_interest;
 
 COMMIT;

@@ -77,6 +77,32 @@ COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
 
 
 --
+-- Name: event_category; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.event_category AS ENUM (
+    'bar',
+    'charities',
+    'culture',
+    'fashion',
+    'festival',
+    'film',
+    'food_and_drinks',
+    'kids_and_family',
+    'lectures_and_books',
+    'music',
+    'networking',
+    'nightlife',
+    'performing_arts',
+    'seminars',
+    'sports_and_active_life',
+    'visual_arts'
+);
+
+
+ALTER TYPE maevsi.event_category OWNER TO postgres;
+
+--
 -- Name: jwt; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -1629,6 +1655,18 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 
 --
+-- Name: event_category_mapping; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_category_mapping (
+    event_id uuid NOT NULL,
+    category maevsi.event_category NOT NULL
+);
+
+
+ALTER TABLE maevsi.event_category_mapping OWNER TO postgres;
+
+--
 -- Name: event_group; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1741,6 +1779,20 @@ COMMENT ON COLUMN maevsi.event_grouping.event_id IS 'The event grouping''s inter
 
 
 --
+-- Name: event_recommendation; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_recommendation (
+    user_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    score real,
+    predicted_score real
+);
+
+
+ALTER TABLE maevsi.event_recommendation OWNER TO postgres;
+
+--
 -- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1839,6 +1891,18 @@ COMMENT ON COLUMN maevsi.profile_picture.account_id IS 'The account''s id.';
 
 COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
+
+--
+-- Name: user_interest; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.user_interest (
+    user_id uuid NOT NULL,
+    category maevsi.event_category NOT NULL
+);
+
+
+ALTER TABLE maevsi.user_interest OWNER TO postgres;
 
 --
 -- Name: account; Type: TABLE; Schema: maevsi_private; Owner: postgres
@@ -2566,6 +2630,14 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
+-- Name: event_category_mapping event_category_mapping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_category_mapping
+    ADD CONSTRAINT event_category_mapping_pkey PRIMARY KEY (event_id, category);
+
+
+--
 -- Name: event_group event_group_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -2603,6 +2675,14 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 ALTER TABLE ONLY maevsi.event
     ADD CONSTRAINT event_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_recommendation event_recommendation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_recommendation
+    ADD CONSTRAINT event_recommendation_pkey PRIMARY KEY (user_id, event_id);
 
 
 --
@@ -2651,6 +2731,14 @@ ALTER TABLE ONLY maevsi.upload
 
 ALTER TABLE ONLY maevsi.upload
     ADD CONSTRAINT upload_storage_key_key UNIQUE (storage_key);
+
+
+--
+-- Name: user_interest user_interest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.user_interest
+    ADD CONSTRAINT user_interest_pkey PRIMARY KEY (user_id, category);
 
 
 --
@@ -2917,6 +3005,14 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
+-- Name: event_category_mapping event_category_mapping_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_category_mapping
+    ADD CONSTRAINT event_category_mapping_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+
+
+--
 -- Name: event_group event_group_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -2938,6 +3034,22 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 ALTER TABLE ONLY maevsi.event_grouping
     ADD CONSTRAINT event_grouping_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: event_recommendation event_recommendation_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_recommendation
+    ADD CONSTRAINT event_recommendation_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_recommendation event_recommendation_user_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_recommendation
+    ADD CONSTRAINT event_recommendation_user_id_fkey FOREIGN KEY (user_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
 
 
 --
@@ -2978,6 +3090,14 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 ALTER TABLE ONLY maevsi.upload
     ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: user_interest user_interest_user_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.user_interest
+    ADD CONSTRAINT user_interest_user_id_fkey FOREIGN KEY (user_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
 
 
 --
