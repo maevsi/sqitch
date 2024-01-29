@@ -3202,6 +3202,35 @@ CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((((NULLIF(curre
 ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (event_id = ( SELECT event.id
+   FROM maevsi.event
+  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))));
+
+
+--
+-- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (event_id = ( SELECT event.id
+   FROM maevsi.event
+  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))));
+
+
+--
+-- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((event_id = ( SELECT event.id
+   FROM maevsi.event
+  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) OR (( SELECT event.visibility
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility))));
+
+
+--
 -- Name: event_group; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3219,6 +3248,12 @@ ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
+
+--
+-- Name: event_recommendation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.event_recommendation ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
@@ -3334,6 +3369,33 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT 
 --
 
 CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name));
+
+
+--
+-- Name: user_interest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.user_interest ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: user_interest user_interest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY user_interest_delete ON maevsi.user_interest FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (user_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: user_interest user_interest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY user_interest_insert ON maevsi.user_interest FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (user_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: user_interest user_interest_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY user_interest_select ON maevsi.user_interest FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (user_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -3867,6 +3929,13 @@ GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE event_category_mapping; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_account;
+
+
+--
 -- Name: TABLE event_group; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -3897,6 +3966,13 @@ GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
 GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+
+
+--
+-- Name: TABLE user_interest; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.user_interest TO maevsi_account;
 
 
 --
