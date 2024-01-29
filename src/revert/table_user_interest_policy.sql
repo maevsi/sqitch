@@ -2,8 +2,8 @@
 
 BEGIN;
 
-DROP POLICY user_interest_select ON maevsi.user_interest_select;
-DROP POLICY user_interest_insert ON maevsi.user_interest_select;
-DROP POLICY user_interest_delete ON maevsi.user_interest_select;
+DROP POLICY user_interest_select ON maevsi.user_interest;
+DROP POLICY user_interest_insert ON maevsi.user_interest;
+DROP POLICY user_interest_delete ON maevsi.user_interest;
 
 COMMIT;

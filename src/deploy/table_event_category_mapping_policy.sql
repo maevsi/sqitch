@@ -10,12 +10,12 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
   AND (
     event_id = (SELECT id FROM maevsi.event WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID)
     OR
-    visibility = 'public'
+    (SELECT visibility FROM maevsi.event WHERE id = event_id) = 'public'
   )
 );
 
 -- Only allow inserts for events authored by user.
-CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT CHECK (
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
   event_id = (SELECT id FROM maevsi.event WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID)
