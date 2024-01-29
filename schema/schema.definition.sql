@@ -3205,27 +3205,27 @@ ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 -- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (event_id = ( SELECT event.id
+CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))));
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (event_id = ( SELECT event.id
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))));
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((event_id = ( SELECT event.id
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) OR (( SELECT event.visibility
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (( SELECT event.visibility
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility))));
 

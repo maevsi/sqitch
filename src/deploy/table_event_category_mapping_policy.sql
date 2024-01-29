@@ -8,7 +8,7 @@ GRANT SELECT, INSERT, DELETE ON TABLE maevsi.event_category_mapping TO maevsi_ac
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND (
-    event_id = (SELECT id FROM maevsi.event WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID)
+    (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     OR
     (SELECT visibility FROM maevsi.event WHERE id = event_id) = 'public'
   )
@@ -18,14 +18,14 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
 CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
-  event_id = (SELECT id FROM maevsi.event WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID)
+  (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 -- Only allow deletes for events authored by user.
 CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
-  event_id = (SELECT id FROM maevsi.event WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID)
+  (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 COMMIT;
