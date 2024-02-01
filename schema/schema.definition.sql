@@ -3227,7 +3227,7 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (( SELECT event.visibility
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility))));
+  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)))));
 
 
 --
