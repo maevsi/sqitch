@@ -14,6 +14,7 @@ In case you want to be able to simple call `sqitch deploy` without `./` instead,
 This diagram shows the structure of maevsi's database.
 
 ![Graph](./docs/graph.png)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmaevsi%2Fsqitch.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmaevsi%2Fsqitch?ref=badge_shield)
 
 You can create this file as follows:
 
@@ -32,3 +33,7 @@ You can create this file as follows:
 1. still as `root` upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
 
 1. click the link in the output and download the image that pops up!
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmaevsi%2Fsqitch.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmaevsi%2Fsqitch?ref=badge_large)
