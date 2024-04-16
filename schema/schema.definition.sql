@@ -1841,6 +1841,64 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 
 --
+-- Name: report; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.report (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    reporter_id uuid NOT NULL,
+    event_id uuid,
+    upload_id uuid,
+    user_id uuid,
+    CONSTRAINT report_check CHECK ((num_nonnulls(event_id, upload_id, user_id) = 1))
+);
+
+
+ALTER TABLE maevsi.report OWNER TO postgres;
+
+--
+-- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.report IS 'A report.';
+
+
+--
+-- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.id IS 'The report''s internal id.';
+
+
+--
+-- Name: COLUMN report.reporter_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.reporter_id IS 'The id of the user that created the report.';
+
+
+--
+-- Name: COLUMN report.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.event_id IS 'The id of an event the report was created for.';
+
+
+--
+-- Name: COLUMN report.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.upload_id IS 'The id of an upload the report was created for.';
+
+
+--
+-- Name: COLUMN report.user_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.user_id IS 'The id of a user the report was created for.';
+
+
+--
 -- Name: account; Type: TABLE; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2638,6 +2696,14 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
+-- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: upload upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -2970,6 +3036,38 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 ALTER TABLE ONLY maevsi.profile_picture
     ADD CONSTRAINT profile_picture_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
+-- Name: report report_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: report report_reporter_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
+-- Name: report report_user_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_user_id_fkey FOREIGN KEY (user_id) REFERENCES maevsi.account(id);
 
 
 --
