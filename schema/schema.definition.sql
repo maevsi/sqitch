@@ -3295,6 +3295,19 @@ CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING 
 
 
 --
+-- Name: report; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (reporter_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
 -- Name: upload; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3883,6 +3896,13 @@ GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
 GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+
+
+--
+-- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT INSERT ON TABLE maevsi.report TO maevsi_account;
 
 
 --
