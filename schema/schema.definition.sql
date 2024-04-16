@@ -1847,6 +1847,7 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 CREATE TABLE maevsi.report (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     reporter_id uuid NOT NULL,
+    reason text NOT NULL,
     event_id uuid,
     upload_id uuid,
     user_id uuid,
@@ -1875,6 +1876,13 @@ COMMENT ON COLUMN maevsi.report.id IS 'The report''s internal id.';
 --
 
 COMMENT ON COLUMN maevsi.report.reporter_id IS 'The id of the user that created the report.';
+
+
+--
+-- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.reason IS 'The reason why the report was created.';
 
 
 --

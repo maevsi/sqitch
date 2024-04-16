@@ -4,6 +4,7 @@ BEGIN;
 
 SELECT id,
        reporter_id,
+       reason,
        event_id,
        upload_id,
        user_id
