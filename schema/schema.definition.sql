@@ -3316,6 +3316,13 @@ CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(cu
 
 
 --
+-- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (reporter_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
 -- Name: upload; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3910,7 +3917,7 @@ GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
 -- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT INSERT ON TABLE maevsi.report TO maevsi_account;
+GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 
 
 --

@@ -3,5 +3,6 @@
 BEGIN;
 
 DROP POLICY report_insert;
+DROP POLICY report_select;
 
 COMMIT;
