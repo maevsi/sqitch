@@ -2712,6 +2712,14 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
+-- Name: report report_reporter_id_event_id_upload_id_user_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_reporter_id_event_id_upload_id_user_id_key UNIQUE (reporter_id, event_id, upload_id, user_id);
+
+
+--
 -- Name: upload upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 

@@ -9,7 +9,8 @@ CREATE TABLE maevsi.report (
     event_id        UUID REFERENCES maevsi.event(id),
     upload_id       UUID REFERENCES maevsi.upload(id),
     user_id         UUID REFERENCES maevsi.account(id),
-    CHECK (num_nonnulls(event_id, upload_id, user_id) = 1)
+    CHECK (num_nonnulls(event_id, upload_id, user_id) = 1),
+    UNIQUE (reporter_id, event_id, upload_id, user_id)
 );
 
 COMMENT ON TABLE maevsi.report IS 'A report.';
