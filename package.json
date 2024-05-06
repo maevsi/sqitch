@@ -1,6 +1,6 @@
 {
   "name": "@maevsi/sqitch",
-  "version": "3.2.8",
+  "version": "3.2.9",
   "private": true,
   "engines": {
     "node": "20"
