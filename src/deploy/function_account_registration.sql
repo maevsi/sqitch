@@ -8,6 +8,7 @@
 -- requires: extension_pgcrypto
 -- requires: table_notification
 -- requires: role_anonymous
+-- requires: role_account
 
 BEGIN;
 
@@ -65,6 +66,6 @@ $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi.account_registration(TEXT, TEXT, TEXT, TEXT) IS 'Creates a contact and registers an account referencing it.';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_registration(TEXT, TEXT, TEXT, TEXT) TO maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.account_registration(TEXT, TEXT, TEXT, TEXT) TO maevsi_anonymous, maevsi_account;
 
 COMMIT;

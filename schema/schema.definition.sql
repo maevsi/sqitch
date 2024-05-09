@@ -3257,6 +3257,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_change(password_current text, pass
 
 REVOKE ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO maevsi_account;
 
 
 --
@@ -3265,6 +3266,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO
 
 REVOKE ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) TO maevsi_account;
 
 
 --
@@ -3273,6 +3275,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, 
 
 REVOKE ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) TO maevsi_account;
 
 
 --
