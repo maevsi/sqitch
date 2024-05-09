@@ -1,3 +1,10 @@
+## [3.3.0](https://github.com/maevsi/sqitch/compare/3.2.9...3.3.0) (2024-05-09)
+
+
+### Features
+
+* **account:** allow function execution by signed in users ([fa4eb8c](https://github.com/maevsi/sqitch/commit/fa4eb8cd08c55c287c2bb99c4ff3cdfdb08fd38d))
+
 ## [3.2.9](https://github.com/maevsi/sqitch/compare/3.2.8...3.2.9) (2024-05-06)
 
 
