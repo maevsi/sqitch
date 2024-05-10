@@ -10,7 +10,7 @@ CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:16.2 AS build
+FROM postgres:16.3 AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD=postgres
