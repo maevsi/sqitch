@@ -1,3 +1,10 @@
+## [3.3.1](https://github.com/maevsi/sqitch/compare/3.3.0...3.3.1) (2024-05-18)
+
+
+### Bug Fixes
+
+* schedule release ([7bdeec9](https://github.com/maevsi/sqitch/commit/7bdeec9895351dff33c07dae3f3d6e1902bb6693))
+
 ## [3.3.0](https://github.com/maevsi/sqitch/compare/3.2.9...3.3.0) (2024-05-09)
 
 
