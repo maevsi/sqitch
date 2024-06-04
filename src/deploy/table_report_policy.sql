@@ -1,4 +1,7 @@
 -- Deploy maevsi:table_report_policy to pg
+-- requires: schema_public
+-- requires: table_report
+-- requires: role_account
 
 BEGIN;
 
@@ -10,14 +13,14 @@ ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
 CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
-  reporter_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 -- Only allow selects for reports authored by the current user.
 CREATE POLICY report_select ON maevsi.report FOR SELECT USING (
   NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
   AND
-  reporter_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 COMMIT;

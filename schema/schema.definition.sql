@@ -1846,12 +1846,13 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 CREATE TABLE maevsi.report (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    reporter_id uuid NOT NULL,
+    author_account_id uuid NOT NULL,
     reason text NOT NULL,
-    event_id uuid,
-    upload_id uuid,
-    user_id uuid,
-    CONSTRAINT report_check CHECK ((num_nonnulls(event_id, upload_id, user_id) = 1))
+    target_account_id uuid,
+    target_event_id uuid,
+    target_upload_id uuid,
+    CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
+    CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
 );
 
 
@@ -1868,42 +1869,43 @@ COMMENT ON TABLE maevsi.report IS 'A report.';
 -- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.id IS 'The report''s internal id.';
+COMMENT ON COLUMN maevsi.report.id IS '@omit create,update
+The report''s internal id.';
 
 
 --
--- Name: COLUMN report.reporter_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.reporter_id IS 'The id of the user that created the report.';
+COMMENT ON COLUMN maevsi.report.author_account_id IS 'The id of the user who created the report.';
 
 
 --
 -- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.reason IS 'The reason why the report was created.';
+COMMENT ON COLUMN maevsi.report.reason IS 'The reason given by the reporter on why the report was created.';
 
 
 --
--- Name: COLUMN report.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.target_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.event_id IS 'The id of an event the report was created for.';
-
-
---
--- Name: COLUMN report.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.report.upload_id IS 'The id of an upload the report was created for.';
+COMMENT ON COLUMN maevsi.report.target_account_id IS 'The id of the account the report was created for.';
 
 
 --
--- Name: COLUMN report.user_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.target_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.user_id IS 'The id of a user the report was created for.';
+COMMENT ON COLUMN maevsi.report.target_event_id IS 'The id of the event the report was created for.';
+
+
+--
+-- Name: COLUMN report.target_upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The id of the upload the report was created for.';
 
 
 --
@@ -2704,19 +2706,19 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
+-- Name: report report_author_account_id_target_account_id_target_event_id__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_target_account_id_target_event_id__key UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id);
+
+
+--
 -- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
     ADD CONSTRAINT report_pkey PRIMARY KEY (id);
-
-
---
--- Name: report report_reporter_id_event_id_upload_id_user_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_reporter_id_event_id_upload_id_user_id_key UNIQUE (reporter_id, event_id, upload_id, user_id);
 
 
 --
@@ -3055,35 +3057,35 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+    ADD CONSTRAINT report_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: report report_reporter_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_reporter_id_fkey FOREIGN KEY (reporter_id) REFERENCES maevsi.account(id);
-
-
---
--- Name: report report_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_target_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+    ADD CONSTRAINT report_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: report report_user_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_target_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_user_id_fkey FOREIGN KEY (user_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT report_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: report report_target_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_upload_id_fkey FOREIGN KEY (target_upload_id) REFERENCES maevsi.upload(id);
 
 
 --
@@ -3312,14 +3314,14 @@ ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
 -- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (reporter_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
 -- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY report_select ON maevsi.report FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (reporter_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --

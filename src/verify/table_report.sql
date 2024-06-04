@@ -3,11 +3,11 @@
 BEGIN;
 
 SELECT id,
-       reporter_id,
+       author_account_id,
        reason,
-       event_id,
-       upload_id,
-       user_id
+       target_account_id,
+       target_event_id,
+       target_upload_id
 FROM maevsi.report WHERE FALSE;
 
 ROLLBACK;
