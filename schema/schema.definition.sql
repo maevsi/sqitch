@@ -77,21 +77,21 @@ COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
 
 
 --
--- Name: achievement; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: achievement_type; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TYPE maevsi.achievement AS ENUM (
+CREATE TYPE maevsi.achievement_type AS ENUM (
     'meet_the_team'
 );
 
 
-ALTER TYPE maevsi.achievement OWNER TO postgres;
+ALTER TYPE maevsi.achievement_type OWNER TO postgres;
 
 --
--- Name: TYPE achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE achievement_type; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.achievement IS 'Achievements that can be unlocked by users.';
+COMMENT ON TYPE maevsi.achievement_type IS 'Achievements that can be unlocked by users.';
 
 
 --
@@ -514,6 +514,58 @@ ALTER FUNCTION maevsi.account_upload_quota_bytes() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.account_upload_quota_bytes() IS 'Gets the total upload quota in bytes for the invoking account.';
+
+
+--
+-- Name: achievement_unlock(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.achievement_unlock(code uuid, alias text) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $_$
+DECLARE
+  _account_id UUID;
+  _achievement maevsi.achievement_type;
+  _achievement_id UUID;
+BEGIN
+  _account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+
+  SELECT achievement
+    FROM maevsi_private.achievement_code
+    INTO _achievement
+    WHERE achievement_code.id = $1 OR achievement_code.alias = $2;
+
+  IF (_achievement IS NULL) THEN
+    RAISE 'Unknown achievement!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  IF (_account_id IS NULL) THEN
+    RAISE 'Unknown account!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  _achievement_id := (
+    SELECT id FROM maevsi.achievement
+    WHERE achievement.account_id = _account_id AND achievement.achievement = _achievement
+  );
+
+  IF (_achievement_id IS NULL) THEN
+    INSERT INTO maevsi.achievement(account_id, achievement)
+      VALUES (_account_id,  _achievement)
+      RETURNING achievement.id INTO _achievement_id;
+  END IF;
+
+  RETURN _achievement_id;
+END;
+$_$;
+
+
+ALTER FUNCTION maevsi.achievement_unlock(code uuid, alias text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
 
 
 --
@@ -1542,53 +1594,53 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
--- Name: achievement_unlock; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.achievement_unlock (
+CREATE TABLE maevsi.achievement (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
-    achievement maevsi.achievement NOT NULL,
+    achievement maevsi.achievement_type NOT NULL,
     level integer DEFAULT 1 NOT NULL,
-    CONSTRAINT achievement_unlock_level_check CHECK ((level > 0))
+    CONSTRAINT achievement_level_check CHECK ((level > 0))
 );
 
 
-ALTER TABLE maevsi.achievement_unlock OWNER TO postgres;
+ALTER TABLE maevsi.achievement OWNER TO postgres;
 
 --
--- Name: TABLE achievement_unlock; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.achievement_unlock IS 'Achievements unlocked by users.';
-
-
---
--- Name: COLUMN achievement_unlock.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.achievement_unlock.id IS 'The achievement unlock''s internal id.';
+COMMENT ON TABLE maevsi.achievement IS 'Achievements unlocked by users.';
 
 
 --
--- Name: COLUMN achievement_unlock.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN achievement.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.achievement_unlock.account_id IS 'The account which unlocked the achievement.';
-
-
---
--- Name: COLUMN achievement_unlock.achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.achievement_unlock.achievement IS 'The unlock''s achievement.';
+COMMENT ON COLUMN maevsi.achievement.id IS 'The achievement unlock''s internal id.';
 
 
 --
--- Name: COLUMN achievement_unlock.level; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN achievement.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.achievement_unlock.level IS 'The achievement unlock''s level.';
+COMMENT ON COLUMN maevsi.achievement.account_id IS 'The account which unlocked the achievement.';
+
+
+--
+-- Name: COLUMN achievement.achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.achievement.achievement IS 'The unlock''s achievement.';
+
+
+--
+-- Name: COLUMN achievement.level; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.';
 
 
 --
@@ -2013,7 +2065,7 @@ COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s u
 CREATE TABLE maevsi_private.achievement_code (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     alias text NOT NULL,
-    achievement maevsi.achievement NOT NULL,
+    achievement maevsi.achievement_type NOT NULL,
     CONSTRAINT achievement_code_alias_check CHECK ((char_length(alias) < 1000))
 );
 
@@ -2652,19 +2704,19 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
--- Name: achievement_unlock achievement_unlock_account_id_achievement_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_account_id_achievement_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.achievement_unlock
-    ADD CONSTRAINT achievement_unlock_account_id_achievement_key UNIQUE (account_id, achievement);
+ALTER TABLE ONLY maevsi.achievement
+    ADD CONSTRAINT achievement_account_id_achievement_key UNIQUE (account_id, achievement);
 
 
 --
--- Name: achievement_unlock achievement_unlock_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.achievement_unlock
-    ADD CONSTRAINT achievement_unlock_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY maevsi.achievement
+    ADD CONSTRAINT achievement_pkey PRIMARY KEY (id);
 
 
 --
@@ -3035,11 +3087,11 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
--- Name: achievement_unlock achievement_unlock_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.achievement_unlock
-    ADD CONSTRAINT achievement_unlock_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+ALTER TABLE ONLY maevsi.achievement
+    ADD CONSTRAINT achievement_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -3192,16 +3244,16 @@ CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
 
 
 --
--- Name: achievement_unlock; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: achievement; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.achievement_unlock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.achievement ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: achievement_unlock achievement_unlock_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY achievement_unlock_select ON maevsi.achievement_unlock FOR SELECT USING (true);
+CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
 
 
 --
@@ -3468,6 +3520,14 @@ GRANT ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, langu
 
 REVOKE ALL ON FUNCTION maevsi.account_upload_quota_bytes() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_upload_quota_bytes() TO maevsi_account;
+
+
+--
+-- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) TO maevsi_account;
 
 
 --
@@ -3918,11 +3978,11 @@ GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
 
 
 --
--- Name: TABLE achievement_unlock; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE achievement; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT ON TABLE maevsi.achievement_unlock TO maevsi_account;
-GRANT SELECT ON TABLE maevsi.achievement_unlock TO maevsi_anonymous;
+GRANT SELECT ON TABLE maevsi.achievement TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
 
 
 --

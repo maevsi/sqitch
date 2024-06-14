@@ -1,7 +1,7 @@
 -- Deploy maevsi:table_achievement_code to pg
 -- requires: schema_private
 -- requires: schema_public
--- requires: enum_achievement
+-- requires: enum_achievement_type
 -- requires: role_tusd
 
 BEGIN;
@@ -9,7 +9,7 @@ BEGIN;
 CREATE TABLE maevsi_private.achievement_code (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   alias       TEXT NOT NULL CHECK (char_length(alias) < 1000) UNIQUE,
-  achievement maevsi.achievement NOT NULL
+  achievement maevsi.achievement_type NOT NULL
 );
 
 COMMENT ON TABLE maevsi_private.achievement_code IS 'Codes that unlock achievements.';
