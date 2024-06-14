@@ -1,3 +1,10 @@
+## [3.4.0](https://github.com/maevsi/sqitch/compare/3.3.2...3.4.0) (2024-06-14)
+
+### Features
+
+* **achievements:** add unlock function ([090e1ff](https://github.com/maevsi/sqitch/commit/090e1ff400177841aa1a7dae2e4a082345a673e5))
+* add achievements ([406a335](https://github.com/maevsi/sqitch/commit/406a335995d05b7dc46b6a5998627d9dabcf2c9c))
+
 ## [3.3.2](https://github.com/maevsi/sqitch/compare/3.3.1...3.3.2) (2024-06-01)
 
 
