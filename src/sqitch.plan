@@ -62,3 +62,6 @@ function_notification_acknowledge [privilege_execute_revoke schema_public schema
 function_account_upload_quota_bytes [privilege_execute_revoke schema_public schema_private table_account_private role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Gets the total upload quota in bytes for the invoking account.
 database_grafana 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Create observation dashboard's database.
 role_grafana [database_grafana] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role grafana.
+enum_achievement [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Achievement enumeration.
+table_achievement_code [schema_private schema_public enum_achievement] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Codes that unlock achievements.
+table_achievement_unlock [schema_public table_account_public enum_achievement role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Achievement unlocks by user.
