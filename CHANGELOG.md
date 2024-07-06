@@ -1,3 +1,9 @@
+## [3.4.2](https://github.com/maevsi/sqitch/compare/3.4.1...3.4.2) (2024-07-06)
+
+### Bug Fixes
+
+* schedule release ([fda139e](https://github.com/maevsi/sqitch/commit/fda139e168b42ad910c8871e7b5afc239e23e66a))
+
 ## [3.4.1](https://github.com/maevsi/sqitch/compare/3.4.0...3.4.1) (2024-06-22)
 
 ### Bug Fixes
