@@ -1,5 +1,5 @@
 ##############################
-FROM sqitch/sqitch:v1.4.1.1 AS development
+FROM sqitch/sqitch:v1.4.1.2 AS development
 
 WORKDIR /srv/app
 
@@ -49,7 +49,7 @@ RUN diff schema.definition.sql schema.sql
 
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.1 AS production
+FROM sqitch/sqitch:v1.4.1.2 AS production
 
 ENV ENV=production
 
