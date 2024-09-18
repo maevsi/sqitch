@@ -13,6 +13,7 @@ CREATE TABLE maevsi.report (
   target_account_id   UUID REFERENCES maevsi.account(id),
   target_event_id     UUID REFERENCES maevsi.event(id),
   target_upload_id    UUID REFERENCES maevsi.upload(id),
+  created             TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CHECK (num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1),
   UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id)
 );

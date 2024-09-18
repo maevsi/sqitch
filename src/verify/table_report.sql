@@ -7,7 +7,8 @@ SELECT id,
        reason,
        target_account_id,
        target_event_id,
-       target_upload_id
+       target_upload_id,
+       created
 FROM maevsi.report WHERE FALSE;
 
 ROLLBACK;

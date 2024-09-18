@@ -1851,6 +1851,7 @@ CREATE TABLE maevsi.report (
     target_account_id uuid,
     target_event_id uuid,
     target_upload_id uuid,
+    created timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
     CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
 );
