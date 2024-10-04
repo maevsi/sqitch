@@ -1,3 +1,13 @@
+## [4.0.0-beta.1](https://github.com/maevsi/sqitch/compare/3.4.8...4.0.0-beta.1) (2024-10-04)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** remove trigger
+
+### Features
+
+* **notification:** remove trigger ([bef6af9](https://github.com/maevsi/sqitch/commit/bef6af9f33c9f57c042aa3269095b6d38fb4c3cb))
+
 ## [3.4.8](https://github.com/maevsi/sqitch/compare/3.4.7...3.4.8) (2024-09-28)
 
 ### Bug Fixes
