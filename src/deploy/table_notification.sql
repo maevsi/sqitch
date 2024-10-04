@@ -35,10 +35,4 @@ $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi_private.notify() IS 'Triggers a pg_notify for the given data.';
 
-CREATE TRIGGER maevsi_private_notification
-  BEFORE INSERT
-  ON maevsi_private.notification
-  FOR EACH ROW
-  EXECUTE FUNCTION maevsi_private.notify();
-
 COMMIT;
