@@ -4,8 +4,11 @@
 BEGIN;
 
 \set role_maevsi_stomper_password `cat /run/secrets/postgres_role_maevsi-stomper_password`
-CREATE ROLE maevsi_stomper LOGIN PASSWORD :'role_maevsi_stomper_password';
+\set role_maevsi_stomper_username `cat /run/secrets/postgres_role_maevsi-stomper_username`
+\set role_maevsi_postgraphile_username `cat /run/secrets/postgres_role_maevsi-postgraphile_username`
 
-GRANT maevsi_stomper to maevsi_postgraphile;
+CREATE ROLE :role_maevsi_stomper_username LOGIN PASSWORD :'role_maevsi_stomper_password';
+
+GRANT :role_maevsi_stomper_username TO :role_maevsi_postgraphile_username; -- TODO: why postgrahpile?
 
 COMMIT;
