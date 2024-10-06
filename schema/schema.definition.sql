@@ -3414,7 +3414,6 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
-GRANT USAGE ON SCHEMA maevsi TO maevsi_stomper;
 
 
 --
