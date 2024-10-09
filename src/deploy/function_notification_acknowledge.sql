@@ -3,6 +3,7 @@
 -- requires: schema_public
 -- requires: schema_private
 -- requires: table_notification
+-- requires: role_anonymous
 
 BEGIN;
 
@@ -21,6 +22,6 @@ $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) IS 'Allows to set the acknowledgement state of a notification.';
 
-GRANT EXECUTE ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) TO maevsi_stomper;
+GRANT EXECUTE ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) TO maevsi_anonymous;
 
 COMMIT;
