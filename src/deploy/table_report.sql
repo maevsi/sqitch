@@ -25,5 +25,6 @@ COMMENT ON COLUMN maevsi.report.reason IS 'The reason given by the reporter on w
 COMMENT ON COLUMN maevsi.report.target_account_id IS 'The id of the account the report was created for.';
 COMMENT ON COLUMN maevsi.report.target_event_id IS 'The id of the event the report was created for.';
 COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The id of the upload the report was created for.';
+COMMENT ON COLUMN maevsi.report.created IS 'The timestamp when the report was created.';
 
 COMMIT;
