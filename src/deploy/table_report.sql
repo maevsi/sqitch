@@ -13,18 +13,22 @@ CREATE TABLE maevsi.report (
   target_account_id   UUID REFERENCES maevsi.account(id),
   target_event_id     UUID REFERENCES maevsi.event(id),
   target_upload_id    UUID REFERENCES maevsi.upload(id),
-  created             TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
   CHECK (num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1),
   UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id)
 );
 
-COMMENT ON TABLE maevsi.report IS 'A report.';
-COMMENT ON COLUMN maevsi.report.id IS E'@omit create,update\nThe report''s internal id.';
-COMMENT ON COLUMN maevsi.report.author_account_id IS 'The id of the user who created the report.';
-COMMENT ON COLUMN maevsi.report.reason IS 'The reason given by the reporter on why the report was created.';
-COMMENT ON COLUMN maevsi.report.target_account_id IS 'The id of the account the report was created for.';
-COMMENT ON COLUMN maevsi.report.target_event_id IS 'The id of the event the report was created for.';
-COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The id of the upload the report was created for.';
-COMMENT ON COLUMN maevsi.report.created IS 'The timestamp when the report was created.';
+COMMENT ON TABLE maevsi.report IS 'Stores reports made by users on other users, events, or uploads for moderation purposes.';
+COMMENT ON COLUMN maevsi.report.id IS E'@omit create,update\nUnique identifier for the report, generated randomly using UUIDs.';
+COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
+COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
+COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';
+COMMENT ON COLUMN maevsi.report.target_event_id IS 'The ID of the event being reported, if applicable.';
+COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
+COMMENT ON COLUMN maevsi.report.created_at IS 'Timestamp of when the report was created, defaults to the current timestamp.';
+COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
+COMMENT ON CONSTRAINT report_check ON maevsi.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
+COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
 
 COMMIT;

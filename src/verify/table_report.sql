@@ -8,7 +8,7 @@ SELECT id,
        target_account_id,
        target_event_id,
        target_upload_id,
-       created
+       created_at
 FROM maevsi.report WHERE FALSE;
 
 ROLLBACK;
