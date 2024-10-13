@@ -1,3 +1,16 @@
+## [3.5.0](https://github.com/maevsi/sqitch/compare/3.4.8...3.5.0) (2024-10-13)
+
+### Features
+
+* **report:** add created column ([0f8ad03](https://github.com/maevsi/sqitch/commit/0f8ad037d559b1ca85d1bfc1a8e240956523a1de))
+* **report:** add policy to allow selection of own reports ([787c2b0](https://github.com/maevsi/sqitch/commit/787c2b0c70e76ae99bd44eadd3bcb229587f1727))
+* **report:** add reason column to report table ([fac766e](https://github.com/maevsi/sqitch/commit/fac766ec7d9fbc9849e82e81d14c2e085b2db285))
+* **report:** add report table ([62e347a](https://github.com/maevsi/sqitch/commit/62e347ab3722c98e7fcbe9b49f5c951bb68c25bb))
+* **report:** add report table policies ([ea469e7](https://github.com/maevsi/sqitch/commit/ea469e78064689e7b578990722f28a47c29fe485))
+* **report:** add unique constraint to prevent multiple reports by same user ([6b267cd](https://github.com/maevsi/sqitch/commit/6b267cd22fd3da23d41fc9f4f866b5645a9c0c8e))
+* **report:** refactoring ([f5c84b0](https://github.com/maevsi/sqitch/commit/f5c84b0d59024cd3b7635a66f525e327099333e3))
+* **report:** rename creation time column ([ad481ee](https://github.com/maevsi/sqitch/commit/ad481ee20daafff90376a7350672cf86f0c5d2ca))
+
 ## [3.4.8](https://github.com/maevsi/sqitch/compare/3.4.7...3.4.8) (2024-09-28)
 
 ### Bug Fixes
