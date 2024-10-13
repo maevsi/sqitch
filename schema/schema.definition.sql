@@ -1595,6 +1595,57 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
+-- Name: account_block; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_block (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    author_account_id uuid NOT NULL,
+    blocked_account_id uuid NOT NULL,
+    created timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT account_block_check CHECK ((author_account_id <> blocked_account_id))
+);
+
+
+ALTER TABLE maevsi.account_block OWNER TO postgres;
+
+--
+-- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_block IS 'Blocking of an account by another account.';
+
+
+--
+-- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create,update
+The blocking''s internal id.';
+
+
+--
+-- Name: COLUMN account_block.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The id of the user who created the blocking.';
+
+
+--
+-- Name: COLUMN account_block.blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The id of the account to be blocked.';
+
+
+--
+-- Name: COLUMN account_block.created; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_block.created IS 'The timestamp when the blocking was created.';
+
+
+--
 -- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2689,6 +2740,22 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
+-- Name: account_block account_block_author_account_id_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_block
+    ADD CONSTRAINT account_block_author_account_id_blocked_account_id_key UNIQUE (author_account_id, blocked_account_id);
+
+
+--
+-- Name: account_block account_block_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_block
+    ADD CONSTRAINT account_block_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3080,6 +3147,22 @@ CREATE TRIGGER maevsi_private_notification BEFORE INSERT ON maevsi_private.notif
 
 
 --
+-- Name: account_block account_block_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_block
+    ADD CONSTRAINT account_block_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: account_block account_block_blocked_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_block
+    ADD CONSTRAINT account_block_blocked_account_id_fkey FOREIGN KEY (blocked_account_id) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3236,6 +3319,26 @@ ALTER TABLE ONLY sqitch.tags
 --
 
 ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_block; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
 
 --
 -- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
@@ -3976,6 +4079,13 @@ REVOKE ALL ON FUNCTION maevsi_private.notify() FROM PUBLIC;
 
 GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE account_block; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.account_block TO maevsi_account;
 
 
 --
