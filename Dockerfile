@@ -1,5 +1,5 @@
 ##############################
-FROM sqitch/sqitch:v1.4.1.0 AS development
+FROM sqitch/sqitch:v1.4.1.2 AS development
 
 WORKDIR /srv/app
 
@@ -10,10 +10,10 @@ CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:16.2 AS build
+FROM postgres:17.0 AS build
 
 ENV POSTGRES_DB=maevsi
-ENV POSTGRES_PASSWORD=postgres
+ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
 
 WORKDIR /srv/app
 
@@ -21,6 +21,7 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
       sqitch=1.3.1-1 \
   && mkdir -p /run/secrets \
+  && echo "postgres" > /run/secrets/postgres_password \
   && echo "grafana" > /run/secrets/postgres_role_grafana_username \
   && echo "placeholder" | tee \
     /run/secrets/postgres_role_grafana_password \
@@ -38,7 +39,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql
 
 ##############################
-FROM alpine:3.19.1 AS validate
+FROM alpine:3.20.3 AS validate
 
 WORKDIR /srv/app
 
@@ -49,7 +50,7 @@ RUN diff schema.definition.sql schema.sql
 
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.0 AS production
+FROM sqitch/sqitch:v1.4.1.2 AS production
 
 ENV ENV=production
 

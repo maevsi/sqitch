@@ -2,9 +2,10 @@
 -- requires: privilege_execute_revoke
 -- requires: schema_public
 -- requires: schema_private
--- requires: role_anonymous
 -- requires: table_account_private
 -- requires: extension_pgcrypto
+-- requires: role_anonymous
+-- requires: role_account
 
 BEGIN;
 
@@ -42,6 +43,6 @@ $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi.account_password_reset(UUID, TEXT) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_password_reset(UUID, TEXT) TO maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.account_password_reset(UUID, TEXT) TO maevsi_anonymous, maevsi_account;
 
 COMMIT;

@@ -1,3 +1,93 @@
+## [3.4.8](https://github.com/maevsi/sqitch/compare/3.4.7...3.4.8) (2024-09-28)
+
+### Bug Fixes
+
+* schedule release ([319c5cd](https://github.com/maevsi/sqitch/commit/319c5cd0f456319e8dbc5dfd2f1e2defd1f3aa8a))
+
+## [3.4.7](https://github.com/maevsi/sqitch/compare/3.4.6...3.4.7) (2024-09-14)
+
+### Bug Fixes
+
+* schedule release ([4ef76c1](https://github.com/maevsi/sqitch/commit/4ef76c1e32e2cbdbec26ebe6677f269500a35626))
+
+## [3.4.6](https://github.com/maevsi/sqitch/compare/3.4.5...3.4.6) (2024-08-31)
+
+### Bug Fixes
+
+* schedule release ([dea09ec](https://github.com/maevsi/sqitch/commit/dea09ecda2d1bce4fc52fd656fb90a5d376e2606))
+
+## [3.4.5](https://github.com/maevsi/sqitch/compare/3.4.4...3.4.5) (2024-08-17)
+
+### Bug Fixes
+
+* schedule release ([adc6548](https://github.com/maevsi/sqitch/commit/adc6548058cba7152338d6493b376ab0d2347428))
+
+## [3.4.4](https://github.com/maevsi/sqitch/compare/3.4.3...3.4.4) (2024-08-03)
+
+### Bug Fixes
+
+* schedule release ([e468eca](https://github.com/maevsi/sqitch/commit/e468eca3cd0e0d116dce88feeda1601a049cb502))
+
+## [3.4.3](https://github.com/maevsi/sqitch/compare/3.4.2...3.4.3) (2024-07-20)
+
+### Bug Fixes
+
+* schedule release ([af774a4](https://github.com/maevsi/sqitch/commit/af774a420cd7b1dd84f3669077a1e613f183ae27))
+
+## [3.4.2](https://github.com/maevsi/sqitch/compare/3.4.1...3.4.2) (2024-07-06)
+
+### Bug Fixes
+
+* schedule release ([fda139e](https://github.com/maevsi/sqitch/commit/fda139e168b42ad910c8871e7b5afc239e23e66a))
+
+## [3.4.1](https://github.com/maevsi/sqitch/compare/3.4.0...3.4.1) (2024-06-22)
+
+### Bug Fixes
+
+* schedule release ([c8f5edc](https://github.com/maevsi/sqitch/commit/c8f5edc913bebb1ef4a34212f8722b85ef0f4f01))
+
+## [3.4.0](https://github.com/maevsi/sqitch/compare/3.3.2...3.4.0) (2024-06-14)
+
+### Features
+
+* **achievements:** add unlock function ([090e1ff](https://github.com/maevsi/sqitch/commit/090e1ff400177841aa1a7dae2e4a082345a673e5))
+* add achievements ([406a335](https://github.com/maevsi/sqitch/commit/406a335995d05b7dc46b6a5998627d9dabcf2c9c))
+
+## [3.3.2](https://github.com/maevsi/sqitch/compare/3.3.1...3.3.2) (2024-06-01)
+
+
+### Bug Fixes
+
+* schedule release ([96cfc1c](https://github.com/maevsi/sqitch/commit/96cfc1c7e93d94e17984b00ac5579dfd97efbc48))
+
+## [3.3.1](https://github.com/maevsi/sqitch/compare/3.3.0...3.3.1) (2024-05-18)
+
+
+### Bug Fixes
+
+* schedule release ([7bdeec9](https://github.com/maevsi/sqitch/commit/7bdeec9895351dff33c07dae3f3d6e1902bb6693))
+
+## [3.3.0](https://github.com/maevsi/sqitch/compare/3.2.9...3.3.0) (2024-05-09)
+
+
+### Features
+
+* **account:** allow function execution by signed in users ([fa4eb8c](https://github.com/maevsi/sqitch/commit/fa4eb8cd08c55c287c2bb99c4ff3cdfdb08fd38d))
+
+## [3.2.9](https://github.com/maevsi/sqitch/compare/3.2.8...3.2.9) (2024-05-06)
+
+
+### Bug Fixes
+
+* schedule release ([54602d4](https://github.com/maevsi/sqitch/commit/54602d4366e3734bcc3d68730cd283cde204e946))
+
+## [3.2.8](https://github.com/maevsi/sqitch/compare/3.2.7...3.2.8) (2024-04-20)
+
+
+### Bug Fixes
+
+* schedule release ([d4f7fdf](https://github.com/maevsi/sqitch/commit/d4f7fdf1f196c390d50db084e2fa4bf920ed24ae))
+
 ## [3.2.7](https://github.com/maevsi/sqitch/compare/3.2.6...3.2.7) (2024-04-06)
 
 
