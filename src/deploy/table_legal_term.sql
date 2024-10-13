@@ -31,7 +31,7 @@ CREATE TABLE maevsi.legal_term (
   --   - law (like "GDPR")
 );
 
-COMMENT ON TABLE maevsi.legal_term IS 'Legal terms like privacy policies or terms of service.';
+COMMENT ON TABLE maevsi.legal_term IS E'@omit create,update,delete\nLegal terms like privacy policies or terms of service.';
 COMMENT ON COLUMN maevsi.legal_term.id IS 'Unique identifier for each legal term.';
 COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
 COMMENT ON COLUMN maevsi.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';

@@ -1957,7 +1957,8 @@ ALTER TABLE maevsi.legal_term OWNER TO postgres;
 -- Name: TABLE legal_term; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.legal_term IS 'Legal terms like privacy policies or terms of service.';
+COMMENT ON TABLE maevsi.legal_term IS '@omit create,update,delete
+Legal terms like privacy policies or terms of service.';
 
 
 --
