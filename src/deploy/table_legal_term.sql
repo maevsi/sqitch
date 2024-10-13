@@ -7,7 +7,7 @@ BEGIN;
 
 CREATE TABLE maevsi.legal_term (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   language    VARCHAR(5) NOT NULL DEFAULT 'en' CHECK (language ~ '^[a-z]{2}(_[A-Z]{2})?$'),
   term        TEXT NOT NULL CHECK (char_length(term) > 0 AND char_length(term) <= 500000),

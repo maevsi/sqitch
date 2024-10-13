@@ -1941,7 +1941,7 @@ COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper f
 
 CREATE TABLE maevsi.legal_term (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     language character varying(5) DEFAULT 'en'::character varying NOT NULL,
     term text NOT NULL,
     version character varying(20) NOT NULL,
@@ -2002,7 +2002,7 @@ COMMENT ON COLUMN maevsi.legal_term.version IS 'Semantic versioning string to tr
 
 CREATE TABLE maevsi.legal_term_acceptance (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid NOT NULL,
     legal_term_id uuid NOT NULL
 );
