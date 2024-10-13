@@ -13,7 +13,7 @@ CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 FROM postgres:17.0 AS build
 
 ENV POSTGRES_DB=maevsi
-ENV POSTGRES_PASSWORD=postgres
+ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
 
 WORKDIR /srv/app
 
@@ -21,6 +21,7 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
       sqitch=1.3.1-1 \
   && mkdir -p /run/secrets \
+  && echo "postgres" > /run/secrets/postgres_password \
   && echo "grafana" > /run/secrets/postgres_role_grafana_username \
   && echo "placeholder" | tee \
     /run/secrets/postgres_role_grafana_password \

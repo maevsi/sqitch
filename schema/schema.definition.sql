@@ -2089,6 +2089,96 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 
 --
+-- Name: report; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.report (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    author_account_id uuid NOT NULL,
+    reason text NOT NULL,
+    target_account_id uuid,
+    target_event_id uuid,
+    target_upload_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
+    CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
+);
+
+
+ALTER TABLE maevsi.report OWNER TO postgres;
+
+--
+-- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.report IS 'Stores reports made by users on other users, events, or uploads for moderation purposes.';
+
+
+--
+-- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.id IS '@omit create,update
+Unique identifier for the report, generated randomly using UUIDs.';
+
+
+--
+-- Name: COLUMN report.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
+
+
+--
+-- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
+
+
+--
+-- Name: COLUMN report.target_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.target_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_event_id IS 'The ID of the event being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.target_upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_at IS 'Timestamp of when the report was created, defaults to the current timestamp.';
+
+
+--
+-- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_check ON maevsi.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
+
+
+--
+-- Name: CONSTRAINT report_reason_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
+
+
+--
 -- Name: account; Type: TABLE; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2968,6 +3058,29 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
+-- Name: report report_author_account_id_target_account_id_target_event_id__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_target_account_id_target_event_id__key UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id);
+
+
+--
+-- Name: CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
+
+
+--
+-- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: upload upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3357,6 +3470,38 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
+-- Name: report report_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_target_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_target_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: report report_target_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_upload_id_fkey FOREIGN KEY (target_upload_id) REFERENCES maevsi.upload(id);
+
+
+--
 -- Name: upload upload_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3616,6 +3761,26 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 --
 
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: report; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -4261,6 +4426,13 @@ GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
 GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+
+
+--
+-- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 
 
 --
