@@ -19,8 +19,8 @@ CREATE TABLE maevsi.report (
   UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id)
 );
 
-COMMENT ON TABLE maevsi.report IS 'Stores reports made by users on other users, events, or uploads for moderation purposes.';
-COMMENT ON COLUMN maevsi.report.id IS E'@omit create,update\nUnique identifier for the report, generated randomly using UUIDs.';
+COMMENT ON TABLE maevsi.report IS E'@omit update,delete\nStores reports made by users on other users, events, or uploads for moderation purposes.';
+COMMENT ON COLUMN maevsi.report.id IS E'@omit create\nUnique identifier for the report, generated randomly using UUIDs.';
 COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
 COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
 COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';

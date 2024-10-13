@@ -1984,14 +1984,15 @@ ALTER TABLE maevsi.report OWNER TO postgres;
 -- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.report IS 'Stores reports made by users on other users, events, or uploads for moderation purposes.';
+COMMENT ON TABLE maevsi.report IS '@omit update,delete
+Stores reports made by users on other users, events, or uploads for moderation purposes.';
 
 
 --
 -- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.id IS '@omit create,update
+COMMENT ON COLUMN maevsi.report.id IS '@omit create
 Unique identifier for the report, generated randomly using UUIDs.';
 
 
