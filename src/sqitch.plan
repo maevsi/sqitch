@@ -68,3 +68,5 @@ table_achievement [schema_public table_account_public enum_achievement_type role
 function_achievement_unlock [privilege_execute_revoke schema_public enum_achievement_type schema_private table_achievement_code table_achievement role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Unlock achievements.
 table_report [schema_public table_account_public table_event table_upload] 1970-01-01T00:00:00Z Marlon <marlon@maev.si> # Stores reports made by users on other users, events, or uploads for moderation purposes.
 table_report_policy [schema_public table_report role_account] 1970-01-01T00:00:00Z Marlon <marlon@maev.si> # Access policies for reports.
+table_legal_term [schema_public role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Legal terms like privacy policies or terms of service.
+table_legal_term_acceptance [schema_public table_account_public table_legal_term role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Tracks each user account's acceptance of legal terms and conditions.
