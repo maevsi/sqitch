@@ -1,3 +1,13 @@
+## [3.6.0](https://github.com/maevsi/sqitch/compare/3.5.0...3.6.0) (2024-10-15)
+
+### Features
+
+* **legal-term:** create tables ([591a66e](https://github.com/maevsi/sqitch/commit/591a66eecddf89f95df5a56fdae9528c6b6a8528))
+
+### Bug Fixes
+
+* **legal-term:** correct smart tags ([0cc036a](https://github.com/maevsi/sqitch/commit/0cc036ab63d11ed647e2d74d04d2237b11f1be8e))
+
 ## [3.5.0](https://github.com/maevsi/sqitch/compare/3.4.8...3.5.0) (2024-10-13)
 
 ### Features
