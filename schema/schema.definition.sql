@@ -2081,14 +2081,15 @@ ALTER TABLE maevsi.report OWNER TO postgres;
 -- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.report IS 'Stores reports made by users on other users, events, or uploads for moderation purposes.';
+COMMENT ON TABLE maevsi.report IS '@omit update,delete
+Stores reports made by users on other users, events, or uploads for moderation purposes.';
 
 
 --
 -- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.id IS '@omit create,update
+COMMENT ON COLUMN maevsi.report.id IS '@omit create
 Unique identifier for the report, generated randomly using UUIDs.';
 
 
@@ -2131,7 +2132,8 @@ COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being 
 -- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.created_at IS 'Timestamp of when the report was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
+Timestamp of when the report was created, defaults to the current timestamp.';
 
 
 --
