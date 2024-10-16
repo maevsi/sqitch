@@ -26,7 +26,7 @@ COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided b
 COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';
 COMMENT ON COLUMN maevsi.report.target_event_id IS 'The ID of the event being reported, if applicable.';
 COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
-COMMENT ON COLUMN maevsi.report.created_at IS 'Timestamp of when the report was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.report.created_at IS E'@omit create\nTimestamp of when the report was created, defaults to the current timestamp.';
 COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
 COMMENT ON CONSTRAINT report_check ON maevsi.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
 COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';

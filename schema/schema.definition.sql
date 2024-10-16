@@ -2035,7 +2035,8 @@ COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being 
 -- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.report.created_at IS 'Timestamp of when the report was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
+Timestamp of when the report was created, defaults to the current timestamp.';
 
 
 --
