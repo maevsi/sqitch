@@ -1,3 +1,10 @@
+## [4.0.1](https://github.com/maevsi/sqitch/compare/4.0.0...4.0.1) (2024-10-16)
+
+### Bug Fixes
+
+* **report:** correct smart tags ([31eceeb](https://github.com/maevsi/sqitch/commit/31eceeb7e30e5dafbc0adab852a2707ee6514078))
+* **report:** omit creation timestamp from create mutation ([005f7a2](https://github.com/maevsi/sqitch/commit/005f7a24c9cc5966af5881bc82e90f81535649dd))
+
 ## [4.0.0](https://github.com/maevsi/sqitch/compare/3.6.0...4.0.0) (2024-10-16)
 
 ### ⚠ BREAKING CHANGES
