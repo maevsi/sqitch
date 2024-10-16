@@ -12,10 +12,6 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.report', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.report', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.report', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.report', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.report', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.report', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.report', 'DELETE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.report', 'SELECT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.report', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.report', 'UPDATE'));

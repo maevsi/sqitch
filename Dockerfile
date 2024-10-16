@@ -26,7 +26,6 @@ RUN apt-get update \
   && echo "placeholder" | tee \
     /run/secrets/postgres_role_grafana_password \
     /run/secrets/postgres_role_maevsi-postgraphile_password \
-    /run/secrets/postgres_role_maevsi-stomper_password \
     /run/secrets/postgres_role_maevsi-tusd_password \
     /dev/null
 

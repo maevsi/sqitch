@@ -1,3 +1,25 @@
+## [4.0.0-beta.2](https://github.com/maevsi/sqitch/compare/4.0.0-beta.1...4.0.0-beta.2) (2024-10-06)
+
+### ⚠ BREAKING CHANGES
+
+* **roles:** remove stomper
+* **notification:** grant execute to anonymous
+
+### Features
+
+* **notification:** grant execute to anonymous ([070c694](https://github.com/maevsi/sqitch/commit/070c694de479bc761b4a1578086f56eebdf73759))
+* **roles:** remove stomper ([5efe0e7](https://github.com/maevsi/sqitch/commit/5efe0e7e21bf70fc94ec7db9ee612be9c5713add))
+
+## [4.0.0-beta.1](https://github.com/maevsi/sqitch/compare/3.4.8...4.0.0-beta.1) (2024-10-04)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** remove trigger
+
+### Features
+
+* **notification:** remove trigger ([bef6af9](https://github.com/maevsi/sqitch/commit/bef6af9f33c9f57c042aa3269095b6d38fb4c3cb))
+
 ## [3.6.0](https://github.com/maevsi/sqitch/compare/3.5.0...3.6.0) (2024-10-15)
 
 ### Features

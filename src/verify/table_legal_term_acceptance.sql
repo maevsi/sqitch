@@ -18,10 +18,6 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.legal_term_acceptance', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.legal_term_acceptance', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.legal_term_acceptance', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.legal_term_acceptance', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.legal_term_acceptance', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.legal_term_acceptance', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_stomper', 'maevsi.legal_term_acceptance', 'DELETE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.legal_term_acceptance', 'SELECT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.legal_term_acceptance', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.legal_term_acceptance', 'UPDATE'));

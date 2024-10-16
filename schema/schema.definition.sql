@@ -1546,37 +1546,6 @@ COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that retu
 
 
 --
--- Name: notify(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
---
-
-CREATE FUNCTION maevsi_private.notify() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  IF (NEW.is_acknowledged IS NOT TRUE) THEN
-    PERFORM pg_notify(
-      NEW.channel,
-      jsonb_pretty(jsonb_build_object(
-          'id', NEW.id,
-          'payload', NEW.payload
-      ))
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi_private.notify() OWNER TO postgres;
-
---
--- Name: FUNCTION notify(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi_private.notify() IS 'Triggers a pg_notify for the given data.';
-
-
---
 -- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -3352,13 +3321,6 @@ CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BE
 
 
 --
--- Name: notification maevsi_private_notification; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
---
-
-CREATE TRIGGER maevsi_private_notification BEFORE INSERT ON maevsi_private.notification FOR EACH ROW EXECUTE FUNCTION maevsi_private.notify();
-
-
---
 -- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3832,7 +3794,6 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
-GRANT USAGE ON SCHEMA maevsi TO maevsi_stomper;
 
 
 --
@@ -4140,7 +4101,7 @@ REVOKE ALL ON FUNCTION maevsi.legal_term_change() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_stomper;
+GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_anonymous;
 
 
 --
@@ -4348,13 +4309,6 @@ GRANT ALL ON FUNCTION maevsi_private.account_password_reset_verification_valid_u
 REVOKE ALL ON FUNCTION maevsi_private.events_invited() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION notify(); Type: ACL; Schema: maevsi_private; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_private.notify() FROM PUBLIC;
 
 
 --
