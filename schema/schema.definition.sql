@@ -993,20 +993,32 @@ COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns al
 CREATE FUNCTION maevsi.invitation_claim_array() RETURNS uuid[]
     LANGUAGE plpgsql STABLE STRICT
     AS $$
+DECLARE
+  _arr UUID[];
+  _result_arr UUID[] := ARRAY[]::UUID[];
+  _id UUID;
 BEGIN
-  RETURN string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
+  _arr := string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
+  FOREACH _id IN ARRAY arr
+  LOOP
+    -- omit invitations authored by a blocked account
+   IF NOT EXISTS(
+	  SELECT 1
+	  FROM maevsi.invitation i
+	    JOIN maevsi.contact c ON i.contact_id = c.contact_id
+	    JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
+	  WHERE i.id = _id and b.author_account_id = current_setting('jwt.claims.account_id', true)
+	) THEN
+      _result_arr := append_array(result_arr, _id);
+	END IF;
+  END LOOP;
+
+  RETURN _result_arr;
 END
 $$;
 
 
 ALTER FUNCTION maevsi.invitation_claim_array() OWNER TO postgres;
-
---
--- Name: FUNCTION invitation_claim_array(); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.invitation_claim_array() IS 'Returns the current invitation claims as UUID array.';
-
 
 --
 -- Name: invitation_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
@@ -1019,7 +1031,17 @@ BEGIN
   RETURN QUERY
     SELECT invitation.contact_id FROM maevsi.invitation
     WHERE id = ANY (maevsi.invitation_claim_array())
-    OR    event_id IN (SELECT maevsi.events_organized());
+    OR (
+	   event_id IN (SELECT maevsi.events_organized())
+	   AND
+	   -- omit contacts authored by a blocked account or referring to a blocked account
+	   contact_id NOT IN (
+		 SELECT c.id
+		 FROM maevsi.contact c
+		   JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id OR c.account_id = b.blocked_account_id
+		 WHERE b.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+	   )
+	);
 END;
 $$;
 
@@ -1303,7 +1325,7 @@ DECLARE
   whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
-      TG_OP = 'UPDATE'
+    TG_OP = 'UPDATE'
     AND ( -- Invited.
       OLD.id = ANY (maevsi.invitation_claim_array())
       OR
@@ -1505,17 +1527,25 @@ BEGIN
   jwt_account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
 
   RETURN QUERY
-  SELECT invitation.event_id FROM maevsi.invitation
+  SELECT event_id FROM maevsi.invitation
   WHERE
-      invitation.contact_id IN (
+    (
+      contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
-          jwt_account_id IS NOT NULL
-          AND
-          contact.account_id = jwt_account_id
-      ) -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
-  OR  invitation.id = ANY (maevsi.invitation_claim_array());
+          account_id = jwt_account_id
+		  -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+		  AND
+		  -- contact not created by a blocked account
+		  author_account_id NOT IN (
+			SELECT account_block_id
+			FROM maevsi.account_block
+		    WHERE b.author_account_id = jwt_account_id
+		  )
+		)
+    )
+    OR id = ANY (maevsi.invitation_claim_array());
 END
 $$;
 
@@ -1602,7 +1632,7 @@ CREATE TABLE maevsi.account_block (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     author_account_id uuid NOT NULL,
     blocked_account_id uuid NOT NULL,
-    created timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT account_block_check CHECK ((author_account_id <> blocked_account_id))
 );
 
@@ -1613,15 +1643,15 @@ ALTER TABLE maevsi.account_block OWNER TO postgres;
 -- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.account_block IS 'Blocking of an account by another account.';
+COMMENT ON TABLE maevsi.account_block IS '@omit update,delete
+Blocking of an account by another account.';
 
 
 --
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.id IS '@omit create,update
-The blocking''s internal id.';
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe blocking''s internal id.';
 
 
 --
@@ -1639,10 +1669,11 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The id of the acco
 
 
 --
--- Name: COLUMN account_block.created; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.created IS 'The timestamp when the blocking was created.';
+COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit update,delete
+The timestamp when the blocking was created.';
 
 
 --
@@ -3377,21 +3408,29 @@ CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING ((((NULLIF(curre
 -- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))));
 
 
 --
 -- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND (NOT (author_account_id IN ( SELECT account_block.blocked_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))) OR ((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
 
 
 --
 -- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))));
 
 
 --
@@ -3423,7 +3462,9 @@ CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((((NULLIF(curr
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id)))) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id))) AND (NOT (author_account_id IN ( SELECT account_block.blocked_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))) OR (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
@@ -3450,27 +3491,48 @@ CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING ((event_id
 -- Name: invitation invitation_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_invitee_count_maximum(event_id) IS NULL) OR (maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id))) AND (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (contact_id IN ( SELECT contact.id
+CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_invitee_count_maximum(event_id) IS NULL) OR (maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id))) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))))));
+  WHERE (contact.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)
+EXCEPT
+ SELECT c.id
+   FROM (maevsi.contact c
+     JOIN maevsi.account_block b ON (((c.account_id = b.blocked_account_id) AND (c.author_account_id = b.author_account_id))))
+  WHERE (c.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))));
 
 
 --
 -- Name: invitation invitation_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = ANY (maevsi.invitation_claim_array())) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (contact_id IN ( SELECT contact.id
+CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
+  WHERE (contact.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)
+EXCEPT
+ SELECT c.id
+   FROM (maevsi.contact c
+     JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
+  WHERE (c.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (NOT (contact_id IN ( SELECT c.id
+   FROM (maevsi.contact c
+     JOIN maevsi.account_block b ON (((c.author_account_id = b.blocked_account_id) OR (c.account_id = b.blocked_account_id))))
+  WHERE (b.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))))));
 
 
 --
 -- Name: invitation invitation_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = ANY (maevsi.invitation_claim_array())) OR (((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (contact_id IN ( SELECT contact.id
+CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))) OR (event_id IN ( SELECT maevsi.events_organized() AS events_organized))));
+  WHERE (contact.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)
+EXCEPT
+ SELECT c.id
+   FROM (maevsi.contact c
+     JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
+  WHERE (c.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (NOT (contact_id IN ( SELECT c.id
+   FROM (maevsi.contact c
+     JOIN maevsi.account_block b ON (((c.author_account_id = b.blocked_account_id) OR (c.account_id = b.blocked_account_id))))
+  WHERE (b.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))))));
 
 
 --

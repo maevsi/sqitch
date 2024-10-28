@@ -1,6 +1,8 @@
 -- Deploy maevsi:table_invitation_policy to pg
 -- requires: schema_public
 -- requires: table_invitation
+-- requires: table_contact
+-- requires: table_account_block
 -- requires: role_account
 -- requires: role_anonymous
 -- requires: function_invitation_claim_array
@@ -14,62 +16,99 @@ GRANT INSERT, DELETE ON TABLE maevsi.invitation TO maevsi_account;
 
 ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
 
--- Only display invitations issued to oneself through invitation claims.
--- Only display invitations issued to oneself through the account.
--- Only display invitations to events organized by oneself.
+-- Only display invitations issued to oneself through invitation claims, omit invitations authored by a blocked user.
+-- Only display invitations issued to oneself through the account and not authored by a blocked user.
+-- Only display invitations to events organized by oneself, omit invitations authored by a blocked user and invitations issued to a blocked user.
 CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
-      id = ANY (maevsi.invitation_claim_array())
+  id = ANY (maevsi.invitation_claim_array())
   OR
   (
-    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-    AND
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+
+	    EXCEPT
+
+	    -- contacts to oneself authored by a blocked account
+	    SELECT c.id
+	    FROM maevsi.contact c
+	      JOIN maevsi.account_block b ON c.account_id = b.author_account_id AND c.author_account_id = b.blocked_account_id
+	    WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
-  OR  event_id IN (SELECT maevsi.events_organized())
+  OR (
+	  event_id IN (SELECT maevsi.events_organized())
+	AND
+	  contact_id NOT IN (
+	    SELECT c.id
+	    FROM maevsi.contact c
+	      JOIN maevsi.account_block b
+	      -- contact authored by a blocked account OR referring to a blocked account
+	      ON c.author_account_id = b.blocked_account_id OR c.account_id = b.blocked_account_id
+	    WHERE b.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+	  )
+  )
 );
 
 -- Only allow inserts for invitations to events organized by oneself.
 -- Only allow inserts for invitations to events for which the maximum invitee count is not yet reached.
--- Only allow inserts for invitations issued to a contact that was created by oneself.
+-- Only allow inserts for invitations issued to a contact that was created by oneself
+-- Do not allow inserts for invitations issued to a contact referring a blocked account
 CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
-      event_id IN (SELECT maevsi.events_organized())
+  event_id IN (SELECT maevsi.events_organized())
   AND (
     maevsi.event_invitee_count_maximum(event_id) IS NULL
     OR
     maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id)
   )
   AND
-  (
-    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-    AND
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-    )
-  )
+      WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+
+	    EXCEPT
+
+	    SELECT c.id
+	    FROM maevsi.contact c
+	      JOIN maevsi.account_block b ON c.account_id = b.blocked_account_id and c.author_account_id = b.author_account_id
+	    WHERE c.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+	  )
 );
 
 -- Only allow updates to invitations issued to oneself through invitation claims.
--- Only allow updates to invitations issued to oneself through the account.
--- Only allow updates to invitations to events organized by oneself.
+-- Only allow updates to invitations issued to oneself through the account, but not invitations auhored by a blocked account
+-- Only allow updates to invitations to events organized by oneself, but not invitations issued to a blocked account or issued by a blocked account
 CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
   id = ANY (maevsi.invitation_claim_array())
   OR
   (
-    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-    AND
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+
+	  EXCEPT
+
+	  SELECT c.id
+	  FROM maevsi.contact c
+	    JOIN maevsi.account_block b ON c.account_id = b.author_account_id and c.author_account_id = b.blocked_account_id
+	  WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
-  OR  event_id IN (SELECT maevsi.events_organized())
+  OR
+  (
+    event_id IN (SELECT maevsi.events_organized())
+	  AND
+	  -- omit contacts authored by a blocked account or referring to a blocked account
+    contact_id NOT IN (
+	    SELECT c.id
+	    FROM maevsi.contact c
+	      JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id OR c.account_id = b.blocked_account_id
+	    WHERE b.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    )
+  )
 );
 
 -- Only allow deletes for invitations to events organized by oneself.
@@ -82,7 +121,7 @@ DECLARE
   whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
-      TG_OP = 'UPDATE'
+    TG_OP = 'UPDATE'
     AND ( -- Invited.
       OLD.id = ANY (maevsi.invitation_claim_array())
       OR
