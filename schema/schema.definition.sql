@@ -1215,6 +1215,22 @@ COMMENT ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
+-- Name: legal_term_change(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.legal_term_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'Changes to legal terms are not allowed to keep historical integrity. Publish a new version instead.';
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.legal_term_change() OWNER TO postgres;
+
+--
 -- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -1557,37 +1573,6 @@ ALTER FUNCTION maevsi_private.events_invited() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
-
-
---
--- Name: notify(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
---
-
-CREATE FUNCTION maevsi_private.notify() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  IF (NEW.is_acknowledged IS NOT TRUE) THEN
-    PERFORM pg_notify(
-      NEW.channel,
-      jsonb_pretty(jsonb_build_object(
-          'id', NEW.id,
-          'payload', NEW.payload
-      ))
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi_private.notify() OWNER TO postgres;
-
---
--- Name: FUNCTION notify(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi_private.notify() IS 'Triggers a pg_notify for the given data.';
 
 
 --
@@ -2002,6 +1987,118 @@ COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper f
 
 
 --
+-- Name: legal_term; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.legal_term (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    language character varying(5) DEFAULT 'en'::character varying NOT NULL,
+    term text NOT NULL,
+    version character varying(20) NOT NULL,
+    CONSTRAINT legal_term_language_check CHECK (((language)::text ~ '^[a-z]{2}(_[A-Z]{2})?$'::text)),
+    CONSTRAINT legal_term_term_check CHECK (((char_length(term) > 0) AND (char_length(term) <= 500000))),
+    CONSTRAINT legal_term_version_check CHECK (((version)::text ~ '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'::text))
+);
+
+
+ALTER TABLE maevsi.legal_term OWNER TO postgres;
+
+--
+-- Name: TABLE legal_term; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.legal_term IS '@omit create,update,delete
+Legal terms like privacy policies or terms of service.';
+
+
+--
+-- Name: COLUMN legal_term.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.id IS 'Unique identifier for each legal term.';
+
+
+--
+-- Name: COLUMN legal_term.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
+
+
+--
+-- Name: COLUMN legal_term.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';
+
+
+--
+-- Name: COLUMN legal_term.term; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.term IS 'Text of the legal term. Markdown is expected to be used. It must be non-empty and cannot exceed 500,000 characters.';
+
+
+--
+-- Name: COLUMN legal_term.version; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.version IS 'Semantic versioning string to track changes to the legal terms (format: `X.Y.Z`).';
+
+
+--
+-- Name: legal_term_acceptance; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.legal_term_acceptance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    account_id uuid NOT NULL,
+    legal_term_id uuid NOT NULL
+);
+
+
+ALTER TABLE maevsi.legal_term_acceptance OWNER TO postgres;
+
+--
+-- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.legal_term_acceptance IS 'Tracks each user account''s acceptance of legal terms and conditions.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.id IS '@omit create
+Unique identifier for this legal term acceptance record. Automatically generated for each new acceptance.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.created_at IS '@omit create
+Timestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.account_id IS 'The user account ID that accepted the legal terms. If the account is deleted, this acceptance record will also be deleted.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.legal_term_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.legal_term_id IS 'The ID of the legal terms that were accepted. Deletion of these legal terms is restricted while they are still referenced in this table.';
+
+
+--
 -- Name: profile_picture; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2041,6 +2138,98 @@ COMMENT ON COLUMN maevsi.profile_picture.account_id IS 'The account''s id.';
 --
 
 COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
+
+
+--
+-- Name: report; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.report (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    author_account_id uuid NOT NULL,
+    reason text NOT NULL,
+    target_account_id uuid,
+    target_event_id uuid,
+    target_upload_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
+    CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
+);
+
+
+ALTER TABLE maevsi.report OWNER TO postgres;
+
+--
+-- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.report IS '@omit update,delete
+Stores reports made by users on other users, events, or uploads for moderation purposes.';
+
+
+--
+-- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.id IS '@omit create
+Unique identifier for the report, generated randomly using UUIDs.';
+
+
+--
+-- Name: COLUMN report.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
+
+
+--
+-- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
+
+
+--
+-- Name: COLUMN report.target_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.target_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_event_id IS 'The ID of the event being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.target_upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
+Timestamp of when the report was created, defaults to the current timestamp.';
+
+
+--
+-- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_check ON maevsi.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
+
+
+--
+-- Name: CONSTRAINT report_reason_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
 
 
 --
@@ -2899,6 +3088,30 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
+-- Name: legal_term_acceptance legal_term_acceptance_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term_acceptance
+    ADD CONSTRAINT legal_term_acceptance_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: legal_term legal_term_language_version_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term
+    ADD CONSTRAINT legal_term_language_version_key UNIQUE (language, version);
+
+
+--
+-- Name: legal_term legal_term_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term
+    ADD CONSTRAINT legal_term_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -2912,6 +3125,29 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 ALTER TABLE ONLY maevsi.profile_picture
     ADD CONSTRAINT profile_picture_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: report report_author_account_id_target_account_id_target_event_id__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_target_account_id_target_event_id__key UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id);
+
+
+--
+-- Name: CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
+
+
+--
+-- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_pkey PRIMARY KEY (id);
 
 
 --
@@ -3150,6 +3386,20 @@ CREATE TRIGGER maevsi_invitation_update BEFORE UPDATE ON maevsi.invitation FOR E
 
 
 --
+-- Name: legal_term maevsi_legal_term_delete; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_legal_term_delete BEFORE DELETE ON maevsi.legal_term FOR EACH ROW EXECUTE FUNCTION maevsi.legal_term_change();
+
+
+--
+-- Name: legal_term maevsi_legal_term_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR EACH ROW EXECUTE FUNCTION maevsi.legal_term_change();
+
+
+--
 -- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
@@ -3168,13 +3418,6 @@ CREATE TRIGGER maevsi_private_account_email_address_verification_valid_until BEF
 --
 
 CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BEFORE INSERT OR UPDATE OF password_reset_verification ON maevsi_private.account FOR EACH ROW EXECUTE FUNCTION maevsi_private.account_password_reset_verification_valid_until();
-
-
---
--- Name: notification maevsi_private_notification; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
---
-
-CREATE TRIGGER maevsi_private_notification BEFORE INSERT ON maevsi_private.notification FOR EACH ROW EXECUTE FUNCTION maevsi_private.notify();
 
 
 --
@@ -3274,6 +3517,22 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
+-- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term_acceptance
+    ADD CONSTRAINT legal_term_acceptance_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: legal_term_acceptance legal_term_acceptance_legal_term_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term_acceptance
+    ADD CONSTRAINT legal_term_acceptance_legal_term_id_fkey FOREIGN KEY (legal_term_id) REFERENCES maevsi.legal_term(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: profile_picture profile_picture_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3287,6 +3546,38 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 ALTER TABLE ONLY maevsi.profile_picture
     ADD CONSTRAINT profile_picture_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
+-- Name: report report_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_target_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_target_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: report report_target_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_upload_id_fkey FOREIGN KEY (target_upload_id) REFERENCES maevsi.upload(id);
 
 
 --
@@ -3536,6 +3827,39 @@ EXCEPT
 
 
 --
+-- Name: legal_term; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.legal_term ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: legal_term_acceptance; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: legal_term_acceptance legal_term_acceptance_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY legal_term_acceptance_insert ON maevsi.legal_term_acceptance FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: legal_term_acceptance legal_term_acceptance_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY legal_term_acceptance_select ON maevsi.legal_term_acceptance FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: legal_term legal_term_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY legal_term_select ON maevsi.legal_term FOR SELECT USING (true);
+
+
+--
 -- Name: profile_picture; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3567,6 +3891,26 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 --
 
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: report; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -3617,7 +3961,6 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
-GRANT USAGE ON SCHEMA maevsi TO maevsi_stomper;
 
 
 --
@@ -3914,11 +4257,18 @@ GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_anonymous;
 
 
 --
+-- Name: FUNCTION legal_term_change(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.legal_term_change() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_stomper;
+GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_anonymous;
 
 
 --
@@ -4129,13 +4479,6 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION notify(); Type: ACL; Schema: maevsi_private; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_private.notify() FROM PUBLIC;
-
-
---
 -- Name: TABLE account; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -4191,12 +4534,34 @@ GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE legal_term; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE legal_term_acceptance; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
+
+
+--
 -- Name: TABLE profile_picture; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
 GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+
+
+--
+-- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 
 
 --

@@ -1,3 +1,75 @@
+## [4.0.2](https://github.com/maevsi/sqitch/compare/4.0.1...4.0.2) (2024-10-26)
+
+### Bug Fixes
+
+* schedule release ([9639a7e](https://github.com/maevsi/sqitch/commit/9639a7edb5de42ee3f9f26ac3e29f2249d184935))
+
+## [4.0.1](https://github.com/maevsi/sqitch/compare/4.0.0...4.0.1) (2024-10-16)
+
+### Bug Fixes
+
+* **report:** correct smart tags ([31eceeb](https://github.com/maevsi/sqitch/commit/31eceeb7e30e5dafbc0adab852a2707ee6514078))
+* **report:** omit creation timestamp from create mutation ([005f7a2](https://github.com/maevsi/sqitch/commit/005f7a24c9cc5966af5881bc82e90f81535649dd))
+
+## [4.0.0](https://github.com/maevsi/sqitch/compare/3.6.0...4.0.0) (2024-10-16)
+
+### ⚠ BREAKING CHANGES
+
+* **roles:** remove stomper
+* **notification:** grant execute to anonymous
+* **notification:** remove trigger
+
+### Features
+
+* **notification:** grant execute to anonymous ([070c694](https://github.com/maevsi/sqitch/commit/070c694de479bc761b4a1578086f56eebdf73759))
+* **notification:** remove trigger ([bef6af9](https://github.com/maevsi/sqitch/commit/bef6af9f33c9f57c042aa3269095b6d38fb4c3cb))
+* **roles:** remove stomper ([5efe0e7](https://github.com/maevsi/sqitch/commit/5efe0e7e21bf70fc94ec7db9ee612be9c5713add))
+
+## [4.0.0-beta.2](https://github.com/maevsi/sqitch/compare/4.0.0-beta.1...4.0.0-beta.2) (2024-10-06)
+
+### ⚠ BREAKING CHANGES
+
+* **roles:** remove stomper
+* **notification:** grant execute to anonymous
+
+### Features
+
+* **notification:** grant execute to anonymous ([070c694](https://github.com/maevsi/sqitch/commit/070c694de479bc761b4a1578086f56eebdf73759))
+* **roles:** remove stomper ([5efe0e7](https://github.com/maevsi/sqitch/commit/5efe0e7e21bf70fc94ec7db9ee612be9c5713add))
+
+## [4.0.0-beta.1](https://github.com/maevsi/sqitch/compare/3.4.8...4.0.0-beta.1) (2024-10-04)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** remove trigger
+
+### Features
+
+* **notification:** remove trigger ([bef6af9](https://github.com/maevsi/sqitch/commit/bef6af9f33c9f57c042aa3269095b6d38fb4c3cb))
+
+## [3.6.0](https://github.com/maevsi/sqitch/compare/3.5.0...3.6.0) (2024-10-15)
+
+### Features
+
+* **legal-term:** create tables ([591a66e](https://github.com/maevsi/sqitch/commit/591a66eecddf89f95df5a56fdae9528c6b6a8528))
+
+### Bug Fixes
+
+* **legal-term:** correct smart tags ([0cc036a](https://github.com/maevsi/sqitch/commit/0cc036ab63d11ed647e2d74d04d2237b11f1be8e))
+
+## [3.5.0](https://github.com/maevsi/sqitch/compare/3.4.8...3.5.0) (2024-10-13)
+
+### Features
+
+* **report:** add created column ([0f8ad03](https://github.com/maevsi/sqitch/commit/0f8ad037d559b1ca85d1bfc1a8e240956523a1de))
+* **report:** add policy to allow selection of own reports ([787c2b0](https://github.com/maevsi/sqitch/commit/787c2b0c70e76ae99bd44eadd3bcb229587f1727))
+* **report:** add reason column to report table ([fac766e](https://github.com/maevsi/sqitch/commit/fac766ec7d9fbc9849e82e81d14c2e085b2db285))
+* **report:** add report table ([62e347a](https://github.com/maevsi/sqitch/commit/62e347ab3722c98e7fcbe9b49f5c951bb68c25bb))
+* **report:** add report table policies ([ea469e7](https://github.com/maevsi/sqitch/commit/ea469e78064689e7b578990722f28a47c29fe485))
+* **report:** add unique constraint to prevent multiple reports by same user ([6b267cd](https://github.com/maevsi/sqitch/commit/6b267cd22fd3da23d41fc9f4f866b5645a9c0c8e))
+* **report:** refactoring ([f5c84b0](https://github.com/maevsi/sqitch/commit/f5c84b0d59024cd3b7635a66f525e327099333e3))
+* **report:** rename creation time column ([ad481ee](https://github.com/maevsi/sqitch/commit/ad481ee20daafff90376a7350672cf86f0c5d2ca))
+
 ## [3.4.8](https://github.com/maevsi/sqitch/compare/3.4.7...3.4.8) (2024-09-28)
 
 ### Bug Fixes
