@@ -1635,6 +1635,39 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
+-- Name: account_event_size_pref; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_event_size_pref (
+    account_id uuid NOT NULL,
+    event_size maevsi.event_size NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_event_size_pref OWNER TO postgres;
+
+--
+-- Name: TABLE account_event_size_pref; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_event_size_pref IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_event_size_pref.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_event_size_pref.account_id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account_event_size_pref.event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_event_size_pref.event_size IS 'A preferred event sized';
+
+
+--
 -- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2933,6 +2966,14 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
+-- Name: account_event_size_pref account_event_size_pref_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_event_size_pref
+    ADD CONSTRAINT account_event_size_pref_pkey PRIMARY KEY (account_id, event_size);
+
+
+--
 -- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3378,6 +3419,14 @@ CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BE
 
 
 --
+-- Name: account_event_size_pref account_event_size_pref_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_event_size_pref
+    ADD CONSTRAINT account_event_size_pref_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3582,6 +3631,33 @@ ALTER TABLE ONLY sqitch.tags
 --
 
 ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_event_size_pref; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_event_size_pref ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_event_size_pref account_event_size_pref_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_event_size_pref_delete ON maevsi.account_event_size_pref FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_event_size_pref account_event_size_pref_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_event_size_pref_insert ON maevsi.account_event_size_pref FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_event_size_pref account_event_size_pref_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_event_size_pref_select ON maevsi.account_event_size_pref FOR SELECT USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
 
 --
 -- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
@@ -4383,6 +4459,13 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE account_event_size_pref; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_event_size_pref TO maevsi_account;
 
 
 --
