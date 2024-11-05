@@ -1,9 +1,9 @@
--- Revert maevsi:table_maevsi.account_event_size_pref_policy from pg
+-- Revert maevsi:table_maevsi.account_preference_event_size_policy from pg
 
 BEGIN;
 
-DROP POLICY account_event_size_pref_select ON maevsi.account_event_size_pref;
-DROP POLICY account_event_size_pref_insert ON maevsi.account_event_size_pref;
-DROP POLICY account_event_size_pref_delete ON maevsi.account_event_size_pref;
+DROP POLICY account_preference_event_size_select ON maevsi.account_preference_event_size;
+DROP POLICY account_preference_event_size_insert ON maevsi.account_preference_event_size;
+DROP POLICY account_preference_event_size_delete ON maevsi.account_preference_event_size;
 
 COMMIT;
