@@ -1,7 +1,7 @@
--- Revert maevsi:table_user_interest from pg
+-- Revert maevsi:table_account_interest from pg
 
 BEGIN;
 
-DROP TABLE maevsi.user_interest;
+DROP TABLE maevsi.account_interest;
 
 COMMIT;

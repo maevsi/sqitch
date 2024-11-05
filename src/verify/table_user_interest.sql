@@ -1,9 +1,9 @@
--- Verify maevsi:table_user_interest on pg
+-- Verify maevsi:table_account_interest on pg
 
 BEGIN;
 
-SELECT user_id,
+SELECT account_id,
        category
-FROM maevsi.user_interest WHERE FALSE;
+FROM maevsi.account_interest WHERE FALSE;
 
 ROLLBACK;

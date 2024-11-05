@@ -62,10 +62,10 @@ function_notification_acknowledge [privilege_execute_revoke schema_public schema
 function_account_upload_quota_bytes [privilege_execute_revoke schema_public schema_private table_account_private role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Gets the total upload quota in bytes for the invoking account.
 database_grafana 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Create observation dashboard's database.
 role_grafana [database_grafana] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role grafana.
-enum_event_category 2024-01-19T14:03:33Z marlon <marlon@t14s> # enum_event_category\n     deploy/enum_event_category.sql\n     revert/enum_event_category.sql\n     verify/enum_event_category.sql
-table_user_interest 2024-01-19T14:06:54Z marlon <marlon@t14s> # table_user_interest\n     deploy/table_user_interest.sql\n     revert/table_user_interest.sql\n     verify/table_user_interest.sql
-table_event_category_mapping 2024-01-19T14:10:16Z marlon <marlon@t14s> # table_event_category_mapping\n     deploy/table_event_category_mapping.sql\n     revert/table_event_category_mapping.sql\n     verify/table_event_category_mapping.sql
-table_event_recommendation 2024-01-19T14:12:12Z marlon <marlon@t14s> # table_event_recommendation\n     deploy/table_event_recommendation.sql\n     revert/table_event_recommendation.sql\n     verify/table_event_recommendation.sql
-table_user_interest_policy 2024-01-25T20:55:28Z marlon <marlon@t14s> # deploy/table_user_interest_policy.sql\n     revert/table_user_interest_policy.sql\n     verify/table_user_interest_policy.sql
-table_event_recommendation_policy 2024-01-25T21:28:46Z marlon <marlon@t14s> # table_event_recommendation_policy\n     deploy/table_event_recommendation_policy.sql\n     revert/table_event_recommendation_policy.sql\n     verify/table_event_recommendation_policy.sql
-table_event_category_mapping_policy 2024-01-25T21:40:30Z marlon <marlon@t14s> #    table_event_category_mapping_policy\n     deploy/table_event_category_mapping_policy.sql\n     revert/table_event_category_mapping_policy.sql\n     verify/table_event_category_mapping_policy.sql
+table_event_category [schema_public] 2024-01-19T14:03:33Z sven <sven.thelemann@t-online.de> # Event categories.
+table_user_interest [schema_public] 2024-01-19T14:06:54Z marlon <marlon@t14s> # Event categories a user account is interested in (M:N relationship).
+table_event_category_mapping [schema_public table_event table_event_category] 2024-01-19T14:10:16Z marlon <marlon@t14s> # Mepping events to categories (M:N relationship).
+table_event_recommendation [schema_public table_account_private table_event] 2024-01-19T14:12:12Z marlon <marlon@t14s> # Events recommended to a user account (M:N relationship).
+table_user_interest_policy [schema_public table_user_interest] 2024-01-25T20:55:28Z marlon <marlon@t14s> # Row level security policies for table account_interest_policy.
+table_event_recommendation_policy [schema_public table_event_recommendation] 2024-01-25T21:28:46Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
+table_event_category_mapping_policy [schema_public table_event_category_mapping] 2024-01-25T21:40:30Z marlon <marlon@t14s> # Row level security policies for table event_recommendation_mapping.

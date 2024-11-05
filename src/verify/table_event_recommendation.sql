@@ -2,7 +2,7 @@
 
 BEGIN;
 
-SELECT user_id,
+SELECT account_id,
        event_id,
        score,
        predicted_score

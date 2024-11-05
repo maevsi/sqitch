@@ -1,30 +1,24 @@
--- Deploy maevsi:table_user_interest_policy to pg
+-- Deploy maevsi:table_account_interest_policy to pg
 
 BEGIN;
 
-GRANT SELECT, INSERT, DELETE ON TABLE maevsi.user_interest TO maevsi_account;
+GRANT SELECT, INSERT, DELETE ON TABLE maevsi.account_interest TO maevsi_account;
 
-ALTER TABLE maevsi.user_interest ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.account_interest ENABLE ROW LEVEL SECURITY;
 
--- Only allow selects by the current user.
-CREATE POLICY user_interest_select ON maevsi.user_interest FOR SELECT USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-  AND
-  user_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+-- Only allow selects by the current account.
+CREATE POLICY account_interest_select ON maevsi.account_interest FOR SELECT USING (
+  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
--- Only allow inserts by the current user.
-CREATE POLICY user_interest_insert ON maevsi.user_interest FOR INSERT WITH CHECK (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-  AND
-  user_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+-- Only allow inserts by the current account.
+CREATE POLICY account_interest_insert ON maevsi.account_interest FOR INSERT WITH CHECK (
+  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
--- Only allow deletes by the current user.
-CREATE POLICY user_interest_delete ON maevsi.user_interest FOR DELETE USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-  AND
-  user_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+-- Only allow deletes by the current account.
+CREATE POLICY account_interest_delete ON maevsi.account_interest FOR DELETE USING (
+  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 COMMIT;
