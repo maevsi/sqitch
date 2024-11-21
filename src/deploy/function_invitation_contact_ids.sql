@@ -11,21 +11,29 @@
 
 BEGIN;
 
-CREATE OR REPLACE FUNCTION maevsi.invitation_contact_ids()
+CREATE FUNCTION maevsi.invitation_contact_ids()
 RETURNS TABLE (contact_id UUID) AS $$
 BEGIN
   RETURN QUERY
-    SELECT invitation.contact_id FROM maevsi.invitation
-    WHERE id = ANY (maevsi.invitation_claim_array())
+    SELECT i.contact_id FROM maevsi.invitation i
+    WHERE i.id = ANY (maevsi.invitation_claim_array())
     OR (
-	   event_id IN (SELECT maevsi.events_organized())
-	   AND
-	   -- omit contacts authored by a blocked account or referring to a blocked account
-	   contact_id NOT IN (
-		 SELECT c.id
-		 FROM maevsi.contact c
-		   JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id OR c.account_id = b.blocked_account_id
-		 WHERE b.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+	    i.event_id IN (SELECT maevsi.events_organized())
+	    AND
+	    -- omit contacts authored by a blocked account or referring to a blocked account
+	    i.contact_id NOT IN (
+        SELECT c.id
+        FROM maevsi.contact c
+        WHERE c.account_id IS NULL
+        OR c.account_id NOT IN (
+          SELECT blocked_account_id
+          FROM maevsi.account_block
+          WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+          UNION ALL
+          SELECT author_account_id
+          FROM maevsi.account_block
+          WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        )
 	   )
 	);
 END;

@@ -6,6 +6,7 @@
 BEGIN;
 
 GRANT INSERT, SELECT ON TABLE maevsi.account_block TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.account_block TO maevsi_anonymous;
 
 ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 
@@ -16,11 +17,11 @@ CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK
   author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
--- Only allow selects for blocked accounts authored by the current user.
+-- Only show rows where the current account is involved.
 CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
-  AND
   author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  OR
+  blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
 
 COMMIT;

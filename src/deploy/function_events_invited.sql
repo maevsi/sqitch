@@ -10,7 +10,7 @@
 
 BEGIN;
 
-CREATE OR REPLACE FUNCTION maevsi_private.events_invited()
+CREATE FUNCTION maevsi_private.events_invited()
   RETURNS TABLE(event_id uuid)
 AS $$
 DECLARE
@@ -19,25 +19,29 @@ BEGIN
   jwt_account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
 
   RETURN QUERY
-  SELECT event_id FROM maevsi.invitation
+  SELECT i.event_id FROM maevsi.invitation i
   WHERE
     (
-      contact_id IN (
+      i.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
           account_id = jwt_account_id
-		  -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
-		  AND
-		  -- contact not created by a blocked account
-		  author_account_id NOT IN (
-			SELECT account_block_id
-			FROM maevsi.account_block
-		    WHERE b.author_account_id = jwt_account_id
-		  )
-		)
+          -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+          AND
+          -- contact is not a blocked user and is not authored by a user who blocked jwt_account_id
+          author_account_id NOT IN (
+            SELECT blocked_account_id
+            FROM maevsi.account_block
+            WHERE author_account_id = jwt_account_id
+            UNION ALL
+            SELECT author_account_id
+            FROM maevsi.account_block
+            WHERE blocked_account_id = jwt_account_id
+          )
+      )
     )
-    OR id = ANY (maevsi.invitation_claim_array());
+    OR i.id = ANY (maevsi.invitation_claim_array());
 END
 $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
 ;

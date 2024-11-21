@@ -28,33 +28,39 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
       FROM maevsi.contact
       WHERE account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 
-	    EXCEPT
+      EXCEPT
 
-	    -- contacts to oneself authored by a blocked account
-	    SELECT c.id
-	    FROM maevsi.contact c
-	      JOIN maevsi.account_block b ON c.account_id = b.author_account_id AND c.author_account_id = b.blocked_account_id
-	    WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      -- contacts to oneself authored by a blocked account
+      SELECT c.id
+      FROM maevsi.contact c
+        JOIN maevsi.account_block b ON c.account_id = b.author_account_id AND c.author_account_id = b.blocked_account_id
+      WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
   OR (
-	  event_id IN (SELECT maevsi.events_organized())
-	AND
-	  contact_id NOT IN (
-	    SELECT c.id
-	    FROM maevsi.contact c
-	      JOIN maevsi.account_block b
-	      -- contact authored by a blocked account OR referring to a blocked account
-	      ON c.author_account_id = b.blocked_account_id OR c.account_id = b.blocked_account_id
-	    WHERE b.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-	  )
+    event_id IN (SELECT maevsi.events_organized())
+  AND
+    contact_id IN (
+      SELECT c.id
+      FROM maevsi.contact c
+      WHERE c.account_id IS NULL
+      OR c.account_id NOT IN (
+        SELECT blocked_account_id
+        FROM maevsi.account_block
+        WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        UNION ALL
+        SELECT author_account_id
+        FROM maevsi.account_block
+        WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      )
+    )
   )
 );
 
 -- Only allow inserts for invitations to events organized by oneself.
 -- Only allow inserts for invitations to events for which the maximum invitee count is not yet reached.
--- Only allow inserts for invitations issued to a contact that was created by oneself
--- Do not allow inserts for invitations issued to a contact referring a blocked account
+-- Only allow inserts for invitations issued to a contact that was created by oneself.
+-- Do not allow inserts for invitations issued to a contact referring a blocked account.
 CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
   event_id IN (SELECT maevsi.events_organized())
   AND (
@@ -68,18 +74,18 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
       FROM maevsi.contact
       WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 
-	    EXCEPT
+      EXCEPT
 
-	    SELECT c.id
-	    FROM maevsi.contact c
-	      JOIN maevsi.account_block b ON c.account_id = b.blocked_account_id and c.author_account_id = b.author_account_id
-	    WHERE c.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-	  )
+      SELECT c.id
+      FROM maevsi.contact c
+        JOIN maevsi.account_block b ON c.account_id = b.blocked_account_id and c.author_account_id = b.author_account_id
+      WHERE c.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    )
 );
 
 -- Only allow updates to invitations issued to oneself through invitation claims.
--- Only allow updates to invitations issued to oneself through the account, but not invitations auhored by a blocked account
--- Only allow updates to invitations to events organized by oneself, but not invitations issued to a blocked account or issued by a blocked account
+-- Only allow updates to invitations issued to oneself through the account, but not invitations auhored by a blocked account.
+-- Only allow updates to invitations to events organized by oneself, but not invitations issued to a blocked account or issued by a blocked account.
 CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
   id = ANY (maevsi.invitation_claim_array())
   OR
@@ -89,24 +95,32 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
       FROM maevsi.contact
       WHERE account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 
-	  EXCEPT
+    EXCEPT
 
-	  SELECT c.id
-	  FROM maevsi.contact c
-	    JOIN maevsi.account_block b ON c.account_id = b.author_account_id and c.author_account_id = b.blocked_account_id
-	  WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    SELECT c.id
+    FROM maevsi.contact c
+      JOIN maevsi.account_block b ON c.account_id = b.author_account_id and c.author_account_id = b.blocked_account_id
+    WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
     )
   )
   OR
   (
     event_id IN (SELECT maevsi.events_organized())
-	  AND
-	  -- omit contacts authored by a blocked account or referring to a blocked account
-    contact_id NOT IN (
-	    SELECT c.id
-	    FROM maevsi.contact c
-	      JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id OR c.account_id = b.blocked_account_id
-	    WHERE b.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    AND
+    -- omit contacts authored by a blocked account or referring to a blocked account
+    contact_id IN (
+      SELECT c.id
+      FROM maevsi.contact c
+      WHERE c.account_id IS NULL
+      OR c.account_id NOT IN (
+        SELECT blocked_account_id
+        FROM maevsi.account_block
+        WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        UNION ALL
+        SELECT author_account_id
+        FROM maevsi.account_block
+        WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      )
     )
   )
 );
@@ -116,7 +130,7 @@ CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING (
   event_id IN (SELECT maevsi.events_organized())
 );
 
-CREATE OR REPLACE FUNCTION maevsi.trigger_invitation_update() RETURNS TRIGGER AS $$
+CREATE FUNCTION maevsi.trigger_invitation_update() RETURNS TRIGGER AS $$
 DECLARE
   whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
