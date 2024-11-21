@@ -2165,6 +2165,7 @@ CREATE TABLE maevsi_private.account (
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
+    day_of_birth date NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
 
@@ -2246,6 +2247,13 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
+
+
+--
+-- Name: COLUMN account.day_of_birth; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.day_of_birth IS 'The account owner''s day of birth.';
 
 
 --
