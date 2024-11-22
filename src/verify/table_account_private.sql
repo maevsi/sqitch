@@ -3,6 +3,7 @@
 BEGIN;
 
 SELECT id,
+       birth_date,
        created,
        email_address,
        email_address_verification,
@@ -11,8 +12,7 @@ SELECT id,
        password_hash,
        password_reset_verification,
        password_reset_verification_valid_until,
-       upload_quota_bytes,
-       day_of_birth
+       upload_quota_bytes
 FROM maevsi_private.account WHERE FALSE;
 
 DO $$
