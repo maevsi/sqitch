@@ -2156,6 +2156,7 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    birth_date date NOT NULL,
     created timestamp without time zone DEFAULT now() NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
@@ -2183,6 +2184,13 @@ COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 --
 
 COMMENT ON COLUMN maevsi_private.account.id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.birth_date; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s date of birth.';
 
 
 --
