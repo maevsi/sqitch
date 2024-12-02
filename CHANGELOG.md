@@ -1,3 +1,9 @@
+## [4.1.0](https://github.com/maevsi/sqitch/compare/4.0.5...4.1.0) (2024-12-02)
+
+### Features
+
+* **account:** column day_of_birth added ([71cc5e4](https://github.com/maevsi/sqitch/commit/71cc5e46105e70205492d782207750805f1bc184))
+
 ## [4.0.5](https://github.com/maevsi/sqitch/compare/4.0.4...4.0.5) (2024-11-30)
 
 ### Bug Fixes
