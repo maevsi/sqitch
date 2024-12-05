@@ -1,3 +1,9 @@
+## [4.1.1](https://github.com/maevsi/sqitch/compare/4.1.0...4.1.1) (2024-12-05)
+
+### Bug Fixes
+
+* **account:** allow empty birth date ([d308c21](https://github.com/maevsi/sqitch/commit/d308c21bda037f111c275df3c900b86e7a289d26))
+
 ## [4.1.0](https://github.com/maevsi/sqitch/compare/4.0.5...4.1.0) (2024-12-02)
 
 ### Features
