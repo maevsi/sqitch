@@ -2156,7 +2156,7 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    birth_date date NOT NULL,
+    birth_date date,
     created timestamp without time zone DEFAULT now() NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
