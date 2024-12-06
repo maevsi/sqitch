@@ -1,3 +1,10 @@
+## [4.2.0](https://github.com/maevsi/sqitch/compare/4.1.1...4.2.0) (2024-12-06)
+
+### Features
+
+* **account:** add social links ([b23fa1d](https://github.com/maevsi/sqitch/commit/b23fa1d6608275eadef48c33202bf33ae9b92411))
+* **social-network:** rework ([605cd77](https://github.com/maevsi/sqitch/commit/605cd773d156cfe4d24764d88b3ee294fce6bfbc))
+
 ## [4.1.1](https://github.com/maevsi/sqitch/compare/4.1.0...4.1.1) (2024-12-05)
 
 ### Bug Fixes
