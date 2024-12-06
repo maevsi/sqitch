@@ -39,7 +39,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && sqitch revert -t db:pg://postgres:postgres@/maevsi
 
 ##############################
-FROM alpine:3.20.3 AS validate
+FROM alpine:3.21.0 AS validate
 
 WORKDIR /srv/app
 
