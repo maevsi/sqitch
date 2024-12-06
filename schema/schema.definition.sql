@@ -908,40 +908,6 @@ COMMENT ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) 
 
 
 --
--- Name: event_size(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_size(p_id uuid) RETURNS maevsi.event_size
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _size maevsi.event_size := NULL;
-BEGIN
-  SELECT
-    CASE
-      WHEN invitee_count_maximum <= 9 THEN 'small'::maevsi.event_size
-      WHEN invitee_count_maximum <= 49 THEN 'medium'::maevsi.event_size
-      WHEN invitee_count_maximum <= 999 THEN 'large'::maevsi.event_size
-      ELSE 'huge'::maevsi.event_size
-    END INTO _size
-  FROM maevsi.event
-  WHERE id = p_id;
-
-  RETURN _size;
-END
-$$;
-
-
-ALTER FUNCTION maevsi.event_size(p_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION event_size(p_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_size(p_id uuid) IS 'For a given event id the function returns the corresponding event size, or null if the event id does not exist.';
-
-
---
 -- Name: event_unlock(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -4116,15 +4082,6 @@ GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevs
 REVOKE ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION event_size(p_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_size(p_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_size(p_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_size(p_id uuid) TO maevsi_anonymous;
 
 
 --
