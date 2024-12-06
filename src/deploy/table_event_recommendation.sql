@@ -1,6 +1,6 @@
 -- Deploy maevsi:table_event_recommendation to pg
 -- requires: schema_public
--- requires: table_account
+-- requires: table_account_public
 -- requires: table_event
 
 BEGIN;

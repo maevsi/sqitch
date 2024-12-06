@@ -1924,7 +1924,7 @@ ALTER TABLE maevsi.event_category_mapping OWNER TO postgres;
 -- Name: TABLE event_category_mapping; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.event_category_mapping IS 'Mepping events to categories (M:N relationship).';
+COMMENT ON TABLE maevsi.event_category_mapping IS 'Mapping events to categories (M:N relationship).';
 
 
 --
@@ -4047,6 +4047,12 @@ CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((((NULLIF(curre
 ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: event_category_mapping; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
@@ -4068,9 +4074,9 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND ((( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING (((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)))));
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
@@ -4858,9 +4864,18 @@ GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE event_category; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.event_category TO maevsi_anonymous;
+GRANT SELECT ON TABLE maevsi.event_category TO maevsi_account;
+
+
+--
 -- Name: TABLE event_category_mapping; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
+GRANT SELECT ON TABLE maevsi.event_category_mapping TO maevsi_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_account;
 
 

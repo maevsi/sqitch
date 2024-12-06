@@ -1,4 +1,7 @@
 -- Deploy maevsi:table_account_interest_policy to pg
+-- requires: schema_public
+-- requires: table_account_interest
+-- requires: role_account
 
 BEGIN;
 

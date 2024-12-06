@@ -1,4 +1,7 @@
 -- Deploy maevsi:table_event_recommendation_policy to pg
+-- requires: schema_public
+-- requires: table_event_recommendation
+-- requires: role_anonymous
 
 BEGIN;
 
@@ -12,7 +15,5 @@ CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SEL
   AND
   account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
 );
-
--- TODO: policies for background process updating the recommendations
 
 COMMIT;
