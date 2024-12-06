@@ -72,3 +72,6 @@ table_legal_term_acceptance [schema_public table_account_public table_legal_term
 enum_social_network [schema_public] 1970-01-01T00:00:00Z sven <sven.thelemann@t-online.de> # Social networks.
 table_account_social_network [schema_public table_account_public enum_social_network] 1970-01-01T00:00:00Z sven <sven.thelemann@t-online.de> # Links accounts to their social media profiles.
 table_account_social_network_policy [schema_public table_account_social_network role_account] 1970-01-01T00:00:00Z sven <sven.thelemann@t-online.de> # Row level security policies for table account_social_network.
+enum_event_size [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible event sizes: small, medium, large, huge.
+table_account_preference_event_size  [schema_public table_account_public enum_event_size] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Table for the user accounts' preferred event sizes (M:N relationship).
+table_account_preference_event_size_policy  [schema_public table_account_preference_event_size role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Security policy for table account_event_size_pref.

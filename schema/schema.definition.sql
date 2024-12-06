@@ -96,6 +96,27 @@ COMMENT ON TYPE maevsi.achievement_type IS 'Achievements that can be unlocked by
 
 
 --
+-- Name: event_size; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.event_size AS ENUM (
+    'small',
+    'medium',
+    'large',
+    'huge'
+);
+
+
+ALTER TYPE maevsi.event_size OWNER TO postgres;
+
+--
+-- Name: TYPE event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.event_size IS 'Possible event sizes: small, medium, large, huge.';
+
+
+--
 -- Name: jwt; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -1601,6 +1622,39 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
+-- Name: account_preference_event_size; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_preference_event_size (
+    account_id uuid NOT NULL,
+    event_size maevsi.event_size NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_preference_event_size OWNER TO postgres;
+
+--
+-- Name: TABLE account_preference_event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_preference_event_size.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.account_id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account_preference_event_size.event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.event_size IS 'A preferred event sized';
+
+
+--
 -- Name: account_social_network; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2956,6 +3010,14 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_preference_event_size account_preference_event_size_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_preference_event_size
+    ADD CONSTRAINT account_preference_event_size_pkey PRIMARY KEY (account_id, event_size);
+
+
+--
 -- Name: account_social_network account_social_network_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3416,6 +3478,14 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_preference_event_size account_preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_preference_event_size
+    ADD CONSTRAINT account_preference_event_size_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: account_social_network account_social_network_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3620,6 +3690,33 @@ ALTER TABLE ONLY sqitch.tags
 --
 
 ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_preference_event_size; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_preference_event_size ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_preference_event_size account_preference_event_size_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_delete ON maevsi.account_preference_event_size FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_insert ON maevsi.account_preference_event_size FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_select ON maevsi.account_preference_event_size FOR SELECT USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
 
 --
 -- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
@@ -4433,6 +4530,13 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE account_preference_event_size; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_preference_event_size TO maevsi_account;
 
 
 --
