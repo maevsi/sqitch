@@ -1,3 +1,9 @@
+## [4.3.1](https://github.com/maevsi/sqitch/compare/4.3.0...4.3.1) (2024-12-06)
+
+### Bug Fixes
+
+* **account:** enable row level security for social networks ([5606344](https://github.com/maevsi/sqitch/commit/5606344016974dd223ece949fb11d0d4b02400de))
+
 ## [4.3.0](https://github.com/maevsi/sqitch/compare/4.2.0...4.3.0) (2024-12-06)
 
 ### Features
