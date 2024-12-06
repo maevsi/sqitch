@@ -5,6 +5,7 @@
 -- requires: table_account_private
 -- requires: table_notification
 -- requires: role_anonymous
+-- requires: role_account
 
 BEGIN;
 
@@ -45,6 +46,6 @@ $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi.account_password_reset_request(TEXT, TEXT) IS 'Sets a new password reset verification code for an account.';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_password_reset_request(TEXT, TEXT) TO maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.account_password_reset_request(TEXT, TEXT) TO maevsi_anonymous, maevsi_account;
 
 COMMIT;

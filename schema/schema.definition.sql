@@ -6,6 +6,7 @@
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -74,6 +75,45 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA maevsi;
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
+
+
+--
+-- Name: achievement_type; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.achievement_type AS ENUM (
+    'meet_the_team'
+);
+
+
+ALTER TYPE maevsi.achievement_type OWNER TO postgres;
+
+--
+-- Name: TYPE achievement_type; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.achievement_type IS 'Achievements that can be unlocked by users.';
+
+
+--
+-- Name: event_size; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.event_size AS ENUM (
+    'small',
+    'medium',
+    'large',
+    'huge'
+);
+
+
+ALTER TYPE maevsi.event_size OWNER TO postgres;
+
+--
+-- Name: TYPE event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.event_size IS 'Possible event sizes: small, medium, large, huge.';
 
 
 --
@@ -161,6 +201,27 @@ ALTER TYPE maevsi.invitation_feedback_paper OWNER TO postgres;
 --
 
 COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
+
+
+--
+-- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.social_network AS ENUM (
+    'facebook',
+    'instagram',
+    'tiktok',
+    'x'
+);
+
+
+ALTER TYPE maevsi.social_network OWNER TO postgres;
+
+--
+-- Name: TYPE social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.social_network IS 'Social networks.';
 
 
 --
@@ -369,30 +430,30 @@ COMMENT ON FUNCTION maevsi.account_password_reset_request(email_address text, la
 
 CREATE FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _new_account_private maevsi_private.account;
   _new_account_public maevsi.account;
   _new_account_notify RECORD;
 BEGIN
-  IF (char_length($3) < 8) THEN
+  IF (char_length(account_registration.password) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = $1)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = account_registration.username)) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.email_address = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.email_address = account_registration.email_address)) THEN
     RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    ($2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
+    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), NOW())
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES
-    (_new_account_private.id, $1)
+    (_new_account_private.id, account_registration.username)
     RETURNING * INTO _new_account_public;
 
   SELECT
@@ -408,13 +469,13 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', $4)
+      'template', jsonb_build_object('language', account_registration.language)
     ))
   );
 
   RETURN _new_account_public.id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) OWNER TO postgres;
@@ -496,6 +557,58 @@ ALTER FUNCTION maevsi.account_upload_quota_bytes() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.account_upload_quota_bytes() IS 'Gets the total upload quota in bytes for the invoking account.';
+
+
+--
+-- Name: achievement_unlock(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.achievement_unlock(code uuid, alias text) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $_$
+DECLARE
+  _account_id UUID;
+  _achievement maevsi.achievement_type;
+  _achievement_id UUID;
+BEGIN
+  _account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+
+  SELECT achievement
+    FROM maevsi_private.achievement_code
+    INTO _achievement
+    WHERE achievement_code.id = $1 OR achievement_code.alias = $2;
+
+  IF (_achievement IS NULL) THEN
+    RAISE 'Unknown achievement!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  IF (_account_id IS NULL) THEN
+    RAISE 'Unknown account!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  _achievement_id := (
+    SELECT id FROM maevsi.achievement
+    WHERE achievement.account_id = _account_id AND achievement.achievement = _achievement
+  );
+
+  IF (_achievement_id IS NULL) THEN
+    INSERT INTO maevsi.achievement(account_id, achievement)
+      VALUES (_account_id,  _achievement)
+      RETURNING achievement.id INTO _achievement_id;
+  END IF;
+
+  RETURN _achievement_id;
+END;
+$_$;
+
+
+ALTER FUNCTION maevsi.achievement_unlock(code uuid, alias text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
 
 
 --
@@ -1122,6 +1235,22 @@ COMMENT ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
+-- Name: legal_term_change(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.legal_term_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'Changes to legal terms are not allowed to keep historical integrity. Publish a new version instead.';
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.legal_term_change() OWNER TO postgres;
+
+--
 -- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -1459,37 +1588,6 @@ COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that retu
 
 
 --
--- Name: notify(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
---
-
-CREATE FUNCTION maevsi_private.notify() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  IF (NEW.is_acknowledged IS NOT TRUE) THEN
-    PERFORM pg_notify(
-      NEW.channel,
-      jsonb_pretty(jsonb_build_object(
-          'id', NEW.id,
-          'payload', NEW.payload
-      ))
-    );
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi_private.notify() OWNER TO postgres;
-
---
--- Name: FUNCTION notify(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi_private.notify() IS 'Triggers a pg_notify for the given data.';
-
-
---
 -- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1554,6 +1652,130 @@ COMMENT ON COLUMN maevsi.account_interest.account_id IS 'A user account id.';
 --
 
 COMMENT ON COLUMN maevsi.account_interest.category IS 'An event category.';
+
+
+--
+-- Name: account_preference_event_size; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_preference_event_size (
+    account_id uuid NOT NULL,
+    event_size maevsi.event_size NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_preference_event_size OWNER TO postgres;
+
+--
+-- Name: TABLE account_preference_event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_preference_event_size.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.account_id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account_preference_event_size.event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.event_size IS 'A preferred event sized';
+
+
+--
+-- Name: account_social_network; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_social_network (
+    account_id uuid NOT NULL,
+    social_network maevsi.social_network NOT NULL,
+    social_network_username text NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_social_network OWNER TO postgres;
+
+--
+-- Name: TABLE account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_social_network IS 'Links accounts to their social media profiles. Each entry represents a specific social network and associated username for an account.';
+
+
+--
+-- Name: COLUMN account_social_network.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.account_id IS 'The unique identifier of the account.';
+
+
+--
+-- Name: COLUMN account_social_network.social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.social_network IS 'The social network to which the account is linked.';
+
+
+--
+-- Name: COLUMN account_social_network.social_network_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.social_network_username IS 'The username of the account on the specified social network.';
+
+
+--
+-- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.achievement (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    achievement maevsi.achievement_type NOT NULL,
+    level integer DEFAULT 1 NOT NULL,
+    CONSTRAINT achievement_level_check CHECK ((level > 0))
+);
+
+
+ALTER TABLE maevsi.achievement OWNER TO postgres;
+
+--
+-- Name: TABLE achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.achievement IS 'Achievements unlocked by users.';
+
+
+--
+-- Name: COLUMN achievement.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.achievement.id IS 'The achievement unlock''s internal id.';
+
+
+--
+-- Name: COLUMN achievement.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.achievement.account_id IS 'The account which unlocked the achievement.';
+
+
+--
+-- Name: COLUMN achievement.achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.achievement.achievement IS 'The unlock''s achievement.';
+
+
+--
+-- Name: COLUMN achievement.level; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.';
 
 
 --
@@ -1939,6 +2161,118 @@ COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper f
 
 
 --
+-- Name: legal_term; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.legal_term (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    language character varying(5) DEFAULT 'en'::character varying NOT NULL,
+    term text NOT NULL,
+    version character varying(20) NOT NULL,
+    CONSTRAINT legal_term_language_check CHECK (((language)::text ~ '^[a-z]{2}(_[A-Z]{2})?$'::text)),
+    CONSTRAINT legal_term_term_check CHECK (((char_length(term) > 0) AND (char_length(term) <= 500000))),
+    CONSTRAINT legal_term_version_check CHECK (((version)::text ~ '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'::text))
+);
+
+
+ALTER TABLE maevsi.legal_term OWNER TO postgres;
+
+--
+-- Name: TABLE legal_term; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.legal_term IS '@omit create,update,delete
+Legal terms like privacy policies or terms of service.';
+
+
+--
+-- Name: COLUMN legal_term.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.id IS 'Unique identifier for each legal term.';
+
+
+--
+-- Name: COLUMN legal_term.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
+
+
+--
+-- Name: COLUMN legal_term.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';
+
+
+--
+-- Name: COLUMN legal_term.term; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.term IS 'Text of the legal term. Markdown is expected to be used. It must be non-empty and cannot exceed 500,000 characters.';
+
+
+--
+-- Name: COLUMN legal_term.version; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.version IS 'Semantic versioning string to track changes to the legal terms (format: `X.Y.Z`).';
+
+
+--
+-- Name: legal_term_acceptance; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.legal_term_acceptance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    account_id uuid NOT NULL,
+    legal_term_id uuid NOT NULL
+);
+
+
+ALTER TABLE maevsi.legal_term_acceptance OWNER TO postgres;
+
+--
+-- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.legal_term_acceptance IS 'Tracks each user account''s acceptance of legal terms and conditions.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.id IS '@omit create
+Unique identifier for this legal term acceptance record. Automatically generated for each new acceptance.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.created_at IS '@omit create
+Timestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.account_id IS 'The user account ID that accepted the legal terms. If the account is deleted, this acceptance record will also be deleted.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.legal_term_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.legal_term_id IS 'The ID of the legal terms that were accepted. Deletion of these legal terms is restricted while they are still referenced in this table.';
+
+
+--
 -- Name: profile_picture; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1981,11 +2315,104 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 
 --
+-- Name: report; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.report (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    author_account_id uuid NOT NULL,
+    reason text NOT NULL,
+    target_account_id uuid,
+    target_event_id uuid,
+    target_upload_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
+    CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
+);
+
+
+ALTER TABLE maevsi.report OWNER TO postgres;
+
+--
+-- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.report IS '@omit update,delete
+Stores reports made by users on other users, events, or uploads for moderation purposes.';
+
+
+--
+-- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.id IS '@omit create
+Unique identifier for the report, generated randomly using UUIDs.';
+
+
+--
+-- Name: COLUMN report.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
+
+
+--
+-- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
+
+
+--
+-- Name: COLUMN report.target_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.target_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_event_id IS 'The ID of the event being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.target_upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
+
+
+--
+-- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
+Timestamp of when the report was created, defaults to the current timestamp.';
+
+
+--
+-- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_check ON maevsi.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
+
+
+--
+-- Name: CONSTRAINT report_reason_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
+
+
+--
 -- Name: account; Type: TABLE; Schema: maevsi_private; Owner: postgres
 --
 
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    birth_date date,
     created timestamp without time zone DEFAULT now() NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
@@ -2013,6 +2440,13 @@ COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 --
 
 COMMENT ON COLUMN maevsi_private.account.id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.birth_date; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s date of birth.';
 
 
 --
@@ -2076,6 +2510,48 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
+
+
+--
+-- Name: achievement_code; Type: TABLE; Schema: maevsi_private; Owner: postgres
+--
+
+CREATE TABLE maevsi_private.achievement_code (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    alias text NOT NULL,
+    achievement maevsi.achievement_type NOT NULL,
+    CONSTRAINT achievement_code_alias_check CHECK ((char_length(alias) < 1000))
+);
+
+
+ALTER TABLE maevsi_private.achievement_code OWNER TO postgres;
+
+--
+-- Name: TABLE achievement_code; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi_private.achievement_code IS 'Codes that unlock achievements.';
+
+
+--
+-- Name: COLUMN achievement_code.id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.achievement_code.id IS 'The code that unlocks an achievement.';
+
+
+--
+-- Name: COLUMN achievement_code.alias; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.achievement_code.alias IS 'An alternative code, e.g. human readable, that unlocks an achievement.';
+
+
+--
+-- Name: COLUMN achievement_code.achievement; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.achievement_code.achievement IS 'The achievement that is unlocked by the code.';
 
 
 --
@@ -2682,11 +3158,50 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_preference_event_size account_preference_event_size_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_preference_event_size
+    ADD CONSTRAINT account_preference_event_size_pkey PRIMARY KEY (account_id, event_size);
+
+
+--
+-- Name: account_social_network account_social_network_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_social_network
+    ADD CONSTRAINT account_social_network_pkey PRIMARY KEY (account_id, social_network);
+
+
+--
+-- Name: CONSTRAINT account_social_network_pkey ON account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT account_social_network_pkey ON maevsi.account_social_network IS 'Ensures uniqueness by combining the account ID and social network, allowing each account to have a single entry per social network.';
+
+
+--
 -- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.account
     ADD CONSTRAINT account_username_key UNIQUE (username);
+
+
+--
+-- Name: achievement achievement_account_id_achievement_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.achievement
+    ADD CONSTRAINT achievement_account_id_achievement_key UNIQUE (account_id, achievement);
+
+
+--
+-- Name: achievement achievement_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.achievement
+    ADD CONSTRAINT achievement_pkey PRIMARY KEY (id);
 
 
 --
@@ -2794,6 +3309,30 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
+-- Name: legal_term_acceptance legal_term_acceptance_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term_acceptance
+    ADD CONSTRAINT legal_term_acceptance_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: legal_term legal_term_language_version_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term
+    ADD CONSTRAINT legal_term_language_version_key UNIQUE (language, version);
+
+
+--
+-- Name: legal_term legal_term_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term
+    ADD CONSTRAINT legal_term_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -2807,6 +3346,29 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 ALTER TABLE ONLY maevsi.profile_picture
     ADD CONSTRAINT profile_picture_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: report report_author_account_id_target_account_id_target_event_id__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_target_account_id_target_event_id__key UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id);
+
+
+--
+-- Name: CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
+
+
+--
+-- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_pkey PRIMARY KEY (id);
 
 
 --
@@ -2839,6 +3401,22 @@ ALTER TABLE ONLY maevsi_private.account
 
 ALTER TABLE ONLY maevsi_private.account
     ADD CONSTRAINT account_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: achievement_code achievement_code_alias_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi_private.achievement_code
+    ADD CONSTRAINT achievement_code_alias_key UNIQUE (alias);
+
+
+--
+-- Name: achievement_code achievement_code_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi_private.achievement_code
+    ADD CONSTRAINT achievement_code_pkey PRIMARY KEY (id);
 
 
 --
@@ -3029,6 +3607,20 @@ CREATE TRIGGER maevsi_invitation_update BEFORE UPDATE ON maevsi.invitation FOR E
 
 
 --
+-- Name: legal_term maevsi_legal_term_delete; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_legal_term_delete BEFORE DELETE ON maevsi.legal_term FOR EACH ROW EXECUTE FUNCTION maevsi.legal_term_change();
+
+
+--
+-- Name: legal_term maevsi_legal_term_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR EACH ROW EXECUTE FUNCTION maevsi.legal_term_change();
+
+
+--
 -- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
@@ -3047,13 +3639,6 @@ CREATE TRIGGER maevsi_private_account_email_address_verification_valid_until BEF
 --
 
 CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BEFORE INSERT OR UPDATE OF password_reset_verification ON maevsi_private.account FOR EACH ROW EXECUTE FUNCTION maevsi_private.account_password_reset_verification_valid_until();
-
-
---
--- Name: notification maevsi_private_notification; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
---
-
-CREATE TRIGGER maevsi_private_notification BEFORE INSERT ON maevsi_private.notification FOR EACH ROW EXECUTE FUNCTION maevsi_private.notify();
 
 
 --
@@ -3078,6 +3663,30 @@ ALTER TABLE ONLY maevsi.account_interest
 
 ALTER TABLE ONLY maevsi.account_interest
     ADD CONSTRAINT account_interest_category_fkey FOREIGN KEY (category) REFERENCES maevsi.event_category(category) ON DELETE CASCADE;
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_preference_event_size
+    ADD CONSTRAINT account_preference_event_size_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: account_social_network account_social_network_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_social_network
+    ADD CONSTRAINT account_social_network_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: achievement achievement_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.achievement
+    ADD CONSTRAINT achievement_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
 
 
 --
@@ -3177,6 +3786,22 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
+-- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term_acceptance
+    ADD CONSTRAINT legal_term_acceptance_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: legal_term_acceptance legal_term_acceptance_legal_term_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.legal_term_acceptance
+    ADD CONSTRAINT legal_term_acceptance_legal_term_id_fkey FOREIGN KEY (legal_term_id) REFERENCES maevsi.legal_term(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: profile_picture profile_picture_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3190,6 +3815,38 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 ALTER TABLE ONLY maevsi.profile_picture
     ADD CONSTRAINT profile_picture_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
+-- Name: report report_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_target_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: report report_target_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: report report_target_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.report
+    ADD CONSTRAINT report_target_upload_id_fkey FOREIGN KEY (target_upload_id) REFERENCES maevsi.upload(id);
 
 
 --
@@ -3282,10 +3939,71 @@ CREATE POLICY account_interest_select ON maevsi.account_interest FOR SELECT USIN
 
 
 --
+-- Name: account_preference_event_size; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_preference_event_size ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_preference_event_size account_preference_event_size_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_delete ON maevsi.account_preference_event_size FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_insert ON maevsi.account_preference_event_size FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_select ON maevsi.account_preference_event_size FOR SELECT USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
 -- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
 CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
+
+
+--
+-- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_delete ON maevsi.account_social_network FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_social_network account_social_network_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_insert ON maevsi.account_social_network FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_social_network account_social_network_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_update ON maevsi.account_social_network FOR UPDATE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: achievement; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.achievement ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: achievement achievement_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
 
 
 --
@@ -3442,6 +4160,39 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = AN
 
 
 --
+-- Name: legal_term; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.legal_term ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: legal_term_acceptance; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: legal_term_acceptance legal_term_acceptance_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY legal_term_acceptance_insert ON maevsi.legal_term_acceptance FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: legal_term_acceptance legal_term_acceptance_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY legal_term_acceptance_select ON maevsi.legal_term_acceptance FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: legal_term legal_term_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY legal_term_select ON maevsi.legal_term FOR SELECT USING (true);
+
+
+--
 -- Name: profile_picture; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3476,6 +4227,26 @@ CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING 
 
 
 --
+-- Name: report; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
 -- Name: upload; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3504,13 +4275,25 @@ CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT C
 
 
 --
+-- Name: achievement_code; Type: ROW SECURITY; Schema: maevsi_private; Owner: postgres
+--
+
+ALTER TABLE maevsi_private.achievement_code ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: achievement_code achievement_code_select; Type: POLICY; Schema: maevsi_private; Owner: postgres
+--
+
+CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SELECT USING (true);
+
+
+--
 -- Name: SCHEMA maevsi; Type: ACL; Schema: -; Owner: postgres
 --
 
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
-GRANT USAGE ON SCHEMA maevsi TO maevsi_stomper;
 
 
 --
@@ -3544,6 +4327,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_change(password_current text, pass
 
 REVOKE ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO maevsi_account;
 
 
 --
@@ -3552,6 +4336,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO
 
 REVOKE ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) TO maevsi_account;
 
 
 --
@@ -3560,6 +4345,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, 
 
 REVOKE ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) TO maevsi_account;
 
 
 --
@@ -3576,6 +4362,14 @@ GRANT ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, langu
 
 REVOKE ALL ON FUNCTION maevsi.account_upload_quota_bytes() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.account_upload_quota_bytes() TO maevsi_account;
+
+
+--
+-- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) TO maevsi_account;
 
 
 --
@@ -3796,11 +4590,18 @@ GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_anonymous;
 
 
 --
+-- Name: FUNCTION legal_term_change(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.legal_term_change() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_stomper;
+GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_anonymous;
 
 
 --
@@ -4011,13 +4812,6 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION notify(); Type: ACL; Schema: maevsi_private; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_private.notify() FROM PUBLIC;
-
-
---
 -- Name: TABLE account; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -4030,6 +4824,29 @@ GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_interest TO maevsi_account;
+
+
+--
+-- Name: TABLE account_preference_event_size; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_preference_event_size TO maevsi_account;
+
+
+--
+-- Name: TABLE account_social_network; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.account_social_network TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.account_social_network TO maevsi_account;
+
+
+--
+-- Name: TABLE achievement; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.achievement TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
 
 
 --
@@ -4079,12 +4896,41 @@ GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE legal_term; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE legal_term_acceptance; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
+
+
+--
 -- Name: TABLE profile_picture; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
 GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+
+
+--
+-- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
+
+
+--
+-- Name: TABLE achievement_code; Type: ACL; Schema: maevsi_private; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi_tusd;
 
 
 --

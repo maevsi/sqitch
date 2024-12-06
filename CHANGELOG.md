@@ -1,3 +1,252 @@
+## [4.3.0](https://github.com/maevsi/sqitch/compare/4.2.0...4.3.0) (2024-12-06)
+
+### Features
+
+* **account:** Add ability to store an account's preferred event sizes ([5f47988](https://github.com/maevsi/sqitch/commit/5f47988bc0ebedf2caa3a38399adc4f4de6c5b38))
+* **event:** Add event sizes ([e3b389b](https://github.com/maevsi/sqitch/commit/e3b389bb302b16a208a1dddedc35f1b909175af6))
+* **event:** remove size function ([9338623](https://github.com/maevsi/sqitch/commit/93386233fd89a5c1fd7a2cfec4cce6c8a30be935))
+
+## [4.2.0](https://github.com/maevsi/sqitch/compare/4.1.1...4.2.0) (2024-12-06)
+
+### Features
+
+* **account:** add social links ([b23fa1d](https://github.com/maevsi/sqitch/commit/b23fa1d6608275eadef48c33202bf33ae9b92411))
+* **social-network:** rework ([605cd77](https://github.com/maevsi/sqitch/commit/605cd773d156cfe4d24764d88b3ee294fce6bfbc))
+
+## [4.1.1](https://github.com/maevsi/sqitch/compare/4.1.0...4.1.1) (2024-12-05)
+
+### Bug Fixes
+
+* **account:** allow empty birth date ([d308c21](https://github.com/maevsi/sqitch/commit/d308c21bda037f111c275df3c900b86e7a289d26))
+
+## [4.1.0](https://github.com/maevsi/sqitch/compare/4.0.5...4.1.0) (2024-12-02)
+
+### Features
+
+* **account:** column day_of_birth added ([71cc5e4](https://github.com/maevsi/sqitch/commit/71cc5e46105e70205492d782207750805f1bc184))
+
+## [4.0.5](https://github.com/maevsi/sqitch/compare/4.0.4...4.0.5) (2024-11-30)
+
+### Bug Fixes
+
+* schedule release ([432f826](https://github.com/maevsi/sqitch/commit/432f826cced7129907548418635f207ff1d06b24))
+
+## [4.0.4](https://github.com/maevsi/sqitch/compare/4.0.3...4.0.4) (2024-11-16)
+
+### Bug Fixes
+
+* schedule release ([1f54ae2](https://github.com/maevsi/sqitch/commit/1f54ae20aa31fa3f322eca46db74194482582649))
+
+## [4.0.3](https://github.com/maevsi/sqitch/compare/4.0.2...4.0.3) (2024-11-09)
+
+### Bug Fixes
+
+* schedule release ([2f3dc5e](https://github.com/maevsi/sqitch/commit/2f3dc5ecd5b11657fb99dc94f364b7d11950904d))
+
+## [4.0.2](https://github.com/maevsi/sqitch/compare/4.0.1...4.0.2) (2024-10-26)
+
+### Bug Fixes
+
+* schedule release ([9639a7e](https://github.com/maevsi/sqitch/commit/9639a7edb5de42ee3f9f26ac3e29f2249d184935))
+
+## [4.0.1](https://github.com/maevsi/sqitch/compare/4.0.0...4.0.1) (2024-10-16)
+
+### Bug Fixes
+
+* **report:** correct smart tags ([31eceeb](https://github.com/maevsi/sqitch/commit/31eceeb7e30e5dafbc0adab852a2707ee6514078))
+* **report:** omit creation timestamp from create mutation ([005f7a2](https://github.com/maevsi/sqitch/commit/005f7a24c9cc5966af5881bc82e90f81535649dd))
+
+## [4.0.0](https://github.com/maevsi/sqitch/compare/3.6.0...4.0.0) (2024-10-16)
+
+### ⚠ BREAKING CHANGES
+
+* **roles:** remove stomper
+* **notification:** grant execute to anonymous
+* **notification:** remove trigger
+
+### Features
+
+* **notification:** grant execute to anonymous ([070c694](https://github.com/maevsi/sqitch/commit/070c694de479bc761b4a1578086f56eebdf73759))
+* **notification:** remove trigger ([bef6af9](https://github.com/maevsi/sqitch/commit/bef6af9f33c9f57c042aa3269095b6d38fb4c3cb))
+* **roles:** remove stomper ([5efe0e7](https://github.com/maevsi/sqitch/commit/5efe0e7e21bf70fc94ec7db9ee612be9c5713add))
+
+## [4.0.0-beta.2](https://github.com/maevsi/sqitch/compare/4.0.0-beta.1...4.0.0-beta.2) (2024-10-06)
+
+### ⚠ BREAKING CHANGES
+
+* **roles:** remove stomper
+* **notification:** grant execute to anonymous
+
+### Features
+
+* **notification:** grant execute to anonymous ([070c694](https://github.com/maevsi/sqitch/commit/070c694de479bc761b4a1578086f56eebdf73759))
+* **roles:** remove stomper ([5efe0e7](https://github.com/maevsi/sqitch/commit/5efe0e7e21bf70fc94ec7db9ee612be9c5713add))
+
+## [4.0.0-beta.1](https://github.com/maevsi/sqitch/compare/3.4.8...4.0.0-beta.1) (2024-10-04)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** remove trigger
+
+### Features
+
+* **notification:** remove trigger ([bef6af9](https://github.com/maevsi/sqitch/commit/bef6af9f33c9f57c042aa3269095b6d38fb4c3cb))
+
+## [3.6.0](https://github.com/maevsi/sqitch/compare/3.5.0...3.6.0) (2024-10-15)
+
+### Features
+
+* **legal-term:** create tables ([591a66e](https://github.com/maevsi/sqitch/commit/591a66eecddf89f95df5a56fdae9528c6b6a8528))
+
+### Bug Fixes
+
+* **legal-term:** correct smart tags ([0cc036a](https://github.com/maevsi/sqitch/commit/0cc036ab63d11ed647e2d74d04d2237b11f1be8e))
+
+## [3.5.0](https://github.com/maevsi/sqitch/compare/3.4.8...3.5.0) (2024-10-13)
+
+### Features
+
+* **report:** add created column ([0f8ad03](https://github.com/maevsi/sqitch/commit/0f8ad037d559b1ca85d1bfc1a8e240956523a1de))
+* **report:** add policy to allow selection of own reports ([787c2b0](https://github.com/maevsi/sqitch/commit/787c2b0c70e76ae99bd44eadd3bcb229587f1727))
+* **report:** add reason column to report table ([fac766e](https://github.com/maevsi/sqitch/commit/fac766ec7d9fbc9849e82e81d14c2e085b2db285))
+* **report:** add report table ([62e347a](https://github.com/maevsi/sqitch/commit/62e347ab3722c98e7fcbe9b49f5c951bb68c25bb))
+* **report:** add report table policies ([ea469e7](https://github.com/maevsi/sqitch/commit/ea469e78064689e7b578990722f28a47c29fe485))
+* **report:** add unique constraint to prevent multiple reports by same user ([6b267cd](https://github.com/maevsi/sqitch/commit/6b267cd22fd3da23d41fc9f4f866b5645a9c0c8e))
+* **report:** refactoring ([f5c84b0](https://github.com/maevsi/sqitch/commit/f5c84b0d59024cd3b7635a66f525e327099333e3))
+* **report:** rename creation time column ([ad481ee](https://github.com/maevsi/sqitch/commit/ad481ee20daafff90376a7350672cf86f0c5d2ca))
+
+## [3.4.8](https://github.com/maevsi/sqitch/compare/3.4.7...3.4.8) (2024-09-28)
+
+### Bug Fixes
+
+* schedule release ([319c5cd](https://github.com/maevsi/sqitch/commit/319c5cd0f456319e8dbc5dfd2f1e2defd1f3aa8a))
+
+## [3.4.7](https://github.com/maevsi/sqitch/compare/3.4.6...3.4.7) (2024-09-14)
+
+### Bug Fixes
+
+* schedule release ([4ef76c1](https://github.com/maevsi/sqitch/commit/4ef76c1e32e2cbdbec26ebe6677f269500a35626))
+
+## [3.4.6](https://github.com/maevsi/sqitch/compare/3.4.5...3.4.6) (2024-08-31)
+
+### Bug Fixes
+
+* schedule release ([dea09ec](https://github.com/maevsi/sqitch/commit/dea09ecda2d1bce4fc52fd656fb90a5d376e2606))
+
+## [3.4.5](https://github.com/maevsi/sqitch/compare/3.4.4...3.4.5) (2024-08-17)
+
+### Bug Fixes
+
+* schedule release ([adc6548](https://github.com/maevsi/sqitch/commit/adc6548058cba7152338d6493b376ab0d2347428))
+
+## [3.4.4](https://github.com/maevsi/sqitch/compare/3.4.3...3.4.4) (2024-08-03)
+
+### Bug Fixes
+
+* schedule release ([e468eca](https://github.com/maevsi/sqitch/commit/e468eca3cd0e0d116dce88feeda1601a049cb502))
+
+## [3.4.3](https://github.com/maevsi/sqitch/compare/3.4.2...3.4.3) (2024-07-20)
+
+### Bug Fixes
+
+* schedule release ([af774a4](https://github.com/maevsi/sqitch/commit/af774a420cd7b1dd84f3669077a1e613f183ae27))
+
+## [3.4.2](https://github.com/maevsi/sqitch/compare/3.4.1...3.4.2) (2024-07-06)
+
+### Bug Fixes
+
+* schedule release ([fda139e](https://github.com/maevsi/sqitch/commit/fda139e168b42ad910c8871e7b5afc239e23e66a))
+
+## [3.4.1](https://github.com/maevsi/sqitch/compare/3.4.0...3.4.1) (2024-06-22)
+
+### Bug Fixes
+
+* schedule release ([c8f5edc](https://github.com/maevsi/sqitch/commit/c8f5edc913bebb1ef4a34212f8722b85ef0f4f01))
+
+## [3.4.0](https://github.com/maevsi/sqitch/compare/3.3.2...3.4.0) (2024-06-14)
+
+### Features
+
+* **achievements:** add unlock function ([090e1ff](https://github.com/maevsi/sqitch/commit/090e1ff400177841aa1a7dae2e4a082345a673e5))
+* add achievements ([406a335](https://github.com/maevsi/sqitch/commit/406a335995d05b7dc46b6a5998627d9dabcf2c9c))
+
+## [3.3.2](https://github.com/maevsi/sqitch/compare/3.3.1...3.3.2) (2024-06-01)
+
+
+### Bug Fixes
+
+* schedule release ([96cfc1c](https://github.com/maevsi/sqitch/commit/96cfc1c7e93d94e17984b00ac5579dfd97efbc48))
+
+## [3.3.1](https://github.com/maevsi/sqitch/compare/3.3.0...3.3.1) (2024-05-18)
+
+
+### Bug Fixes
+
+* schedule release ([7bdeec9](https://github.com/maevsi/sqitch/commit/7bdeec9895351dff33c07dae3f3d6e1902bb6693))
+
+## [3.3.0](https://github.com/maevsi/sqitch/compare/3.2.9...3.3.0) (2024-05-09)
+
+
+### Features
+
+* **account:** allow function execution by signed in users ([fa4eb8c](https://github.com/maevsi/sqitch/commit/fa4eb8cd08c55c287c2bb99c4ff3cdfdb08fd38d))
+
+## [3.2.9](https://github.com/maevsi/sqitch/compare/3.2.8...3.2.9) (2024-05-06)
+
+
+### Bug Fixes
+
+* schedule release ([54602d4](https://github.com/maevsi/sqitch/commit/54602d4366e3734bcc3d68730cd283cde204e946))
+
+## [3.2.8](https://github.com/maevsi/sqitch/compare/3.2.7...3.2.8) (2024-04-20)
+
+
+### Bug Fixes
+
+* schedule release ([d4f7fdf](https://github.com/maevsi/sqitch/commit/d4f7fdf1f196c390d50db084e2fa4bf920ed24ae))
+
+## [3.2.7](https://github.com/maevsi/sqitch/compare/3.2.6...3.2.7) (2024-04-06)
+
+
+### Bug Fixes
+
+* schedule release ([e7a5419](https://github.com/maevsi/sqitch/commit/e7a541944f2ae45ecdaec4539ca056e785dcb456))
+
+## [3.2.6](https://github.com/maevsi/sqitch/compare/3.2.5...3.2.6) (2024-03-23)
+
+
+### Bug Fixes
+
+* schedule release ([c6d0a15](https://github.com/maevsi/sqitch/commit/c6d0a155f1f5b70be713da0f989e8042d234075f))
+
+## [3.2.5](https://github.com/maevsi/sqitch/compare/3.2.4...3.2.5) (2024-03-09)
+
+
+### Bug Fixes
+
+* schedule release ([b4b0bfd](https://github.com/maevsi/sqitch/commit/b4b0bfdc2694f8781852112e0412464b0f2403cb))
+
+## [3.2.4](https://github.com/maevsi/sqitch/compare/3.2.3...3.2.4) (2024-02-24)
+
+
+### Bug Fixes
+
+* schedule release ([22a2fe8](https://github.com/maevsi/sqitch/commit/22a2fe882acfbc7702c031932315772c2b235029))
+
+## [3.2.3](https://github.com/maevsi/sqitch/compare/3.2.2...3.2.3) (2024-02-10)
+
+
+### Bug Fixes
+
+* schedule release ([722f01c](https://github.com/maevsi/sqitch/commit/722f01cb91108966192d72cc399b23d79cb1ed85))
+
+## [3.2.2](https://github.com/maevsi/sqitch/compare/3.2.1...3.2.2) (2024-01-27)
+
+
+### Bug Fixes
+
+* schedule release ([a989a23](https://github.com/maevsi/sqitch/commit/a989a237f01a0ad338a8d44f7f0b344094a00ab8))
+
 ## [3.2.1](https://github.com/maevsi/sqitch/compare/3.2.0...3.2.1) (2024-01-13)
 
 

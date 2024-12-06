@@ -6,6 +6,8 @@ BEGIN;
 
 CREATE TABLE maevsi_private.account (
   id                                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  birth_date                                 DATE, -- TODO: evaluate if this should be `NOT NULL` for all new accounts
   created                                    TIMESTAMP NOT NULL DEFAULT NOW(),
   email_address                              TEXT NOT NULL CHECK (char_length(email_address) < 255) UNIQUE, -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
@@ -19,6 +21,7 @@ CREATE TABLE maevsi_private.account (
 
 COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 COMMENT ON COLUMN maevsi_private.account.id IS 'The account''s internal id.';
+COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s date of birth.';
 COMMENT ON COLUMN maevsi_private.account.created IS 'Timestamp at which the account was last active.';
 COMMENT ON COLUMN maevsi_private.account.email_address IS 'The account''s email address for account related information.';
 COMMENT ON COLUMN maevsi_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';

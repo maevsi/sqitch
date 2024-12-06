@@ -29,6 +29,6 @@ You can create this file as follows:
 
 1. as `root` install curl using `apk update && apk add curl`
 
-1. still as `root` run `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
+1. still as `root` upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
 
 1. click the link in the output and download the image that pops up!
