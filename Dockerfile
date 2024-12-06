@@ -1,3 +1,6 @@
+# syntax=docker/dockerfile:1
+# check=skip=SecretsUsedInArgOrEnv
+
 ##############################
 FROM sqitch/sqitch:v1.4.1.2 AS development
 
