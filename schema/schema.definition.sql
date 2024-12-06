@@ -183,6 +183,27 @@ COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to 
 
 
 --
+-- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.social_network AS ENUM (
+    'facebook',
+    'instagram',
+    'tiktok',
+    'x'
+);
+
+
+ALTER TYPE maevsi.social_network OWNER TO postgres;
+
+--
+-- Name: TYPE social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.social_network IS 'Social networks.';
+
+
+--
 -- Name: account_delete(text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -1580,6 +1601,47 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
+-- Name: account_social_network; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_social_network (
+    account_id uuid NOT NULL,
+    social_network maevsi.social_network NOT NULL,
+    social_network_username text NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_social_network OWNER TO postgres;
+
+--
+-- Name: TABLE account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_social_network IS 'Links accounts to their social media profiles. Each entry represents a specific social network and associated username for an account.';
+
+
+--
+-- Name: COLUMN account_social_network.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.account_id IS 'The unique identifier of the account.';
+
+
+--
+-- Name: COLUMN account_social_network.social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.social_network IS 'The social network to which the account is linked.';
+
+
+--
+-- Name: COLUMN account_social_network.social_network_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.social_network_username IS 'The username of the account on the specified social network.';
+
+
+--
 -- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2894,6 +2956,21 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_social_network account_social_network_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_social_network
+    ADD CONSTRAINT account_social_network_pkey PRIMARY KEY (account_id, social_network);
+
+
+--
+-- Name: CONSTRAINT account_social_network_pkey ON account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT account_social_network_pkey ON maevsi.account_social_network IS 'Ensures uniqueness by combining the account ID and social network, allowing each account to have a single entry per social network.';
+
+
+--
 -- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3339,6 +3416,14 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_social_network account_social_network_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_social_network
+    ADD CONSTRAINT account_social_network_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: achievement achievement_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3541,6 +3626,27 @@ ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
+
+
+--
+-- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_delete ON maevsi.account_social_network FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_social_network account_social_network_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_insert ON maevsi.account_social_network FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_social_network account_social_network_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_update ON maevsi.account_social_network FOR UPDATE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
 
 
 --
@@ -4327,6 +4433,14 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE account_social_network; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.account_social_network TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.account_social_network TO maevsi_account;
 
 
 --
