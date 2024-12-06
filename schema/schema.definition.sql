@@ -3726,6 +3726,12 @@ CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
 
 
 --
+-- Name: account_social_network; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_social_network ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
