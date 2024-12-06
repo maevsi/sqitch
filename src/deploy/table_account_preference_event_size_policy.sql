@@ -1,4 +1,7 @@
 -- Deploy maevsi:table_account_preference_event_size_policy to pg
+-- requires: schema_public
+-- requires: table_account_preference_event_size
+-- requires: role_account
 
 BEGIN;
 
