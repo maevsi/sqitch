@@ -1,3 +1,11 @@
+## [4.3.0](https://github.com/maevsi/sqitch/compare/4.2.0...4.3.0) (2024-12-06)
+
+### Features
+
+* **account:** Add ability to store an account's preferred event sizes ([5f47988](https://github.com/maevsi/sqitch/commit/5f47988bc0ebedf2caa3a38399adc4f4de6c5b38))
+* **event:** Add event sizes ([e3b389b](https://github.com/maevsi/sqitch/commit/e3b389bb302b16a208a1dddedc35f1b909175af6))
+* **event:** remove size function ([9338623](https://github.com/maevsi/sqitch/commit/93386233fd89a5c1fd7a2cfec4cce6c8a30be935))
+
 ## [4.2.0](https://github.com/maevsi/sqitch/compare/4.1.1...4.2.0) (2024-12-06)
 
 ### Features
