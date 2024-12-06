@@ -1,3 +1,40 @@
+## [4.2.0](https://github.com/maevsi/sqitch/compare/4.1.1...4.2.0) (2024-12-06)
+
+### Features
+
+* **account:** add social links ([b23fa1d](https://github.com/maevsi/sqitch/commit/b23fa1d6608275eadef48c33202bf33ae9b92411))
+* **social-network:** rework ([605cd77](https://github.com/maevsi/sqitch/commit/605cd773d156cfe4d24764d88b3ee294fce6bfbc))
+
+## [4.1.1](https://github.com/maevsi/sqitch/compare/4.1.0...4.1.1) (2024-12-05)
+
+### Bug Fixes
+
+* **account:** allow empty birth date ([d308c21](https://github.com/maevsi/sqitch/commit/d308c21bda037f111c275df3c900b86e7a289d26))
+
+## [4.1.0](https://github.com/maevsi/sqitch/compare/4.0.5...4.1.0) (2024-12-02)
+
+### Features
+
+* **account:** column day_of_birth added ([71cc5e4](https://github.com/maevsi/sqitch/commit/71cc5e46105e70205492d782207750805f1bc184))
+
+## [4.0.5](https://github.com/maevsi/sqitch/compare/4.0.4...4.0.5) (2024-11-30)
+
+### Bug Fixes
+
+* schedule release ([432f826](https://github.com/maevsi/sqitch/commit/432f826cced7129907548418635f207ff1d06b24))
+
+## [4.0.4](https://github.com/maevsi/sqitch/compare/4.0.3...4.0.4) (2024-11-16)
+
+### Bug Fixes
+
+* schedule release ([1f54ae2](https://github.com/maevsi/sqitch/commit/1f54ae20aa31fa3f322eca46db74194482582649))
+
+## [4.0.3](https://github.com/maevsi/sqitch/compare/4.0.2...4.0.3) (2024-11-09)
+
+### Bug Fixes
+
+* schedule release ([2f3dc5e](https://github.com/maevsi/sqitch/commit/2f3dc5ecd5b11657fb99dc94f364b7d11950904d))
+
 ## [4.0.2](https://github.com/maevsi/sqitch/compare/4.0.1...4.0.2) (2024-10-26)
 
 ### Bug Fixes

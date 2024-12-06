@@ -10,7 +10,7 @@ CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:17.0 AS build
+FROM postgres:17.2 AS build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
@@ -39,7 +39,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && sqitch revert -t db:pg://postgres:postgres@/maevsi
 
 ##############################
-FROM alpine:3.20.3 AS validate
+FROM alpine:3.21.0 AS validate
 
 WORKDIR /srv/app
 
