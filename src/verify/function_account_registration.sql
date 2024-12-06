@@ -76,15 +76,13 @@ ROLLBACK TO SAVEPOINT username_length;
 
 SAVEPOINT notification;
 DO $$
-DECLARE
-  account_id UUID;
 BEGIN
-  account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM maevsi.account_registration('username-8b973f', 'email@example.com', 'password', 'en');
 
   IF NOT EXISTS (
     SELECT 1 FROM maevsi_private.notification
     WHERE channel = 'account_registration'
-      AND payload::jsonb -> 'account' ->> 'username' = 'username'
+      AND payload::jsonb -> 'account' ->> 'username' = 'username-8b973f'
   ) THEN
     RAISE EXCEPTION 'Test failed: Notification not generated';
   END IF;
