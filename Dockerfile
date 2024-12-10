@@ -2,7 +2,7 @@
 # check=skip=SecretsUsedInArgOrEnv
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.2 AS development
+FROM sqitch/sqitch:v1.4.1.3 AS development
 
 WORKDIR /srv/app
 
@@ -53,7 +53,7 @@ RUN diff schema.definition.sql schema.sql
 
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.2 AS production
+FROM sqitch/sqitch:v1.4.1.3 AS production
 
 ENV ENV=production
 
