@@ -1622,6 +1622,39 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
+-- Name: account_interest; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_interest (
+    account_id uuid NOT NULL,
+    category text NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_interest OWNER TO postgres;
+
+--
+-- Name: TABLE account_interest; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_interest IS 'Event categories a user account is interested in (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_interest.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_interest.account_id IS 'A user account id.';
+
+
+--
+-- Name: COLUMN account_interest.category; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_interest.category IS 'An event category.';
+
+
+--
 -- Name: account_preference_event_size; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1851,6 +1884,64 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 
 --
+-- Name: event_category; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_category (
+    category text NOT NULL
+);
+
+
+ALTER TABLE maevsi.event_category OWNER TO postgres;
+
+--
+-- Name: TABLE event_category; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.event_category IS 'Event categories.';
+
+
+--
+-- Name: COLUMN event_category.category; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_category.category IS 'A category name.';
+
+
+--
+-- Name: event_category_mapping; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_category_mapping (
+    event_id uuid NOT NULL,
+    category text NOT NULL
+);
+
+
+ALTER TABLE maevsi.event_category_mapping OWNER TO postgres;
+
+--
+-- Name: TABLE event_category_mapping; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.event_category_mapping IS 'Mapping events to categories (M:N relationship).';
+
+
+--
+-- Name: COLUMN event_category_mapping.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_category_mapping.event_id IS 'An event id.';
+
+
+--
+-- Name: COLUMN event_category_mapping.category; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_category_mapping.category IS 'A category name.';
+
+
+--
 -- Name: event_group; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -1960,6 +2051,55 @@ COMMENT ON COLUMN maevsi.event_grouping.event_group_id IS 'The event grouping''s
 --
 
 COMMENT ON COLUMN maevsi.event_grouping.event_id IS 'The event grouping''s internal event id.';
+
+
+--
+-- Name: event_recommendation; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_recommendation (
+    account_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    score real,
+    predicted_score real
+);
+
+
+ALTER TABLE maevsi.event_recommendation OWNER TO postgres;
+
+--
+-- Name: TABLE event_recommendation; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.event_recommendation IS 'Events recommended to a user account (M:N relationship).';
+
+
+--
+-- Name: COLUMN event_recommendation.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_recommendation.account_id IS 'A user account id.';
+
+
+--
+-- Name: COLUMN event_recommendation.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_recommendation.event_id IS 'The predicted score of the recommendation.';
+
+
+--
+-- Name: COLUMN event_recommendation.score; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_recommendation.score IS 'An event id.';
+
+
+--
+-- Name: COLUMN event_recommendation.predicted_score; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_recommendation.predicted_score IS 'The score of the recommendation.';
 
 
 --
@@ -3002,6 +3142,14 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
+-- Name: account_interest account_interest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_interest
+    ADD CONSTRAINT account_interest_pkey PRIMARY KEY (account_id, category);
+
+
+--
 -- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3081,6 +3229,22 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
+-- Name: event_category_mapping event_category_mapping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_category_mapping
+    ADD CONSTRAINT event_category_mapping_pkey PRIMARY KEY (event_id, category);
+
+
+--
+-- Name: event_category event_category_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_category
+    ADD CONSTRAINT event_category_pkey PRIMARY KEY (category);
+
+
+--
 -- Name: event_group event_group_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3118,6 +3282,14 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 ALTER TABLE ONLY maevsi.event
     ADD CONSTRAINT event_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_recommendation event_recommendation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_recommendation
+    ADD CONSTRAINT event_recommendation_pkey PRIMARY KEY (account_id, event_id);
 
 
 --
@@ -3478,6 +3650,22 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_interest account_interest_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_interest
+    ADD CONSTRAINT account_interest_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_interest account_interest_category_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_interest
+    ADD CONSTRAINT account_interest_category_fkey FOREIGN KEY (category) REFERENCES maevsi.event_category(category) ON DELETE CASCADE;
+
+
+--
 -- Name: account_preference_event_size account_preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3526,6 +3714,22 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
+-- Name: event_category_mapping event_category_mapping_category_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_category_mapping
+    ADD CONSTRAINT event_category_mapping_category_fkey FOREIGN KEY (category) REFERENCES maevsi.event_category(category) ON DELETE CASCADE;
+
+
+--
+-- Name: event_category_mapping event_category_mapping_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_category_mapping
+    ADD CONSTRAINT event_category_mapping_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+
+
+--
 -- Name: event_group event_group_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3547,6 +3751,22 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 ALTER TABLE ONLY maevsi.event_grouping
     ADD CONSTRAINT event_grouping_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: event_recommendation event_recommendation_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_recommendation
+    ADD CONSTRAINT event_recommendation_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_recommendation event_recommendation_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_recommendation
+    ADD CONSTRAINT event_recommendation_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
 
 
 --
@@ -3692,6 +3912,33 @@ ALTER TABLE ONLY sqitch.tags
 ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: account_interest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_interest ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_interest account_interest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_interest_delete ON maevsi.account_interest FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_interest account_interest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_interest_insert ON maevsi.account_interest FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_interest account_interest_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_interest_select ON maevsi.account_interest FOR SELECT USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
 -- Name: account_preference_event_size; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3806,6 +4053,39 @@ CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING ((((NULLIF(curre
 ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: event_category_mapping; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING (((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+
+
+--
 -- Name: event_group; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -3822,6 +4102,19 @@ ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: event_recommendation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.event_recommendation ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_recommendation event_recommendation_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
 
 
 --
@@ -4539,6 +4832,13 @@ GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE account_interest; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_interest TO maevsi_account;
+
+
+--
 -- Name: TABLE account_preference_event_size; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -4570,6 +4870,22 @@ GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE event_category; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.event_category TO maevsi_anonymous;
+GRANT SELECT ON TABLE maevsi.event_category TO maevsi_account;
+
+
+--
+-- Name: TABLE event_category_mapping; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.event_category_mapping TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_account;
+
+
+--
 -- Name: TABLE event_group; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -4583,6 +4899,13 @@ GRANT SELECT ON TABLE maevsi.event_group TO maevsi_anonymous;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.event_grouping TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.event_grouping TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE event_recommendation; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_recommendation TO maevsi_account;
 
 
 --
