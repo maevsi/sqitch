@@ -96,6 +96,27 @@ COMMENT ON TYPE maevsi.achievement_type IS 'Achievements that can be unlocked by
 
 
 --
+-- Name: event_size; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.event_size AS ENUM (
+    'small',
+    'medium',
+    'large',
+    'huge'
+);
+
+
+ALTER TYPE maevsi.event_size OWNER TO postgres;
+
+--
+-- Name: TYPE event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.event_size IS 'Possible event sizes: small, medium, large, huge.';
+
+
+--
 -- Name: jwt; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -180,6 +201,27 @@ ALTER TYPE maevsi.invitation_feedback_paper OWNER TO postgres;
 --
 
 COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
+
+
+--
+-- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.social_network AS ENUM (
+    'facebook',
+    'instagram',
+    'tiktok',
+    'x'
+);
+
+
+ALTER TYPE maevsi.social_network OWNER TO postgres;
+
+--
+-- Name: TYPE social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.social_network IS 'Social networks.';
 
 
 --
@@ -388,30 +430,30 @@ COMMENT ON FUNCTION maevsi.account_password_reset_request(email_address text, la
 
 CREATE FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _new_account_private maevsi_private.account;
   _new_account_public maevsi.account;
   _new_account_notify RECORD;
 BEGIN
-  IF (char_length($3) < 8) THEN
+  IF (char_length(account_registration.password) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = $1)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = account_registration.username)) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.email_address = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.email_address = account_registration.email_address)) THEN
     RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    ($2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
+    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), NOW())
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES
-    (_new_account_private.id, $1)
+    (_new_account_private.id, account_registration.username)
     RETURNING * INTO _new_account_public;
 
   SELECT
@@ -427,13 +469,13 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', $4)
+      'template', jsonb_build_object('language', account_registration.language)
     ))
   );
 
   RETURN _new_account_public.id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) OWNER TO postgres;
@@ -1580,6 +1622,80 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
+-- Name: account_preference_event_size; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_preference_event_size (
+    account_id uuid NOT NULL,
+    event_size maevsi.event_size NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_preference_event_size OWNER TO postgres;
+
+--
+-- Name: TABLE account_preference_event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_preference_event_size.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.account_id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account_preference_event_size.event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.event_size IS 'A preferred event sized';
+
+
+--
+-- Name: account_social_network; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.account_social_network (
+    account_id uuid NOT NULL,
+    social_network maevsi.social_network NOT NULL,
+    social_network_username text NOT NULL
+);
+
+
+ALTER TABLE maevsi.account_social_network OWNER TO postgres;
+
+--
+-- Name: TABLE account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.account_social_network IS 'Links accounts to their social media profiles. Each entry represents a specific social network and associated username for an account.';
+
+
+--
+-- Name: COLUMN account_social_network.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.account_id IS 'The unique identifier of the account.';
+
+
+--
+-- Name: COLUMN account_social_network.social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.social_network IS 'The social network to which the account is linked.';
+
+
+--
+-- Name: COLUMN account_social_network.social_network_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_social_network.social_network_username IS 'The username of the account on the specified social network.';
+
+
+--
 -- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2202,7 +2318,7 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    birth_date date NOT NULL,
+    birth_date date,
     created timestamp without time zone DEFAULT now() NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
@@ -2940,6 +3056,29 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_preference_event_size account_preference_event_size_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_preference_event_size
+    ADD CONSTRAINT account_preference_event_size_pkey PRIMARY KEY (account_id, event_size);
+
+
+--
+-- Name: account_social_network account_social_network_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_social_network
+    ADD CONSTRAINT account_social_network_pkey PRIMARY KEY (account_id, social_network);
+
+
+--
+-- Name: CONSTRAINT account_social_network_pkey ON account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT account_social_network_pkey ON maevsi.account_social_network IS 'Ensures uniqueness by combining the account ID and social network, allowing each account to have a single entry per social network.';
+
+
+--
 -- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3385,6 +3524,22 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
+-- Name: account_preference_event_size account_preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_preference_event_size
+    ADD CONSTRAINT account_preference_event_size_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: account_social_network account_social_network_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_social_network
+    ADD CONSTRAINT account_social_network_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: achievement achievement_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3583,10 +3738,64 @@ ALTER TABLE ONLY sqitch.tags
 ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: account_preference_event_size; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_preference_event_size ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_preference_event_size account_preference_event_size_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_delete ON maevsi.account_preference_event_size FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_insert ON maevsi.account_preference_event_size FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_preference_event_size account_preference_event_size_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_preference_event_size_select ON maevsi.account_preference_event_size FOR SELECT USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
 -- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
 CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
+
+
+--
+-- Name: account_social_network; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.account_social_network ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_delete ON maevsi.account_social_network FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_social_network account_social_network_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_insert ON maevsi.account_social_network FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+
+
+--
+-- Name: account_social_network account_social_network_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_social_network_update ON maevsi.account_social_network FOR UPDATE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
 
 
 --
@@ -4373,6 +4582,21 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE account_preference_event_size; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_preference_event_size TO maevsi_account;
+
+
+--
+-- Name: TABLE account_social_network; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.account_social_network TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.account_social_network TO maevsi_account;
 
 
 --

@@ -1,3 +1,30 @@
+## [4.3.1](https://github.com/maevsi/sqitch/compare/4.3.0...4.3.1) (2024-12-06)
+
+### Bug Fixes
+
+* **account:** enable row level security for social networks ([5606344](https://github.com/maevsi/sqitch/commit/5606344016974dd223ece949fb11d0d4b02400de))
+
+## [4.3.0](https://github.com/maevsi/sqitch/compare/4.2.0...4.3.0) (2024-12-06)
+
+### Features
+
+* **account:** Add ability to store an account's preferred event sizes ([5f47988](https://github.com/maevsi/sqitch/commit/5f47988bc0ebedf2caa3a38399adc4f4de6c5b38))
+* **event:** Add event sizes ([e3b389b](https://github.com/maevsi/sqitch/commit/e3b389bb302b16a208a1dddedc35f1b909175af6))
+* **event:** remove size function ([9338623](https://github.com/maevsi/sqitch/commit/93386233fd89a5c1fd7a2cfec4cce6c8a30be935))
+
+## [4.2.0](https://github.com/maevsi/sqitch/compare/4.1.1...4.2.0) (2024-12-06)
+
+### Features
+
+* **account:** add social links ([b23fa1d](https://github.com/maevsi/sqitch/commit/b23fa1d6608275eadef48c33202bf33ae9b92411))
+* **social-network:** rework ([605cd77](https://github.com/maevsi/sqitch/commit/605cd773d156cfe4d24764d88b3ee294fce6bfbc))
+
+## [4.1.1](https://github.com/maevsi/sqitch/compare/4.1.0...4.1.1) (2024-12-05)
+
+### Bug Fixes
+
+* **account:** allow empty birth date ([d308c21](https://github.com/maevsi/sqitch/commit/d308c21bda037f111c275df3c900b86e7a289d26))
+
 ## [4.1.0](https://github.com/maevsi/sqitch/compare/4.0.5...4.1.0) (2024-12-02)
 
 ### Features

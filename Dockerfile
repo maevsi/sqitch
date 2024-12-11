@@ -1,5 +1,8 @@
+# syntax=docker/dockerfile:1
+# check=skip=SecretsUsedInArgOrEnv
+
 ##############################
-FROM sqitch/sqitch:v1.4.1.2 AS development
+FROM sqitch/sqitch:v1.4.1.3 AS development
 
 WORKDIR /srv/app
 
@@ -39,7 +42,7 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && sqitch revert -t db:pg://postgres:postgres@/maevsi
 
 ##############################
-FROM alpine:3.20.3 AS validate
+FROM alpine:3.21.0 AS validate
 
 WORKDIR /srv/app
 
@@ -50,7 +53,7 @@ RUN diff schema.definition.sql schema.sql
 
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.2 AS production
+FROM sqitch/sqitch:v1.4.1.3 AS production
 
 ENV ENV=production
 
