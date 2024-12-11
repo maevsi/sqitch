@@ -1905,6 +1905,52 @@ COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper f
 
 
 --
+-- Name: invitation_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+--
+
+CREATE VIEW maevsi.invitation_flat AS
+ SELECT i.id,
+    i.contact_id,
+    i.event_id,
+    i.feedback,
+    i.feedback_paper,
+    c.account_id AS contact_account_id,
+    c.address,
+    c.author_account_id AS contact_author_account_id,
+    c.email_address,
+    c.email_address_hash,
+    c.first_name,
+    c.last_name,
+    c.phone_number,
+    c.url AS contact_url,
+    e.author_account_id AS event_author_account_id,
+    e.description,
+    e.start,
+    e."end",
+    e.invitee_count_maximum,
+    e.is_archived,
+    e.is_in_person,
+    e.is_remote,
+    e.location,
+    e.name,
+    e.slug,
+    e.url AS event_url,
+    e.visibility
+   FROM ((maevsi.invitation i
+     JOIN maevsi.contact c ON ((i.contact_id = c.id)))
+     JOIN maevsi.event e ON ((i.event_id = e.id)));
+
+
+ALTER VIEW maevsi.invitation_flat OWNER TO postgres;
+
+--
+-- Name: VIEW invitation_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON VIEW maevsi.invitation_flat IS 'View returning flattened invitations.';
+
+
+--
 -- Name: legal_term; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
