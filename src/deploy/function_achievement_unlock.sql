@@ -1,12 +1,3 @@
--- Deploy maevsi:function_achievement_unlock to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: enum_achievement_type
--- requires: schema_private
--- requires: table_achievement_code
--- requires: table_achievement
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.achievement_unlock(

@@ -1,12 +1,3 @@
--- Deploy maevsi:function_authenticate to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: role_account
--- requires: role_anonymous
--- requires: type_jwt
--- requires: table_account_private
--- requires: table_jwt
-
 BEGIN;
 
 CREATE FUNCTION maevsi.authenticate(

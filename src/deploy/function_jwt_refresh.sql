@@ -1,9 +1,3 @@
--- Deploy maevsi:function_jwt_refresh to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: type_jwt
--- requires: table_jwt
-
 BEGIN;
 
 CREATE FUNCTION maevsi.jwt_refresh(

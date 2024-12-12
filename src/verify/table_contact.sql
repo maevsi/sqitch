@@ -1,5 +1,3 @@
--- Verify maevsi:table_contact on pg
-
 BEGIN;
 
 SELECT id,

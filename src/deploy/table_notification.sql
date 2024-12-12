@@ -1,6 +1,3 @@
--- Deploy maevsi:table_event to pg
--- requires: schema_private
-
 BEGIN;
 
 CREATE TABLE maevsi_private.notification (

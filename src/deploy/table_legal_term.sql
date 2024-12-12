@@ -1,8 +1,3 @@
--- Deploy maevsi:table_legal_term to pg
--- requires: schema_public
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE TABLE maevsi.legal_term (

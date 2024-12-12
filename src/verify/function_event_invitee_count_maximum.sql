@@ -1,5 +1,3 @@
--- Verify maevsi:function_event_invitee_count_maximum on pg
-
 BEGIN;
 
 DO $$

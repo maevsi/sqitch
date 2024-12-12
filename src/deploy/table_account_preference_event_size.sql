@@ -1,8 +1,3 @@
--- Deploy maevsi:table_account_preference_event_size to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: enum_event_size
-
 BEGIN;
 
 CREATE TABLE maevsi.account_preference_event_size (

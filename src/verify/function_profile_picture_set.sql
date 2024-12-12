@@ -1,5 +1,3 @@
--- Verify maevsi:function_profile_picture_set on pg
-
 BEGIN;
 
 DO $$

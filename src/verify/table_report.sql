@@ -1,5 +1,3 @@
--- Verify maevsi:table_report on pg
-
 BEGIN;
 
 SELECT id,

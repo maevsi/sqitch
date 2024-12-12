@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_social_network_policy on pg
-
 BEGIN;
 
 SAVEPOINT select_account;

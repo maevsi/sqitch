@@ -1,5 +1,3 @@
--- Verify maevsi:function_invitation_claim_array on pg
-
 BEGIN;
 
 DO $$

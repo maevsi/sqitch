@@ -1,5 +1,3 @@
--- Verify maevsi:function_event_delete on pg
-
 BEGIN;
 
 DO $$

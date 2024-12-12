@@ -1,7 +1,3 @@
--- Deploy maevsi:table_event to pg
--- requires: schema_public
--- requires: table_account_public
-
 BEGIN;
 
 CREATE TABLE maevsi.upload (

@@ -1,5 +1,3 @@
--- Verify maevsi:type_event_unlock_response on pg
-
 BEGIN;
 
 DO $$

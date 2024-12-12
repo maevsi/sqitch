@@ -1,5 +1,3 @@
--- Verify maevsi:table_event_group on pg
-
 BEGIN;
 
 SELECT id,

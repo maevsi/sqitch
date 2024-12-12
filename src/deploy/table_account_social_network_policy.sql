@@ -1,5 +1,3 @@
--- Deploy maevsi:table_account_social_network_policy to pg
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.account_social_network TO maevsi_anonymous;

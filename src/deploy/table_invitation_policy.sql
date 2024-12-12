@@ -1,12 +1,3 @@
--- Deploy maevsi:table_invitation_policy to pg
--- requires: schema_public
--- requires: table_invitation
--- requires: role_account
--- requires: role_anonymous
--- requires: function_invitation_claim_array
--- requires: function_events_organized
--- requires: function_event_invitee_count_maximum
-
 BEGIN;
 
 GRANT SELECT, UPDATE ON TABLE maevsi.invitation TO maevsi_account, maevsi_anonymous;

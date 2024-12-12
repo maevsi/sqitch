@@ -1,8 +1,3 @@
--- Deploy maevsi:table_report_policy to pg
--- requires: schema_public
--- requires: table_report
--- requires: role_account
-
 BEGIN;
 
 GRANT INSERT, SELECT ON TABLE maevsi.report TO maevsi_account;

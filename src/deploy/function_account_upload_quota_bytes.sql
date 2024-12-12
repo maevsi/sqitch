@@ -1,10 +1,3 @@
--- Deploy maevsi:function_account_upload_quota_bytes to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_upload_quota_bytes() RETURNS BIGINT AS $$

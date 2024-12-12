@@ -1,5 +1,3 @@
--- Revert maevsi:table_legal_term from pg
-
 BEGIN;
 
 DROP POLICY legal_term_select ON maevsi.legal_term;

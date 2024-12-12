@@ -1,10 +1,3 @@
--- Deploy maevsi:function_event_is_existing to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_event
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.event_is_existing(

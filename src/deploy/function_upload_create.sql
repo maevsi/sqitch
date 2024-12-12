@@ -1,11 +1,3 @@
--- Deploy maevsi:function_upload_create to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: role_account
--- requires: table_upload
--- requires: table_account_private
-
 BEGIN;
 
 CREATE FUNCTION maevsi.upload_create(

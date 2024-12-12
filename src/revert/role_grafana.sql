@@ -1,5 +1,3 @@
--- Revert maevsi:role_grafana from pg
-
 \connect grafana
 
 BEGIN;

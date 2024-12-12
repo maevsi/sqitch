@@ -1,12 +1,3 @@
--- Deploy maevsi:function_account_password_reset to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: extension_pgcrypto
--- requires: role_anonymous
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_password_reset(
