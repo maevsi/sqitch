@@ -1,3 +1,13 @@
+## [5.0.0-beta.1](https://github.com/maevsi/sqitch/compare/4.3.1...5.0.0-beta.1) (2024-12-12)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** rename `created` column to `created_at`
+
+### Features
+
+* **account:** rename `created` column to `created_at` ([df18548](https://github.com/maevsi/sqitch/commit/df18548e11871a22271fa9d131a0538782c1e51b))
+
 ## [4.3.1](https://github.com/maevsi/sqitch/compare/4.3.0...4.3.1) (2024-12-06)
 
 ### Bug Fixes
