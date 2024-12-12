@@ -1,3 +1,10 @@
+## [4.5.1](https://github.com/maevsi/sqitch/compare/4.5.0...4.5.1) (2024-12-12)
+
+### Bug Fixes
+
+* **legal-term-acceptance:** omit update and delete ([555e031](https://github.com/maevsi/sqitch/commit/555e031c96e3a83ae41e3b03dd5c2de72e51780f))
+* omit update for creation timestamps ([084ad1e](https://github.com/maevsi/sqitch/commit/084ad1e7f89dfcfd890fde76f3d5baa9dffe1cd8))
+
 ## [4.5.0](https://github.com/maevsi/sqitch/compare/4.4.0...4.5.0) (2024-12-12)
 
 ### Features
