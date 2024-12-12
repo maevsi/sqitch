@@ -16,7 +16,7 @@ CREATE TABLE maevsi.invitation (
 
 COMMENT ON TABLE maevsi.invitation IS 'An invitation for a contact. A bidirectional mapping between an event and a contact.';
 COMMENT ON COLUMN maevsi.invitation.id IS E'@omit create,update\nThe invitations''s internal id.';
-COMMENT ON COLUMN maevsi.invitation.created_at IS E'@omit create\nTimestamp of when the invitation was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.invitation.created_at IS E'@omit create,update\nTimestamp of when the invitation was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.invitation.updated_at IS E'@omit create,update\nTimestamp of when the invitation was last updated.';
 COMMENT ON COLUMN maevsi.invitation.updated_by IS E'@omit create,update\nThe id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
 COMMENT ON COLUMN maevsi.invitation.contact_id IS 'The contact''s internal id for which the invitation is valid.';

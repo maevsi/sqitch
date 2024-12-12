@@ -14,7 +14,7 @@ CREATE TABLE maevsi.event_group (
 
 COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 COMMENT ON COLUMN maevsi.event_group.id IS E'@omit create,update\nThe event group''s internal id.';
-COMMENT ON COLUMN maevsi.event_group.created_at IS E'@omit create\nTimestamp of when the event group was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.event_group.created_at IS E'@omit create,update\nTimestamp of when the event group was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.event_group.author_account_id IS 'The event group author''s id.';
 COMMENT ON COLUMN maevsi.event_group.description IS 'The event group''s description.';
 COMMENT ON COLUMN maevsi.event_group.is_archived IS 'Indicates whether the event group is archived.';
