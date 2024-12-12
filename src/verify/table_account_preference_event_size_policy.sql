@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_preference_event_size_policy on pg
-
 BEGIN;
 
 DO $$

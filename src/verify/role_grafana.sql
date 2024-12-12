@@ -1,5 +1,3 @@
--- Verify maevsi:role_grafana on pg
-
 \connect grafana
 
 BEGIN;

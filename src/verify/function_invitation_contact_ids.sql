@@ -1,5 +1,3 @@
--- Verify maevsi:function_invitation_contact_ids on pg
-
 BEGIN;
 
 DO $$

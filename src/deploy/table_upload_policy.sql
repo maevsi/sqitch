@@ -1,10 +1,3 @@
--- Deploy maevsi:table_event to pg
--- requires: schema_public
--- requires: table_upload
--- requires: role_account
--- requires: role_anonymous
--- requires: role_tusd
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account, maevsi_anonymous, maevsi_tusd;

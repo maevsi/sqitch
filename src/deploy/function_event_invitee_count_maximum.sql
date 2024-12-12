@@ -1,13 +1,3 @@
--- Deploy maevsi:function_event_invitee_count_maximum to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_event
--- requires: function_invitee_count
--- requires: schema_private
--- requires: function_events_invited
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.event_invitee_count_maximum(

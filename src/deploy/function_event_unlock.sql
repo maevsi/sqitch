@@ -1,13 +1,3 @@
--- Deploy maevsi:function_event_unlock to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_invitation
--- requires: table_event
--- requires: type_event_unlock_response
--- requires: function_invitation_claims_to_array
--- requires: type_jwt
--- requires: table_jwt
-
 BEGIN;
 
 CREATE FUNCTION maevsi.event_unlock(

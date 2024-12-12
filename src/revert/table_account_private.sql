@@ -1,5 +1,3 @@
--- Revert maevsi:table_account_private from pg
-
 BEGIN;
 
 DROP TRIGGER maevsi_private_account_password_reset_verification_valid_until ON maevsi_private.account;

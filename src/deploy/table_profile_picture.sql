@@ -1,11 +1,3 @@
--- Deploy maevsi:table_profile_picture to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: table_upload
--- requires: role_account
--- requires: role_anonymous
--- requires: role_tusd
-
 BEGIN;
 
 CREATE TABLE maevsi.profile_picture (

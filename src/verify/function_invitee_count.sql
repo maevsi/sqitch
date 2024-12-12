@@ -1,5 +1,3 @@
--- Verify maevsi:function_invitee_count on pg
-
 BEGIN;
 
 DO $$

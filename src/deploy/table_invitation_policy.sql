@@ -1,12 +1,3 @@
--- Deploy maevsi:table_invitation_policy to pg
--- requires: schema_public
--- requires: table_invitation
--- requires: role_account
--- requires: role_anonymous
--- requires: function_invitation_claim_array
--- requires: function_events_organized
--- requires: function_event_invitee_count_maximum
-
 BEGIN;
 
 GRANT SELECT, UPDATE ON TABLE maevsi.invitation TO maevsi_account, maevsi_anonymous;
@@ -106,6 +97,8 @@ BEGIN
   THEN
     RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
   ELSE
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_by = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
     RETURN NEW;
   END IF;
 END $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;

@@ -1,9 +1,3 @@
--- Deploy maevsi:table_legal_term_acceptance to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: table_legal_term
--- requires: role_account
-
 BEGIN;
 
 CREATE TABLE maevsi.legal_term_acceptance (
@@ -14,7 +8,7 @@ CREATE TABLE maevsi.legal_term_acceptance (
   legal_term_id UUID NOT NULL REFERENCES maevsi.legal_term(id) ON DELETE RESTRICT -- deletion of the parent row should not be possible
 );
 
-COMMENT ON TABLE maevsi.legal_term_acceptance IS 'Tracks each user account''s acceptance of legal terms and conditions.';
+COMMENT ON TABLE maevsi.legal_term_acceptance IS '@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
 COMMENT ON COLUMN maevsi.legal_term_acceptance.id IS E'@omit create\nUnique identifier for this legal term acceptance record. Automatically generated for each new acceptance.';
 COMMENT ON COLUMN maevsi.legal_term_acceptance.created_at IS E'@omit create\nTimestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
 COMMENT ON COLUMN maevsi.legal_term_acceptance.account_id IS 'The user account ID that accepted the legal terms. If the account is deleted, this acceptance record will also be deleted.';

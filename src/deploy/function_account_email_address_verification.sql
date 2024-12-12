@@ -1,11 +1,3 @@
--- Deploy maevsi:function_account_email_address_verification to pg
--- requires: privilege_execute_revoke
--- requires: schema_private
--- requires: schema_public
--- requires: role_account
--- requires: role_anonymous
--- requires: table_account_private
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_email_address_verification(
@@ -23,7 +15,7 @@ BEGIN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.email_address_verification_valid_until < NOW()) THEN
+  IF (_account.email_address_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Verification code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 

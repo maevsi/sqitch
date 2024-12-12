@@ -1,12 +1,3 @@
--- Deploy maevsi:function_account_password_reset to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: extension_pgcrypto
--- requires: role_anonymous
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_password_reset(
@@ -29,7 +20,7 @@ BEGIN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.password_reset_verification_valid_until < NOW()) THEN
+  IF (_account.password_reset_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Reset code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 

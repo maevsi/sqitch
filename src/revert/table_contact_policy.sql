@@ -1,5 +1,3 @@
--- Revert maevsi:table_contact_policy from pg
-
 BEGIN;
 
 DROP POLICY contact_delete ON maevsi.contact;

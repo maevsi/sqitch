@@ -1,5 +1,3 @@
--- Verify maevsi:function_account_delete on pg
-
 BEGIN;
 
 DO $$

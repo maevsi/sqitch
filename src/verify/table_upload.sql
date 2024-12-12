@@ -1,8 +1,7 @@
--- Verify maevsi:table_upload on pg
-
 BEGIN;
 
 SELECT id,
+       created_at,
        account_id,
        name,
        size_byte,

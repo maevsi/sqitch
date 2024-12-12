@@ -1,5 +1,3 @@
--- Verify maevsi:function_account_password_change on pg
-
 BEGIN;
 
 DO $$

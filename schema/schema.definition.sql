@@ -204,6 +204,25 @@ COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to 
 
 
 --
+-- Name: language; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.language AS ENUM (
+    'de',
+    'en'
+);
+
+
+ALTER TYPE maevsi.language OWNER TO postgres;
+
+--
+-- Name: TYPE language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.language IS 'Supported ISO 639 language codes.';
+
+
+--
 -- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -277,7 +296,7 @@ BEGIN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.email_address_verification_valid_until < NOW()) THEN
+  IF (_account.email_address_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Verification code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 
@@ -354,7 +373,7 @@ BEGIN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.password_reset_verification_valid_until < NOW()) THEN
+  IF (_account.password_reset_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Reset code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 
@@ -449,7 +468,7 @@ BEGIN
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), NOW())
+    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES
@@ -621,7 +640,7 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
@@ -686,6 +705,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE maevsi.event (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     author_account_id uuid NOT NULL,
     description text,
     "end" timestamp with time zone,
@@ -723,6 +743,14 @@ COMMENT ON TABLE maevsi.event IS 'An event.';
 
 COMMENT ON COLUMN maevsi.event.id IS '@omit create,update
 The event''s internal id.';
+
+
+--
+-- Name: COLUMN event.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.created_at IS '@omit create,update
+Timestamp of when the event was created, defaults to the current timestamp.';
 
 
 --
@@ -1195,7 +1223,7 @@ CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', NOW()::TIMESTAMP)));
+  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)));
   _jwt maevsi.jwt;
 BEGIN
   SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
@@ -1207,7 +1235,7 @@ BEGIN
     RETURN NULL;
   ELSE
     UPDATE maevsi_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
+    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
     WHERE id = $1;
 
     UPDATE maevsi_private.account
@@ -1385,6 +1413,8 @@ BEGIN
   THEN
     RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
   ELSE
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_by = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
     RETURN NEW;
   END IF;
 END $$;
@@ -1405,6 +1435,7 @@ COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller 
 
 CREATE TABLE maevsi.upload (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid NOT NULL,
     name text,
     size_byte bigint NOT NULL,
@@ -1430,6 +1461,14 @@ COMMENT ON TABLE maevsi.upload IS 'An upload.';
 
 COMMENT ON COLUMN maevsi.upload.id IS '@omit create,update
 The upload''s internal id.';
+
+
+--
+-- Name: COLUMN upload.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.created_at IS '@omit create,update
+Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
 --
@@ -1519,7 +1558,7 @@ CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() 
       NEW.email_address_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (NOW() + INTERVAL '1 day')::TIMESTAMP);
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP);
       END IF;
     END IF;
 
@@ -1549,7 +1588,7 @@ CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until()
       NEW.password_reset_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (NOW() + INTERVAL '2 hours')::TIMESTAMP);
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP);
       END IF;
     END IF;
 
@@ -1643,6 +1682,7 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 --
 
 CREATE TABLE maevsi.account_preference_event_size (
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid NOT NULL,
     event_size maevsi.event_size NOT NULL
 );
@@ -1655,6 +1695,14 @@ ALTER TABLE maevsi.account_preference_event_size OWNER TO postgres;
 --
 
 COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_preference_event_size.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.created_at IS '@omit create,update
+Timestamp of when the event size preference was created, defaults to the current timestamp.';
 
 
 --
@@ -1768,20 +1816,26 @@ COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.'
 
 CREATE TABLE maevsi.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid,
     address text,
     author_account_id uuid NOT NULL,
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
+    language maevsi.language,
     last_name text,
+    nickname text,
     phone_number text,
+    timezone text,
     url text,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
+    CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -1801,6 +1855,14 @@ COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 
 COMMENT ON COLUMN maevsi.contact.id IS '@omit create,update
 The contact''s internal id.';
+
+
+--
+-- Name: COLUMN contact.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
+Timestamp of when the contact was created, defaults to the current timestamp.';
 
 
 --
@@ -1847,6 +1909,13 @@ COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
 
 
 --
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
+
+
+--
 -- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -1854,10 +1923,24 @@ COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
 
 
 --
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
+
+
+--
 -- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number.';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+
+
+--
+-- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
 
 
 --
@@ -1873,6 +1956,7 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 CREATE TABLE maevsi.event_group (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     author_account_id uuid NOT NULL,
     description text,
     is_archived boolean DEFAULT false NOT NULL,
@@ -1899,6 +1983,14 @@ COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 
 COMMENT ON COLUMN maevsi.event_group.id IS '@omit create,update
 The event group''s internal id.';
+
+
+--
+-- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
+Timestamp of when the event group was created, defaults to the current timestamp.';
 
 
 --
@@ -2029,6 +2121,9 @@ The internal id of the uploaded content.';
 
 CREATE TABLE maevsi.invitation (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid,
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
     feedback maevsi.invitation_feedback,
@@ -2051,6 +2146,30 @@ COMMENT ON TABLE maevsi.invitation IS 'An invitation for a contact. A bidirectio
 
 COMMENT ON COLUMN maevsi.invitation.id IS '@omit create,update
 The invitations''s internal id.';
+
+
+--
+-- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create,update
+Timestamp of when the invitation was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create,update
+Timestamp of when the invitation was last updated.';
+
+
+--
+-- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create,update
+The id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
 
 
 --
@@ -2079,6 +2198,54 @@ COMMENT ON COLUMN maevsi.invitation.feedback IS 'The invitation''s general feedb
 --
 
 COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper feedback status.';
+
+
+--
+-- Name: invitation_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+--
+
+CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
+ SELECT i.id AS invitation_id,
+    i.contact_id AS invitation_contact_id,
+    i.event_id AS invitation_event_id,
+    i.feedback AS invitation_feedback,
+    i.feedback_paper AS invitation_feedback_paper,
+    c.id AS contact_id,
+    c.account_id AS contact_account_id,
+    c.address AS contact_address,
+    c.author_account_id AS contact_author_account_id,
+    c.email_address AS contact_email_address,
+    c.email_address_hash AS contact_email_address_hash,
+    c.first_name AS contact_first_name,
+    c.last_name AS contact_last_name,
+    c.phone_number AS contact_phone_number,
+    c.url AS contact_url,
+    e.id AS event_id,
+    e.author_account_id AS event_author_account_id,
+    e.description AS event_description,
+    e.start AS event_start,
+    e."end" AS event_end,
+    e.invitee_count_maximum AS event_invitee_count_maximum,
+    e.is_archived AS event_is_archived,
+    e.is_in_person AS event_is_in_person,
+    e.is_remote AS event_is_remote,
+    e.location AS event_location,
+    e.name AS event_name,
+    e.slug AS event_slug,
+    e.url AS event_url,
+    e.visibility AS event_visibility
+   FROM ((maevsi.invitation i
+     JOIN maevsi.contact c ON ((i.contact_id = c.id)))
+     JOIN maevsi.event e ON ((i.event_id = e.id)));
+
+
+ALTER VIEW maevsi.invitation_flat OWNER TO postgres;
+
+--
+-- Name: VIEW invitation_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON VIEW maevsi.invitation_flat IS 'View returning flattened invitations.';
 
 
 --
@@ -2160,7 +2327,7 @@ ALTER TABLE maevsi.legal_term_acceptance OWNER TO postgres;
 -- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.legal_term_acceptance IS 'Tracks each user account''s acceptance of legal terms and conditions.';
+COMMENT ON TABLE maevsi.legal_term_acceptance IS '@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
 
 
 --
@@ -2241,12 +2408,12 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 CREATE TABLE maevsi.report (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     author_account_id uuid NOT NULL,
     reason text NOT NULL,
     target_account_id uuid,
     target_event_id uuid,
     target_upload_id uuid,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
     CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
 );
@@ -2268,6 +2435,14 @@ Stores reports made by users on other users, events, or uploads for moderation p
 
 COMMENT ON COLUMN maevsi.report.id IS '@omit create
 Unique identifier for the report, generated randomly using UUIDs.';
+
+
+--
+-- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
+Timestamp of when the report was created, defaults to the current timestamp.';
 
 
 --
@@ -2306,14 +2481,6 @@ COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being 
 
 
 --
--- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
-Timestamp of when the report was created, defaults to the current timestamp.';
-
-
---
 -- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -2334,11 +2501,11 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     birth_date date,
-    created timestamp without time zone DEFAULT now() NOT NULL,
+    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
     email_address_verification_valid_until timestamp without time zone,
-    last_activity timestamp without time zone DEFAULT now() NOT NULL,
+    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
@@ -2517,7 +2684,7 @@ CREATE TABLE maevsi_private.notification (
     channel text NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 
@@ -3659,6 +3826,14 @@ ALTER TABLE ONLY maevsi.invitation
 
 
 --
+-- Name: invitation invitation_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4726,6 +4901,14 @@ GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.invitation TO maevsi_account;
 GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE invitation_flat; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_anonymous;
 
 
 --

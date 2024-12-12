@@ -1,5 +1,3 @@
--- Verify maevsi:function_events_invited on pg
-
 BEGIN;
 
 DO $$

@@ -1,5 +1,3 @@
--- Verify maevsi:function_account_registration_refresh on pg
-
 BEGIN;
 
 DO $$

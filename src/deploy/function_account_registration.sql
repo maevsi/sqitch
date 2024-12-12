@@ -1,15 +1,3 @@
--- Deploy maevsi:function_account_registration to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: table_account_public
--- requires: table_contact
--- requires: extension_pgcrypto
--- requires: table_notification
--- requires: role_anonymous
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_registration(
@@ -36,7 +24,7 @@ BEGIN
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), NOW())
+    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES

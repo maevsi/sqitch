@@ -1,5 +1,3 @@
--- Verify maevsi:function_account_registration on pg
-
 BEGIN;
 
 SAVEPOINT function_privileges_for_roles;
