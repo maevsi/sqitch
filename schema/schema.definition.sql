@@ -204,6 +204,25 @@ COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to 
 
 
 --
+-- Name: language; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.language AS ENUM (
+    'de',
+    'en'
+);
+
+
+ALTER TYPE maevsi.language OWNER TO postgres;
+
+--
+-- Name: TYPE language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.language IS 'Supported ISO 639 language codes.';
+
+
+--
 -- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -1757,14 +1776,19 @@ CREATE TABLE maevsi.contact (
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
+    language maevsi.language,
     last_name text,
+    nickname text,
     phone_number text,
+    timezone text,
     url text,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
+    CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -1830,6 +1854,13 @@ COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
 
 
 --
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
+
+
+--
 -- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -1837,10 +1868,24 @@ COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
 
 
 --
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
+
+
+--
 -- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number.';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+
+
+--
+-- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
 
 
 --
