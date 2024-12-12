@@ -7,15 +7,15 @@ GRANT INSERT, DELETE ON TABLE maevsi.event_upload TO maevsi_account;
 
 ALTER TABLE maevsi.event_upload ENABLE ROW LEVEL SECURITY;
 
--- Only select rows with events authored by the current user.
+-- Only select rows for accessable events where accessability is spcified
+-- by the event_select policy for table event.
 CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING (
   event_id IN (
     SELECT id FROM maevsi.event
-    WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
   )
 );
 
--- Only allow inserts for events authored by the current user und uploads of the current_user0.
+-- Only allow inserts for events authored by the current user and for uploads of the current_user0.
 CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (
   event_id IN (
     SELECT id FROM maevsi.event
@@ -28,7 +28,7 @@ CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (
   )
 );
 
--- Only allow deletes if events is authored by the current user und uploads of the current_user.
+-- Only allow deletes if event is authored by the current user.
 CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING (
   event_id IN (
     SELECT id FROM maevsi.event

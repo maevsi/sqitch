@@ -2002,21 +2002,24 @@ COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e
 -- Name: COLUMN event_upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_upload.id IS '@omit insert,update\nThe event''s internal id for which the invitation is valid.';
+COMMENT ON COLUMN maevsi.event_upload.id IS '@omit create,update
+The event''s internal id for which the invitation is valid.';
 
 
 --
 -- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update,delete\nThe event''s internal id for which the invitation is valid.';
+COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update,delete
+The event''s internal id for which the invitation is valid.';
 
 
 --
 -- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update,delete\nThe internal id of the uploaded content.';
+COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update,delete
+The internal id of the uploaded content.';
 
 
 --
@@ -3958,8 +3961,7 @@ CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (
 --
 
 CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((event_id IN ( SELECT event.id
-   FROM maevsi.event
-  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))));
+   FROM maevsi.event)));
 
 
 --
