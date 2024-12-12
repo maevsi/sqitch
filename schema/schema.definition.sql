@@ -1780,6 +1780,7 @@ CREATE TABLE maevsi.contact (
     last_name text,
     nickname text,
     phone_number text,
+    timezone text,
     url text,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
@@ -1787,6 +1788,7 @@ CREATE TABLE maevsi.contact (
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
+    CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -1876,7 +1878,14 @@ COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
 -- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number.';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+
+
+--
+-- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
 
 
 --

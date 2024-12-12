@@ -11,6 +11,7 @@ SELECT id,
        last_name,
        nickname,
        phone_number,
+       timezone,
        url
 FROM maevsi.contact WHERE FALSE;
 

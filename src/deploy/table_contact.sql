@@ -13,6 +13,7 @@ CREATE TABLE maevsi.contact (
   last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) < 100),
   nickname              TEXT CHECK (char_length(nickname) > 0 AND char_length(nickname) < 100),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
+  timezone              TEXT CHECK (timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'),
   url                   TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
 
   UNIQUE (author_account_id, account_id)
@@ -30,6 +31,7 @@ COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
 COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
 COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
 COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
 COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_contact_policy`.
