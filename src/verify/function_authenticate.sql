@@ -1,5 +1,3 @@
--- Verify maevsi:function_authenticate on pg
-
 BEGIN;
 
 DO $$

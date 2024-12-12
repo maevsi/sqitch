@@ -1,8 +1,3 @@
--- Deploy maevsi:table_event_category_mapping to pg
--- requires: schema_public
--- requires: table_account
--- requires: enum_social_network
-
 BEGIN;
 
 CREATE TABLE maevsi.account_social_network (

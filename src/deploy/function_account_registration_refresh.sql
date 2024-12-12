@@ -1,11 +1,3 @@
--- Deploy maevsi:function_account_registration_refresh to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: table_notification
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_registration_refresh(

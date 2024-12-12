@@ -1,6 +1,3 @@
--- Deploy maevsi:enum_social_network to pg
--- requires: schema_public
-
 BEGIN;
 
 CREATE TYPE maevsi.social_network AS ENUM (

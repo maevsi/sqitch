@@ -1,11 +1,3 @@
--- Deploy maevsi:table_profile_picture to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: table_upload
--- requires: role_account
--- requires: role_anonymous
--- requires: role_tusd
-
 BEGIN;
 
 CREATE TABLE maevsi.profile_picture (
@@ -32,16 +24,16 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 
 -- Only allow inserts with a account id that matches the invoker's account id.
 CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.account_id() IS NOT NULL
   AND
-  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  account_id = maevsi.account_id()
 );
 
 -- Only allow updates to the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.account_id() IS NOT NULL
   AND
-  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  account_id = maevsi.account_id()
 );
 
 -- Only allow deletes for the item with the account id that matches the invoker's account id.
@@ -49,9 +41,9 @@ CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING 
     (SELECT current_user) = 'maevsi_tusd'
   OR
     (
-      NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+      maevsi.account_id() IS NOT NULL
       AND
-      account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      account_id = maevsi.account_id()
     )
 );
 

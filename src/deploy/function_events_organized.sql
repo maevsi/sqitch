@@ -1,10 +1,3 @@
--- Deploy maevsi:function_events_organized to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_event
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.events_organized()
@@ -12,7 +5,7 @@ RETURNS TABLE (event_id UUID) AS $$
 DECLARE
   account_id UUID;
 BEGIN
-  account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  account_id := maevsi.account_id();
 
   RETURN QUERY
     SELECT id FROM maevsi.event

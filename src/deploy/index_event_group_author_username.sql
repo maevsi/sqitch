@@ -1,6 +1,3 @@
--- Deploy maevsi:index_event_group_author_account_id to pg
--- requires: table_event_group
-
 BEGIN;
 
 CREATE INDEX idx_event_group_author_account_id ON maevsi.event_group (author_account_id);

@@ -1,9 +1,3 @@
--- Deploy maevsi:function_invitation_claim_array to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.invitation_claim_array()

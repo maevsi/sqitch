@@ -1,6 +1,3 @@
--- Deploy maevsi:role_account to pg
--- requires: role_postgraphile
-
 BEGIN;
 
 CREATE ROLE maevsi_account;

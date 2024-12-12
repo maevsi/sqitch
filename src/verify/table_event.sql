@@ -1,20 +1,19 @@
--- Verify maevsi:table_event on pg
-
 BEGIN;
 
 SELECT id,
+       created_at,
        author_account_id,
-       "description",
+       description,
        "end",
        invitee_count_maximum,
        is_archived,
        is_in_person,
        is_remote,
-       "location",
-       "name",
+       location,
+       name,
        slug,
-       "start",
-       "url",
+       start,
+       url,
        visibility
 FROM maevsi.event WHERE FALSE;
 

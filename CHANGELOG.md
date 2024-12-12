@@ -1,3 +1,59 @@
+## [4.8.0](https://github.com/maevsi/sqitch/compare/4.7.0...4.8.0) (2024-12-12)
+
+### Features
+
+* **event_upload:** adjust policies. ([23eb8f4](https://github.com/maevsi/sqitch/commit/23eb8f4fbc169117e928c3b75a33635d7d970ff3))
+* **event:** assign images to events ([f4822f8](https://github.com/maevsi/sqitch/commit/f4822f8252089929dea47f3585737d49b19b7c30))
+
+### Bug Fixes
+
+* **event-upload:** work in feedback ([678ddfc](https://github.com/maevsi/sqitch/commit/678ddfce330171ab340bd112f2734d1ab304559b))
+
+## [4.7.0](https://github.com/maevsi/sqitch/compare/4.6.0...4.7.0) (2024-12-12)
+
+### Features
+
+* **invitation:** column names prefixed ([2e29431](https://github.com/maevsi/sqitch/commit/2e294319a7b651deb1b472953ebb3ee770c5a5c6))
+* **invitation:** provide flattened invitations ([119b0dd](https://github.com/maevsi/sqitch/commit/119b0dd3c7337db9688a78778eb8a9484e6d3785))
+
+### Bug Fixes
+
+* **invitation-flat:** work in feedback ([6ac75ac](https://github.com/maevsi/sqitch/commit/6ac75ac03d73bdf6daed20e3bf47668fe9a45e22))
+
+## [4.6.0](https://github.com/maevsi/sqitch/compare/4.5.1...4.6.0) (2024-12-12)
+
+### Features
+
+* **invitation:** add update metadata ([f493fe4](https://github.com/maevsi/sqitch/commit/f493fe4d6c5e5127a0cad253768c864fcdfe296b))
+
+## [4.5.1](https://github.com/maevsi/sqitch/compare/4.5.0...4.5.1) (2024-12-12)
+
+### Bug Fixes
+
+* **legal-term-acceptance:** omit update and delete ([555e031](https://github.com/maevsi/sqitch/commit/555e031c96e3a83ae41e3b03dd5c2de72e51780f))
+* omit update for creation timestamps ([084ad1e](https://github.com/maevsi/sqitch/commit/084ad1e7f89dfcfd890fde76f3d5baa9dffe1cd8))
+
+## [4.5.0](https://github.com/maevsi/sqitch/compare/4.4.0...4.5.0) (2024-12-12)
+
+### Features
+
+* **table:** add creation timestamps ([d8d142d](https://github.com/maevsi/sqitch/commit/d8d142d8d1b12ae4890b97f60fc2daf7eb20fe96))
+
+## [4.4.0](https://github.com/maevsi/sqitch/compare/4.3.1...4.4.0) (2024-12-12)
+
+### Features
+
+* add language enumeration ([76a1465](https://github.com/maevsi/sqitch/commit/76a1465f219c4c0171aafcac1bbbac16580d9691))
+* **contact:** add language ([669570f](https://github.com/maevsi/sqitch/commit/669570f6322aa8ad971990b2de9fcf8afdf14007))
+* **contact:** add nickname ([8b7169a](https://github.com/maevsi/sqitch/commit/8b7169a856b5e81ebb0676ac7de6ce512a83d548))
+* **contact:** add timezone ([02da0f9](https://github.com/maevsi/sqitch/commit/02da0f9cdb644ef78c5c6a4b354d2bd968904337))
+
+## [4.3.1](https://github.com/maevsi/sqitch/compare/4.3.0...4.3.1) (2024-12-06)
+
+### Bug Fixes
+
+* **account:** enable row level security for social networks ([5606344](https://github.com/maevsi/sqitch/commit/5606344016974dd223ece949fb11d0d4b02400de))
+
 ## [4.3.0](https://github.com/maevsi/sqitch/compare/4.2.0...4.3.0) (2024-12-06)
 
 ### Features

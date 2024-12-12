@@ -1,8 +1,7 @@
--- Verify maevsi:table_event_group on pg
-
 BEGIN;
 
 SELECT id,
+       created_at,
        author_account_id,
        "description",
        is_archived,

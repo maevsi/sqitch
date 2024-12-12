@@ -1,11 +1,3 @@
--- Deploy maevsi:table_event_policy to pg
--- requires: schema_public
--- requires: table_event
--- requires: role_account
--- requires: role_anonymous
--- requires: schema_private
--- requires: function_events_invited
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.event TO maevsi_account, maevsi_anonymous;
@@ -28,25 +20,25 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
         )
       )
   OR  (
-    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+    maevsi.account_id() IS NOT NULL
     AND
-    author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    author_account_id = maevsi.account_id()
   )
   OR  id IN (SELECT maevsi_private.events_invited())
 );
 
 -- Only allow inserts for events authored by the current user.
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.account_id() IS NOT NULL
   AND
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.account_id()
 );
 
 -- Only allow updates for events authored by the current user.
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.account_id() IS NOT NULL
   AND
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.account_id()
 );
 
 COMMIT;

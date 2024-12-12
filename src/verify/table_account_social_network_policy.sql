@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_social_network_policy on pg
-
 BEGIN;
 
 SAVEPOINT select_account;
@@ -25,6 +23,7 @@ BEGIN
   INSERT INTO maevsi.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
 
   SET LOCAL role TO maevsi_account;
+  SET LOCAL jwt.claims.account_id TO '00000000-0000-0000-0000-000000000000';
   INSERT INTO maevsi.account_social_network(account_id, social_network, social_network_username)
   VALUES ('00000000-0000-0000-0000-000000000000', 'instagram', 'username');
 END $$;

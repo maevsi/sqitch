@@ -1,5 +1,3 @@
--- Verify maevsi:schema_public on pg
-
 BEGIN;
 
 DO $$

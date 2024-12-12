@@ -1,5 +1,3 @@
--- Verify maevsi:function_upload_create on pg
-
 BEGIN;
 
 DO $$

@@ -1,6 +1,3 @@
--- Deploy maevsi:role_grafana to pg
--- requires: database_grafana
-
 \connect grafana
 
 BEGIN;

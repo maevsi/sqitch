@@ -1,10 +1,3 @@
--- Deploy maevsi:function_notification_acknowledge to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_notification
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.notification_acknowledge(

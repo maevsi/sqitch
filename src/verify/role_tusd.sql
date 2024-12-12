@@ -1,5 +1,3 @@
--- Verify maevsi:role_tusd on pg
-
 BEGIN;
 
 DO $$

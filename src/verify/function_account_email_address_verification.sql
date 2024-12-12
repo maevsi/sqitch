@@ -1,5 +1,3 @@
--- Verify maevsi:function_account_email_address_verification on pg
-
 BEGIN;
 
 DO $$

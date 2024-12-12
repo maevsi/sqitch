@@ -1,16 +1,3 @@
--- Deploy maevsi:function_account_delete to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_invitation
--- requires: function_events_organized
--- requires: table_event
--- requires: table_contact
--- requires: schema_private
--- requires: table_account_private
--- requires: table_profile_picture
--- requires: table_notification
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.invite(

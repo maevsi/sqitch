@@ -1,5 +1,3 @@
--- Verify maevsi:table_invitation_policy on pg
-
 BEGIN;
 
 DO $$

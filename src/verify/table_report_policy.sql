@@ -1,5 +1,3 @@
--- Verify maevsi:table_report_policy on pg
-
 BEGIN;
 
 DO $$

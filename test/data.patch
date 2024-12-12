@@ -1,0 +1,237 @@
+diff --git a/src/deploy/data_test.sql b/src/deploy/data_test.sql
+new file mode 100644
+index 0000000..5276242
+--- /dev/null
++++ b/src/deploy/data_test.sql
+@@ -0,0 +1,191 @@
++-- Deploy maevsi:data_test to pg
++BEGIN;
++
++DO $$
++DECLARE _account_id_jonas UUID;
++
++_account_id_peter UUID;
++
++_contact_id_jonas UUID;
++
++_contact_id_peter UUID;
++
++BEGIN
++SELECT maevsi.account_registration(
++    'jonas',
++    'mail+sqitch-1@maev.si',
++    'testtest',
++    'en'
++  ) INTO _account_id_jonas;
++
++PERFORM maevsi.account_email_address_verification(
++  (
++    SELECT email_address_verification
++    FROM maevsi_private.account
++    WHERE id = _account_id_jonas
++  )
++);
++
++SELECT maevsi.account_registration(
++    'peter',
++    'mail+sqitch-2@maev.si',
++    'testtest',
++    'de'
++  ) INTO _account_id_peter;
++
++SELECT id
++FROM maevsi.contact
++WHERE account_id = _account_id_jonas
++  AND author_account_id = _account_id_jonas INTO _contact_id_jonas;
++
++SELECT id
++FROM maevsi.contact
++WHERE account_id = _account_id_peter
++  AND author_account_id = _account_id_peter INTO _contact_id_peter;
++
++INSERT INTO maevsi.contact (
++    "id",
++    "address",
++    "email_address",
++    "first_name",
++    "last_name",
++    "author_account_id"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a5a',
++    e'A B\n12345 D',
++    'mail+sqitch-3@maev.si',
++    'Max',
++    'Mustermann',
++    _account_id_jonas
++  );
++
++INSERT INTO maevsi.event (
++    "id",
++    "name",
++    "slug",
++    "visibility",
++    "invitee_count_maximum",
++    "author_account_id",
++    "description",
++    "start",
++    "end"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6a',
++    'Limited',
++    'limited',
++    'public',
++    2,
++    _account_id_jonas,
++    'Event with limited capacity.',
++    '2020-11-23 02:00:00.000000+00',
++    '2020-11-23 09:00:00.000000+00'
++  );
++
++INSERT INTO maevsi.event (
++    "id",
++    "name",
++    "slug",
++    "visibility",
++    "author_account_id",
++    "start",
++    "end"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6b',
++    'Foreign Invited',
++    'foreign-invited',
++    'public',
++    _account_id_peter,
++    '2020-11-27 03:54:29.090009+00',
++    '2020-11-27 05:56:23.090009+00'
++  );
++
++INSERT INTO maevsi.event (
++    "id",
++    "name",
++    "slug",
++    "visibility",
++    "author_account_id",
++    "start",
++    "end"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6c',
++    'Foreign Uninvited',
++    'foreign-uninvited',
++    'public',
++    _account_id_peter,
++    '2020-11-27 03:54:29.090009+00',
++    '2020-11-27 05:56:23.090009+00'
++  );
++
++INSERT INTO maevsi.event (
++    "id",
++    "name",
++    "slug",
++    "visibility",
++    "author_account_id",
++    "description",
++    "location",
++    "start"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6d',
++    'Private Party',
++    'e2',
++    'private',
++    _account_id_jonas,
++    'Offices parties lasting outward nothing age few resolve. Impression to discretion understood to we interested he excellence. Him remarkably use projection collecting. Going about eat forty world has round miles. Attention affection at my preferred offending shameless me if agreeable. Life lain held calm and true neat she. Much feet each so went no from. Truth began maids linen an mr to after.',
++    'Schutz- und Grillhütte Frommershausen, 34246 Vellmar',
++    '2019-11-27 03:54:29.090009+00'
++  );
++
++INSERT INTO maevsi.invitation (
++    "id",
++    "event_id",
++    "contact_id",
++    "feedback",
++    "feedback_paper"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a7a',
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6a',
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a5a',
++    'accepted',
++    'paper'
++  );
++
++INSERT INTO maevsi.invitation (
++    "id",
++    "event_id",
++    "contact_id",
++    "feedback",
++    "feedback_paper"
++  )
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a7b',
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6d',
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a5a',
++    'canceled',
++    'digital'
++  );
++
++INSERT INTO maevsi.invitation ("id", "event_id", "contact_id")
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a7c',
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6b',
++    _contact_id_jonas
++  );
++
++INSERT INTO maevsi.invitation ("id", "event_id", "contact_id")
++VALUES (
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a7d',
++    '59462df6-10a9-11ea-bf8e-0f50c4d91a6a',
++    _contact_id_peter
++  );
++
++END $$;
++
++COMMIT;
+diff --git a/src/revert/data_test.sql b/src/revert/data_test.sql
+new file mode 100644
+index 0000000..50ae98c
+--- /dev/null
++++ b/src/revert/data_test.sql
+@@ -0,0 +1,12 @@
++-- Revert maevsi:data_test from pg
++
++BEGIN;
++
++DELETE FROM maevsi.profile_picture;
++DELETE FROM maevsi.upload;
++DELETE FROM maevsi.invitation;
++DELETE FROM maevsi.event;
++DELETE FROM maevsi.contact;
++DELETE FROM maevsi_private.account;
++
++COMMIT;
+diff --git a/src/sqitch.plan b/src/sqitch.plan
+index 8419403..ed1309a 100644
+--- a/src/sqitch.plan
++++ b/src/sqitch.plan
+@@ -76,3 +76,4 @@ table_account_social_network_policy [schema_public table_account_social_network
+ enum_event_size [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible event sizes: small, medium, large, huge.
+ table_account_preference_event_size  [schema_public table_account_public enum_event_size] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Table for the user accounts' preferred event sizes (M:N relationship).
+ table_account_preference_event_size_policy  [schema_public table_account_preference_event_size role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Security policy for table account_event_size_pref.
++data_test 1970-01-01T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Add test data.
+diff --git a/src/verify/data_test.sql b/src/verify/data_test.sql
+new file mode 100644
+index 0000000..274d00b
+--- /dev/null
++++ b/src/verify/data_test.sql
+@@ -0,0 +1,7 @@
++-- Verify maevsi:data_test on pg
++
++BEGIN;
++
++
++
++ROLLBACK;

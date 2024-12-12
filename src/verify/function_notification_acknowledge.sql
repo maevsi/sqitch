@@ -1,5 +1,3 @@
--- Verify maevsi:function_notification_acknowledge on pg
-
 BEGIN;
 
 DO $$

@@ -1,6 +1,3 @@
--- Deploy maevsi:index_invitation_contact_id to pg
--- requires: table_invitation
-
 BEGIN;
 
 CREATE INDEX idx_invitation_contact_id ON maevsi.invitation (contact_id);
