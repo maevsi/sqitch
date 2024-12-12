@@ -20,15 +20,15 @@ ALTER TABLE maevsi.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
 
 -- Allow to select legal term acceptances for the own account.
 CREATE POLICY legal_term_acceptance_select ON maevsi.legal_term_acceptance FOR SELECT USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.account_id() IS NOT NULL
   AND
-  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  account_id = maevsi.account_id()
 );
 
 CREATE POLICY legal_term_acceptance_insert ON maevsi.legal_term_acceptance FOR INSERT WITH CHECK (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.account_id() IS NOT NULL
   AND
-  account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  account_id = maevsi.account_id()
 );
 
 COMMIT;

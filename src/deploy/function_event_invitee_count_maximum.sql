@@ -20,9 +20,9 @@ BEGIN
               )
             )
         OR (
-          NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+          maevsi.account_id() IS NOT NULL
           AND
-          "event".author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+          "event".author_account_id = maevsi.account_id()
         )
         OR  "event".id IN (SELECT maevsi_private.events_invited())
       )
