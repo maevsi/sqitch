@@ -1,3 +1,9 @@
+## [4.5.0](https://github.com/maevsi/sqitch/compare/4.4.0...4.5.0) (2024-12-12)
+
+### Features
+
+* **table:** add creation timestamps ([d8d142d](https://github.com/maevsi/sqitch/commit/d8d142d8d1b12ae4890b97f60fc2daf7eb20fe96))
+
 ## [4.4.0](https://github.com/maevsi/sqitch/compare/4.3.1...4.4.0) (2024-12-12)
 
 ### Features
