@@ -1,6 +1,7 @@
 BEGIN;
 
 SELECT id,
+       created_at,
        account_id,
        address,
        author_account_id,
