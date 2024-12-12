@@ -1406,10 +1406,11 @@ COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller 
 CREATE TABLE maevsi.upload (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
+    name text,
     size_byte bigint NOT NULL,
     storage_key text,
-    file_name text,
-    file_type text DEFAULT 'image'::text NOT NULL,
+    type text DEFAULT 'image'::text NOT NULL,
+    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
 
@@ -1439,6 +1440,13 @@ COMMENT ON COLUMN maevsi.upload.account_id IS 'The uploader''s account id.';
 
 
 --
+-- Name: COLUMN upload.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.name IS 'The name of the uploaded file.';
+
+
+--
 -- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -1453,17 +1461,10 @@ COMMENT ON COLUMN maevsi.upload.storage_key IS 'The upload''s storage key.';
 
 
 --
--- Name: COLUMN upload.file_name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.type; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.upload.file_name IS 'The name of the uploaded file.';
-
-
---
--- Name: COLUMN upload.file_type; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.file_type IS 'The type of the uploaded file, default is ''image''.';
+COMMENT ON COLUMN maevsi.upload.type IS 'The type of the uploaded file, default is ''image''.';
 
 
 --
@@ -2010,7 +2011,7 @@ The event''s internal id for which the invitation is valid.';
 -- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update,delete
+COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update
 The event''s internal id for which the invitation is valid.';
 
 
@@ -2018,7 +2019,7 @@ The event''s internal id for which the invitation is valid.';
 -- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update,delete
+COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
 The internal id of the uploaded content.';
 
 

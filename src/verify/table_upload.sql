@@ -4,10 +4,10 @@ BEGIN;
 
 SELECT id,
        account_id,
+       name,
        size_byte,
        storage_key,
-       file_name,
-       file_type
+       type
 FROM maevsi.upload WHERE FALSE;
 
 ROLLBACK;

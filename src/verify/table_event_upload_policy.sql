@@ -1,5 +1,3 @@
--- Verify maevsi:table_event_upload_policy to pg
-
 BEGIN;
 
 DO $$
