@@ -1778,12 +1778,14 @@ CREATE TABLE maevsi.contact (
     first_name text,
     language maevsi.language,
     last_name text,
+    nickname text,
     phone_number text,
     url text,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
 );
@@ -1861,6 +1863,13 @@ COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
 --
 
 COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
+
+
+--
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
 
 
 --

@@ -9,6 +9,7 @@ SELECT id,
        first_name,
        language,
        last_name,
+       nickname,
        phone_number,
        url
 FROM maevsi.contact WHERE FALSE;

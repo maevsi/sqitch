@@ -11,6 +11,7 @@ CREATE TABLE maevsi.contact (
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) < 100),
   language              maevsi.language,
   last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) < 100),
+  nickname              TEXT CHECK (char_length(nickname) > 0 AND char_length(nickname) < 100),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
   url                   TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
 
@@ -27,7 +28,8 @@ COMMENT ON COLUMN maevsi.contact.email_address_hash IS E'@omit create,update\nTh
 COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
 COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
 COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number.';
+COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
 COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_contact_policy`.
