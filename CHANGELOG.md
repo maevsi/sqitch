@@ -1,3 +1,21 @@
+## [4.9.0](https://github.com/maevsi/sqitch/compare/4.8.0...4.9.0) (2024-12-12)
+
+### Features
+
+* **event-category-mapping:** check if invited ([4ba7dac](https://github.com/maevsi/sqitch/commit/4ba7dac31bb06937cf01829db9e58d98e9a9c723))
+* **policy:** add policy to recommendation tables ([280f47b](https://github.com/maevsi/sqitch/commit/280f47b8fd93ee871f2bd25ba2daeaf5e496b84f))
+* **recommendation:** add enum and tables needed for event recommendation ([7fb5e21](https://github.com/maevsi/sqitch/commit/7fb5e21f28fc70ea7bcbb6e764cd54cb5f0a899b))
+* **recommendation:** several modifications to db schema ([8581ad0](https://github.com/maevsi/sqitch/commit/8581ad091bea58ff33fab8a31e1c9e8fd2f2c430))
+* **revert:** add revert for recommendation tables ([cff0b7f](https://github.com/maevsi/sqitch/commit/cff0b7fdef045ac3f388553f7c4bbffb3a019c78))
+* **schema:** fix small errors and build schema ([3183da0](https://github.com/maevsi/sqitch/commit/3183da01587f4b83e646a5158cb8fba42f44a7ff))
+* **verify:** add verification for event recommendation tables ([1d6bb59](https://github.com/maevsi/sqitch/commit/1d6bb59a8cd21b4b3bc1c8a48161b3d3ff6226a3))
+
+### Bug Fixes
+
+* **build:** commit forgotten files ([d554d0f](https://github.com/maevsi/sqitch/commit/d554d0fe33d903da55a1b14ff9b35772ebad867b))
+* **policy:** fix user check in event category mapping policy ([3dfd96a](https://github.com/maevsi/sqitch/commit/3dfd96ab1949933b6326e1762ee6461ff39eda60))
+* **schema:** remove table prefix so schema can be build ([cc5be2d](https://github.com/maevsi/sqitch/commit/cc5be2d7f0db3a251337325ec0b3aa822d0f8482))
+
 ## [4.8.0](https://github.com/maevsi/sqitch/compare/4.7.0...4.8.0) (2024-12-12)
 
 ### Features
