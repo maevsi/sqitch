@@ -1,3 +1,13 @@
+## [5.0.0-beta.2](https://github.com/maevsi/sqitch/compare/5.0.0-beta.1...5.0.0-beta.2) (2024-12-12)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** align timestamp column name
+
+### Features
+
+* **notification:** align timestamp column name ([92b2ec2](https://github.com/maevsi/sqitch/commit/92b2ec28752a96b70d4a51256959032074259b6d))
+
 ## [5.0.0-beta.1](https://github.com/maevsi/sqitch/compare/4.3.1...5.0.0-beta.1) (2024-12-12)
 
 ### ⚠ BREAKING CHANGES
