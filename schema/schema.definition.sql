@@ -2198,7 +2198,7 @@ ALTER TABLE maevsi.legal_term_acceptance OWNER TO postgres;
 -- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.legal_term_acceptance IS 'Tracks each user account''s acceptance of legal terms and conditions.';
+COMMENT ON TABLE maevsi.legal_term_acceptance IS '@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
 
 
 --
