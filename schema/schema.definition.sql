@@ -1408,6 +1408,8 @@ CREATE TABLE maevsi.upload (
     account_id uuid NOT NULL,
     size_byte bigint NOT NULL,
     storage_key text,
+    file_name text,
+    file_type text DEFAULT 'image'::text NOT NULL,
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
 
@@ -1448,6 +1450,20 @@ COMMENT ON COLUMN maevsi.upload.size_byte IS 'The upload''s size in bytes.';
 --
 
 COMMENT ON COLUMN maevsi.upload.storage_key IS 'The upload''s storage key.';
+
+
+--
+-- Name: COLUMN upload.file_name; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.file_name IS 'The name of the uploaded file.';
+
+
+--
+-- Name: COLUMN upload.file_type; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.file_type IS 'The type of the uploaded file, default is ''image''.';
 
 
 --
@@ -1960,6 +1976,47 @@ COMMENT ON COLUMN maevsi.event_grouping.event_group_id IS 'The event grouping''s
 --
 
 COMMENT ON COLUMN maevsi.event_grouping.event_id IS 'The event grouping''s internal event id.';
+
+
+--
+-- Name: event_upload; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_upload (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    upload_id uuid NOT NULL
+);
+
+
+ALTER TABLE maevsi.event_upload OWNER TO postgres;
+
+--
+-- Name: TABLE event_upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e.g. an image) to an event.';
+
+
+--
+-- Name: COLUMN event_upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.id IS '@omit insert,update\nThe event''s internal id for which the invitation is valid.';
+
+
+--
+-- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update,delete\nThe event''s internal id for which the invitation is valid.';
+
+
+--
+-- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update,delete\nThe internal id of the uploaded content.';
 
 
 --
@@ -3121,6 +3178,22 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
+-- Name: event_upload event_upload_event_id_upload_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_event_id_upload_id_key UNIQUE (event_id, upload_id);
+
+
+--
+-- Name: event_upload event_upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: invitation invitation_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3550,6 +3623,22 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 
 --
+-- Name: event_upload event_upload_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: event_upload event_upload_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
 -- Name: invitation invitation_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3836,6 +3925,41 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'pu
 --
 
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+
+
+--
+-- Name: event_upload; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.event_upload ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_upload event_upload_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((event_id IN ( SELECT event.id
+   FROM maevsi.event
+  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))));
+
+
+--
+-- Name: event_upload event_upload_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (((event_id IN ( SELECT event.id
+   FROM maevsi.event
+  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))) AND (upload_id IN ( SELECT upload.id
+   FROM maevsi.upload
+  WHERE (upload.account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))));
+
+
+--
+-- Name: event_upload event_upload_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((event_id IN ( SELECT event.id
+   FROM maevsi.event
+  WHERE (event.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid))));
 
 
 --
@@ -4583,6 +4707,14 @@ GRANT SELECT ON TABLE maevsi.event_group TO maevsi_anonymous;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.event_grouping TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.event_grouping TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE event_upload; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_upload TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 
 --
