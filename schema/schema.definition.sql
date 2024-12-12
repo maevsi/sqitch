@@ -277,7 +277,7 @@ BEGIN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.email_address_verification_valid_until < NOW()) THEN
+  IF (_account.email_address_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Verification code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 
@@ -354,7 +354,7 @@ BEGIN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.password_reset_verification_valid_until < NOW()) THEN
+  IF (_account.password_reset_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Reset code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 
@@ -449,7 +449,7 @@ BEGIN
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), NOW())
+    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES
@@ -621,7 +621,7 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
@@ -1195,7 +1195,7 @@ CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', NOW()::TIMESTAMP)));
+  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)));
   _jwt maevsi.jwt;
 BEGIN
   SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
@@ -1207,7 +1207,7 @@ BEGIN
     RETURN NULL;
   ELSE
     UPDATE maevsi_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
+    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
     WHERE id = $1;
 
     UPDATE maevsi_private.account
@@ -1502,7 +1502,7 @@ CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() 
       NEW.email_address_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (NOW() + INTERVAL '1 day')::TIMESTAMP);
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP);
       END IF;
     END IF;
 
@@ -1532,7 +1532,7 @@ CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until()
       NEW.password_reset_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (NOW() + INTERVAL '2 hours')::TIMESTAMP);
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP);
       END IF;
     END IF;
 
@@ -2273,11 +2273,11 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     birth_date date,
-    created timestamp without time zone DEFAULT now() NOT NULL,
+    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
     email_address_verification_valid_until timestamp without time zone,
-    last_activity timestamp without time zone DEFAULT now() NOT NULL,
+    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
@@ -2456,7 +2456,7 @@ CREATE TABLE maevsi_private.notification (
     channel text NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 

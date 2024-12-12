@@ -15,7 +15,7 @@ BEGIN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.email_address_verification_valid_until < NOW()) THEN
+  IF (_account.email_address_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Verification code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 
