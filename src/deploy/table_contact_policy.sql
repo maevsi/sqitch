@@ -1,10 +1,3 @@
--- Deploy maevsi:table_contact_policy to pg
--- requires: schema_public
--- requires: table_contact
--- requires: role_account
--- requires: role_anonymous
--- requires: function_invitation_contact_ids
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.contact TO maevsi_account, maevsi_anonymous;

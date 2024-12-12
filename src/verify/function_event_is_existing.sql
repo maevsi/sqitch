@@ -1,5 +1,3 @@
--- Verify maevsi:function_event_is_existing on pg
-
 BEGIN;
 
 DO $$

@@ -1,5 +1,3 @@
--- Verify maevsi:enum_social_network on pg
-
 BEGIN;
 
 DO $$

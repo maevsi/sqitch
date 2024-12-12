@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_public on pg
-
 BEGIN;
 
 SELECT id,

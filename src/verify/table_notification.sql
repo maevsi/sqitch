@@ -1,5 +1,3 @@
--- Verify maevsi:table_notification on pg
-
 BEGIN;
 
 SELECT id,

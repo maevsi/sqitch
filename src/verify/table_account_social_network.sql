@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_social_network on pg
-
 BEGIN;
 
 SELECT

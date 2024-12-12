@@ -1,10 +1,3 @@
--- Deploy maevsi:function_invitee_count to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_invitation
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi.invitee_count(event_id UUID)

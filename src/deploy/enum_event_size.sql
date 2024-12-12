@@ -1,6 +1,3 @@
--- Deploy maevsi:enum_event_size to pg
--- requires: schema_public
-
 BEGIN;
 
 CREATE TYPE maevsi.event_size AS ENUM (

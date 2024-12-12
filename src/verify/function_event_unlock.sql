@@ -1,5 +1,3 @@
--- Verify maevsi:function_event_unlock on pg
-
 BEGIN;
 
 DO $$

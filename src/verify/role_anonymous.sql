@@ -1,5 +1,3 @@
--- Verify maevsi:role_anonymous on pg
-
 BEGIN;
 
 DO $$

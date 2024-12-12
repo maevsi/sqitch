@@ -1,5 +1,3 @@
--- Verify maevsi:function_jwt_refresh on pg
-
 BEGIN;
 
 DO $$

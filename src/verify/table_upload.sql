@@ -1,5 +1,3 @@
--- Verify maevsi:table_upload on pg
-
 BEGIN;
 
 SELECT id,

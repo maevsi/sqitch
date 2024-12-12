@@ -1,15 +1,3 @@
--- Deploy maevsi:function_account_registration to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: table_account_public
--- requires: table_contact
--- requires: extension_pgcrypto
--- requires: table_notification
--- requires: role_anonymous
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_registration(

@@ -1,11 +1,3 @@
--- Deploy maevsi:function_event_delete to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: role_account
--- requires: table_account_private
--- requires: table_event
--- requires: extension_pgcrypto
-
 BEGIN;
 
 CREATE FUNCTION maevsi.event_delete(

@@ -1,5 +1,3 @@
--- Verify maevsi:table_contact_policy on pg
-
 BEGIN;
 
 DO $$

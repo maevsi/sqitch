@@ -1,5 +1,3 @@
--- Verify maevsi:table_invitation on pg
-
 BEGIN;
 
 SELECT id,

@@ -1,6 +1,3 @@
--- Deploy maevsi:enum_invitation_feedback to pg
--- requires: schema_public
-
 BEGIN;
 
 CREATE TYPE maevsi.invitation_feedback AS ENUM (

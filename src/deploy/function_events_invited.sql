@@ -1,12 +1,3 @@
--- Deploy maevsi:function_events_invited to pg
--- requires: privilege_execute_revoke
--- requires: schema_private
--- requires: schema_public
--- requires: table_invitation
--- requires: table_contact
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi_private.events_invited()

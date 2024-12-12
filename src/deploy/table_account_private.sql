@@ -1,7 +1,3 @@
--- Deploy maevsi:table_account_private to pg
--- requires: schema_private
--- requires: schema_public
-
 BEGIN;
 
 CREATE TABLE maevsi_private.account (

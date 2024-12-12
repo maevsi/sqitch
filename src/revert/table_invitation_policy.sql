@@ -1,5 +1,3 @@
--- Revert maevsi:table_invitation_policy from pg
-
 BEGIN;
 
 DROP TRIGGER maevsi_invitation_update ON maevsi.invitation;

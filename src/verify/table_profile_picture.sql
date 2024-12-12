@@ -1,5 +1,3 @@
--- Verify maevsi:table_profile_picture on pg
-
 BEGIN;
 
 SELECT id,

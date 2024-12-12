@@ -1,10 +1,3 @@
--- Deploy maevsi:table_invitation to pg
--- requires: schema_public
--- requires: table_event
--- requires: table_contact
--- requires: enum_invitation_feedback
--- requires: enum_invitation_feedback_paper
-
 BEGIN;
 
 CREATE TABLE maevsi.invitation (

@@ -1,9 +1,3 @@
--- Deploy maevsi:table_legal_term_acceptance to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: table_legal_term
--- requires: role_account
-
 BEGIN;
 
 CREATE TABLE maevsi.legal_term_acceptance (

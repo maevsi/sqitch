@@ -1,5 +1,3 @@
--- Verify maevsi:enum_event_size on pg
-
 BEGIN;
 
 DO $$

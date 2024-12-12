@@ -1,5 +1,3 @@
--- Verify maevsi:type_jwt on pg
-
 BEGIN;
 
 DO $$

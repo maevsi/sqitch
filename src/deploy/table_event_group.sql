@@ -1,9 +1,3 @@
--- Deploy maevsi:table_event_group to pg
--- requires: schema_public
--- requires: role_account
--- requires: role_anonymous
--- requires: table_account_public
-
 BEGIN;
 
 CREATE TABLE maevsi.event_group (

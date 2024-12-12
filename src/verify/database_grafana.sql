@@ -1,5 +1,3 @@
--- Verify maevsi:database_grafana on pg
-
 BEGIN;
 
 DO $$

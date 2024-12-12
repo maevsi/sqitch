@@ -1,9 +1,3 @@
--- Deploy maevsi:function_profile_picture_set to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: role_account
--- requires: table_profile_picture
-
 BEGIN;
 
 CREATE FUNCTION maevsi.profile_picture_set(

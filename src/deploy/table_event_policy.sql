@@ -1,11 +1,3 @@
--- Deploy maevsi:table_event_policy to pg
--- requires: schema_public
--- requires: table_event
--- requires: role_account
--- requires: role_anonymous
--- requires: schema_private
--- requires: function_events_invited
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.event TO maevsi_account, maevsi_anonymous;
