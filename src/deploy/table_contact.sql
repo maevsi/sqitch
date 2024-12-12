@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE TABLE maevsi.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   account_id            UUID REFERENCES maevsi.account(id),
   address               TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
@@ -21,6 +22,7 @@ CREATE TABLE maevsi.contact (
 
 COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 COMMENT ON COLUMN maevsi.contact.id IS E'@omit create,update\nThe contact''s internal id.';
+COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create\nTimestamp of when the contact was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
 COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
 COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
