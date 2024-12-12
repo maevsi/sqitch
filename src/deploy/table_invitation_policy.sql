@@ -97,6 +97,8 @@ BEGIN
   THEN
     RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
   ELSE
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_by = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
     RETURN NEW;
   END IF;
 END $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;

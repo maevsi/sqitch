@@ -1413,6 +1413,8 @@ BEGIN
   THEN
     RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
   ELSE
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_by = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
     RETURN NEW;
   END IF;
 END $$;
@@ -2059,6 +2061,8 @@ COMMENT ON COLUMN maevsi.event_grouping.event_id IS 'The event grouping''s inter
 CREATE TABLE maevsi.invitation (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid,
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
     feedback maevsi.invitation_feedback,
@@ -2089,6 +2093,22 @@ The invitations''s internal id.';
 
 COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create
 Timestamp of when the invitation was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create,update
+Timestamp of when the invitation was last updated.';
+
+
+--
+-- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create,update
+The id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
 
 
 --
@@ -3662,6 +3682,14 @@ ALTER TABLE ONLY maevsi.invitation
 
 ALTER TABLE ONLY maevsi.invitation
     ADD CONSTRAINT invitation_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: invitation invitation_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
