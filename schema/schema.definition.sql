@@ -2024,12 +2024,13 @@ COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper f
 -- Name: invitation_flat; Type: VIEW; Schema: maevsi; Owner: postgres
 --
 
-CREATE VIEW maevsi.invitation_flat AS
- SELECT i.id,
-    i.contact_id,
-    i.event_id,
-    i.feedback,
-    i.feedback_paper,
+CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
+ SELECT i.id AS invitation_id,
+    i.contact_id AS invitation_contact_id,
+    i.event_id AS invitation_event_id,
+    i.feedback AS invitation_feedback,
+    i.feedback_paper AS invitation_feedback_paper,
+    c.id AS contact_id,
     c.account_id AS contact_account_id,
     c.address AS contact_address,
     c.author_account_id AS contact_author_account_id,
@@ -2039,6 +2040,7 @@ CREATE VIEW maevsi.invitation_flat AS
     c.last_name AS contact_last_name,
     c.phone_number AS contact_phone_number,
     c.url AS contact_url,
+    e.id AS event_id,
     e.author_account_id AS event_author_account_id,
     e.description AS event_description,
     e.start AS event_start,
@@ -4637,6 +4639,14 @@ GRANT SELECT ON TABLE maevsi.event_grouping TO maevsi_anonymous;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.invitation TO maevsi_account;
 GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE invitation_flat; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_anonymous;
 
 
 --
