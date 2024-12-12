@@ -1,3 +1,12 @@
+## [4.4.0](https://github.com/maevsi/sqitch/compare/4.3.1...4.4.0) (2024-12-12)
+
+### Features
+
+* add language enumeration ([76a1465](https://github.com/maevsi/sqitch/commit/76a1465f219c4c0171aafcac1bbbac16580d9691))
+* **contact:** add language ([669570f](https://github.com/maevsi/sqitch/commit/669570f6322aa8ad971990b2de9fcf8afdf14007))
+* **contact:** add nickname ([8b7169a](https://github.com/maevsi/sqitch/commit/8b7169a856b5e81ebb0676ac7de6ce512a83d548))
+* **contact:** add timezone ([02da0f9](https://github.com/maevsi/sqitch/commit/02da0f9cdb644ef78c5c6a4b354d2bd968904337))
+
 ## [4.3.1](https://github.com/maevsi/sqitch/compare/4.3.0...4.3.1) (2024-12-06)
 
 ### Bug Fixes
