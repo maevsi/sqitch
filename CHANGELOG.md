@@ -1,3 +1,9 @@
+## [4.6.0](https://github.com/maevsi/sqitch/compare/4.5.1...4.6.0) (2024-12-12)
+
+### Features
+
+* **invitation:** add update metadata ([f493fe4](https://github.com/maevsi/sqitch/commit/f493fe4d6c5e5127a0cad253768c864fcdfe296b))
+
 ## [4.5.1](https://github.com/maevsi/sqitch/compare/4.5.0...4.5.1) (2024-12-12)
 
 ### Bug Fixes
