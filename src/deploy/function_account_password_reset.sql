@@ -20,7 +20,7 @@ BEGIN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_account.password_reset_verification_valid_until < NOW()) THEN
+  IF (_account.password_reset_verification_valid_until < CURRENT_TIMESTAMP) THEN
     RAISE 'Reset code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
   END IF;
 

@@ -5,7 +5,7 @@ CREATE TABLE maevsi_private.notification (
   channel            TEXT NOT NULL,
   is_acknowledged    BOOLEAN,
   payload            TEXT NOT NULL CHECK (octet_length(payload) <= 8000),
-  "timestamp"        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+  "timestamp"        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 COMMENT ON TABLE maevsi_private.notification IS 'A notification.';
