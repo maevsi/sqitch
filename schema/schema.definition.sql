@@ -749,7 +749,7 @@ The event''s internal id.';
 -- Name: COLUMN event.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.created_at IS '@omit create
+COMMENT ON COLUMN maevsi.event.created_at IS '@omit create,update
 Timestamp of when the event was created, defaults to the current timestamp.';
 
 
@@ -1462,7 +1462,7 @@ The upload''s internal id.';
 -- Name: COLUMN upload.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.upload.created_at IS '@omit create
+COMMENT ON COLUMN maevsi.upload.created_at IS '@omit create,update
 Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
@@ -1682,7 +1682,7 @@ COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user acc
 -- Name: COLUMN account_preference_event_size.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_preference_event_size.created_at IS '@omit create
+COMMENT ON COLUMN maevsi.account_preference_event_size.created_at IS '@omit create,update
 Timestamp of when the event size preference was created, defaults to the current timestamp.';
 
 
@@ -1842,7 +1842,7 @@ The contact''s internal id.';
 -- Name: COLUMN contact.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create
+COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
 Timestamp of when the contact was created, defaults to the current timestamp.';
 
 
@@ -1970,7 +1970,7 @@ The event group''s internal id.';
 -- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create
+COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
 Timestamp of when the event group was created, defaults to the current timestamp.';
 
 
@@ -2087,7 +2087,7 @@ The invitations''s internal id.';
 -- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create
+COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create,update
 Timestamp of when the invitation was created, defaults to the current timestamp.';
 
 
