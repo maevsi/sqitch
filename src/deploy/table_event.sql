@@ -23,7 +23,7 @@ CREATE TABLE maevsi.event (
 
 COMMENT ON TABLE maevsi.event IS 'An event.';
 COMMENT ON COLUMN maevsi.event.id IS E'@omit create,update\nThe event''s internal id.';
-COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create\nTimestamp of when the event was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.event.author_account_id IS 'The event author''s id.';
 COMMENT ON COLUMN maevsi.event.description IS 'The event''s description.';
 COMMENT ON COLUMN maevsi.event.end IS 'The event''s end date and time, with timezone.';

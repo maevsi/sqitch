@@ -22,7 +22,7 @@ CREATE TABLE maevsi.contact (
 
 COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 COMMENT ON COLUMN maevsi.contact.id IS E'@omit create,update\nThe contact''s internal id.';
-COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create\nTimestamp of when the contact was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp of when the contact was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
 COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
 COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
