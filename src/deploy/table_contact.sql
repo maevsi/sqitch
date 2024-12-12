@@ -2,15 +2,17 @@ BEGIN;
 
 CREATE TABLE maevsi.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   account_id            UUID REFERENCES maevsi.account(id),
-  "address"             TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
+  address               TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
   author_account_id     UUID NOT NULL REFERENCES maevsi.account(id) ON DELETE CASCADE,
   email_address         TEXT CHECK (char_length(email_address) < 255), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) < 100),
   last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) < 100),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
-  "url"                 TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
+  url                   TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
+
   UNIQUE (author_account_id, account_id)
 );
 
