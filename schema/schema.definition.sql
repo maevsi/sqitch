@@ -204,6 +204,25 @@ COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to 
 
 
 --
+-- Name: language; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.language AS ENUM (
+    'de',
+    'en'
+);
+
+
+ALTER TYPE maevsi.language OWNER TO postgres;
+
+--
+-- Name: TYPE language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.language IS 'Supported ISO 639 language codes.';
+
+
+--
 -- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
