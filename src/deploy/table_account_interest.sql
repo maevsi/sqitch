@@ -1,8 +1,3 @@
--- Deploy maevsi:table_account_interest to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: table_event_category
-
 BEGIN;
 
 CREATE TABLE maevsi.account_interest (

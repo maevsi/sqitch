@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_interest_policy on pg
-
 BEGIN;
 
 DO $$

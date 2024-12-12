@@ -1,5 +1,3 @@
--- Verify maevsi:table_event_recommendation_policy on pg
-
 BEGIN;
 
 DO $$

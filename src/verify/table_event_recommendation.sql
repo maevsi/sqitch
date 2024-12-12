@@ -1,5 +1,3 @@
--- Verify maevsi:table_event_recommendation on pg
-
 BEGIN;
 
 SELECT account_id,

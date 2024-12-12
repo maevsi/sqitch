@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_interest on pg
-
 BEGIN;
 
 SELECT account_id,

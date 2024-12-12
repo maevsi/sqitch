@@ -2234,6 +2234,50 @@ COMMENT ON COLUMN maevsi.event_recommendation.predicted_score IS 'The score of t
 
 
 --
+-- Name: event_upload; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_upload (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    upload_id uuid NOT NULL
+);
+
+
+ALTER TABLE maevsi.event_upload OWNER TO postgres;
+
+--
+-- Name: TABLE event_upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e.g. an image) to an event.';
+
+
+--
+-- Name: COLUMN event_upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.id IS '@omit create,update
+The event''s internal id for which the invitation is valid.';
+
+
+--
+-- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update
+The event''s internal id for which the invitation is valid.';
+
+
+--
+-- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
+The internal id of the uploaded content.';
+
+
+--
 -- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -3499,6 +3543,22 @@ ALTER TABLE ONLY maevsi.event_recommendation
 
 
 --
+-- Name: event_upload event_upload_event_id_upload_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_event_id_upload_id_key UNIQUE (event_id, upload_id);
+
+
+--
+-- Name: event_upload event_upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: invitation invitation_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3976,6 +4036,22 @@ ALTER TABLE ONLY maevsi.event_recommendation
 
 
 --
+-- Name: event_upload event_upload_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: event_upload event_upload_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_upload
+    ADD CONSTRAINT event_upload_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
 -- Name: invitation invitation_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4135,21 +4211,21 @@ ALTER TABLE maevsi.account_interest ENABLE ROW LEVEL SECURITY;
 -- Name: account_interest account_interest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_interest_delete ON maevsi.account_interest FOR DELETE USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+CREATE POLICY account_interest_delete ON maevsi.account_interest FOR DELETE USING ((account_id = maevsi.account_id()));
 
 
 --
 -- Name: account_interest account_interest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_interest_insert ON maevsi.account_interest FOR INSERT WITH CHECK ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+CREATE POLICY account_interest_insert ON maevsi.account_interest FOR INSERT WITH CHECK ((account_id = maevsi.account_id()));
 
 
 --
 -- Name: account_interest account_interest_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_interest_select ON maevsi.account_interest FOR SELECT USING ((account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid));
+CREATE POLICY account_interest_select ON maevsi.account_interest FOR SELECT USING ((account_id = maevsi.account_id()));
 
 
 --
@@ -4276,27 +4352,27 @@ ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
 -- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (((maevsi.account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+  WHERE (event.id = event_category_mapping.event_id)) = maevsi.account_id())));
 
 
 --
 -- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (((maevsi.account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+  WHERE (event.id = event_category_mapping.event_id)) = maevsi.account_id())));
 
 
 --
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING (((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+  WHERE (event.id = event_category_mapping.event_id)) = maevsi.account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
@@ -4328,7 +4404,7 @@ ALTER TABLE maevsi.event_recommendation ENABLE ROW LEVEL SECURITY;
 -- Name: event_recommendation event_recommendation_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SELECT USING ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SELECT USING (((maevsi.account_id() IS NOT NULL) AND (account_id = maevsi.account_id())));
 
 
 --
@@ -5163,6 +5239,14 @@ GRANT SELECT ON TABLE maevsi.event_grouping TO maevsi_anonymous;
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_recommendation TO maevsi_account;
+
+
+--
+-- Name: TABLE event_upload; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_upload TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 
 --

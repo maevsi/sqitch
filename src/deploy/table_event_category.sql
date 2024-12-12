@@ -1,6 +1,3 @@
--- Deploy maevsi:table_event_category to pg
--- requires: schema_public
-
 BEGIN;
 
 CREATE TABLE maevsi.event_category(
