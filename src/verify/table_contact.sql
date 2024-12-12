@@ -7,6 +7,7 @@ SELECT id,
        email_address,
        email_address_hash,
        first_name,
+       language,
        last_name,
        phone_number,
        url

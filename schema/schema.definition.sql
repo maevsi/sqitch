@@ -1776,6 +1776,7 @@ CREATE TABLE maevsi.contact (
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
+    language maevsi.language,
     last_name text,
     phone_number text,
     url text,
@@ -1846,6 +1847,13 @@ The contact''s email address''s md5 hash.';
 --
 
 COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
+
+
+--
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
 
 
 --
