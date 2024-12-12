@@ -1,3 +1,14 @@
+## [4.8.0](https://github.com/maevsi/sqitch/compare/4.7.0...4.8.0) (2024-12-12)
+
+### Features
+
+* **event_upload:** adjust policies. ([23eb8f4](https://github.com/maevsi/sqitch/commit/23eb8f4fbc169117e928c3b75a33635d7d970ff3))
+* **event:** assign images to events ([f4822f8](https://github.com/maevsi/sqitch/commit/f4822f8252089929dea47f3585737d49b19b7c30))
+
+### Bug Fixes
+
+* **event-upload:** work in feedback ([678ddfc](https://github.com/maevsi/sqitch/commit/678ddfce330171ab340bd112f2734d1ab304559b))
+
 ## [4.7.0](https://github.com/maevsi/sqitch/compare/4.6.0...4.7.0) (2024-12-12)
 
 ### Features
