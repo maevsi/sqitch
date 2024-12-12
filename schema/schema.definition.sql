@@ -2454,9 +2454,9 @@ COMMENT ON COLUMN maevsi_private.jwt.token IS 'The token.';
 CREATE TABLE maevsi_private.notification (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     channel text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 
@@ -2485,6 +2485,13 @@ COMMENT ON COLUMN maevsi_private.notification.channel IS 'The notification''s ch
 
 
 --
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
 -- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2496,13 +2503,6 @@ COMMENT ON COLUMN maevsi_private.notification.is_acknowledged IS 'Whether the no
 --
 
 COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification."timestamp"; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification."timestamp" IS 'The notification''s timestamp.';
 
 
 --
