@@ -20,9 +20,9 @@ BEGIN
               )
             )
         OR (
-          maevsi.account_id() IS NOT NULL
+          maevsi.invoker_account_id() IS NOT NULL
           AND
-          "event".author_account_id = maevsi.account_id()
+          "event".author_account_id = maevsi.invoker_account_id()
         )
         OR  "event".id IN (SELECT maevsi_private.events_invited())
       )

@@ -9,9 +9,9 @@ ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
 -- Exclude events created by a blocked user and invitated events where the invation comes form a blocked user.
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING (
   (
-    maevsi.account_id() IS NOT NULL
+    maevsi.invoker_account_id() IS NOT NULL
     AND (
-      (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = maevsi.account_id()
+      (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = maevsi.invoker_account_id()
     )
   )
   OR
@@ -23,23 +23,23 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
         AND event_id NOT IN (
         SELECT e.event_id
         FROM maevsi.event e JOIN maevsi.account_block b ON e.account_id = b.blocked_account_id
-        WHERE b.account_id = maevsi.account_id()
+        WHERE b.account_id = maevsi.invoker_account_id()
     )
 */
 );
 
 -- Only allow inserts for events authored by user.
 CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (
-  maevsi.account_id() IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = maevsi.account_id()
+  (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = maevsi.invoker_account_id()
 );
 
 -- Only allow deletes for events authored by user.
 CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (
-  maevsi.account_id() IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = maevsi.account_id()
+  (SELECT author_account_id FROM maevsi.event WHERE id = event_id) = maevsi.invoker_account_id()
 );
 
 COMMIT;

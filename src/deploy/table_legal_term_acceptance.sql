@@ -20,15 +20,15 @@ ALTER TABLE maevsi.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
 
 -- Allow to select legal term acceptances for the own account.
 CREATE POLICY legal_term_acceptance_select ON maevsi.legal_term_acceptance FOR SELECT USING (
-  maevsi.account_id() IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  account_id = maevsi.account_id()
+  account_id = maevsi.invoker_account_id()
 );
 
 CREATE POLICY legal_term_acceptance_insert ON maevsi.legal_term_acceptance FOR INSERT WITH CHECK (
-  maevsi.account_id() IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  account_id = maevsi.account_id()
+  account_id = maevsi.invoker_account_id()
 );
 
 COMMIT;

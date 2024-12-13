@@ -13,7 +13,7 @@ BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
   _jwt := (
     _jwt_id,
-    maevsi.account_id(), -- prevent empty string cast to UUID
+    maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),

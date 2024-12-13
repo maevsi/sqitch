@@ -9,7 +9,7 @@ DECLARE
   _achievement maevsi.achievement_type;
   _achievement_id UUID;
 BEGIN
-  _account_id := maevsi.account_id();
+  _account_id := maevsi.invoker_account_id();
 
   SELECT achievement
     FROM maevsi_private.achievement_code

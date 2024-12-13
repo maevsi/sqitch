@@ -12,12 +12,12 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
       id = ANY (maevsi.invitation_claim_array())
   OR
   (
-    maevsi.account_id() IS NOT NULL
+    maevsi.invoker_account_id() IS NOT NULL
     AND
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.account_id = maevsi.account_id()
+      WHERE contact.account_id = maevsi.invoker_account_id()
     )
   )
   OR  event_id IN (SELECT maevsi.events_organized())
@@ -35,12 +35,12 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
   )
   AND
   (
-    maevsi.account_id() IS NOT NULL
+    maevsi.invoker_account_id() IS NOT NULL
     AND
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.author_account_id = maevsi.account_id()
+      WHERE contact.author_account_id = maevsi.invoker_account_id()
     )
   )
 );
@@ -52,12 +52,12 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
   id = ANY (maevsi.invitation_claim_array())
   OR
   (
-    maevsi.account_id() IS NOT NULL
+    maevsi.invoker_account_id() IS NOT NULL
     AND
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE contact.account_id = maevsi.account_id()
+      WHERE contact.account_id = maevsi.invoker_account_id()
     )
   )
   OR  event_id IN (SELECT maevsi.events_organized())
@@ -78,12 +78,12 @@ BEGIN
       OLD.id = ANY (maevsi.invitation_claim_array())
       OR
       (
-        maevsi.account_id() IS NOT NULL
+        maevsi.invoker_account_id() IS NOT NULL
         AND
         OLD.contact_id IN (
           SELECT id
           FROM maevsi.contact
-          WHERE contact.account_id = maevsi.account_id()
+          WHERE contact.account_id = maevsi.invoker_account_id()
         )
       )
     )
@@ -98,7 +98,7 @@ BEGIN
     RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
   ELSE
     NEW.updated_at = CURRENT_TIMESTAMP;
-    NEW.updated_by = maevsi.account_id();
+    NEW.updated_by = maevsi.invoker_account_id();
     RETURN NEW;
   END IF;
 END $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;

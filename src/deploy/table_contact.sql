@@ -42,15 +42,15 @@ CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS TRIGGER AS $$
   BEGIN
     IF (
       -- invoked without account it
-      maevsi.account_id() IS NULL
+      maevsi.invoker_account_id() IS NULL
       OR
       -- invoked with account it
       -- and
       (
         -- updating own account's contact
-        OLD.account_id = maevsi.account_id()
+        OLD.account_id = maevsi.invoker_account_id()
         AND
-        OLD.author_account_id = maevsi.account_id()
+        OLD.author_account_id = maevsi.invoker_account_id()
         AND
         (
           -- trying to detach from account

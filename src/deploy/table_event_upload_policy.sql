@@ -17,12 +17,12 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING (
 CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (
   event_id IN (
     SELECT id FROM maevsi.event
-    WHERE author_account_id = maevsi.account_id()
+    WHERE author_account_id = maevsi.invoker_account_id()
   )
   AND
   upload_id IN (
     SELECT id FROM maevsi.upload
-    WHERE account_id = maevsi.account_id()
+    WHERE account_id = maevsi.invoker_account_id()
   )
 );
 
@@ -30,7 +30,7 @@ CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (
 CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING (
   event_id IN (
     SELECT id FROM maevsi.event
-    WHERE author_account_id = maevsi.account_id()
+    WHERE author_account_id = maevsi.invoker_account_id()
   )
 );
 

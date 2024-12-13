@@ -24,16 +24,16 @@ CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING 
 
 -- Only allow inserts with a account id that matches the invoker's account id.
 CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK (
-  maevsi.account_id() IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  account_id = maevsi.account_id()
+  account_id = maevsi.invoker_account_id()
 );
 
 -- Only allow updates to the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING (
-  maevsi.account_id() IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  account_id = maevsi.account_id()
+  account_id = maevsi.invoker_account_id()
 );
 
 -- Only allow deletes for the item with the account id that matches the invoker's account id.
@@ -41,9 +41,9 @@ CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING 
     (SELECT current_user) = 'maevsi_tusd'
   OR
     (
-      maevsi.account_id() IS NOT NULL
+      maevsi.invoker_account_id() IS NOT NULL
       AND
-      account_id = maevsi.account_id()
+      account_id = maevsi.invoker_account_id()
     )
 );
 

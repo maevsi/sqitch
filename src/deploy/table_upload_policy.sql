@@ -14,9 +14,9 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (
     (SELECT current_user) = 'maevsi_tusd'
   OR
     (
-      maevsi.account_id() IS NOT NULL
+      maevsi.invoker_account_id() IS NOT NULL
       AND
-      account_id = maevsi.account_id()
+      account_id = maevsi.invoker_account_id()
     )
   OR
     id IN (SELECT upload_id FROM maevsi.profile_picture)

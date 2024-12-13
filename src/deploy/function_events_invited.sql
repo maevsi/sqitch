@@ -5,7 +5,7 @@ RETURNS TABLE (event_id UUID) AS $$
 DECLARE
   jwt_account_id UUID;
 BEGIN
-  jwt_account_id := maevsi.account_id();
+  jwt_account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
   SELECT invitation.event_id FROM maevsi.invitation

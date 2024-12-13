@@ -5,7 +5,7 @@ RETURNS TABLE (event_id UUID) AS $$
 DECLARE
   account_id UUID;
 BEGIN
-  account_id := maevsi.account_id();
+  account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
     SELECT id FROM maevsi.event
