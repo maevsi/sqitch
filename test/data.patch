@@ -214,13 +214,13 @@ index 0000000..50ae98c
 +
 +COMMIT;
 diff --git a/src/sqitch.plan b/src/sqitch.plan
-index 8419403..ed1309a 100644
+index e30d708..9c4498f 100644
 --- a/src/sqitch.plan
 +++ b/src/sqitch.plan
-@@ -76,3 +76,4 @@ table_account_social_network_policy [schema_public table_account_social_network
- enum_event_size [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible event sizes: small, medium, large, huge.
- table_account_preference_event_size  [schema_public table_account_public enum_event_size] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Table for the user accounts' preferred event sizes (M:N relationship).
- table_account_preference_event_size_policy  [schema_public table_account_preference_event_size role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Security policy for table account_event_size_pref.
+@@ -88,3 +88,4 @@ table_event_category_mapping [schema_public table_event table_event_category] 19
+ table_event_category_mapping_policy [schema_public table_event_category_mapping role_anonymous role_account table_event]1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table table_event_category_mapping.
+ table_event_recommendation [schema_public table_account_public table_event] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Events recommended to a user account (M:N relationship).
+ table_event_recommendation_policy [schema_public table_event_recommendation role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
 +data_test 1970-01-01T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Add test data.
 diff --git a/src/verify/data_test.sql b/src/verify/data_test.sql
 new file mode 100644
