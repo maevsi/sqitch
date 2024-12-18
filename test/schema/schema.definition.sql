@@ -640,7 +640,7 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
@@ -1245,7 +1245,7 @@ CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)));
+  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt maevsi.jwt;
 BEGIN
   SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
@@ -1257,7 +1257,7 @@ BEGIN
     RETURN NULL;
   ELSE
     UPDATE maevsi_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
+    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
     WHERE id = $1;
 
     UPDATE maevsi_private.account
@@ -1580,7 +1580,7 @@ CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() 
       NEW.email_address_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP);
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -1610,7 +1610,7 @@ CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until()
       NEW.password_reset_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP);
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -2663,14 +2663,14 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     birth_date date,
-    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
-    email_address_verification_valid_until timestamp without time zone,
-    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    email_address_verification_valid_until timestamp with time zone,
+    last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     password_hash text NOT NULL,
     password_reset_verification uuid,
-    password_reset_verification_valid_until timestamp without time zone,
+    password_reset_verification_valid_until timestamp with time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
@@ -2700,10 +2700,10 @@ COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s dat
 
 
 --
--- Name: COLUMN account.created; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi_private.account.created IS 'Timestamp at which the account was last active.';
+COMMENT ON COLUMN maevsi_private.account.created_at IS 'Timestamp at which the account was last active.';
 
 
 --
@@ -2844,9 +2844,9 @@ COMMENT ON COLUMN maevsi_private.jwt.token IS 'The token.';
 CREATE TABLE maevsi_private.notification (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     channel text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 
@@ -2875,6 +2875,13 @@ COMMENT ON COLUMN maevsi_private.notification.channel IS 'The notification''s ch
 
 
 --
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
 -- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2886,13 +2893,6 @@ COMMENT ON COLUMN maevsi_private.notification.is_acknowledged IS 'Whether the no
 --
 
 COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification."timestamp"; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification."timestamp" IS 'The notification''s timestamp.';
 
 
 --

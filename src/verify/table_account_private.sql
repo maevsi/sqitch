@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT id,
        birth_date,
-       created,
+       created_at,
        email_address,
        email_address_verification,
        email_address_verification_valid_until,
