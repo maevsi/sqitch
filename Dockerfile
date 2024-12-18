@@ -2,18 +2,28 @@
 # check=skip=SecretsUsedInArgOrEnv
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.3 AS development
+FROM sqitch/sqitch:v1.4.1.3 AS prepare
 
 WORKDIR /srv/app
 
+
+##############################
+FROM prepare AS development
+
 VOLUME /srv/app
 
-ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
 ###########################
-FROM postgres:17.2 AS build
+FROM prepare AS build
+
+COPY ./src ./
+
+
+###########################
+FROM postgres:17.2 AS test-build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
@@ -41,26 +51,30 @@ RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql \
   && sqitch revert -t db:pg://postgres:postgres@/maevsi
 
+
 ##############################
-FROM alpine:3.21.0 AS validate
+FROM test-build AS test
 
-WORKDIR /srv/app
-
-COPY ./schema ./
-COPY --from=build /srv/app ./
+COPY ./test/schema/schema.definition.sql ./
 
 RUN diff schema.definition.sql schema.sql
 
 
 ##############################
-FROM sqitch/sqitch:v1.4.1.3 AS production
+FROM prepare AS collect
 
+COPY --from=test /srv/app/schema.sql /dev/null
+COPY --from=build /srv/app ./
+
+
+##############################
+FROM collect AS production
+
+# used in docker entrypoint
 ENV ENV=production
 
-WORKDIR /srv/app
-
 COPY ./docker-entrypoint.sh /usr/local/bin/
-COPY --from=validate /srv/app ./
+COPY --from=collect /srv/app ./
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]

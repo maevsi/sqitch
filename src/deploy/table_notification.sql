@@ -4,7 +4,7 @@ CREATE TABLE maevsi_private.notification (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   channel            TEXT NOT NULL,
-  created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   is_acknowledged    BOOLEAN,
   payload            TEXT NOT NULL CHECK (octet_length(payload) <= 8000)
 );

@@ -1,6 +1,7 @@
 BEGIN;
 
 SELECT id,
+       created_at,
        author_account_id,
        "description",
        is_archived,
