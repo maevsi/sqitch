@@ -1,3 +1,9 @@
+## [4.9.1](https://github.com/maevsi/sqitch/compare/4.9.0...4.9.1) (2024-12-18)
+
+### Bug Fixes
+
+* **role:** drop before creation ([#106](https://github.com/maevsi/sqitch/issues/106)) ([fecd16e](https://github.com/maevsi/sqitch/commit/fecd16ea860a18f0cfdaa7f0118899acf4133cce))
+
 ## [4.9.0](https://github.com/maevsi/sqitch/compare/4.8.0...4.9.0) (2024-12-12)
 
 ### Features
