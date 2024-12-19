@@ -2064,6 +2064,39 @@ COMMENT ON COLUMN maevsi.event_category_mapping.category IS 'A category name.';
 
 
 --
+-- Name: event_favourite; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.event_favourite (
+    account_id uuid NOT NULL,
+    event_id uuid NOT NULL
+);
+
+
+ALTER TABLE maevsi.event_favourite OWNER TO postgres;
+
+--
+-- Name: TABLE event_favourite; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.event_favourite IS 'The user accounts'' favourite events.';
+
+
+--
+-- Name: COLUMN event_favourite.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favourite.account_id IS 'A user account id.';
+
+
+--
+-- Name: COLUMN event_favourite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which the user marked as a favourite.';
+
+
+--
 -- Name: event_group; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -3495,6 +3528,14 @@ ALTER TABLE ONLY maevsi.event_category
 
 
 --
+-- Name: event_favourite event_favourite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favourite
+    ADD CONSTRAINT event_favourite_pkey PRIMARY KEY (account_id, event_id);
+
+
+--
 -- Name: event_group event_group_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -3996,6 +4037,22 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
+-- Name: event_favourite event_favourite_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favourite
+    ADD CONSTRAINT event_favourite_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_favourite event_favourite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favourite
+    ADD CONSTRAINT event_favourite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+
+
+--
 -- Name: event_group event_group_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4373,6 +4430,19 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+
+
+--
+-- Name: event_favourite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.event_favourite ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_favourite event_favourite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favourite_select ON maevsi.event_favourite FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
 
 
 --
@@ -5216,6 +5286,13 @@ GRANT SELECT ON TABLE maevsi.event_category TO maevsi_account;
 
 GRANT SELECT ON TABLE maevsi.event_category_mapping TO maevsi_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_account;
+
+
+--
+-- Name: TABLE event_favourite; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favourite TO maevsi_account;
 
 
 --
