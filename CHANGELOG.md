@@ -1,3 +1,9 @@
+## [4.10.0](https://github.com/maevsi/sqitch/compare/4.9.1...4.10.0) (2024-12-19)
+
+### Features
+
+* **event:** mark events as favourite ([#109](https://github.com/maevsi/sqitch/issues/109)) ([7b75524](https://github.com/maevsi/sqitch/commit/7b75524def9ab2575db922567e9d6db87ef3a929))
+
 ## [4.9.1](https://github.com/maevsi/sqitch/compare/4.9.0...4.9.1) (2024-12-18)
 
 ### Bug Fixes
