@@ -25,7 +25,16 @@ BEGIN
         SELECT c.id
         FROM maevsi.contact c
         WHERE c.account_id IS NULL
-        OR c.account_id NOT IN (
+        OR c.account_id IN (
+          SELECT blocked_account_id
+          FROM maevsi.account_block
+          WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+          UNION ALL
+          SELECT author_account_id
+          FROM maevsi.account_block
+          WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        )
+        OR c.author_account_id IN (
           SELECT blocked_account_id
           FROM maevsi.account_block
           WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
