@@ -1,5 +1,3 @@
--- Verify maevsi:index_invitation_contact_id on pg
-
 BEGIN;
 
 SELECT 1/COUNT(*)

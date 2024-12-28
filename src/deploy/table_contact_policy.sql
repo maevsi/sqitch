@@ -1,11 +1,3 @@
--- Deploy maevsi:table_contact_policy to pg
--- requires: schema_public
--- requires: table_account_block
--- requires: table_contact
--- requires: role_account
--- requires: role_anonymous
--- requires: function_invitation_contact_ids
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.contact TO maevsi_account, maevsi_anonymous;
@@ -18,16 +10,16 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 -- Only display contacts for which an accessible invitation exists.
 CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
   (
-    account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    account_id = maevsi.invoker_account_id()
     AND
     author_account_id NOT IN (
       SELECT blocked_account_id
       FROM maevsi.account_block
-      WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE author_account_id = maevsi.invoker_account_id()
       UNION ALL
       SELECT author_account_id
       FROM maevsi.account_block
-      WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE blocked_account_id = maevsi.invoker_account_id()
     )
   )
   OR
@@ -54,32 +46,32 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
 -- Only allow inserts for contacts authored by the invoker's account.
 -- Disallow inserts for contacts that refer to a blocked account.
 CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.invoker_account_id()
   AND account_id NOT IN (
     SELECT blocked_account_id
     FROM maevsi.account_block
-    WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    WHERE author_account_id = maevsi.invoker_account_id()
   )
 );
 
 -- Only allow updates for contacts authored by the invoker's account.
 -- No contact referring to a blocked account can be updated.
 CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.invoker_account_id()
   AND account_id NOT IN (
     SELECT blocked_account_id
     FROM maevsi.account_block
-    WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    WHERE author_account_id = maevsi.invoker_account_id()
   )
 );
 
 -- Only allow deletes for contacts authored by the invoker's account except for the own account's contact.
 CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.invoker_account_id()
   AND
-  account_id IS DISTINCT FROM NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  account_id IS DISTINCT FROM maevsi.invoker_account_id()
 );
 
 COMMIT;

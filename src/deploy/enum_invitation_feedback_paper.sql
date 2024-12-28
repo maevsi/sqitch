@@ -1,5 +1,3 @@
--- Deploy maevsi:enum_paper_invitation_feedback to pg
-
 BEGIN;
 
 CREATE TYPE maevsi.invitation_feedback_paper AS ENUM (

@@ -1,8 +1,3 @@
--- Deploy maevsi:schema_public to pg
--- requires: role_anonymous
--- requires: role_account
--- requires: role_tusd
-
 BEGIN;
 
 CREATE SCHEMA maevsi;

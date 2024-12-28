@@ -1,8 +1,7 @@
--- Verify maevsi:table_account_private on pg
-
 BEGIN;
 
 SELECT id,
+       birth_date,
        created,
        email_address,
        email_address_verification,

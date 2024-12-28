@@ -1,5 +1,3 @@
--- Verify maevsi:table_account_block_policy on pg
-
 BEGIN;
 
 DO $$

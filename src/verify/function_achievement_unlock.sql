@@ -1,5 +1,3 @@
--- Verify maevsi:function_achievement_unlock on pg
-
 BEGIN;
 
 DO $$

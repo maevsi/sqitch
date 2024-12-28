@@ -1,5 +1,3 @@
--- Verify maevsi:table_jwt on pg
-
 BEGIN;
 
 SELECT id,

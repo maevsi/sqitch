@@ -1,10 +1,3 @@
--- Deploy maevsi:table_achievement to pg
--- requires: schema_public
--- requires: table_account_public
--- requires: enum_achievement_type
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE TABLE maevsi.achievement (

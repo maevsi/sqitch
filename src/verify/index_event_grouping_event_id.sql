@@ -1,5 +1,3 @@
--- Verify maevsi:index_event_grouping_event_id on pg
-
 BEGIN;
 
 SELECT 1/COUNT(*)

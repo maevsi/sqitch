@@ -1,13 +1,3 @@
--- Deploy maevsi:function_events_invited to pg
--- requires: privilege_execute_revoke
--- requires: schema_private
--- requires: schema_public
--- requires: table_invitation
--- requires: table_contact
--- requires: table_account_block
--- requires: role_account
--- requires: role_anonymous
-
 BEGIN;
 
 CREATE FUNCTION maevsi_private.events_invited()
@@ -16,7 +6,7 @@ AS $$
 DECLARE
   jwt_account_id UUID;
 BEGIN
-  jwt_account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  jwt_account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
   SELECT i.event_id FROM maevsi.invitation i

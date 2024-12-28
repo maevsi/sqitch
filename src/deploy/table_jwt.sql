@@ -1,6 +1,3 @@
--- Deploy maevsi:table_jwt to pg
--- requires: schema_private
-
 BEGIN;
 
 CREATE TABLE maevsi_private.jwt (

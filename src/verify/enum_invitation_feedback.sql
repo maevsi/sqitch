@@ -1,5 +1,3 @@
--- Verify maevsi:enum_invitation_feedback on pg
-
 BEGIN;
 
 DO $$

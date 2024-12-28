@@ -1,9 +1,3 @@
--- Deploy maevsi:table_achievement_code to pg
--- requires: schema_private
--- requires: schema_public
--- requires: enum_achievement_type
--- requires: role_tusd
-
 BEGIN;
 
 CREATE TABLE maevsi_private.achievement_code (

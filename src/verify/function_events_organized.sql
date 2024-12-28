@@ -1,5 +1,3 @@
--- Verify maevsi:function_events_organized on pg
-
 BEGIN;
 
 DO $$

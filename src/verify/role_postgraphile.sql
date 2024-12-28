@@ -1,5 +1,3 @@
--- Verify maevsi:role_postgraphile on pg
-
 BEGIN;
 
 DO $$

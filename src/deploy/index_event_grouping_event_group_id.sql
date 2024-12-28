@@ -1,6 +1,3 @@
--- Deploy maevsi:index_event_grouping_event_group_id to pg
--- requires: table_event_grouping
-
 BEGIN;
 
 CREATE INDEX idx_event_grouping_event_group_id ON maevsi.event_grouping (event_group_id);

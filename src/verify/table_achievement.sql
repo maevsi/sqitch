@@ -1,5 +1,3 @@
--- Verify maevsi:table_achievement on pg
-
 BEGIN;
 
 SELECT id,

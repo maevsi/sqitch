@@ -1,8 +1,3 @@
--- Deploy maevsi:table_account_block_policy to pg
--- requires: schema_public
--- requires: table_account_block
--- requires: role_account
-
 BEGIN;
 
 GRANT INSERT, SELECT ON TABLE maevsi.account_block TO maevsi_account;

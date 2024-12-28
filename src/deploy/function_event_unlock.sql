@@ -1,13 +1,3 @@
--- Deploy maevsi:function_event_unlock to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: table_invitation
--- requires: table_event
--- requires: type_event_unlock_response
--- requires: function_invitation_claims_to_array
--- requires: type_jwt
--- requires: table_jwt
-
 BEGIN;
 
 CREATE FUNCTION maevsi.event_unlock(
@@ -23,7 +13,7 @@ BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
   _jwt := (
     _jwt_id,
-    NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID, -- prevent empty string cast to UUID
+    maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),

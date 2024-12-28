@@ -1,10 +1,3 @@
--- Deploy maevsi:table_event to pg
--- requires: schema_public
--- requires: table_upload
--- requires: role_account
--- requires: role_anonymous
--- requires: role_tusd
-
 BEGIN;
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account, maevsi_anonymous, maevsi_tusd;
@@ -21,9 +14,9 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (
     (SELECT current_user) = 'maevsi_tusd'
   OR
     (
-      NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+      maevsi.invoker_account_id() IS NOT NULL
       AND
-      account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      account_id = maevsi.invoker_account_id()
     )
   OR
     id IN (SELECT upload_id FROM maevsi.profile_picture)

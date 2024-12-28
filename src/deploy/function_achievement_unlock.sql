@@ -1,12 +1,3 @@
--- Deploy maevsi:function_achievement_unlock to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: enum_achievement_type
--- requires: schema_private
--- requires: table_achievement_code
--- requires: table_achievement
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.achievement_unlock(
@@ -18,7 +9,7 @@ DECLARE
   _achievement maevsi.achievement_type;
   _achievement_id UUID;
 BEGIN
-  _account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  _account_id := maevsi.invoker_account_id();
 
   SELECT achievement
     FROM maevsi_private.achievement_code

@@ -1,5 +1,3 @@
--- Verify maevsi:table_legal_term on pg
-
 BEGIN;
 
 SELECT id,

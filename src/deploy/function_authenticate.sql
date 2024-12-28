@@ -1,12 +1,3 @@
--- Deploy maevsi:function_authenticate to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: role_account
--- requires: role_anonymous
--- requires: type_jwt
--- requires: table_account_private
--- requires: table_jwt
-
 BEGIN;
 
 CREATE FUNCTION maevsi.authenticate(
@@ -16,7 +7,7 @@ CREATE FUNCTION maevsi.authenticate(
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', NOW()::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN

@@ -1,5 +1,3 @@
--- Verify maevsi:role_account on pg
-
 BEGIN;
 
 DO $$

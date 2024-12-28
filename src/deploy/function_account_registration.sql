@@ -1,15 +1,3 @@
--- Deploy maevsi:function_account_registration to pg
--- requires: privilege_execute_revoke
--- requires: schema_public
--- requires: schema_private
--- requires: table_account_private
--- requires: table_account_public
--- requires: table_contact
--- requires: extension_pgcrypto
--- requires: table_notification
--- requires: role_anonymous
--- requires: role_account
-
 BEGIN;
 
 CREATE FUNCTION maevsi.account_registration(
@@ -23,24 +11,24 @@ DECLARE
   _new_account_public maevsi.account;
   _new_account_notify RECORD;
 BEGIN
-  IF (char_length($3) < 8) THEN
+  IF (char_length(account_registration.password) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = $1)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.account WHERE account.username = account_registration.username)) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.email_address = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.email_address = account_registration.email_address)) THEN
     RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    ($2, maevsi.crypt($3, maevsi.gen_salt('bf')), NOW())
+    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES
-    (_new_account_private.id, $1)
+    (_new_account_private.id, account_registration.username)
     RETURNING * INTO _new_account_public;
 
   SELECT
@@ -56,7 +44,7 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', $4)
+      'template', jsonb_build_object('language', account_registration.language)
     ))
   );
 

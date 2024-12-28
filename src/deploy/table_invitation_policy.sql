@@ -1,14 +1,3 @@
--- Deploy maevsi:table_invitation_policy to pg
--- requires: schema_public
--- requires: table_invitation
--- requires: table_contact
--- requires: table_account_block
--- requires: role_account
--- requires: role_anonymous
--- requires: function_invitation_claim_array
--- requires: function_events_organized
--- requires: function_event_invitee_count_maximum
-
 BEGIN;
 
 GRANT SELECT, UPDATE ON TABLE maevsi.invitation TO maevsi_account, maevsi_anonymous;
@@ -26,7 +15,7 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE account_id = maevsi.invoker_account_id()
 
       EXCEPT
 
@@ -34,7 +23,7 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
       SELECT c.id
       FROM maevsi.contact c
         JOIN maevsi.account_block b ON c.account_id = b.author_account_id AND c.author_account_id = b.blocked_account_id
-      WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE c.account_id = maevsi.invoker_account_id()
     )
   )
   OR (
@@ -47,11 +36,11 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
       OR c.account_id NOT IN (
         SELECT blocked_account_id
         FROM maevsi.account_block
-        WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        WHERE author_account_id = maevsi.invoker_account_id()
         UNION ALL
         SELECT author_account_id
         FROM maevsi.account_block
-        WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        WHERE blocked_account_id = maevsi.invoker_account_id()
       )
     )
   )
@@ -72,14 +61,14 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE author_account_id = maevsi.invoker_account_id()
 
       EXCEPT
 
       SELECT c.id
       FROM maevsi.contact c
         JOIN maevsi.account_block b ON c.account_id = b.blocked_account_id and c.author_account_id = b.author_account_id
-      WHERE c.author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE c.author_account_id = maevsi.invoker_account_id()
     )
 );
 
@@ -93,14 +82,14 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+      WHERE account_id = maevsi.invoker_account_id()
 
     EXCEPT
 
     SELECT c.id
     FROM maevsi.contact c
       JOIN maevsi.account_block b ON c.account_id = b.author_account_id and c.author_account_id = b.blocked_account_id
-    WHERE c.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    WHERE c.account_id = maevsi.invoker_account_id()
     )
   )
   OR
@@ -115,11 +104,11 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
       OR c.account_id NOT IN (
         SELECT blocked_account_id
         FROM maevsi.account_block
-        WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        WHERE author_account_id = maevsi.invoker_account_id()
         UNION ALL
         SELECT author_account_id
         FROM maevsi.account_block
-        WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        WHERE blocked_account_id = maevsi.invoker_account_id()
       )
     )
   )
@@ -140,12 +129,12 @@ BEGIN
       OLD.id = ANY (maevsi.invitation_claim_array())
       OR
       (
-        NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+        maevsi.invoker_account_id() IS NOT NULL
         AND
         OLD.contact_id IN (
           SELECT id
           FROM maevsi.contact
-          WHERE contact.account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+          WHERE contact.account_id = maevsi.invoker_account_id()
         )
       )
     )
@@ -159,6 +148,8 @@ BEGIN
   THEN
     RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
   ELSE
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    NEW.updated_by = maevsi.invoker_account_id();
     RETURN NEW;
   END IF;
 END $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;

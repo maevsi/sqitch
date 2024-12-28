@@ -1,6 +1,3 @@
-
--- Verify maevsi:table_account_block on pg
-
 BEGIN;
 
 SELECT id,

@@ -1,5 +1,3 @@
--- Verify maevsi:enum_achievement_type on pg
-
 BEGIN;
 
 DO $$

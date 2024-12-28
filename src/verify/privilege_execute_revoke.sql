@@ -1,7 +1,5 @@
--- Verify maevsi:privilege_execute_revoke on pg
-
 BEGIN;
 
--- XXX Add verifications here.
+-- TODO: Add verifications here (https://github.com/maevsi/sqitch/issues/22)
 
 ROLLBACK;

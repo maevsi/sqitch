@@ -1,5 +1,3 @@
--- Verify maevsi:function_account_upload_quota_bytes on pg
-
 BEGIN;
 
 DO $$
