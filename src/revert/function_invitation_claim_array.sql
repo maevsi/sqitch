@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.invitation_claim_array;
+DROP FUNCTION maevsi.invitation_claim_array();
 
 COMMIT;
