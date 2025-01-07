@@ -59,6 +59,11 @@ BEGIN
   eventB := maevsi_test.create_event(accountB, 'Event B', 'event-b', '2025-06-01 20:00', 'public');
   eventC := maevsi_test.create_event(accountC, 'Event C', 'event-c', '2025-06-01 20:00', 'public');
 
+  PERFORM maevsi_test.create_event_category('concert');
+  PERFORM maevsi_test.create_event_category_mapping(accountA, eventA, 'concert');
+  PERFORM maevsi_test.create_event_category_mapping(accountB, eventB, 'concert');
+  PERFORM maevsi_test.create_event_category_mapping(accountC, eventC, 'concert');
+
   invitationAB := maevsi_test.create_invitation(accountA, eventA, contactAB);
   invitationAC := maevsi_test.create_invitation(accountA, eventA, contactAC);
   invitationBA := maevsi_test.create_invitation(accountB, eventB, contactBA);
@@ -84,6 +89,22 @@ BEGIN
   PERFORM maevsi_test.select_events(test_case, 'A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM maevsi_test.select_events(test_case, 'B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
+  test_case := 'test 3';
+  RAISE NOTICE '%: no blocking, test event_category_mapping', test_case;
+
+  PERFORM maevsi_test.unblock_account(accountA, accountB);
+
+  PERFORM maevsi_test.select_event_category_mappings(test_case, 'A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.select_event_category_mappings(test_case, 'B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
+
+  test_case := 'test 4';
+  RAISE NOTICE '%: A blocks B, test event_category_mapping', test_case;
+
+  PERFORM maevsi_test.block_account(accountA, accountB);
+
+  PERFORM maevsi_test.select_event_category_mappings(test_case, 'A', accountA, ARRAY[eventA, eventC]::UUID[]);
+  PERFORM maevsi_test.select_event_category_mappings(test_case, 'B', accountB, ARRAY[eventB, eventC]::UUID[]);
+
   RAISE NOTICE 'contactAA = %', contactAA;
   RAISE NOTICE 'contactBB = %', contactBB;
   RAISE NOTICE 'contactCC = %', contactCC;
@@ -94,7 +115,7 @@ BEGIN
   RAISE NOTICE 'contactCA = %', contactCA;
   RAISE NOTICE 'contactCB = %', contactCB;
 
-  test_case := 'test 3';
+  test_case := 'test 5';
   RAISE NOTICE '%: no blocking, test contacts', test_case;
 
   PERFORM maevsi_test.unblock_account(accountA, accountB);
@@ -102,7 +123,7 @@ BEGIN
   PERFORM maevsi_test.select_contacts(test_case, 'A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
   PERFORM maevsi_test.select_contacts(test_case, 'B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
 
-  test_case := 'test 4';
+  test_case := 'test 6';
   RAISE NOTICE '%: A blocks B, test contacts', test_case;
 
   PERFORM maevsi_test.block_account(accountA, accountB);
@@ -110,7 +131,7 @@ BEGIN
   PERFORM maevsi_test.select_contacts(test_case, 'A', accountA, ARRAY[contactAA, contactAC, contactCA]::UUID[]);
   PERFORM maevsi_test.select_contacts(test_case, 'B', accountB, ARRAY[contactBB, contactBC, contactCB]::UUID[]);
 
-  test_case := 'test 5';
+  test_case := 'test 7';
   RAISE NOTICE '%: no blocking, test invitations', test_case;
 
   PERFORM maevsi_test.unblock_account(accountA, accountB);
@@ -118,7 +139,7 @@ BEGIN
   PERFORM maevsi_test.select_invitations(test_case, 'A', accountA, ARRAY[invitationAB, invitationAC, invitationBA, invitationCA]::UUID[]);
   PERFORM maevsi_test.select_invitations(test_case, 'B', accountB, ARRAY[invitationBA, invitationBC, invitationAB, invitationCB]::UUID[]);
 
-  test_case := 'test 6';
+  test_case := 'test 8';
   RAISE NOTICE '%: A blocks B, test invitations', test_case;
 
   PERFORM maevsi_test.block_account(accountA, accountB);
@@ -128,7 +149,7 @@ BEGIN
 
   -- tests for anonymous login
 
-  test_case := 'test 7';
+  test_case := 'test 9';
   RAISE NOTICE '%: no blocking, anonymous login', test_case;
 
   PERFORM maevsi_test.unblock_account(accountA, accountB);
@@ -137,7 +158,7 @@ BEGIN
   PERFORM maevsi_test.select_contacts(test_case, 'anonymous, contacts', null, ARRAY[]::UUID[]);
   PERFORM maevsi_test.select_invitations(test_case, 'anonymous, invitations', null, ARRAY[]::UUID[]);
 
-  test_case := 'test 8';
+  test_case := 'test 10';
   RAISE NOTICE '%: A blocks B, anonymous login', test_case;
 
   PERFORM maevsi_test.select_events(test_case, 'anonymous, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);

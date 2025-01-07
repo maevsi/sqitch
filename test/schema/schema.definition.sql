@@ -1849,6 +1849,43 @@ END $$;
 ALTER FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
 
 --
+-- Name: create_event_category(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.create_event_category(_category text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+  INSERT INTO maevsi.event_category(category) VALUES (_category);
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.create_event_category(_category text) OWNER TO postgres;
+
+--
+-- Name: create_event_category_mapping(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+
+  INSERT INTO maevsi.event_category_mapping(event_id, category)
+  VALUES (_event_id, _category);
+
+  SET LOCAL role = 'postgres';
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
+
+--
 -- Name: create_invitation(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -1965,6 +2002,39 @@ END $$;
 
 
 ALTER FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: select_event_category_mappings(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE NOTICE '%: %', _test_case, _description;
+
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
+    RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
 -- Name: select_events(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -4933,7 +5003,17 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT e.visibility
+   FROM maevsi.event e
+  WHERE (e.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT e.author_account_id
+   FROM maevsi.event e
+  WHERE (e.id = event_category_mapping.event_id)) IN ( SELECT account_block.blocked_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
+UNION ALL
+ SELECT account_block.author_account_id
+   FROM maevsi.account_block
+  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))));
 
 
 --
@@ -5796,6 +5876,20 @@ REVOKE ALL ON FUNCTION maevsi_test.create_event(_author_account_id uuid, _name t
 
 
 --
+-- Name: FUNCTION create_event_category(_category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.create_event_category(_category text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
@@ -5821,6 +5915,13 @@ REVOKE ALL ON FUNCTION maevsi_test.remove_account(_username text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --

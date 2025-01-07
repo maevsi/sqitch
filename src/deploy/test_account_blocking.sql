@@ -138,6 +138,35 @@ END $$ LANGUAGE plpgsql;
 
 -------------------------------------------------
 
+CREATE OR REPLACE FUNCTION maevsi_test.create_event_category (
+  _category TEXT)
+RETURNS VOID AS $$
+BEGIN
+
+  INSERT INTO maevsi.event_category(category) VALUES (_category);
+
+END $$ LANGUAGE plpgsql;
+
+-------------------------------------------------
+
+CREATE OR REPLACE FUNCTION maevsi_test.create_event_category_mapping (
+  _author_account_id UUID,
+  _event_id UUID,
+  _category TEXT)
+RETURNS VOID AS $$
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+
+  INSERT INTO maevsi.event_category_mapping(event_id, category)
+  VALUES (_event_id, _category);
+
+  SET LOCAL role = 'postgres';
+
+END $$ LANGUAGE plpgsql;
+
+-------------------------------------------------
+
 CREATE OR REPLACE FUNCTION maevsi_test.block_account (
   _author_account_id UUID,
   _blocked_account_id UUID)
@@ -196,6 +225,38 @@ BEGIN
 
   IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.event) THEN
     RAISE EXCEPTION 'some event is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+
+END $$ LANGUAGE plpgsql;
+
+-------------------------------------------------
+
+CREATE OR REPLACE FUNCTION maevsi_test.select_event_category_mappings (
+  _test_case TEXT,
+  _description TEXT,
+  _account_id UUID,
+  _expected_result UUID[]
+)
+RETURNS VOID AS $$
+BEGIN
+  RAISE NOTICE '%: %', _test_case, _description;
+
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
+    RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
