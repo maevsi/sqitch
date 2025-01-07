@@ -82,7 +82,8 @@ COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
 --
 
 CREATE TYPE maevsi.achievement_type AS ENUM (
-    'meet_the_team'
+    'meet_the_team',
+    'early_bird'
 );
 
 
