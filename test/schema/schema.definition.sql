@@ -634,7 +634,7 @@ COMMENT ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) IS 'Inserts
 -- Name: authenticate(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi.jwt
+CREATE FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
@@ -642,16 +642,24 @@ DECLARE
   _jwt_id UUID := gen_random_uuid();
   _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
+  _username TEXT;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
     -- Authenticate as guest.
     _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF ($1 IS NOT NULL AND $2 IS NOT NULL) THEN
-    SELECT id FROM maevsi.account WHERE account.username = $1 INTO _account_id;
+    -- if $1 contains @ then treat it as an email adress otherwise as a user name
+    IF (strpos($1, '@') = 0) THEN
+      SELECT id FROM maevsi.account WHERE account.username = $1 INTO _account_id;
+    ELSE
+      SELECT id FROM maevsi_private.account WHERE account.email_address = $1 INTO _account_id;
+    END IF;
 
     IF (_account_id IS NULL) THEN
       RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
     END IF;
+
+    SELECT username INTO _username FROM maevsi.account WHERE id = _account_id;
 
     IF ((
         SELECT account.email_address_verification
@@ -671,7 +679,7 @@ BEGIN
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = maevsi.crypt($2, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, updated.id, $1, _jwt_exp, NULL, 'maevsi_account'
+    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
       INTO _jwt;
 
@@ -686,13 +694,13 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.authenticate(username text, password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) OWNER TO postgres;
 
 --
--- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION authenticate(username_or_emailaddress text, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
 
 
 SET default_tablespace = '';
@@ -4793,12 +4801,12 @@ REVOKE ALL ON FUNCTION maevsi.armor(bytea, text[], text[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION authenticate(username_or_emailaddress text, password text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.authenticate(username text, password text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) TO maevsi_anonymous;
 
 
 --

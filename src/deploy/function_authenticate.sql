@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.authenticate(
-  username TEXT,
+  username_or_emailaddress TEXT,
   "password" TEXT
 ) RETURNS maevsi.jwt AS $$
 DECLARE
@@ -9,16 +9,24 @@ DECLARE
   _jwt_id UUID := gen_random_uuid();
   _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
+  _username TEXT;
 BEGIN
   IF ($1 = '' AND $2 = '') THEN
     -- Authenticate as guest.
     _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF ($1 IS NOT NULL AND $2 IS NOT NULL) THEN
-    SELECT id FROM maevsi.account WHERE account.username = $1 INTO _account_id;
+    -- if $1 contains @ then treat it as an email adress otherwise as a user name
+    IF (strpos($1, '@') = 0) THEN
+      SELECT id FROM maevsi.account WHERE account.username = $1 INTO _account_id;
+    ELSE
+      SELECT id FROM maevsi_private.account WHERE account.email_address = $1 INTO _account_id;
+    END IF;
 
     IF (_account_id IS NULL) THEN
       RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
     END IF;
+
+    SELECT username INTO _username FROM maevsi.account WHERE id = _account_id;
 
     IF ((
         SELECT account.email_address_verification
@@ -38,7 +46,7 @@ BEGIN
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = maevsi.crypt($2, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, updated.id, $1, _jwt_exp, NULL, 'maevsi_account'
+    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
       INTO _jwt;
 
