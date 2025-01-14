@@ -1,3 +1,9 @@
+## [4.11.0](https://github.com/maevsi/sqitch/compare/4.10.2...4.11.0) (2025-01-14)
+
+### Features
+
+* **achievement:** add early bird achievement ([#111](https://github.com/maevsi/sqitch/issues/111)) ([0238bea](https://github.com/maevsi/sqitch/commit/0238bea39fc942bd49c894eb57214534a01db0a1))
+
 ## [4.10.2](https://github.com/maevsi/sqitch/compare/4.10.1...4.10.2) (2025-01-11)
 
 ### Bug Fixes
