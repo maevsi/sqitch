@@ -1,6 +1,7 @@
 BEGIN;
 
 CREATE TYPE maevsi.achievement_type AS ENUM (
+  'early_bird',
   'meet_the_team'
 );
 
