@@ -634,7 +634,7 @@ COMMENT ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) IS 'Inserts
 -- Name: authenticate(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) RETURNS maevsi.jwt
+CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
@@ -694,13 +694,13 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.authenticate(username text, password text) OWNER TO postgres;
 
 --
--- Name: FUNCTION authenticate(username_or_emailaddress text, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION maevsi.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
 
 
 SET default_tablespace = '';
@@ -4801,12 +4801,12 @@ REVOKE ALL ON FUNCTION maevsi.armor(bytea, text[], text[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION authenticate(username_or_emailaddress text, password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.authenticate(username_or_emailaddress text, password text) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.authenticate(username text, password text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_anonymous;
 
 
 --

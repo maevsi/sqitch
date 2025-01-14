@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.authenticate(
-  username_or_emailaddress TEXT,
+  username TEXT,
   "password" TEXT
 ) RETURNS maevsi.jwt AS $$
 DECLARE
