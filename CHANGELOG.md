@@ -1,3 +1,9 @@
+## [4.12.0](https://github.com/maevsi/sqitch/compare/4.11.0...4.12.0) (2025-01-15)
+
+### Features
+
+* **account:** add login using email address ([#112](https://github.com/maevsi/sqitch/issues/112)) ([937d255](https://github.com/maevsi/sqitch/commit/937d255ab04313442f173804f2fd87f817249f81))
+
 ## [4.11.0](https://github.com/maevsi/sqitch/compare/4.10.2...4.11.0) (2025-01-14)
 
 ### Features
