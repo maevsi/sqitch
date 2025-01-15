@@ -12,7 +12,7 @@ FROM prepare AS development
 
 VOLUME /srv/app
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
 CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
 
 
