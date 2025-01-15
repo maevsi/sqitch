@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE FUNCTION maevsi.authenticate(
   username TEXT,
-  "password" TEXT
+  password TEXT
 ) RETURNS maevsi.jwt AS $$
 DECLARE
   _account_id UUID;
@@ -11,29 +11,29 @@ DECLARE
   _jwt maevsi.jwt;
   _username TEXT;
 BEGIN
-  IF ($1 = '' AND $2 = '') THEN
+  IF (authenticate.username = '' AND authenticate.password = '') THEN
     -- Authenticate as guest.
     _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
-  ELSIF ($1 IS NOT NULL AND $2 IS NOT NULL) THEN
-    -- if $1 contains @ then treat it as an email adress otherwise as a user name
-    IF (strpos($1, '@') = 0) THEN
-      SELECT id FROM maevsi.account WHERE account.username = $1 INTO _account_id;
+  ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
+    -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
+    IF (strpos(authenticate.username, '@') = 0) THEN
+      SELECT id FROM maevsi.account WHERE account.username = authenticate.username INTO _account_id;
     ELSE
-      SELECT id FROM maevsi_private.account WHERE account.email_address = $1 INTO _account_id;
+      SELECT id FROM maevsi_private.account WHERE account.email_address = authenticate.username INTO _account_id;
     END IF;
 
     IF (_account_id IS NULL) THEN
       RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
     END IF;
 
-    SELECT username INTO _username FROM maevsi.account WHERE id = _account_id;
+    SELECT account.username INTO _username FROM maevsi.account WHERE id = _account_id;
 
     IF ((
         SELECT account.email_address_verification
         FROM maevsi_private.account
         WHERE
               account.id = _account_id
-          AND account.password_hash = maevsi.crypt($2, account.password_hash)
+          AND account.password_hash = maevsi.crypt(authenticate.password, account.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
@@ -44,7 +44,7 @@ BEGIN
       WHERE
             account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = maevsi.crypt($2, account.password_hash)
+        AND account.password_hash = maevsi.crypt(authenticate.password, account.password_hash)
       RETURNING *
     ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
