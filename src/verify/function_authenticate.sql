@@ -1,111 +1,150 @@
 BEGIN;
 
+SAVEPOINT privileges;
+DO $$
+BEGIN
+  IF NOT (SELECT pg_catalog.has_function_privilege('maevsi_account', 'maevsi.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
+    RAISE EXCEPTION 'Test privileges failed: maevsi_account does not have EXECUTE privilege';
+  END IF;
+
+  IF NOT (SELECT pg_catalog.has_function_privilege('maevsi_anonymous', 'maevsi.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
+    RAISE EXCEPTION 'Test privileges failed: maevsi_anonymous does not have EXECUTE privilege';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT privileges;
+
+SAVEPOINT username_success;
 DO $$
 DECLARE
   _account_id UUID;
-  _code UUID;
   _jwt maevsi.jwt;
 BEGIN
-
-  ASSERT (SELECT pg_catalog.has_function_privilege('maevsi_account', 'maevsi.authenticate(TEXT, TEXT)', 'EXECUTE'));
-  ASSERT (SELECT pg_catalog.has_function_privilege('maevsi_anonymous', 'maevsi.authenticate(TEXT, TEXT)', 'EXECUTE'));
-
-  -- register test account and shortcut email verification
-
-  _account_id := maevsi.account_registration('ameier', 'anton.meier@abc.de', 'abcd1234', 'de');
-
+  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
   PERFORM maevsi.account_email_address_verification(
     (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
   );
 
-  --===================================
-  -- run tests
-
-  RAISE NOTICE 'test 1: login with correct username/password';
-
-  _jwt := maevsi.authenticate('ameier', 'abcd1234');
+  _jwt := maevsi.authenticate('username', 'password');
 
   IF _jwt IS NULL THEN
-    RAISE EXCEPTION 'Authentication should have been returned a JWT.';
+    RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
   END IF;
 
-  IF _jwt.account_username <> 'ameier' THEN
-    RAISE EXCEPTION 'JWT contains a wrong user name.';
+  IF _jwt.account_username <> 'username' THEN
+    RAISE EXCEPTION 'Test failed: JWT contains an incorrect username';
   END IF;
-
-  -------------------------------------
-
-  RAISE NOTICE 'test 2: login with correct email address/password';
-
-  _jwt := maevsi.authenticate('anton.meier@abc.de', 'abcd1234');
-
-  IF _jwt IS NULL THEN
-    RAISE EXCEPTION 'Authentication should have been returned a JWT.';
-  END IF;
-
-  IF _jwt.account_username <> 'ameier' THEN
-    RAISE EXCEPTION 'JWT contains a wrong user name.';
-  END IF;
-
-  -------------------------------------
-
-  RAISE NOTICE 'test 3: login with correct username and incorrect password';
-
-  BEGIN
-    _jwt := maevsi.authenticate('ameier', 'xyz');
-  EXCEPTION
-    WHEN no_data_found THEN
-      -- expected exception, do nothing
-  END;
-
-  IF _jwt IS NOT NULL THEN
-    RAISE EXCEPTION 'Authentication should not have returned a JWT.';
-  END IF;
-
-  -------------------------------------
-
-  RAISE NOTICE 'test 4: login with correct email address and incorrect password';
-
-  BEGIN
-    _jwt := maevsi.authenticate('anton.meier@abc.de', 'xyz');
-  EXCEPTION
-    WHEN no_data_found THEN
-      -- expected exception, do nothing
-  END;
-
-  IF _jwt IS NOT NULL THEN
-    RAISE EXCEPTION 'Authentication should not have returned a JWT.';
-  END IF;
-
-  -------------------------------------
-
-  RAISE NOTICE 'test 5: login with incorrect username';
-
-  BEGIN
-    _jwt := maevsi.authenticate('axmeier', 'abcd1234');
-  EXCEPTION
-    WHEN no_data_found THEN
-      -- expected exception, do nothing
-  END;
-
-  -------------------------------------
-
-  RAISE NOTICE 'test 6: login with incorrect email address';
-
-  BEGIN
-    _jwt := maevsi.authenticate('antonx.meier@abc.de', 'abcd1234');
-  EXCEPTION
-    WHEN no_data_found THEN
-      -- expected exception, do nothing
-  END;
-
-  IF _jwt IS NOT NULL THEN
-    RAISE EXCEPTION 'Authentication should not have returned a JWT.';
-  END IF;
-
-  -------------------------------------
-
-  RAISE NOTICE 'all tests passed successfully.';
 END $$;
+ROLLBACK TO SAVEPOINT username_success;
+
+SAVEPOINT email_success;
+DO $$
+DECLARE
+  _account_id UUID;
+  _jwt maevsi.jwt;
+BEGIN
+  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM maevsi.account_email_address_verification(
+    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  );
+
+  _jwt := maevsi.authenticate('email@example.com', 'password');
+
+  IF _jwt IS NULL THEN
+    RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
+  END IF;
+
+  IF _jwt.account_username <> 'username' THEN
+    RAISE EXCEPTION 'Test failed: JWT contains an incorrect user name';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT email_success;
+
+SAVEPOINT username_password_incorrect;
+DO $$
+DECLARE
+  _account_id UUID;
+  _jwt maevsi.jwt;
+BEGIN
+  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM maevsi.account_email_address_verification(
+    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  );
+
+  BEGIN
+    _jwt := maevsi.authenticate('username', 'password_incorrect');
+  EXCEPTION WHEN no_data_found THEN
+    NULL;
+  END;
+
+  IF _jwt IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed: Authentication should not have returned a JWT';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT username_password_incorrect;
+
+SAVEPOINT email_password_incorrect;
+DO $$
+DECLARE
+  _account_id UUID;
+  _jwt maevsi.jwt;
+BEGIN
+  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM maevsi.account_email_address_verification(
+    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  );
+
+  BEGIN
+    _jwt := maevsi.authenticate('email@example.com', 'password_incorrect');
+  EXCEPTION WHEN no_data_found THEN
+    NULL;
+  END;
+
+  IF _jwt IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed: Authentication should not have returned a JWT';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT email_password_incorrect;
+
+SAVEPOINT username_incorrect;
+DO $$
+DECLARE
+  _account_id UUID;
+  _jwt maevsi.jwt;
+BEGIN
+  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM maevsi.account_email_address_verification(
+    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  );
+
+  BEGIN
+    _jwt := maevsi.authenticate('username_incorrect', 'password');
+  EXCEPTION WHEN no_data_found THEN
+    NULL;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT username_incorrect;
+
+SAVEPOINT email_incorrect;
+DO $$
+DECLARE
+  _account_id UUID;
+  _jwt maevsi.jwt;
+BEGIN
+  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM maevsi.account_email_address_verification(
+    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  );
+
+  BEGIN
+    _jwt := maevsi.authenticate('email_incorrect@example.com', 'password');
+  EXCEPTION WHEN no_data_found THEN
+    NULL;
+  END;
+
+  IF _jwt IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed: Authentication should not have returned a JWT';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT email_incorrect;
 
 ROLLBACK;
