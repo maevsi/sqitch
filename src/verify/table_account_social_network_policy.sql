@@ -56,7 +56,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT update_account;
 
-SAVEPOINT insert_anonymous;
+SAVEPOINT update_anonymous;
 DO $$
 BEGIN
   INSERT INTO maevsi_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
@@ -69,7 +69,7 @@ BEGIN
 EXCEPTION WHEN others THEN
   NULL;
 END $$;
-ROLLBACK TO SAVEPOINT insert_anonymous;
+ROLLBACK TO SAVEPOINT update_anonymous;
 
 SAVEPOINT delete_account;
 DO $$
