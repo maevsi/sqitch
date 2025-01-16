@@ -9,6 +9,7 @@ role_account [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+ma
 role_tusd [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role tusd.
 schema_public [role_anonymous role_account role_tusd] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add public schema.
 schema_private 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add private schema.
+schema_test 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add test schema.
 extension_pgcrypto [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add extension pgcrypto.
 function_invoker_account_id [privilege_execute_revoke schema_public role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Returns the session's account id.
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
@@ -18,17 +19,19 @@ table_location [schema_public role_anonymous role_account] 1970-01-01T00:00:00Z 
 function_distance [schema_public role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Calculates distance betwenn two GPS points.
 table_account_private [schema_private schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add private table account.
 table_account_public [schema_public schema_private table_account_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add public table account.
+table_account_block [schema_public table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Blocking of an account by another account.
+table_account_block_policy [schema_public table_account_block role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table account block.
 table_event_group [schema_public role_account role_anonymous table_account_public enum_event_visibility] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add table event_group.
 index_event_group_author_username [table_event_group] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add an index to the event group table's author_username field.
 table_event [schema_public role_account role_anonymous table_account_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add table event.
 function_events_organized [privilege_execute_revoke schema_public function_invoker_account_id table_event role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that returns all event ids for which the invoker is the author.
-function_invitation_claim_array [privilege_execute_revoke schema_public role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that returns the current invitation claims as UUID array.
 index_event_author_username [table_event] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add an index to the event table's username field.
 enum_invitation_feedback_paper 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible choices on how to receive a paper invitation: paper, digital.
 enum_language [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Supported ISO 639 language codes.
 table_contact [schema_public table_account_public enum_language role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add table contact.
 table_invitation [schema_public table_event table_contact] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add table invitation.
 function_events_invited [privilege_execute_revoke schema_private schema_public function_invoker_account_id table_invitation table_contact role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that returns all event ids for which the invoker is invited.
+function_invitation_claim_array [privilege_execute_revoke schema_public table_invitation table_contact table_account_block role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that returns the current invitation claims as UUID array.
 function_invitation_contact_ids [privilege_execute_revoke schema_public table_invitation function_invitation_claim_array function_events_organized role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that returns all event ids for which the invoker is invited.
 table_contact_policy [schema_public table_contact role_account role_anonymous function_invoker_account_id function_invitation_contact_ids] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add policy for table contact.
 function_invitee_count [privilege_execute_revoke schema_public table_invitation role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that returns the invitee count for an event.
@@ -92,3 +95,4 @@ table_event_recommendation [schema_public table_account_public table_event] 1970
 table_event_recommendation_policy [schema_public table_event_recommendation role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
 table_event_favourite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favourite events.
 table_event_favourite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favourite.
+test_account_blocking [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.
