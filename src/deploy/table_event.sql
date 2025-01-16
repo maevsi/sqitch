@@ -17,6 +17,7 @@ CREATE TABLE maevsi.event (
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
   url                      TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
   visibility               maevsi.event_visibility NOT NULL,
+  location_id              UUID REFERENCES maevsi.location(id),
 
   UNIQUE (author_account_id, slug)
 );
@@ -37,6 +38,7 @@ COMMENT ON COLUMN maevsi.event.slug IS 'The event''s name, slugified.';
 COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with timezone.';
 COMMENT ON COLUMN maevsi.event.url IS 'The event''s unified resource locator.';
 COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
+COMMENT ON COLUMN maevsi_private.account.location_id IS 'Reference to the event''s location data.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_event_policy`.
 

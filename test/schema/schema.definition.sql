@@ -704,6 +704,43 @@ ALTER FUNCTION maevsi.authenticate(username text, password text) OWNER TO postgr
 COMMENT ON FUNCTION maevsi.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
 
 
+--
+-- Name: distance(double precision, double precision, double precision, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision) RETURNS double precision
+    LANGUAGE plpgsql IMMUTABLE
+    AS $$
+DECLARE
+  earthRadius DOUBLE PRECISION;
+  r DOUBLE PRECISION;
+  hLat DOUBLE PRECISION;
+  hLon DOUBLE PRECISION;
+  a DOUBLE PRECISION;
+  distance DOUBLE PRECISION;
+BEGIN
+  earthRadius := 6371;
+  r := pi() / 180;
+  hLat := sin((lat2-lat1)*r/2.0);
+  hLon := sin((lon2-lon1)*r/2.0);
+  a := hLat*hLat + hLon*hLon*cos(lat1*r)*cos(lat2*r); -- Haversine
+  distance := earthRadius * 2 * atan2(sqrt(a), sqrt(1-a));
+  -- If atan2 is not available, use asin(least(1, sqrt(a)) (including protection against rounding errors).
+  -- distance := earthRadius * 2 * asin(least(1, sqrt(a)))
+  RETURN distance;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision) IS 'Calculate the distance between to locations given their GPS coordinates.';
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -728,6 +765,7 @@ CREATE TABLE maevsi.event (
     start timestamp with time zone NOT NULL,
     url text,
     visibility maevsi.event_visibility NOT NULL,
+    location_id uuid,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_invitee_count_maximum_check CHECK ((invitee_count_maximum > 0)),
     CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
@@ -2565,6 +2603,56 @@ COMMENT ON COLUMN maevsi.legal_term_acceptance.legal_term_id IS 'The ID of the l
 
 
 --
+-- Name: location; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.location (
+    id uuid NOT NULL,
+    location_type character(1) NOT NULL,
+    latitude double precision NOT NULL,
+    longitude double precision NOT NULL,
+    CONSTRAINT location_location_type_check CHECK ((location_type = ANY (ARRAY['A'::bpchar, 'E'::bpchar])))
+);
+
+
+ALTER TABLE maevsi.location OWNER TO postgres;
+
+--
+-- Name: TABLE location; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.location IS 'Location data based on GPS coordnates.';
+
+
+--
+-- Name: COLUMN location.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.location.id IS 'The locations''s internal id.';
+
+
+--
+-- Name: COLUMN location.location_type; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.location.location_type IS 'The type of the location (A = account, E = event)';
+
+
+--
+-- Name: COLUMN location.latitude; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.location.latitude IS 'reference to an account (if not null).';
+
+
+--
+-- Name: COLUMN location.longitude; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.location.longitude IS 'reference to an account (if not null).';
+
+
+--
 -- Name: profile_picture; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -2714,6 +2802,7 @@ CREATE TABLE maevsi_private.account (
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
+    location_id uuid,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
 
@@ -2802,6 +2891,13 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
+
+
+--
+-- Name: COLUMN account.location_id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.location_id IS 'Reference to the event''s location data.';
 
 
 --
@@ -3649,6 +3745,14 @@ ALTER TABLE ONLY maevsi.legal_term
 
 
 --
+-- Name: location location_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.location
+    ADD CONSTRAINT location_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4086,6 +4190,14 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 
 --
+-- Name: event event_location_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event
+    ADD CONSTRAINT event_location_id_fkey FOREIGN KEY (location_id) REFERENCES maevsi.location(id);
+
+
+--
 -- Name: event_recommendation event_recommendation_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4211,6 +4323,14 @@ ALTER TABLE ONLY maevsi.report
 
 ALTER TABLE ONLY maevsi.upload
     ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: account account_location_id_fkey; Type: FK CONSTRAINT; Schema: maevsi_private; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi_private.account
+    ADD CONSTRAINT account_location_id_fkey FOREIGN KEY (location_id) REFERENCES maevsi.location(id);
 
 
 --
@@ -4853,6 +4973,14 @@ REVOKE ALL ON FUNCTION maevsi.digest(text, text) FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.distance(lat1 double precision, lon1 double precision, lat2 double precision, lon2 double precision) TO maevsi_account;
+
+
+--
 -- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -5364,6 +5492,14 @@ GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_anonymous;
 --
 
 GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
+
+
+--
+-- Name: TABLE location; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.location TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.location TO maevsi_anonymous;
 
 
 --

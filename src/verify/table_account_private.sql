@@ -10,7 +10,8 @@ SELECT id,
        password_hash,
        password_reset_verification,
        password_reset_verification_valid_until,
-       upload_quota_bytes
+       upload_quota_bytes,
+       location_id
 FROM maevsi_private.account WHERE FALSE;
 
 DO $$

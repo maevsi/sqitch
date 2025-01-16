@@ -14,7 +14,8 @@ SELECT id,
        slug,
        start,
        url,
-       visibility
+       visibility,
+       location_id
 FROM maevsi.event WHERE FALSE;
 
 ROLLBACK;
