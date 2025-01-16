@@ -1,3 +1,9 @@
+## [4.13.0](https://github.com/maevsi/sqitch/compare/4.12.0...4.13.0) (2025-01-16)
+
+### Features
+
+* **account:** add possibility to block ([#73](https://github.com/maevsi/sqitch/issues/73)) ([4ab872e](https://github.com/maevsi/sqitch/commit/4ab872eef7c165605f1070636e1050f3a876e51a))
+
 ## [4.12.0](https://github.com/maevsi/sqitch/compare/4.11.0...4.12.0) (2025-01-15)
 
 ### Features
