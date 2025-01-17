@@ -60,7 +60,7 @@ ALTER SCHEMA maevsi_test OWNER TO postgres;
 -- Name: SCHEMA maevsi_test; Type: COMMENT; Schema: -; Owner: postgres
 --
 
-COMMENT ON SCHEMA maevsi_test IS 'Is used for testing, see test functions.';
+COMMENT ON SCHEMA maevsi_test IS 'Schema for test functions.';
 
 
 --
@@ -1094,19 +1094,20 @@ DECLARE
   _invitation_id UUID;
 BEGIN
   _invitation_ids := string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
+
   IF _invitation_ids IS NOT NULL THEN
     FOREACH _invitation_id IN ARRAY _invitation_ids
     LOOP
       -- omit invitations authored by a blocked account
       IF NOT EXISTS(
-	      SELECT 1
-	      FROM maevsi.invitation i
-	      JOIN maevsi.contact c ON i.contact_id = c.contact_id
-	      JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
-	     WHERE i.id = _invitation_id and b.author_account_id = current_setting('jwt.claims.account_id', true)
-	    ) THEN
+        SELECT 1
+        FROM maevsi.invitation i
+        JOIN maevsi.contact c ON i.contact_id = c.contact_id
+        JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
+       WHERE i.id = _invitation_id AND b.author_account_id = maevsi.invoker_account_id()
+      ) THEN
         _invitation_ids_unblocked := append_invitation_array(result_invitation_ids, _invitation_id);
-	    END IF;
+      END IF;
     END LOOP;
   END IF;
   RETURN _invitation_ids_unblocked;
@@ -1132,36 +1133,45 @@ CREATE FUNCTION maevsi.invitation_contact_ids() RETURNS TABLE(contact_id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    SELECT i.contact_id FROM maevsi.invitation i
-    WHERE i.id = ANY (maevsi.invitation_claim_array())
-    OR (
-	    i.event_id IN (SELECT maevsi.events_organized())
-	    AND
-	    -- omit contacts authored by a blocked account or referring to a blocked account
-	    i.contact_id NOT IN (
-        SELECT c.id
-        FROM maevsi.contact c
-        WHERE c.account_id IS NULL
-        OR c.account_id IN (
-          SELECT blocked_account_id
-          FROM maevsi.account_block
-          WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-          UNION ALL
-          SELECT author_account_id
-          FROM maevsi.account_block
-          WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-        )
-        OR c.author_account_id IN (
-          SELECT blocked_account_id
-          FROM maevsi.account_block
-          WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-          UNION ALL
-          SELECT author_account_id
-          FROM maevsi.account_block
-          WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-        )
-	   )
-	);
+    -- get all contacts for invitations
+    SELECT invitation.contact_id
+    FROM maevsi.invitation
+    WHERE
+      (
+        -- that are known to the invoker
+        invitation.id = ANY (maevsi.invitation_claim_array())
+      OR
+        -- or for events organized by the invoker
+        invitation.event_id IN (SELECT maevsi.events_organized())
+      )
+      AND
+        -- except contacts authored by a blocked account or referring to a blocked account
+        invitation.contact_id NOT IN (
+          SELECT contact.id
+          FROM maevsi.contact
+          WHERE
+              contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
+            OR
+              contact.account_id IN (
+                SELECT blocked_account_id
+                FROM maevsi.account_block
+                WHERE author_account_id = maevsi.invoker_account_id()
+                UNION ALL
+                SELECT author_account_id
+                FROM maevsi.account_block
+                WHERE blocked_account_id = maevsi.invoker_account_id()
+              )
+            OR
+              contact.author_account_id IN (
+                SELECT blocked_account_id
+                FROM maevsi.account_block
+                WHERE author_account_id = maevsi.invoker_account_id()
+                UNION ALL
+                SELECT author_account_id
+                FROM maevsi.account_block
+                WHERE blocked_account_id = maevsi.invoker_account_id()
+              )
+        );
 END;
 $$;
 
@@ -1483,7 +1493,7 @@ DECLARE
   whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
-    TG_OP = 'UPDATE'
+      TG_OP = 'UPDATE'
     AND ( -- Invited.
       OLD.id = ANY (maevsi.invitation_claim_array())
       OR
@@ -1713,29 +1723,36 @@ BEGIN
   jwt_account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
-  SELECT i.event_id FROM maevsi.invitation i
+
+  -- get all events for invitations
+  SELECT invitation.event_id FROM maevsi.invitation
   WHERE
     (
-      i.contact_id IN (
+      -- whose invitee
+      invitation.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
-          account_id = jwt_account_id
-          -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+            -- is the requesting user
+            account_id = jwt_account_id -- if `jwt_account_id` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
-          -- contact is not a blocked user and is not authored by a user who blocked jwt_account_id
-          author_account_id NOT IN (
-            SELECT blocked_account_id
-            FROM maevsi.account_block
-            WHERE author_account_id = jwt_account_id
-            UNION ALL
-            SELECT author_account_id
-            FROM maevsi.account_block
-            WHERE blocked_account_id = jwt_account_id
-          )
+            -- who is not invited by
+            author_account_id NOT IN (
+              -- a user who the invitee blocked
+              SELECT blocked_account_id
+              FROM maevsi.account_block
+              WHERE author_account_id = jwt_account_id
+              UNION ALL
+              -- or who has blocked the invitee
+              SELECT author_account_id
+              FROM maevsi.account_block
+              WHERE blocked_account_id = jwt_account_id
+            ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
       )
     )
-    OR i.id = ANY (maevsi.invitation_claim_array());
+    OR
+      -- for which the requesting user knows the id
+      invitation.id = ANY (maevsi.invitation_claim_array());
 END
 $$;
 
@@ -1750,10 +1767,10 @@ COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that retu
 
 
 --
--- Name: block_account(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_block_create(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.block_account(_author_account_id uuid, _blocked_account_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1772,20 +1789,37 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.block_account(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
 
 --
--- Name: create_account(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_block_remove(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_account(_username text, _email text) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  DELETE FROM maevsi.account_block
+  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+
+--
+-- Name: account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_create(_username text, _email text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
   _verification UUID;
 BEGIN
-  _id := maevsi.account_registration(_username, _email, 'abcd1234', 'de');
+  _id := maevsi.account_registration(_username, _email, 'password', 'en');
 
   SELECT email_address_verification INTO _verification
   FROM maevsi_private.account
@@ -1797,20 +1831,47 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_account(_username text, _email text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO postgres;
 
 --
--- Name: create_contact(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_contact(_author_account_id uuid, _email_address text) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_remove(_username text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  SELECT id INTO _id FROM maevsi.account WHERE username = _username;
+
+  IF _id IS NOT NULL THEN
+
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
+
+    DELETE FROM maevsi.event WHERE author_account_id = _id;
+
+    PERFORM maevsi.account_delete('password');
+
+    SET LOCAL role = 'postgres';
+  END IF;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.account_remove(_username text) OWNER TO postgres;
+
+--
+-- Name: contact_create(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-
   SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
 
   SET LOCAL role = 'maevsi_account';
@@ -1830,54 +1891,79 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_contact(_author_account_id uuid, _email_address text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) OWNER TO postgres;
 
 --
--- Name: create_event(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_select_by_account_id(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
+CREATE FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
-
-  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
-  VALUES (_author_account_id, _name, _slug, to_timestamp(_start, 'YYYY-MM-DD HH24:MI'), _visibility::maevsi.event_visibility)
-  RETURNING id INTO _id;
-
-  SET LOCAL role = 'postgres';
+  SELECT id INTO _id
+  FROM maevsi.contact
+  WHERE author_account_id = _account_id AND account_id = _account_id;
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) OWNER TO postgres;
 
 --
--- Name: create_event_category(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_event_category(_category text) RETURNS void
+CREATE FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
+DECLARE
+  rec RECORD;
 BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
 
-  INSERT INTO maevsi.event_category(category) VALUES (_category);
+  IF EXISTS (SELECT id FROM maevsi.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some contact should not appear in the query result';
+  END IF;
 
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.contact) THEN
+    RAISE EXCEPTION 'some contact is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_event_category(_category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
--- Name: create_event_category_mapping(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_create(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
+CREATE FUNCTION maevsi_test.event_category_create(_category text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO maevsi.event_category(category) VALUES (_category);
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_category_create(_category text) OWNER TO postgres;
+
+--
+-- Name: event_category_mapping_create(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1888,17 +1974,101 @@ BEGIN
   VALUES (_event_id, _category);
 
   SET LOCAL role = 'postgres';
-
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
 
 --
--- Name: create_invitation(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_mapping_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
+    RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: event_create(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+
+  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
+  VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
+  RETURNING id INTO _id;
+
+  SET LOCAL role = 'postgres';
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+
+--
+-- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (SELECT id FROM maevsi.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some event should not appear in the query result';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.event) THEN
+    RAISE EXCEPTION 'some event is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: invitation_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1917,177 +2087,16 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
 
 --
--- Name: get_own_contact(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: invitation_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.get_own_contact(_account_id uuid) RETURNS uuid
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-BEGIN
-  SELECT id INTO _id
-  FROM maevsi.contact
-  WHERE author_account_id = _account_id AND account_id = _account_id;
-
-  RAISE NOTICE '_account_id = %, _id = %', _account_id, _id;
-
-  RETURN _id;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.get_own_contact(_account_id uuid) OWNER TO postgres;
-
---
--- Name: remove_account(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.remove_account(_username text) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-BEGIN
-
-  SELECT id INTO _id FROM maevsi.account WHERE username = _username;
-
-  IF _id IS NOT NULL THEN
-
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
-
-    DELETE FROM maevsi.event WHERE author_account_id = _id;
-
-    PERFORM maevsi.account_delete('abcd1234');
-
-    SET LOCAL role = 'postgres';
-
-  END IF;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.remove_account(_username text) OWNER TO postgres;
-
---
--- Name: select_contacts(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  rec RECORD;
-BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
-  IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  FOR rec IN
-    SELECT id FROM maevsi.contact
-  LOOP
-    RAISE NOTICE '%', rec.id;
-  END LOOP;
-
-  IF EXISTS (SELECT id FROM maevsi.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some contact should not appear in the query result';
-  END IF;
-
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.contact) THEN
-    RAISE EXCEPTION 'some contact is missing in the query result';
-  END IF;
-
-  SET LOCAL role = 'postgres';
-
-END $$;
-
-
-ALTER FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: select_event_category_mappings(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
+CREATE FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
-  IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
-  END IF;
-
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
-    RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
-  END IF;
-
-  SET LOCAL role = 'postgres';
-
-END $$;
-
-
-ALTER FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: select_events(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
-  IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  IF EXISTS (SELECT id FROM maevsi.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some event should not appear in the query result';
-  END IF;
-
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.event) THEN
-    RAISE EXCEPTION 'some event is missing in the query result';
-  END IF;
-
-  SET LOCAL role = 'postgres';
-
-END $$;
-
-
-ALTER FUNCTION maevsi_test.select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: select_invitations(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
   IF _account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -2105,28 +2114,10 @@ BEGIN
   END IF;
 
   SET LOCAL role = 'postgres';
-
 END $$;
 
 
-ALTER FUNCTION maevsi_test.select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: unblock_account(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.unblock_account(_author_account_id uuid, _blocked_account_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-BEGIN
-  DELETE FROM maevsi.account_block
-  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.unblock_account(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
 -- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -2182,28 +2173,28 @@ ALTER TABLE maevsi.account_block OWNER TO postgres;
 --
 
 COMMENT ON TABLE maevsi.account_block IS '@omit update,delete
-Blocking of an account by another account.';
+Blocking of one account by another.';
 
 
 --
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe blocking''s internal id.';
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account blocking''s internal id.';
 
 
 --
 -- Name: COLUMN account_block.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The id of the user who created the blocking.';
+COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The account id of the user who created the blocking.';
 
 
 --
 -- Name: COLUMN account_block.blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The id of the account to be blocked.';
+COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of the user who is blocked.';
 
 
 --
@@ -2211,7 +2202,7 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The id of the acco
 --
 
 COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create,update,delete
-The timestamp when the blocking was created.';
+Timestamp of when the blocking was created.';
 
 
 --
@@ -4815,14 +4806,14 @@ ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
 
 
 --
 -- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (blocked_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((author_account_id = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
 
 
 --
@@ -4958,13 +4949,13 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id =
 UNION ALL
  SELECT account_block.author_account_id
    FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))) OR ((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block.blocked_account_id
+  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))) OR ((author_account_id = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
-  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)
+  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
 UNION ALL
  SELECT account_block.author_account_id
    FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
 
 
 --
@@ -5012,11 +5003,11 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT e.visibility
-   FROM maevsi.event e
-  WHERE (e.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT e.author_account_id
-   FROM maevsi.event e
-  WHERE (e.id = event_category_mapping.event_id)) IN ( SELECT account_block.blocked_account_id
+  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT event.visibility
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.author_account_id
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
   WHERE (account_block.author_account_id = maevsi.invoker_account_id())
 UNION ALL
@@ -5857,101 +5848,101 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION block_account(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_create(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.block_account(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_account(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.create_account(_username text, _email text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_contact(_author_account_id uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_remove(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.create_contact(_author_account_id uuid, _email_address text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_event_category(_category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.create_event_category(_category text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
-
-
---
--- Name: FUNCTION get_own_contact(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.get_own_contact(_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION remove_account(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_create(_author_account_id uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.remove_account(_username text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_select_by_account_id(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
-
-
---
--- Name: FUNCTION select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION unblock_account(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_create(_category text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.unblock_account(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --

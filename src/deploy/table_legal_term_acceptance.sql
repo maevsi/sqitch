@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE TABLE maevsi.legal_term_acceptance (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   account_id    UUID NOT NULL REFERENCES maevsi.account(id) ON DELETE CASCADE,
   legal_term_id UUID NOT NULL REFERENCES maevsi.legal_term(id) ON DELETE RESTRICT -- deletion of the parent row should not be possible

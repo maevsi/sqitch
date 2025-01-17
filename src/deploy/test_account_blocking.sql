@@ -1,14 +1,14 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION maevsi_test.create_account (
+CREATE OR REPLACE FUNCTION maevsi_test.account_create (
   _username TEXT,
-  _email TEXT)
-RETURNS UUID AS $$
+  _email TEXT
+) RETURNS UUID AS $$
 DECLARE
   _id UUID;
   _verification UUID;
 BEGIN
-  _id := maevsi.account_registration(_username, _email, 'abcd1234', 'de');
+  _id := maevsi.account_registration(_username, _email, 'password', 'en');
 
   SELECT email_address_verification INTO _verification
   FROM maevsi_private.account
@@ -19,15 +19,12 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.remove_account (
-  _username TEXT)
-RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION maevsi_test.account_remove (
+  _username TEXT
+) RETURNS VOID AS $$
 DECLARE
   _id UUID;
 BEGIN
-
   SELECT id INTO _id FROM maevsi.account WHERE username = _username;
 
   IF _id IS NOT NULL THEN
@@ -37,18 +34,15 @@ BEGIN
 
     DELETE FROM maevsi.event WHERE author_account_id = _id;
 
-    PERFORM maevsi.account_delete('abcd1234');
+    PERFORM maevsi.account_delete('password');
 
     SET LOCAL role = 'postgres';
-
   END IF;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.get_own_contact (
-  _account_id UUID)
-RETURNS UUID AS $$
+CREATE OR REPLACE FUNCTION maevsi_test.contact_select_by_account_id (
+  _account_id UUID
+) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
@@ -56,22 +50,17 @@ BEGIN
   FROM maevsi.contact
   WHERE author_account_id = _account_id AND account_id = _account_id;
 
-  RAISE NOTICE '_account_id = %, _id = %', _account_id, _id;
-
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.create_contact (
+CREATE OR REPLACE FUNCTION maevsi_test.contact_create (
   _author_account_id UUID,
-  _email_address TEXT)
-RETURNS UUID AS $$
+  _email_address TEXT
+) RETURNS UUID AS $$
 DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-
   SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
 
   SET LOCAL role = 'maevsi_account';
@@ -90,15 +79,13 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.create_event (
+CREATE OR REPLACE FUNCTION maevsi_test.event_create (
   _author_account_id UUID,
   _name TEXT,
   _slug TEXT,
-  _start TEXT, -- format: 'YYYY-MM-DD HH24:MI'
-  _visibility TEXT)
-RETURNS UUID AS $$
+  _start TEXT,
+  _visibility TEXT
+) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
@@ -106,7 +93,7 @@ BEGIN
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
 
   INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
-  VALUES (_author_account_id, _name, _slug, to_timestamp(_start, 'YYYY-MM-DD HH24:MI'), _visibility::maevsi.event_visibility)
+  VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -114,13 +101,11 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.create_invitation (
+CREATE OR REPLACE FUNCTION maevsi_test.invitation_create (
   _author_account_id UUID,
   _event_id UUID,
-  _contact_id UUID)
-RETURNS UUID AS $$
+  _contact_id UUID
+) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
@@ -136,24 +121,18 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.create_event_category (
-  _category TEXT)
-RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION maevsi_test.event_category_create (
+  _category TEXT
+) RETURNS VOID AS $$
 BEGIN
-
   INSERT INTO maevsi.event_category(category) VALUES (_category);
-
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.create_event_category_mapping (
+CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_create (
   _author_account_id UUID,
   _event_id UUID,
-  _category TEXT)
-RETURNS VOID AS $$
+  _category TEXT
+) RETURNS VOID AS $$
 BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
@@ -162,15 +141,12 @@ BEGIN
   VALUES (_event_id, _category);
 
   SET LOCAL role = 'postgres';
-
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.block_account (
+CREATE OR REPLACE FUNCTION maevsi_test.account_block_create (
   _author_account_id UUID,
-  _blocked_account_id UUID)
-RETURNS UUID AS $$
+  _blocked_account_id UUID
+) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
@@ -186,12 +162,10 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.unblock_account (
+CREATE OR REPLACE FUNCTION maevsi_test.account_block_remove (
   _author_account_id UUID,
-  _blocked_account_id UUID)
-RETURNS VOID AS $$
+  _blocked_account_id UUID
+) RETURNS VOID AS $$
 DECLARE
   _id UUID;
 BEGIN
@@ -199,18 +173,12 @@ BEGIN
   WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.select_events (
+CREATE OR REPLACE FUNCTION maevsi_test.event_test (
   _test_case TEXT,
-  _description TEXT,
   _account_id UUID,
   _expected_result UUID[]
-)
-RETURNS VOID AS $$
+) RETURNS VOID AS $$
 BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
   IF _account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -228,21 +196,14 @@ BEGIN
   END IF;
 
   SET LOCAL role = 'postgres';
-
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.select_event_category_mappings (
+CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_test (
   _test_case TEXT,
-  _description TEXT,
   _account_id UUID,
   _expected_result UUID[]
-)
-RETURNS VOID AS $$
+) RETURNS VOID AS $$
 BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
   IF _account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -260,23 +221,16 @@ BEGIN
   END IF;
 
   SET LOCAL role = 'postgres';
-
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.select_contacts (
+CREATE OR REPLACE FUNCTION maevsi_test.contact_test (
   _test_case TEXT,
-  _description TEXT,
   _account_id UUID,
   _expected_result UUID[]
-)
-RETURNS VOID AS $$
+) RETURNS VOID AS $$
 DECLARE
   rec RECORD;
 BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
   IF _account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -284,12 +238,6 @@ BEGIN
     SET LOCAL role = 'maevsi_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
-
-  FOR rec IN
-    SELECT id FROM maevsi.contact
-  LOOP
-    RAISE NOTICE '%', rec.id;
-  END LOOP;
 
   IF EXISTS (SELECT id FROM maevsi.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
     RAISE EXCEPTION 'some contact should not appear in the query result';
@@ -300,21 +248,14 @@ BEGIN
   END IF;
 
   SET LOCAL role = 'postgres';
-
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-CREATE OR REPLACE FUNCTION maevsi_test.select_invitations (
+CREATE OR REPLACE FUNCTION maevsi_test.invitation_test (
   _test_case TEXT,
-  _description TEXT,
   _account_id UUID,
   _expected_result UUID[]
-)
-RETURNS VOID AS $$
+) RETURNS VOID AS $$
 BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
   IF _account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -332,9 +273,6 @@ BEGIN
   END IF;
 
   SET LOCAL role = 'postgres';
-
 END $$ LANGUAGE plpgsql;
 
--------------------------------------------------
-
-COMMIT; -- test functions
+COMMIT;
