@@ -1,40 +1,45 @@
 BEGIN;
 
 CREATE FUNCTION maevsi_private.events_invited()
-  RETURNS TABLE(event_id uuid)
-AS $$
+RETURNS TABLE(event_id uuid) AS $$
 DECLARE
   jwt_account_id UUID;
 BEGIN
   jwt_account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
-  SELECT i.event_id FROM maevsi.invitation i
+
+  -- get all events for invitations
+  SELECT invitation.event_id FROM maevsi.invitation
   WHERE
     (
-      i.contact_id IN (
+      -- whose invitee
+      invitation.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
-          account_id = jwt_account_id
-          -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+            -- is the requesting user
+            account_id = jwt_account_id -- if `jwt_account_id` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
-          -- contact is not a blocked user and is not authored by a user who blocked jwt_account_id
-          author_account_id NOT IN (
-            SELECT blocked_account_id
-            FROM maevsi.account_block
-            WHERE author_account_id = jwt_account_id
-            UNION ALL
-            SELECT author_account_id
-            FROM maevsi.account_block
-            WHERE blocked_account_id = jwt_account_id
-          )
+            -- who is not invited by
+            author_account_id NOT IN (
+              -- a user who the invitee blocked
+              SELECT blocked_account_id
+              FROM maevsi.account_block
+              WHERE author_account_id = jwt_account_id
+              UNION ALL
+              -- or who has blocked the invitee
+              SELECT author_account_id
+              FROM maevsi.account_block
+              WHERE blocked_account_id = jwt_account_id
+            ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
       )
     )
-    OR i.id = ANY (maevsi.invitation_claim_array());
+    OR
+      -- for which the requesting user knows the id
+      invitation.id = ANY (maevsi.invitation_claim_array());
 END
-$$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-;
+$$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
 

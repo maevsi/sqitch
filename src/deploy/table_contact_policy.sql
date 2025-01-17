@@ -24,7 +24,7 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
   )
   OR
   (
-    author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+    author_account_id = maevsi.invoker_account_id()
     AND
     (
       account_id IS NULL
@@ -32,11 +32,11 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
       account_id NOT IN (
         SELECT blocked_account_id
         FROM maevsi.account_block
-        WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        WHERE author_account_id = maevsi.invoker_account_id()
         UNION ALL
         SELECT author_account_id
         FROM maevsi.account_block
-        WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+        WHERE blocked_account_id = maevsi.invoker_account_id()
       )
     )
   )

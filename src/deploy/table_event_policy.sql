@@ -8,7 +8,6 @@ ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 -- Only display events that are public and not full and not organized by a blocked account.
 -- Only display events that are organized by oneself.
 -- Only display events to which oneself is invited, but not by an invitation authored by a blocked account.
--- Only display events to which oneself is invited, but not by an invitation authored by a blocked account
 CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
   (
     visibility = 'public'

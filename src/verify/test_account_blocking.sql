@@ -34,140 +34,85 @@ BEGIN
 
   -- remove accounts (if exist)
 
-  PERFORM maevsi_test.remove_account('ameier');
-  PERFORM maevsi_test.remove_account('bschulze');
-  PERFORM maevsi_test.remove_account('cmueller');
+  PERFORM maevsi_test.account_remove('a');
+  PERFORM maevsi_test.account_remove('b');
+  PERFORM maevsi_test.account_remove('c');
 
   -- fill with test data
 
-  accountA := maevsi_test.create_account('ameier', 'anton.meier@abc.de');
-  accountB := maevsi_test.create_account('bschulze', 'berta.schulze@abc.de');
-  accountC := maevsi_test.create_account('cmueller', 'chris.mueller@abc.de');
+  accountA := maevsi_test.account_create('a', 'a@example.com');
+  accountB := maevsi_test.account_create('b', 'b@example.com');
+  accountC := maevsi_test.account_create('c', 'c@example.com');
 
-  contactAA := maevsi_test.get_own_contact(accountA);
-  contactBB := maevsi_test.get_own_contact(accountB);
-  contactCC := maevsi_test.get_own_contact(accountC);
+  contactAA := maevsi_test.contact_select_by_account_id(accountA);
+  contactBB := maevsi_test.contact_select_by_account_id(accountB);
+  contactCC := maevsi_test.contact_select_by_account_id(accountC);
 
-  contactAB := maevsi_test.create_contact(accountA, 'berta.schulze@abc.de');
-  contactAC := maevsi_test.create_contact(accountA, 'chris.mueller@abc.de');
-  contactBA := maevsi_test.create_contact(accountB, 'anton.meier@abc.de');
-  contactBC := maevsi_test.create_contact(accountB, 'chris.mueller@abc.de');
-  contactCA := maevsi_test.create_contact(accountC, 'anton.meier@abc.de');
-  contactCB := maevsi_test.create_contact(accountC, 'berta.schulze@abc.de');
+  contactAB := maevsi_test.contact_create(accountA, 'b@example.com');
+  contactAC := maevsi_test.contact_create(accountA, 'c@example.com');
+  contactBA := maevsi_test.contact_create(accountB, 'a@example.com');
+  contactBC := maevsi_test.contact_create(accountB, 'c@example.com');
+  contactCA := maevsi_test.contact_create(accountC, 'a@example.com');
+  contactCB := maevsi_test.contact_create(accountC, 'b@example.com');
 
-  eventA := maevsi_test.create_event(accountA, 'Event A', 'event-a', '2025-06-01 20:00', 'public');
-  eventB := maevsi_test.create_event(accountB, 'Event B', 'event-b', '2025-06-01 20:00', 'public');
-  eventC := maevsi_test.create_event(accountC, 'Event C', 'event-c', '2025-06-01 20:00', 'public');
+  eventA := maevsi_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  eventB := maevsi_test.event_create(accountB, 'Event by B', 'event-by-b', '2025-06-01 20:00', 'public');
+  eventC := maevsi_test.event_create(accountC, 'Event by C', 'event-by-c', '2025-06-01 20:00', 'public');
 
-  PERFORM maevsi_test.create_event_category('concert');
-  PERFORM maevsi_test.create_event_category_mapping(accountA, eventA, 'concert');
-  PERFORM maevsi_test.create_event_category_mapping(accountB, eventB, 'concert');
-  PERFORM maevsi_test.create_event_category_mapping(accountC, eventC, 'concert');
+  PERFORM maevsi_test.event_category_create('category');
+  PERFORM maevsi_test.event_category_mapping_create(accountA, eventA, 'category');
+  PERFORM maevsi_test.event_category_mapping_create(accountB, eventB, 'category');
+  PERFORM maevsi_test.event_category_mapping_create(accountC, eventC, 'category');
 
-  invitationAB := maevsi_test.create_invitation(accountA, eventA, contactAB);
-  invitationAC := maevsi_test.create_invitation(accountA, eventA, contactAC);
-  invitationBA := maevsi_test.create_invitation(accountB, eventB, contactBA);
-  invitationBC := maevsi_test.create_invitation(accountB, eventB, contactBC);
-  invitationCA := maevsi_test.create_invitation(accountC, eventC, contactCA);
-  invitationCB := maevsi_test.create_invitation(accountC, eventC, contactCB);
+  invitationAB := maevsi_test.invitation_create(accountA, eventA, contactAB);
+  invitationAC := maevsi_test.invitation_create(accountA, eventA, contactAC);
+  invitationBA := maevsi_test.invitation_create(accountB, eventB, contactBA);
+  invitationBC := maevsi_test.invitation_create(accountB, eventB, contactBC);
+  invitationCA := maevsi_test.invitation_create(accountC, eventC, contactCA);
+  invitationCB := maevsi_test.invitation_create(accountC, eventC, contactCB);
 
   -- run tests
 
-  test_case := 'test 1';
-  RAISE NOTICE '%: no blocking, test events', test_case;
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  PERFORM maevsi_test.event_test('event: no blocking, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.event_test('event: no blocking, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
 
-  PERFORM maevsi_test.unblock_account(accountA, accountB);
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+  PERFORM maevsi_test.event_test('event: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
+  PERFORM maevsi_test.event_test('event: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
-  PERFORM maevsi_test.select_events(test_case, 'A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.select_events(test_case, 'B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: no blocking, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: no blocking, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
 
-  test_case := 'test 2';
-  RAISE NOTICE '%: A blocks B, test events', test_case;
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
+  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
-  PERFORM maevsi_test.block_account(accountA, accountB);
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  PERFORM maevsi_test.contact_test('contact: no blocking, perspective A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
+  PERFORM maevsi_test.contact_test('contact: no blocking, perspective B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
 
-  PERFORM maevsi_test.select_events(test_case, 'A', accountA, ARRAY[eventA, eventC]::UUID[]);
-  PERFORM maevsi_test.select_events(test_case, 'B', accountB, ARRAY[eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+  PERFORM maevsi_test.contact_test('contact: A blocks B, perspective A', accountA, ARRAY[contactAA, contactAC, contactCA]::UUID[]);
+  PERFORM maevsi_test.contact_test('contact: A blocks B, perspective B', accountB, ARRAY[contactBB, contactBC, contactCB]::UUID[]);
 
-  test_case := 'test 3';
-  RAISE NOTICE '%: no blocking, test event_category_mapping', test_case;
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  PERFORM maevsi_test.invitation_test('invitation: no blocking, perspective A', accountA, ARRAY[invitationAB, invitationAC, invitationBA, invitationCA]::UUID[]);
+  PERFORM maevsi_test.invitation_test('invitation: no blocking, perspective B', accountB, ARRAY[invitationBA, invitationBC, invitationAB, invitationCB]::UUID[]);
 
-  PERFORM maevsi_test.unblock_account(accountA, accountB);
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+  PERFORM maevsi_test.invitation_test('invitation: A blocks B, perspective A', accountA, ARRAY[invitationAC, invitationCA]::UUID[]);
+  PERFORM maevsi_test.invitation_test('invitation: A blocks B, perspective B', accountB, ARRAY[invitationBC, invitationCB]::UUID[]);
 
-  PERFORM maevsi_test.select_event_category_mappings(test_case, 'A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.select_event_category_mappings(test_case, 'B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  PERFORM maevsi_test.event_test('anonymous login: no blocking, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.contact_test('anonymous login: no blocking, contacts', null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.invitation_test('anonymous login: no blocking, invitations', null, ARRAY[]::UUID[]);
 
-  test_case := 'test 4';
-  RAISE NOTICE '%: A blocks B, test event_category_mapping', test_case;
-
-  PERFORM maevsi_test.block_account(accountA, accountB);
-
-  PERFORM maevsi_test.select_event_category_mappings(test_case, 'A', accountA, ARRAY[eventA, eventC]::UUID[]);
-  PERFORM maevsi_test.select_event_category_mappings(test_case, 'B', accountB, ARRAY[eventB, eventC]::UUID[]);
-
-  RAISE NOTICE 'contactAA = %', contactAA;
-  RAISE NOTICE 'contactBB = %', contactBB;
-  RAISE NOTICE 'contactCC = %', contactCC;
-  RAISE NOTICE 'contactAB = %', contactAB;
-  RAISE NOTICE 'contactAC = %', contactAC;
-  RAISE NOTICE 'contactBA = %', contactBA;
-  RAISE NOTICE 'contactBC = %', contactBC;
-  RAISE NOTICE 'contactCA = %', contactCA;
-  RAISE NOTICE 'contactCB = %', contactCB;
-
-  test_case := 'test 5';
-  RAISE NOTICE '%: no blocking, test contacts', test_case;
-
-  PERFORM maevsi_test.unblock_account(accountA, accountB);
-
-  PERFORM maevsi_test.select_contacts(test_case, 'A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
-  PERFORM maevsi_test.select_contacts(test_case, 'B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
-
-  test_case := 'test 6';
-  RAISE NOTICE '%: A blocks B, test contacts', test_case;
-
-  PERFORM maevsi_test.block_account(accountA, accountB);
-
-  PERFORM maevsi_test.select_contacts(test_case, 'A', accountA, ARRAY[contactAA, contactAC, contactCA]::UUID[]);
-  PERFORM maevsi_test.select_contacts(test_case, 'B', accountB, ARRAY[contactBB, contactBC, contactCB]::UUID[]);
-
-  test_case := 'test 7';
-  RAISE NOTICE '%: no blocking, test invitations', test_case;
-
-  PERFORM maevsi_test.unblock_account(accountA, accountB);
-
-  PERFORM maevsi_test.select_invitations(test_case, 'A', accountA, ARRAY[invitationAB, invitationAC, invitationBA, invitationCA]::UUID[]);
-  PERFORM maevsi_test.select_invitations(test_case, 'B', accountB, ARRAY[invitationBA, invitationBC, invitationAB, invitationCB]::UUID[]);
-
-  test_case := 'test 8';
-  RAISE NOTICE '%: A blocks B, test invitations', test_case;
-
-  PERFORM maevsi_test.block_account(accountA, accountB);
-
-  PERFORM maevsi_test.select_invitations(test_case, 'A', accountA, ARRAY[invitationAC, invitationCA]::UUID[]);
-  PERFORM maevsi_test.select_invitations(test_case, 'B', accountB, ARRAY[invitationBC, invitationCB]::UUID[]);
-
-  -- tests for anonymous login
-
-  test_case := 'test 9';
-  RAISE NOTICE '%: no blocking, anonymous login', test_case;
-
-  PERFORM maevsi_test.unblock_account(accountA, accountB);
-
-  PERFORM maevsi_test.select_events(test_case, 'anonymous, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.select_contacts(test_case, 'anonymous, contacts', null, ARRAY[]::UUID[]);
-  PERFORM maevsi_test.select_invitations(test_case, 'anonymous, invitations', null, ARRAY[]::UUID[]);
-
-  test_case := 'test 10';
-  RAISE NOTICE '%: A blocks B, anonymous login', test_case;
-
-  PERFORM maevsi_test.select_events(test_case, 'anonymous, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.select_contacts(test_case, 'anonymous, contacts', null, ARRAY[]::UUID[]);
-  PERFORM maevsi_test.select_invitations(test_case, 'anonymous, invitations', null, ARRAY[]::UUID[]);
-
-  -- tests completed successfully
-
-  RAISE NOTICE 'tests OK';
+  PERFORM maevsi_test.event_test('anonymous login: A blocks B, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.contact_test('anonymous login: A blocks B, contacts', null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.invitation_test('anonymous login: A blocks B, invitations', null, ARRAY[]::UUID[]);
 
 END $$;
 
