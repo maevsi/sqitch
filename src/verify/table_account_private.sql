@@ -7,11 +7,11 @@ SELECT id,
        email_address_verification,
        email_address_verification_valid_until,
        last_activity,
+       location_id,
        password_hash,
        password_reset_verification,
        password_reset_verification_valid_until,
-       upload_quota_bytes,
-       location_id
+       upload_quota_bytes
 FROM maevsi_private.account WHERE FALSE;
 
 DO $$

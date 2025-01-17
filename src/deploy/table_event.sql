@@ -12,12 +12,12 @@ CREATE TABLE maevsi.event (
   is_in_person             BOOLEAN,
   is_remote                BOOLEAN,
   location                 TEXT CHECK (char_length("location") > 0 AND char_length("location") < 300),
+  location_id              UUID REFERENCES maevsi.location(id),
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                     TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
   url                      TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
   visibility               maevsi.event_visibility NOT NULL,
-  location_id              UUID REFERENCES maevsi.location(id),
 
   UNIQUE (author_account_id, slug)
 );
@@ -33,12 +33,12 @@ COMMENT ON COLUMN maevsi.event.is_archived IS 'Indicates whether the event is ar
 COMMENT ON COLUMN maevsi.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes place remotely.';
 COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
+COMMENT ON COLUMN maevsi.event.location_id IS 'Reference to the event''s location data.';
 COMMENT ON COLUMN maevsi.event.name IS 'The event''s name.';
 COMMENT ON COLUMN maevsi.event.slug IS 'The event''s name, slugified.';
 COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with timezone.';
 COMMENT ON COLUMN maevsi.event.url IS 'The event''s unified resource locator.';
 COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
-COMMENT ON COLUMN maevsi_private.account.location_id IS 'Reference to the event''s location data.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_event_policy`.
 

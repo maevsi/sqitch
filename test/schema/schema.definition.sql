@@ -776,12 +776,12 @@ CREATE TABLE maevsi.event (
     is_in_person boolean,
     is_remote boolean,
     location text,
+    location_id uuid,
     name text NOT NULL,
     slug text NOT NULL,
     start timestamp with time zone NOT NULL,
     url text,
     visibility maevsi.event_visibility NOT NULL,
-    location_id uuid,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_invitee_count_maximum_check CHECK ((invitee_count_maximum > 0)),
     CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
@@ -870,6 +870,13 @@ COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes p
 --
 
 COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
+
+
+--
+-- Name: COLUMN event.location_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.location_id IS 'Reference to the event''s location data.';
 
 
 --
@@ -3113,7 +3120,7 @@ COMMENT ON COLUMN maevsi.legal_term_acceptance.legal_term_id IS 'The ID of the l
 --
 
 CREATE TABLE maevsi.location (
-    id uuid NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     location_type character(1) NOT NULL,
     latitude double precision NOT NULL,
     longitude double precision NOT NULL,
@@ -3134,7 +3141,8 @@ COMMENT ON TABLE maevsi.location IS 'Location data based on GPS coordnates.';
 -- Name: COLUMN location.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.location.id IS 'The locations''s internal id.';
+COMMENT ON COLUMN maevsi.location.id IS '@omit create,update
+The locations''s internal id.';
 
 
 --
@@ -3148,14 +3156,14 @@ COMMENT ON COLUMN maevsi.location.location_type IS 'The type of the location (A 
 -- Name: COLUMN location.latitude; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.location.latitude IS 'reference to an account (if not null).';
+COMMENT ON COLUMN maevsi.location.latitude IS 'The coordinate''s latitude.';
 
 
 --
 -- Name: COLUMN location.longitude; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.location.longitude IS 'reference to an account (if not null).';
+COMMENT ON COLUMN maevsi.location.longitude IS 'The coordinate''s longitude.';
 
 
 --
@@ -3304,11 +3312,11 @@ CREATE TABLE maevsi_private.account (
     email_address_verification uuid DEFAULT gen_random_uuid(),
     email_address_verification_valid_until timestamp without time zone,
     last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    location_id uuid,
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
-    location_id uuid,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
 
@@ -3372,6 +3380,13 @@ COMMENT ON COLUMN maevsi_private.account.last_activity IS 'Timestamp at which th
 
 
 --
+-- Name: COLUMN account.location_id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.location_id IS 'Reference to the account''s location data.';
+
+
+--
 -- Name: COLUMN account.password_hash; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -3397,13 +3412,6 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
-
-
---
--- Name: COLUMN account.location_id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.account.location_id IS 'Reference to the event''s location data.';
 
 
 --

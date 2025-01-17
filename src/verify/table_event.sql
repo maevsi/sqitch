@@ -10,12 +10,12 @@ SELECT id,
        is_in_person,
        is_remote,
        location,
+       location_id,
        name,
        slug,
        start,
        url,
-       visibility,
-       location_id
+       visibility
 FROM maevsi.event WHERE FALSE;
 
 ROLLBACK;

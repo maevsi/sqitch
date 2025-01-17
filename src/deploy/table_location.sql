@@ -1,21 +1,23 @@
 BEGIN;
 
 CREATE TABLE maevsi.location (
-  id         UUID PRIMARY KEY,
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   location_type CHAR(1) NOT NULL,
-  latitude   DOUBLE PRECISION NOT NULL,
-  longitude  DOUBLE PRECISION NOT NULL,
-  -- possible future extension (using PostGIS):
-  -- geom    GEOMETRY
+  latitude      DOUBLE PRECISION NOT NULL,
+  longitude     DOUBLE PRECISION NOT NULL,
+
+  -- -- possible future extension using PostGIS
+  -- geom          GEOMETRY
 
   CHECK (location_type IN ('A', 'E'))
 );
 
 COMMENT ON TABLE maevsi.location IS 'Location data based on GPS coordnates.';
-COMMENT ON COLUMN maevsi.location.id IS 'The locations''s internal id.';
+COMMENT ON COLUMN maevsi.location.id IS E'@omit create,update\nThe locations''s internal id.';
 COMMENT ON COLUMN maevsi.location.location_type IS 'The type of the location (A = account, E = event)';
-COMMENT ON COLUMN maevsi.location.latitude IS 'reference to an account (if not null).';
-COMMENT ON COLUMN maevsi.location.longitude IS 'reference to an account (if not null).';
+COMMENT ON COLUMN maevsi.location.latitude IS 'The coordinate''s latitude.';
+COMMENT ON COLUMN maevsi.location.longitude IS 'The coordinate''s longitude.';
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE maevsi.location TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.location TO maevsi_anonymous;
