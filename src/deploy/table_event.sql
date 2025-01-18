@@ -6,7 +6,7 @@ CREATE TABLE maevsi.event (
 
   author_account_id        UUID NOT NULL REFERENCES maevsi.account(id),
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
-  "end"                      TIMESTAMP WITH TIME ZONE,
+  "end"                    TIMESTAMP WITH TIME ZONE,
   invitee_count_maximum    INTEGER CHECK (invitee_count_maximum > 0),
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,

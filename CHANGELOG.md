@@ -18,6 +18,42 @@
 
 * **account:** rename `created` column to `created_at` ([df18548](https://github.com/maevsi/sqitch/commit/df18548e11871a22271fa9d131a0538782c1e51b))
 
+## [4.13.0](https://github.com/maevsi/sqitch/compare/4.12.0...4.13.0) (2025-01-16)
+
+### Features
+
+* **account:** add possibility to block ([#73](https://github.com/maevsi/sqitch/issues/73)) ([4ab872e](https://github.com/maevsi/sqitch/commit/4ab872eef7c165605f1070636e1050f3a876e51a))
+
+## [4.12.0](https://github.com/maevsi/sqitch/compare/4.11.0...4.12.0) (2025-01-15)
+
+### Features
+
+* **account:** add login using email address ([#112](https://github.com/maevsi/sqitch/issues/112)) ([937d255](https://github.com/maevsi/sqitch/commit/937d255ab04313442f173804f2fd87f817249f81))
+
+## [4.11.0](https://github.com/maevsi/sqitch/compare/4.10.2...4.11.0) (2025-01-14)
+
+### Features
+
+* **achievement:** add early bird achievement ([#111](https://github.com/maevsi/sqitch/issues/111)) ([0238bea](https://github.com/maevsi/sqitch/commit/0238bea39fc942bd49c894eb57214534a01db0a1))
+
+## [4.10.2](https://github.com/maevsi/sqitch/compare/4.10.1...4.10.2) (2025-01-11)
+
+### Bug Fixes
+
+* schedule release ([6e32e10](https://github.com/maevsi/sqitch/commit/6e32e10a00373c9d88d843db73038d438b130364))
+
+## [4.10.1](https://github.com/maevsi/sqitch/compare/4.10.0...4.10.1) (2024-12-28)
+
+### Bug Fixes
+
+* schedule release ([7dbc9bb](https://github.com/maevsi/sqitch/commit/7dbc9bbe6c23449418012ed2eb439df4400749bf))
+
+## [4.10.0](https://github.com/maevsi/sqitch/compare/4.9.1...4.10.0) (2024-12-19)
+
+### Features
+
+* **event:** mark events as favourite ([#109](https://github.com/maevsi/sqitch/issues/109)) ([7b75524](https://github.com/maevsi/sqitch/commit/7b75524def9ab2575db922567e9d6db87ef3a929))
+
 ## [4.9.1](https://github.com/maevsi/sqitch/compare/4.9.0...4.9.1) (2024-12-18)
 
 ### Bug Fixes
