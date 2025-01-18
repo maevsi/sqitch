@@ -23,16 +23,17 @@ COPY ./src ./
 
 
 ###########################
-FROM postgres:17.2 AS test-build
+FROM quay.io/debezium/postgres:17 AS test-build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
 
 WORKDIR /srv/app
 
-RUN apt-get update \
+RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib' \
+  && apt-get update \
   && apt-get install --no-install-recommends -y \
-      sqitch=1.3.1-1 \
+    sqitch=1.1.0000-1 \
   && mkdir -p /run/secrets \
   && echo "postgres" > /run/secrets/postgres_password \
   && echo "grafana" > /run/secrets/postgres_role_grafana_username \
