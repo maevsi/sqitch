@@ -5,18 +5,18 @@ GRANT SELECT ON TABLE maevsi.account_block TO maevsi_anonymous;
 
 ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 
--- Only allow inserts for blocked accounts authored by the current user.
+-- Only allow account blocking creation authored by the current user.
 CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (
-  NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID IS NOT NULL
+  maevsi.invoker_account_id() IS NOT NULL
   AND
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.invoker_account_id()
 );
 
--- Only show rows where the current account is involved.
+-- Only show account blockings which are created by the current user or which affect the current user.
 CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (
-  author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  author_account_id = maevsi.invoker_account_id()
   OR
-  blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
+  blocked_account_id = maevsi.invoker_account_id()
 );
 
 COMMIT;

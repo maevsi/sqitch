@@ -60,7 +60,7 @@ ALTER SCHEMA maevsi_test OWNER TO postgres;
 -- Name: SCHEMA maevsi_test; Type: COMMENT; Schema: -; Owner: postgres
 --
 
-COMMENT ON SCHEMA maevsi_test IS 'Is used for testing, see test functions.';
+COMMENT ON SCHEMA maevsi_test IS 'Schema for test functions.';
 
 
 --
@@ -91,6 +91,20 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA maevsi;
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
+
+
+--
+-- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA maevsi;
+
+
+--
+-- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION postgis IS 'Functions to work with geospatial data.';
 
 
 --
@@ -657,7 +671,7 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
   _username TEXT;
 BEGIN
@@ -1139,19 +1153,20 @@ DECLARE
   _invitation_id UUID;
 BEGIN
   _invitation_ids := string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
+
   IF _invitation_ids IS NOT NULL THEN
     FOREACH _invitation_id IN ARRAY _invitation_ids
     LOOP
       -- omit invitations authored by a blocked account
       IF NOT EXISTS(
-	      SELECT 1
-	      FROM maevsi.invitation i
-	      JOIN maevsi.contact c ON i.contact_id = c.contact_id
-	      JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
-	     WHERE i.id = _invitation_id and b.author_account_id = current_setting('jwt.claims.account_id', true)
-	    ) THEN
+        SELECT 1
+        FROM maevsi.invitation i
+        JOIN maevsi.contact c ON i.contact_id = c.contact_id
+        JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
+       WHERE i.id = _invitation_id AND b.author_account_id = maevsi.invoker_account_id()
+      ) THEN
         _invitation_ids_unblocked := append_invitation_array(result_invitation_ids, _invitation_id);
-	    END IF;
+      END IF;
     END LOOP;
   END IF;
   RETURN _invitation_ids_unblocked;
@@ -1177,36 +1192,45 @@ CREATE FUNCTION maevsi.invitation_contact_ids() RETURNS TABLE(contact_id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    SELECT i.contact_id FROM maevsi.invitation i
-    WHERE i.id = ANY (maevsi.invitation_claim_array())
-    OR (
-	    i.event_id IN (SELECT maevsi.events_organized())
-	    AND
-	    -- omit contacts authored by a blocked account or referring to a blocked account
-	    i.contact_id NOT IN (
-        SELECT c.id
-        FROM maevsi.contact c
-        WHERE c.account_id IS NULL
-        OR c.account_id IN (
-          SELECT blocked_account_id
-          FROM maevsi.account_block
-          WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-          UNION ALL
-          SELECT author_account_id
-          FROM maevsi.account_block
-          WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-        )
-        OR c.author_account_id IN (
-          SELECT blocked_account_id
-          FROM maevsi.account_block
-          WHERE author_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-          UNION ALL
-          SELECT author_account_id
-          FROM maevsi.account_block
-          WHERE blocked_account_id = NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID
-        )
-	   )
-	);
+    -- get all contacts for invitations
+    SELECT invitation.contact_id
+    FROM maevsi.invitation
+    WHERE
+      (
+        -- that are known to the invoker
+        invitation.id = ANY (maevsi.invitation_claim_array())
+      OR
+        -- or for events organized by the invoker
+        invitation.event_id IN (SELECT maevsi.events_organized())
+      )
+      AND
+        -- except contacts authored by a blocked account or referring to a blocked account
+        invitation.contact_id NOT IN (
+          SELECT contact.id
+          FROM maevsi.contact
+          WHERE
+              contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
+            OR
+              contact.account_id IN (
+                SELECT blocked_account_id
+                FROM maevsi.account_block
+                WHERE author_account_id = maevsi.invoker_account_id()
+                UNION ALL
+                SELECT author_account_id
+                FROM maevsi.account_block
+                WHERE blocked_account_id = maevsi.invoker_account_id()
+              )
+            OR
+              contact.author_account_id IN (
+                SELECT blocked_account_id
+                FROM maevsi.account_block
+                WHERE author_account_id = maevsi.invoker_account_id()
+                UNION ALL
+                SELECT author_account_id
+                FROM maevsi.account_block
+                WHERE blocked_account_id = maevsi.invoker_account_id()
+              )
+        );
 END;
 $$;
 
@@ -1362,7 +1386,7 @@ CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)));
+  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt maevsi.jwt;
 BEGIN
   SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
@@ -1374,7 +1398,7 @@ BEGIN
     RETURN NULL;
   ELSE
     UPDATE maevsi_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
+    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
     WHERE id = $1;
 
     UPDATE maevsi_private.account
@@ -1528,7 +1552,7 @@ DECLARE
   whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
-    TG_OP = 'UPDATE'
+      TG_OP = 'UPDATE'
     AND ( -- Invited.
       OLD.id = ANY (maevsi.invitation_claim_array())
       OR
@@ -1697,7 +1721,7 @@ CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() 
       NEW.email_address_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP);
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -1727,7 +1751,7 @@ CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until()
       NEW.password_reset_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP);
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -1758,29 +1782,36 @@ BEGIN
   jwt_account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
-  SELECT i.event_id FROM maevsi.invitation i
+
+  -- get all events for invitations
+  SELECT invitation.event_id FROM maevsi.invitation
   WHERE
     (
-      i.contact_id IN (
+      -- whose invitee
+      invitation.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
-          account_id = jwt_account_id
-          -- The contact selection does not return rows where account_id "IS" null due to the equality comparison.
+            -- is the requesting user
+            account_id = jwt_account_id -- if `jwt_account_id` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
-          -- contact is not a blocked user and is not authored by a user who blocked jwt_account_id
-          author_account_id NOT IN (
-            SELECT blocked_account_id
-            FROM maevsi.account_block
-            WHERE author_account_id = jwt_account_id
-            UNION ALL
-            SELECT author_account_id
-            FROM maevsi.account_block
-            WHERE blocked_account_id = jwt_account_id
-          )
+            -- who is not invited by
+            author_account_id NOT IN (
+              -- a user who the invitee blocked
+              SELECT blocked_account_id
+              FROM maevsi.account_block
+              WHERE author_account_id = jwt_account_id
+              UNION ALL
+              -- or who has blocked the invitee
+              SELECT author_account_id
+              FROM maevsi.account_block
+              WHERE blocked_account_id = jwt_account_id
+            ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
       )
     )
-    OR i.id = ANY (maevsi.invitation_claim_array());
+    OR
+      -- for which the requesting user knows the id
+      invitation.id = ANY (maevsi.invitation_claim_array());
 END
 $$;
 
@@ -1795,10 +1826,10 @@ COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that retu
 
 
 --
--- Name: block_account(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_block_create(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.block_account(_author_account_id uuid, _blocked_account_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1817,20 +1848,37 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.block_account(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
 
 --
--- Name: create_account(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_block_remove(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_account(_username text, _email text) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  DELETE FROM maevsi.account_block
+  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+
+--
+-- Name: account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_create(_username text, _email text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
   _verification UUID;
 BEGIN
-  _id := maevsi.account_registration(_username, _email, 'abcd1234', 'de');
+  _id := maevsi.account_registration(_username, _email, 'password', 'en');
 
   SELECT email_address_verification INTO _verification
   FROM maevsi_private.account
@@ -1842,20 +1890,47 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_account(_username text, _email text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO postgres;
 
 --
--- Name: create_contact(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_contact(_author_account_id uuid, _email_address text) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_remove(_username text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  SELECT id INTO _id FROM maevsi.account WHERE username = _username;
+
+  IF _id IS NOT NULL THEN
+
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
+
+    DELETE FROM maevsi.event WHERE author_account_id = _id;
+
+    PERFORM maevsi.account_delete('password');
+
+    SET LOCAL role = 'postgres';
+  END IF;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.account_remove(_username text) OWNER TO postgres;
+
+--
+-- Name: contact_create(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-
   SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
 
   SET LOCAL role = 'maevsi_account';
@@ -1875,54 +1950,79 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_contact(_author_account_id uuid, _email_address text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) OWNER TO postgres;
 
 --
--- Name: create_event(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_select_by_account_id(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
+CREATE FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
-
-  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
-  VALUES (_author_account_id, _name, _slug, to_timestamp(_start, 'YYYY-MM-DD HH24:MI'), _visibility::maevsi.event_visibility)
-  RETURNING id INTO _id;
-
-  SET LOCAL role = 'postgres';
+  SELECT id INTO _id
+  FROM maevsi.contact
+  WHERE author_account_id = _account_id AND account_id = _account_id;
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) OWNER TO postgres;
 
 --
--- Name: create_event_category(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_event_category(_category text) RETURNS void
+CREATE FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
+DECLARE
+  rec RECORD;
 BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
 
-  INSERT INTO maevsi.event_category(category) VALUES (_category);
+  IF EXISTS (SELECT id FROM maevsi.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some contact should not appear in the query result';
+  END IF;
 
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.contact) THEN
+    RAISE EXCEPTION 'some contact is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_event_category(_category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
--- Name: create_event_category_mapping(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_create(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
+CREATE FUNCTION maevsi_test.event_category_create(_category text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO maevsi.event_category(category) VALUES (_category);
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_category_create(_category text) OWNER TO postgres;
+
+--
+-- Name: event_category_mapping_create(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -1933,17 +2033,101 @@ BEGIN
   VALUES (_event_id, _category);
 
   SET LOCAL role = 'postgres';
-
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
 
 --
--- Name: create_invitation(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_mapping_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
+    RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: event_create(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+
+  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
+  VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
+  RETURNING id INTO _id;
+
+  SET LOCAL role = 'postgres';
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+
+--
+-- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (SELECT id FROM maevsi.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some event should not appear in the query result';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.event) THEN
+    RAISE EXCEPTION 'some event is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: invitation_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1962,177 +2146,16 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
 
 --
--- Name: get_own_contact(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: invitation_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.get_own_contact(_account_id uuid) RETURNS uuid
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-BEGIN
-  SELECT id INTO _id
-  FROM maevsi.contact
-  WHERE author_account_id = _account_id AND account_id = _account_id;
-
-  RAISE NOTICE '_account_id = %, _id = %', _account_id, _id;
-
-  RETURN _id;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.get_own_contact(_account_id uuid) OWNER TO postgres;
-
---
--- Name: remove_account(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.remove_account(_username text) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-BEGIN
-
-  SELECT id INTO _id FROM maevsi.account WHERE username = _username;
-
-  IF _id IS NOT NULL THEN
-
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
-
-    DELETE FROM maevsi.event WHERE author_account_id = _id;
-
-    PERFORM maevsi.account_delete('abcd1234');
-
-    SET LOCAL role = 'postgres';
-
-  END IF;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.remove_account(_username text) OWNER TO postgres;
-
---
--- Name: select_contacts(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  rec RECORD;
-BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
-  IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  FOR rec IN
-    SELECT id FROM maevsi.contact
-  LOOP
-    RAISE NOTICE '%', rec.id;
-  END LOOP;
-
-  IF EXISTS (SELECT id FROM maevsi.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some contact should not appear in the query result';
-  END IF;
-
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.contact) THEN
-    RAISE EXCEPTION 'some contact is missing in the query result';
-  END IF;
-
-  SET LOCAL role = 'postgres';
-
-END $$;
-
-
-ALTER FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: select_event_category_mappings(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
+CREATE FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
-  IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
-  END IF;
-
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
-    RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
-  END IF;
-
-  SET LOCAL role = 'postgres';
-
-END $$;
-
-
-ALTER FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: select_events(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
-  IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'maevsi_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  IF EXISTS (SELECT id FROM maevsi.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some event should not appear in the query result';
-  END IF;
-
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.event) THEN
-    RAISE EXCEPTION 'some event is missing in the query result';
-  END IF;
-
-  SET LOCAL role = 'postgres';
-
-END $$;
-
-
-ALTER FUNCTION maevsi_test.select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: select_invitations(text, text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  RAISE NOTICE '%: %', _test_case, _description;
-
   IF _account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -2150,28 +2173,10 @@ BEGIN
   END IF;
 
   SET LOCAL role = 'postgres';
-
 END $$;
 
 
-ALTER FUNCTION maevsi_test.select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
-
---
--- Name: unblock_account(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.unblock_account(_author_account_id uuid, _blocked_account_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-BEGIN
-  DELETE FROM maevsi.account_block
-  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.unblock_account(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
 -- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -2227,28 +2232,28 @@ ALTER TABLE maevsi.account_block OWNER TO postgres;
 --
 
 COMMENT ON TABLE maevsi.account_block IS '@omit update,delete
-Blocking of an account by another account.';
+Blocking of one account by another.';
 
 
 --
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe blocking''s internal id.';
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account blocking''s internal id.';
 
 
 --
 -- Name: COLUMN account_block.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The id of the user who created the blocking.';
+COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The account id of the user who created the blocking.';
 
 
 --
 -- Name: COLUMN account_block.blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The id of the account to be blocked.';
+COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of the user who is blocked.';
 
 
 --
@@ -2256,7 +2261,7 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The id of the acco
 --
 
 COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create,update,delete
-The timestamp when the blocking was created.';
+Timestamp of when the blocking was created.';
 
 
 --
@@ -3307,15 +3312,15 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     birth_date date,
-    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
-    email_address_verification_valid_until timestamp without time zone,
-    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    email_address_verification_valid_until timestamp with time zone,
+    last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     location_id uuid,
     password_hash text NOT NULL,
     password_reset_verification uuid,
-    password_reset_verification_valid_until timestamp without time zone,
+    password_reset_verification_valid_until timestamp with time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
@@ -3345,10 +3350,10 @@ COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s dat
 
 
 --
--- Name: COLUMN account.created; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi_private.account.created IS 'Timestamp at which the account was last active.';
+COMMENT ON COLUMN maevsi_private.account.created_at IS 'Timestamp at which the account was last active.';
 
 
 --
@@ -3496,9 +3501,9 @@ COMMENT ON COLUMN maevsi_private.jwt.token IS 'The token.';
 CREATE TABLE maevsi_private.notification (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     channel text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 
@@ -3527,6 +3532,13 @@ COMMENT ON COLUMN maevsi_private.notification.channel IS 'The notification''s ch
 
 
 --
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
 -- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -3538,13 +3550,6 @@ COMMENT ON COLUMN maevsi_private.notification.is_acknowledged IS 'Whether the no
 --
 
 COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification."timestamp"; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification."timestamp" IS 'The notification''s timestamp.';
 
 
 --
@@ -4943,14 +4948,14 @@ ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((((NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid IS NOT NULL) AND (author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
 
 
 --
 -- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) OR (blocked_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)));
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((author_account_id = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
 
 
 --
@@ -5086,13 +5091,13 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id =
 UNION ALL
  SELECT account_block.author_account_id
    FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))) OR ((author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block.blocked_account_id
+  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))) OR ((author_account_id = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
-  WHERE (account_block.author_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)
+  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
 UNION ALL
  SELECT account_block.author_account_id
    FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = (NULLIF(current_setting('jwt.claims.account_id'::text, true), ''::text))::uuid)))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
 
 
 --
@@ -5140,11 +5145,11 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT e.visibility
-   FROM maevsi.event e
-  WHERE (e.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT e.author_account_id
-   FROM maevsi.event e
-  WHERE (e.id = event_category_mapping.event_id)) IN ( SELECT account_block.blocked_account_id
+  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT event.visibility
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.author_account_id
+   FROM maevsi.event
+  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
   WHERE (account_block.author_account_id = maevsi.invoker_account_id())
 UNION ALL
@@ -5461,6 +5466,678 @@ GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
 
 
 --
+-- Name: FUNCTION box2d_in(cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box2d_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2d_out(maevsi.box2d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box2d_out(maevsi.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2df_in(cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box2df_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2df_out(maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box2df_out(maevsi.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d_in(cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box3d_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d_out(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box3d_out(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_analyze(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_analyze(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_in(cstring, oid, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_in(cstring, oid, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_out(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_out(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_recv(internal, oid, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_recv(internal, oid, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_send(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_send(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_typmod_in(cstring[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_typmod_in(cstring[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_typmod_out(integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_typmod_out(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_analyze(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_analyze(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_in(cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_out(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_out(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_recv(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_recv(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_send(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_send(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_typmod_in(cstring[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_typmod_in(cstring[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_typmod_out(integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_typmod_out(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gidx_in(cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.gidx_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gidx_out(maevsi.gidx); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.gidx_out(maevsi.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION spheroid_in(cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.spheroid_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION spheroid_out(maevsi.spheroid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.spheroid_out(maevsi.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d(maevsi.box2d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box3d(maevsi.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(maevsi.box2d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(maevsi.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2d(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box2d(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION bytea(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.bytea(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography(maevsi.geography, integer, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography(maevsi.geography, integer, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2d(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box2d(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box3d(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION bytea(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.bytea(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(maevsi.geometry, integer, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(maevsi.geometry, integer, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION "json"(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi."json"(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION jsonb(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.jsonb(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION path(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.path(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION point(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.point(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION polygon(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.polygon(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION text(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.text(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(path); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(path) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(point); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(point) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(polygon); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(polygon) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_deprecate(oldname text, newname text, version text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_deprecate(oldname text, newname text, version text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_index_extent(tbl regclass, col text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_index_extent(tbl regclass, col text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_join_selectivity(regclass, text, regclass, text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_join_selectivity(regclass, text, regclass, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_pgsql_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_pgsql_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_scripts_pgsql_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_scripts_pgsql_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_selectivity(tbl regclass, att_name text, geom maevsi.geometry, mode text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_selectivity(tbl regclass, att_name text, geom maevsi.geometry, mode text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_stats(tbl regclass, att_name text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._postgis_stats(tbl regclass, att_name text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_3ddfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_3ddfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_3ddwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_3ddwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_3dintersects(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_3dintersects(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_asgml(integer, maevsi.geometry, integer, integer, text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_asgml(integer, maevsi.geometry, integer, integer, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_asx3d(integer, maevsi.geometry, integer, integer, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_asx3d(integer, maevsi.geometry, integer, integer, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_bestsrid(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_bestsrid(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_bestsrid(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_bestsrid(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_concavehull(param_inputgeom maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_concavehull(param_inputgeom maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_contains(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_contains(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_containsproperly(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_containsproperly(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_coveredby(geog1 maevsi.geography, geog2 maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_coveredby(geog1 maevsi.geography, geog2 maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_coveredby(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_coveredby(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_covers(geog1 maevsi.geography, geog2 maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_covers(geog1 maevsi.geography, geog2 maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_covers(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_covers(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_crosses(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_crosses(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_dfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distancetree(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_distancetree(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distancetree(maevsi.geography, maevsi.geography, double precision, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_distancetree(maevsi.geography, maevsi.geography, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distanceuncached(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_distanceuncached(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distanceuncached(maevsi.geography, maevsi.geography, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_distanceuncached(maevsi.geography, maevsi.geography, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distanceuncached(maevsi.geography, maevsi.geography, double precision, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_distanceuncached(maevsi.geography, maevsi.geography, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_dwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithin(geog1 maevsi.geography, geog2 maevsi.geography, tolerance double precision, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_dwithin(geog1 maevsi.geography, geog2 maevsi.geography, tolerance double precision, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithinuncached(maevsi.geography, maevsi.geography, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_dwithinuncached(maevsi.geography, maevsi.geography, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithinuncached(maevsi.geography, maevsi.geography, double precision, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_dwithinuncached(maevsi.geography, maevsi.geography, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_equals(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_equals(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_expand(maevsi.geography, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_expand(maevsi.geography, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_geomfromgml(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_geomfromgml(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_intersects(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_intersects(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_linecrossingdirection(line1 maevsi.geometry, line2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_linecrossingdirection(line1 maevsi.geometry, line2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_longestline(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_longestline(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_maxdistance(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_maxdistance(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_orderingequals(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_orderingequals(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_overlaps(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_overlaps(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_pointoutside(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_pointoutside(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_sortablehash(geom maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_sortablehash(geom maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_touches(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_touches(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_voronoi(g1 maevsi.geometry, clip maevsi.geometry, tolerance double precision, return_polygons boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_voronoi(g1 maevsi.geometry, clip maevsi.geometry, tolerance double precision, return_polygons boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_within(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi._st_within(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION account_delete(password text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -5537,6 +6214,27 @@ GRANT ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) TO maevsi
 
 
 --
+-- Name: FUNCTION addgeometrycolumn(table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.addgeometrycolumn(table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION addgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.addgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION addgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.addgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION armor(bytea); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -5557,6 +6255,34 @@ REVOKE ALL ON FUNCTION maevsi.armor(bytea, text[], text[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION maevsi.authenticate(username text, password text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION box3dtobox(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.box3dtobox(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contains_2d(maevsi.box2df, maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.contains_2d(maevsi.box2df, maevsi.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contains_2d(maevsi.box2df, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.contains_2d(maevsi.box2df, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contains_2d(maevsi.geometry, maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.contains_2d(maevsi.geometry, maevsi.box2df) FROM PUBLIC;
 
 
 --
@@ -5610,6 +6336,48 @@ GRANT ALL ON FUNCTION maevsi.distance(lat1 double precision, lon1 double precisi
 
 
 --
+-- Name: FUNCTION dropgeometrycolumn(table_name character varying, column_name character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.dropgeometrycolumn(table_name character varying, column_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.dropgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.dropgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrytable(table_name character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.dropgeometrytable(table_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrytable(schema_name character varying, table_name character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.dropgeometrytable(schema_name character varying, table_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrytable(catalog_name character varying, schema_name character varying, table_name character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.dropgeometrytable(catalog_name character varying, schema_name character varying, table_name character varying) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -5621,6 +6389,13 @@ REVOKE ALL ON FUNCTION maevsi.encrypt(bytea, bytea, text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.encrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION equals(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.equals(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
 
 
 --
@@ -5676,6 +6451,13 @@ GRANT ALL ON FUNCTION maevsi.events_organized() TO maevsi_anonymous;
 
 
 --
+-- Name: FUNCTION find_srid(character varying, character varying, character varying); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.find_srid(character varying, character varying, character varying) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -5701,6 +6483,727 @@ REVOKE ALL ON FUNCTION maevsi.gen_salt(text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.gen_salt(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geog_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geog_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_cmp(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_cmp(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_distance_knn(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_distance_knn(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_eq(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_eq(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_ge(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_ge(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_compress(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_compress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_consistent(internal, maevsi.geography, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_consistent(internal, maevsi.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_decompress(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_decompress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_distance(internal, maevsi.geography, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_distance(internal, maevsi.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_penalty(internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_penalty(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_picksplit(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_picksplit(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_same(maevsi.box2d, maevsi.box2d, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_same(maevsi.box2d, maevsi.box2d, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_union(bytea, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gist_union(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gt(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_gt(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_le(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_le(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_lt(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_lt(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_overlaps(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_overlaps(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_choose_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_spgist_choose_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_compress_nd(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_spgist_compress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_config_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_spgist_config_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_inner_consistent_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_spgist_inner_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_leaf_consistent_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_spgist_leaf_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_picksplit_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geography_spgist_picksplit_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom2d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geom2d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom3d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geom3d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom4d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geom4d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_above(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_above(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_below(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_below(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_cmp(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_cmp(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contained_3d(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_contained_3d(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contains(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_contains(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contains_3d(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_contains_3d(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contains_nd(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_contains_nd(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_box(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_distance_box(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_centroid(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_distance_centroid(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_centroid_nd(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_distance_centroid_nd(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_cpa(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_distance_cpa(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_eq(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_eq(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_ge(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_ge(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_compress_2d(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_compress_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_compress_nd(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_compress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_consistent_2d(internal, maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_consistent_2d(internal, maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_consistent_nd(internal, maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_consistent_nd(internal, maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_decompress_2d(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_decompress_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_decompress_nd(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_decompress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_distance_2d(internal, maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_distance_2d(internal, maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_distance_nd(internal, maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_distance_nd(internal, maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_penalty_2d(internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_penalty_2d(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_penalty_nd(internal, internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_penalty_nd(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_picksplit_2d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_picksplit_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_picksplit_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_picksplit_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_same_2d(geom1 maevsi.geometry, geom2 maevsi.geometry, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_same_2d(geom1 maevsi.geometry, geom2 maevsi.geometry, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_same_nd(maevsi.geometry, maevsi.geometry, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_same_nd(maevsi.geometry, maevsi.geometry, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_sortsupport_2d(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_sortsupport_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_union_2d(bytea, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_union_2d(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_union_nd(bytea, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gist_union_nd(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gt(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_gt(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_hash(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_hash(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_le(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_le(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_left(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_left(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_lt(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_lt(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_neq(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_neq(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overabove(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overabove(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overbelow(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overbelow(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overlaps(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overlaps(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overlaps_3d(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overlaps_3d(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overlaps_nd(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overlaps_nd(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overleft(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overleft(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overright(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_overright(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_right(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_right(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_same(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_same(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_same_3d(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_same_3d(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_same_nd(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_same_nd(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_sortsupport(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_sortsupport(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_choose_2d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_choose_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_choose_3d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_choose_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_choose_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_choose_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_compress_2d(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_compress_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_compress_3d(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_compress_3d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_compress_nd(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_compress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_config_2d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_config_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_config_3d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_config_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_config_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_config_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_inner_consistent_2d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_inner_consistent_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_inner_consistent_3d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_inner_consistent_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_inner_consistent_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_inner_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_leaf_consistent_2d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_leaf_consistent_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_leaf_consistent_3d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_leaf_consistent_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_leaf_consistent_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_leaf_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_picksplit_2d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_picksplit_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_picksplit_3d(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_picksplit_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_picksplit_nd(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_spgist_picksplit_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_within(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_within(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_within_nd(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometry_within_nd(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometrytype(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometrytype(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometrytype(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geometrytype(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geomfromewkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geomfromewkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geomfromewkt(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.geomfromewkt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION get_proj4_from_srid(integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.get_proj4_from_srid(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_joinsel_2d(internal, oid, internal, smallint); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.gserialized_gist_joinsel_2d(internal, oid, internal, smallint) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_joinsel_nd(internal, oid, internal, smallint); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.gserialized_gist_joinsel_nd(internal, oid, internal, smallint) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_sel_2d(internal, oid, internal, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.gserialized_gist_sel_2d(internal, oid, internal, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_sel_nd(internal, oid, internal, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.gserialized_gist_sel_nd(internal, oid, internal, integer) FROM PUBLIC;
 
 
 --
@@ -5762,6 +7265,27 @@ GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
 
 
 --
+-- Name: FUNCTION is_contained_2d(maevsi.box2df, maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.is_contained_2d(maevsi.box2df, maevsi.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION is_contained_2d(maevsi.box2df, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.is_contained_2d(maevsi.box2df, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION is_contained_2d(maevsi.geometry, maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.is_contained_2d(maevsi.geometry, maevsi.box2df) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -5783,6 +7307,286 @@ REVOKE ALL ON FUNCTION maevsi.legal_term_change() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION overlaps_2d(maevsi.box2df, maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_2d(maevsi.box2df, maevsi.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_2d(maevsi.box2df, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_2d(maevsi.box2df, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_2d(maevsi.geometry, maevsi.box2df); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_2d(maevsi.geometry, maevsi.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_geog(maevsi.geography, maevsi.gidx); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_geog(maevsi.geography, maevsi.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_geog(maevsi.gidx, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_geog(maevsi.gidx, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_geog(maevsi.gidx, maevsi.gidx); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_geog(maevsi.gidx, maevsi.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_nd(maevsi.geometry, maevsi.gidx); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_nd(maevsi.geometry, maevsi.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_nd(maevsi.gidx, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_nd(maevsi.gidx, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_nd(maevsi.gidx, maevsi.gidx); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.overlaps_nd(maevsi.gidx, maevsi.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asflatgeobuf_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_transfn(internal, anyelement); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asflatgeobuf_transfn(internal, anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_transfn(internal, anyelement, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asflatgeobuf_transfn(internal, anyelement, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_transfn(internal, anyelement, boolean, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asflatgeobuf_transfn(internal, anyelement, boolean, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asgeobuf_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asgeobuf_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asgeobuf_transfn(internal, anyelement); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asgeobuf_transfn(internal, anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asgeobuf_transfn(internal, anyelement, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asgeobuf_transfn(internal, anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_combinefn(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_combinefn(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_deserialfn(bytea, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_deserialfn(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_serialfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_serialfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_transfn(internal, anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_transfn(internal, anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_transfn(internal, anyelement, text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text, integer, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_transfn(internal, anyelement, text, integer, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text, integer, text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_asmvt_transfn(internal, anyelement, text, integer, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_accum_transfn(internal, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_accum_transfn(internal, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_accum_transfn(internal, maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_accum_transfn(internal, maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_accum_transfn(internal, maevsi.geometry, double precision, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_accum_transfn(internal, maevsi.geometry, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_clusterintersecting_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_clusterintersecting_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_clusterwithin_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_clusterwithin_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_collect_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_collect_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_coverageunion_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_coverageunion_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_makeline_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_makeline_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_polygonize_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_polygonize_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_combinefn(internal, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_union_parallel_combinefn(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_deserialfn(bytea, internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_union_parallel_deserialfn(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_finalfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_union_parallel_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_serialfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_union_parallel_serialfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_transfn(internal, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_union_parallel_transfn(internal, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_transfn(internal, maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.pgis_geometry_union_parallel_transfn(internal, maevsi.geometry, double precision) FROM PUBLIC;
 
 
 --
@@ -5926,11 +7730,3441 @@ REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBL
 
 
 --
+-- Name: FUNCTION populate_geometry_columns(use_typmod boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.populate_geometry_columns(use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION populate_geometry_columns(tbl_oid oid, use_typmod boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.populate_geometry_columns(tbl_oid oid, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_addbbox(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_addbbox(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_cache_bbox(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_cache_bbox() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_constraint_dims(geomschema text, geomtable text, geomcolumn text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_constraint_dims(geomschema text, geomtable text, geomcolumn text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_constraint_srid(geomschema text, geomtable text, geomcolumn text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_constraint_srid(geomschema text, geomtable text, geomcolumn text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_constraint_type(geomschema text, geomtable text, geomcolumn text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_constraint_type(geomschema text, geomtable text, geomcolumn text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_dropbbox(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_dropbbox(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_extensions_upgrade(target_version text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_extensions_upgrade(target_version text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_full_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_full_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_geos_compiled_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_geos_compiled_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_geos_noop(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_geos_noop(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_geos_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_geos_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_getbbox(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_getbbox(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_hasbbox(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_hasbbox(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_index_supportfn(internal); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_index_supportfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_lib_build_date(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_lib_build_date() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_lib_revision(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_lib_revision() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_lib_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_lib_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_libjson_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_libjson_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_liblwgeom_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_liblwgeom_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_libprotobuf_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_libprotobuf_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_libxml_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_libxml_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_noop(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_noop(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_proj_compiled_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_proj_compiled_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_proj_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_proj_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_scripts_build_date(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_scripts_build_date() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_scripts_installed(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_scripts_installed() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_scripts_released(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_scripts_released() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs(auth_name text, auth_srid text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_srs(auth_name text, auth_srid text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs_all(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_srs_all() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs_codes(auth_name text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_srs_codes(auth_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs_search(bounds maevsi.geometry, authname text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_srs_search(bounds maevsi.geometry, authname text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_svn_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_svn_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_transform_geometry(geom maevsi.geometry, text, text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_transform_geometry(geom maevsi.geometry, text, text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_transform_pipeline_geometry(geom maevsi.geometry, pipeline text, forward boolean, to_srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_transform_pipeline_geometry(geom maevsi.geometry, pipeline text, forward boolean, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_typmod_dims(integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_typmod_dims(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_typmod_srid(integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_typmod_srid(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_typmod_type(integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_typmod_type(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_wagyu_version(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.postgis_wagyu_version() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION profile_picture_set(upload_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION st_3dclosestpoint(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dclosestpoint(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3ddfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3ddfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3ddistance(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3ddistance(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3ddwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3ddwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dintersects(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dintersects(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dlength(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dlength(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dlineinterpolatepoint(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dlineinterpolatepoint(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dlongestline(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dlongestline(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dmakebox(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dmakebox(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dmaxdistance(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dmaxdistance(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dperimeter(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dperimeter(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dshortestline(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dshortestline(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_addmeasure(maevsi.geometry, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_addmeasure(maevsi.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_addpoint(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_addpoint(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_addpoint(geom1 maevsi.geometry, geom2 maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_addpoint(geom1 maevsi.geometry, geom2 maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_affine(maevsi.geometry, double precision, double precision, double precision, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_affine(maevsi.geometry, double precision, double precision, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_affine(maevsi.geometry, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_affine(maevsi.geometry, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_angle(line1 maevsi.geometry, line2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_angle(line1 maevsi.geometry, line2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_angle(pt1 maevsi.geometry, pt2 maevsi.geometry, pt3 maevsi.geometry, pt4 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_angle(pt1 maevsi.geometry, pt2 maevsi.geometry, pt3 maevsi.geometry, pt4 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_area(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_area(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area(geog maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_area(geog maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area2d(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_area2d(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asbinary(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asbinary(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(maevsi.geography, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asbinary(maevsi.geography, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(maevsi.geometry, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asbinary(maevsi.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asencodedpolyline(geom maevsi.geometry, nprecision integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asencodedpolyline(geom maevsi.geometry, nprecision integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkb(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkb(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkb(maevsi.geometry, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkb(maevsi.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkt(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkt(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(maevsi.geography, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkt(maevsi.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asewkt(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgeojson(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(geog maevsi.geography, maxdecimaldigits integer, options integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgeojson(geog maevsi.geography, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(geom maevsi.geometry, maxdecimaldigits integer, options integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgeojson(geom maevsi.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(r record, geom_column text, maxdecimaldigits integer, pretty_bool boolean, id_column text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgeojson(r record, geom_column text, maxdecimaldigits integer, pretty_bool boolean, id_column text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(geom maevsi.geometry, maxdecimaldigits integer, options integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgml(geom maevsi.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(geog maevsi.geography, maxdecimaldigits integer, options integer, nprefix text, id text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgml(geog maevsi.geography, maxdecimaldigits integer, options integer, nprefix text, id text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(version integer, geog maevsi.geography, maxdecimaldigits integer, options integer, nprefix text, id text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgml(version integer, geog maevsi.geography, maxdecimaldigits integer, options integer, nprefix text, id text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(version integer, geom maevsi.geometry, maxdecimaldigits integer, options integer, nprefix text, id text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgml(version integer, geom maevsi.geometry, maxdecimaldigits integer, options integer, nprefix text, id text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ashexewkb(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ashexewkb(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ashexewkb(maevsi.geometry, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ashexewkb(maevsi.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_askml(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_askml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_askml(geog maevsi.geography, maxdecimaldigits integer, nprefix text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_askml(geog maevsi.geography, maxdecimaldigits integer, nprefix text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_askml(geom maevsi.geometry, maxdecimaldigits integer, nprefix text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_askml(geom maevsi.geometry, maxdecimaldigits integer, nprefix text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_aslatlontext(geom maevsi.geometry, tmpl text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_aslatlontext(geom maevsi.geometry, tmpl text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmarc21(geom maevsi.geometry, format text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmarc21(geom maevsi.geometry, format text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvtgeom(geom maevsi.geometry, bounds maevsi.box2d, extent integer, buffer integer, clip_geom boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmvtgeom(geom maevsi.geometry, bounds maevsi.box2d, extent integer, buffer integer, clip_geom boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_assvg(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_assvg(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_assvg(geog maevsi.geography, rel integer, maxdecimaldigits integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_assvg(geog maevsi.geography, rel integer, maxdecimaldigits integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_assvg(geom maevsi.geometry, rel integer, maxdecimaldigits integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_assvg(geom maevsi.geometry, rel integer, maxdecimaldigits integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astext(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astext(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(maevsi.geography, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astext(maevsi.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astext(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astwkb(geom maevsi.geometry, prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astwkb(geom maevsi.geometry, prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astwkb(geom maevsi.geometry[], ids bigint[], prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_astwkb(geom maevsi.geometry[], ids bigint[], prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asx3d(geom maevsi.geometry, maxdecimaldigits integer, options integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asx3d(geom maevsi.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_azimuth(geog1 maevsi.geography, geog2 maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_azimuth(geog1 maevsi.geography, geog2 maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_azimuth(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_azimuth(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_bdmpolyfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_bdmpolyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_bdpolyfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_bdpolyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_boundary(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_boundary(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_boundingdiagonal(geom maevsi.geometry, fits boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_boundingdiagonal(geom maevsi.geometry, fits boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_box2dfromgeohash(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_box2dfromgeohash(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(maevsi.geography, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(maevsi.geography, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(text, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(maevsi.geography, double precision, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(maevsi.geography, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(maevsi.geography, double precision, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(maevsi.geography, double precision, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(geom maevsi.geometry, radius double precision, quadsegs integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(geom maevsi.geometry, radius double precision, quadsegs integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(geom maevsi.geometry, radius double precision, options text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(geom maevsi.geometry, radius double precision, options text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(text, double precision, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(text, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(text, double precision, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buffer(text, double precision, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buildarea(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_buildarea(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_centroid(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_centroid(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_centroid(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_centroid(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_centroid(maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_centroid(maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_chaikinsmoothing(maevsi.geometry, integer, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_chaikinsmoothing(maevsi.geometry, integer, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_cleangeometry(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_cleangeometry(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clipbybox2d(geom maevsi.geometry, box maevsi.box2d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clipbybox2d(geom maevsi.geometry, box maevsi.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpoint(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_closestpoint(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpoint(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_closestpoint(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpoint(maevsi.geography, maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_closestpoint(maevsi.geography, maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpointofapproach(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_closestpointofapproach(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterdbscan(maevsi.geometry, eps double precision, minpoints integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterdbscan(maevsi.geometry, eps double precision, minpoints integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterintersecting(maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterintersecting(maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterintersectingwin(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterintersectingwin(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterkmeans(geom maevsi.geometry, k integer, max_radius double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterkmeans(geom maevsi.geometry, k integer, max_radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterwithin(maevsi.geometry[], double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterwithin(maevsi.geometry[], double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterwithinwin(maevsi.geometry, distance double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterwithinwin(maevsi.geometry, distance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collect(maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_collect(maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collect(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_collect(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collectionextract(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_collectionextract(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collectionextract(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_collectionextract(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collectionhomogenize(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_collectionhomogenize(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_combinebbox(maevsi.box2d, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_combinebbox(maevsi.box2d, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_combinebbox(maevsi.box3d, maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_combinebbox(maevsi.box3d, maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_combinebbox(maevsi.box3d, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_combinebbox(maevsi.box3d, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_concavehull(param_geom maevsi.geometry, param_pctconvex double precision, param_allow_holes boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_concavehull(param_geom maevsi.geometry, param_pctconvex double precision, param_allow_holes boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_contains(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_contains(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_containsproperly(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_containsproperly(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_convexhull(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_convexhull(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coorddim(geometry maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coorddim(geometry maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coverageinvalidedges(geom maevsi.geometry, tolerance double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coverageinvalidedges(geom maevsi.geometry, tolerance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveragesimplify(geom maevsi.geometry, tolerance double precision, simplifyboundary boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coveragesimplify(geom maevsi.geometry, tolerance double precision, simplifyboundary boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coverageunion(maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coverageunion(maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveredby(geog1 maevsi.geography, geog2 maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coveredby(geog1 maevsi.geography, geog2 maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveredby(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coveredby(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveredby(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coveredby(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_covers(geog1 maevsi.geography, geog2 maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_covers(geog1 maevsi.geography, geog2 maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_covers(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_covers(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_covers(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_covers(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_cpawithin(maevsi.geometry, maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_cpawithin(maevsi.geometry, maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_crosses(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_crosses(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_curven(geometry maevsi.geometry, i integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_curven(geometry maevsi.geometry, i integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_curvetoline(geom maevsi.geometry, tol double precision, toltype integer, flags integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_curvetoline(geom maevsi.geometry, tol double precision, toltype integer, flags integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_delaunaytriangles(g1 maevsi.geometry, tolerance double precision, flags integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_delaunaytriangles(g1 maevsi.geometry, tolerance double precision, flags integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dfullywithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_difference(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_difference(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dimension(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dimension(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_disjoint(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_disjoint(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distance(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distance(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distance(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distance(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distance(geog1 maevsi.geography, geog2 maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distance(geog1 maevsi.geography, geog2 maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancecpa(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distancecpa(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancesphere(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distancesphere(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancesphere(geom1 maevsi.geometry, geom2 maevsi.geometry, radius double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distancesphere(geom1 maevsi.geometry, geom2 maevsi.geometry, radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancespheroid(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distancespheroid(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancespheroid(geom1 maevsi.geometry, geom2 maevsi.geometry, maevsi.spheroid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_distancespheroid(geom1 maevsi.geometry, geom2 maevsi.geometry, maevsi.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dump(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dump(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dumppoints(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dumppoints(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dumprings(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dumprings(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dumpsegments(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dumpsegments(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dwithin(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dwithin(text, text, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dwithin(text, text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dwithin(geog1 maevsi.geography, geog2 maevsi.geography, tolerance double precision, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_dwithin(geog1 maevsi.geography, geog2 maevsi.geography, tolerance double precision, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_endpoint(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_endpoint(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_envelope(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_envelope(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_equals(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_equals(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_estimatedextent(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_estimatedextent(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_estimatedextent(text, text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_estimatedextent(text, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_estimatedextent(text, text, text, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_estimatedextent(text, text, text, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(maevsi.box2d, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_expand(maevsi.box2d, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(maevsi.box3d, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_expand(maevsi.box3d, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_expand(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(box maevsi.box2d, dx double precision, dy double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_expand(box maevsi.box2d, dx double precision, dy double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(box maevsi.box3d, dx double precision, dy double precision, dz double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_expand(box maevsi.box3d, dx double precision, dy double precision, dz double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(geom maevsi.geometry, dx double precision, dy double precision, dz double precision, dm double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_expand(geom maevsi.geometry, dx double precision, dy double precision, dz double precision, dm double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_exteriorring(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_exteriorring(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_filterbym(maevsi.geometry, double precision, double precision, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_filterbym(maevsi.geometry, double precision, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_findextent(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_findextent(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_findextent(text, text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_findextent(text, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_flipcoordinates(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_flipcoordinates(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force2d(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_force2d(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force3d(geom maevsi.geometry, zvalue double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_force3d(geom maevsi.geometry, zvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force3dm(geom maevsi.geometry, mvalue double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_force3dm(geom maevsi.geometry, mvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force3dz(geom maevsi.geometry, zvalue double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_force3dz(geom maevsi.geometry, zvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force4d(geom maevsi.geometry, zvalue double precision, mvalue double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_force4d(geom maevsi.geometry, zvalue double precision, mvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcecollection(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcecollection(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcecurve(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcecurve(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcepolygonccw(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcepolygonccw(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcepolygoncw(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcepolygoncw(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcerhr(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcerhr(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcesfs(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcesfs(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcesfs(maevsi.geometry, version text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_forcesfs(maevsi.geometry, version text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_frechetdistance(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_frechetdistance(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_fromflatgeobuf(anyelement, bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_fromflatgeobuf(anyelement, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_fromflatgeobuftotable(text, text, bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_fromflatgeobuftotable(text, text, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_generatepoints(area maevsi.geometry, npoints integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_generatepoints(area maevsi.geometry, npoints integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_generatepoints(area maevsi.geometry, npoints integer, seed integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_generatepoints(area maevsi.geometry, npoints integer, seed integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geogfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geogfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geogfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geogfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geographyfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geographyfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geohash(geog maevsi.geography, maxchars integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geohash(geog maevsi.geography, maxchars integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geohash(geom maevsi.geometry, maxchars integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geohash(geom maevsi.geometry, maxchars integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomcollfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomcollfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomcollfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomcollfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometricmedian(g maevsi.geometry, tolerance double precision, max_iter integer, fail_if_not_converged boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geometricmedian(g maevsi.geometry, tolerance double precision, max_iter integer, fail_if_not_converged boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometryfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geometryfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometryfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geometryfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometryn(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geometryn(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometrytype(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geometrytype(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromewkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromewkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromewkt(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromewkt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeohash(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromgeohash(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeojson(json); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromgeojson(json) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeojson(jsonb); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromgeojson(jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeojson(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromgeojson(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgml(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromgml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgml(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromgml(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromkml(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromkml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfrommarc21(marc21xml text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfrommarc21(marc21xml text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromtwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromtwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_geomfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_gmltosql(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_gmltosql(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_gmltosql(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_gmltosql(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hasarc(geometry maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hasarc(geometry maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hasm(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hasm(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hasz(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hasz(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hausdorffdistance(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hausdorffdistance(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hausdorffdistance(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hausdorffdistance(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hexagon(size double precision, cell_i integer, cell_j integer, origin maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hexagon(size double precision, cell_i integer, cell_j integer, origin maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hexagongrid(size double precision, bounds maevsi.geometry, OUT geom maevsi.geometry, OUT i integer, OUT j integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_hexagongrid(size double precision, bounds maevsi.geometry, OUT geom maevsi.geometry, OUT i integer, OUT j integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_interiorringn(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_interiorringn(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_interpolatepoint(line maevsi.geometry, point maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_interpolatepoint(line maevsi.geometry, point maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersection(maevsi.geography, maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_intersection(maevsi.geography, maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersection(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_intersection(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersection(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_intersection(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersects(geog1 maevsi.geography, geog2 maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_intersects(geog1 maevsi.geography, geog2 maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersects(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_intersects(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersects(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_intersects(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_inversetransformpipeline(geom maevsi.geometry, pipeline text, to_srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_inversetransformpipeline(geom maevsi.geometry, pipeline text, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isclosed(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isclosed(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_iscollection(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_iscollection(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isempty(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isempty(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ispolygonccw(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ispolygonccw(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ispolygoncw(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ispolygoncw(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isring(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isring(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_issimple(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_issimple(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalid(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isvalid(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalid(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isvalid(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvaliddetail(geom maevsi.geometry, flags integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isvaliddetail(geom maevsi.geometry, flags integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalidreason(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isvalidreason(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalidreason(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isvalidreason(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalidtrajectory(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_isvalidtrajectory(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_largestemptycircle(geom maevsi.geometry, tolerance double precision, boundary maevsi.geometry, OUT center maevsi.geometry, OUT nearest maevsi.geometry, OUT radius double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_largestemptycircle(geom maevsi.geometry, tolerance double precision, boundary maevsi.geometry, OUT center maevsi.geometry, OUT nearest maevsi.geometry, OUT radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_length(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_length(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length(geog maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_length(geog maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length2d(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_length2d(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length2dspheroid(maevsi.geometry, maevsi.spheroid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_length2dspheroid(maevsi.geometry, maevsi.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lengthspheroid(maevsi.geometry, maevsi.spheroid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lengthspheroid(maevsi.geometry, maevsi.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_letters(letters text, font json); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_letters(letters text, font json) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linecrossingdirection(line1 maevsi.geometry, line2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linecrossingdirection(line1 maevsi.geometry, line2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineextend(geom maevsi.geometry, distance_forward double precision, distance_backward double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineextend(geom maevsi.geometry, distance_forward double precision, distance_backward double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromencodedpolyline(txtin text, nprecision integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linefromencodedpolyline(txtin text, nprecision integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefrommultipoint(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linefrommultipoint(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linefromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linefromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linefromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linefromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoint(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineinterpolatepoint(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoint(text, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineinterpolatepoint(text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoint(maevsi.geography, double precision, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineinterpolatepoint(maevsi.geography, double precision, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoints(text, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineinterpolatepoints(text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoints(maevsi.geometry, double precision, repeat boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineinterpolatepoints(maevsi.geometry, double precision, repeat boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoints(maevsi.geography, double precision, use_spheroid boolean, repeat boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_lineinterpolatepoints(maevsi.geography, double precision, use_spheroid boolean, repeat boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linelocatepoint(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linelocatepoint(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linelocatepoint(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linelocatepoint(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linelocatepoint(maevsi.geography, maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linelocatepoint(maevsi.geography, maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linemerge(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linemerge(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linemerge(maevsi.geometry, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linemerge(maevsi.geometry, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linestringfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linestringfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linestringfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linestringfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linesubstring(maevsi.geography, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linesubstring(maevsi.geography, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linesubstring(maevsi.geometry, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linesubstring(maevsi.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linesubstring(text, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linesubstring(text, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linetocurve(geometry maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_linetocurve(geometry maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_locatealong(geometry maevsi.geometry, measure double precision, leftrightoffset double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_locatealong(geometry maevsi.geometry, measure double precision, leftrightoffset double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_locatebetween(geometry maevsi.geometry, frommeasure double precision, tomeasure double precision, leftrightoffset double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_locatebetween(geometry maevsi.geometry, frommeasure double precision, tomeasure double precision, leftrightoffset double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_locatebetweenelevations(geometry maevsi.geometry, fromelevation double precision, toelevation double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_locatebetweenelevations(geometry maevsi.geometry, fromelevation double precision, toelevation double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_longestline(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_longestline(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_m(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_m(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makebox2d(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makebox2d(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeenvelope(double precision, double precision, double precision, double precision, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makeenvelope(double precision, double precision, double precision, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeline(maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makeline(maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeline(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makeline(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepoint(double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makepoint(double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepoint(double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makepoint(double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepoint(double precision, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makepoint(double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepointm(double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makepointm(double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepolygon(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makepolygon(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepolygon(maevsi.geometry, maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makepolygon(maevsi.geometry, maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makevalid(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makevalid(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makevalid(geom maevsi.geometry, params text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makevalid(geom maevsi.geometry, params text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_maxdistance(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_maxdistance(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_maximuminscribedcircle(maevsi.geometry, OUT center maevsi.geometry, OUT nearest maevsi.geometry, OUT radius double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_maximuminscribedcircle(maevsi.geometry, OUT center maevsi.geometry, OUT nearest maevsi.geometry, OUT radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_memsize(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_memsize(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumboundingcircle(inputgeom maevsi.geometry, segs_per_quarter integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_minimumboundingcircle(inputgeom maevsi.geometry, segs_per_quarter integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumboundingradius(maevsi.geometry, OUT center maevsi.geometry, OUT radius double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_minimumboundingradius(maevsi.geometry, OUT center maevsi.geometry, OUT radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumclearance(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_minimumclearance(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumclearanceline(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_minimumclearanceline(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mlinefromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mlinefromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mlinefromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mlinefromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpointfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpointfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpointfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpointfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpolyfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpolyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpolyfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_mpolyfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multi(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multi(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multilinefromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multilinefromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multilinestringfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multilinestringfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multilinestringfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multilinestringfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipointfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipointfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipointfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipointfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipointfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipointfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolyfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipolyfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolyfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipolyfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolygonfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipolygonfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolygonfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_multipolygonfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ndims(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ndims(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_node(g maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_node(g maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_normalize(geom maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_normalize(geom maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_npoints(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_npoints(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_nrings(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_nrings(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numcurves(geometry maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_numcurves(geometry maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numgeometries(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_numgeometries(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numinteriorring(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_numinteriorring(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numinteriorrings(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_numinteriorrings(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numpatches(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_numpatches(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numpoints(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_numpoints(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_offsetcurve(line maevsi.geometry, distance double precision, params text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_offsetcurve(line maevsi.geometry, distance double precision, params text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_orderingequals(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_orderingequals(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_orientedenvelope(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_orientedenvelope(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_overlaps(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_overlaps(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_patchn(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_patchn(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_perimeter(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_perimeter(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_perimeter(geog maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_perimeter(geog maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_perimeter2d(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_perimeter2d(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_point(double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_point(double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_point(double precision, double precision, srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_point(double precision, double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromgeohash(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointfromgeohash(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointinsidecircle(maevsi.geometry, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointinsidecircle(maevsi.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointm(xcoordinate double precision, ycoordinate double precision, mcoordinate double precision, srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointm(xcoordinate double precision, ycoordinate double precision, mcoordinate double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointn(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointn(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointonsurface(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointonsurface(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_points(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_points(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointz(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointz(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointzm(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, mcoordinate double precision, srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_pointzm(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, mcoordinate double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polyfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polyfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polyfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygon(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygon(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromtext(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygonfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromtext(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygonfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromwkb(bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygonfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromwkb(bytea, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygonfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonize(maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygonize(maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geog_from maevsi.geography, geog_to maevsi.geography, distance double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_project(geog_from maevsi.geography, geog_to maevsi.geography, distance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geog maevsi.geography, distance double precision, azimuth double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_project(geog maevsi.geography, distance double precision, azimuth double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geom1 maevsi.geometry, geom2 maevsi.geometry, distance double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_project(geom1 maevsi.geometry, geom2 maevsi.geometry, distance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geom1 maevsi.geometry, distance double precision, azimuth double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_project(geom1 maevsi.geometry, distance double precision, azimuth double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_quantizecoordinates(g maevsi.geometry, prec_x integer, prec_y integer, prec_z integer, prec_m integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_quantizecoordinates(g maevsi.geometry, prec_x integer, prec_y integer, prec_z integer, prec_m integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_reduceprecision(geom maevsi.geometry, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_reduceprecision(geom maevsi.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relate(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_relate(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relate(geom1 maevsi.geometry, geom2 maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_relate(geom1 maevsi.geometry, geom2 maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relate(geom1 maevsi.geometry, geom2 maevsi.geometry, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_relate(geom1 maevsi.geometry, geom2 maevsi.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relatematch(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_relatematch(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removeirrelevantpointsforview(maevsi.geometry, maevsi.box2d, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_removeirrelevantpointsforview(maevsi.geometry, maevsi.box2d, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removepoint(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_removepoint(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removerepeatedpoints(geom maevsi.geometry, tolerance double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_removerepeatedpoints(geom maevsi.geometry, tolerance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removesmallparts(maevsi.geometry, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_removesmallparts(maevsi.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_reverse(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_reverse(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotate(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_rotate(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotate(maevsi.geometry, double precision, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_rotate(maevsi.geometry, double precision, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotate(maevsi.geometry, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_rotate(maevsi.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotatex(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_rotatex(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotatey(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_rotatey(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotatez(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_rotatez(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_scale(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(maevsi.geometry, maevsi.geometry, origin maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_scale(maevsi.geometry, maevsi.geometry, origin maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(maevsi.geometry, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_scale(maevsi.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(maevsi.geometry, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_scale(maevsi.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scroll(maevsi.geometry, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_scroll(maevsi.geometry, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_segmentize(geog maevsi.geography, max_segment_length double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_segmentize(geog maevsi.geography, max_segment_length double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_segmentize(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_segmentize(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_seteffectivearea(maevsi.geometry, double precision, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_seteffectivearea(maevsi.geometry, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_setpoint(maevsi.geometry, integer, maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_setpoint(maevsi.geometry, integer, maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_setsrid(geog maevsi.geography, srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_setsrid(geog maevsi.geography, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_setsrid(geom maevsi.geometry, srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_setsrid(geom maevsi.geometry, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_sharedpaths(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_sharedpaths(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shiftlongitude(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_shiftlongitude(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shortestline(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_shortestline(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shortestline(text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_shortestline(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shortestline(maevsi.geography, maevsi.geography, use_spheroid boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_shortestline(maevsi.geography, maevsi.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplify(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_simplify(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplify(maevsi.geometry, double precision, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_simplify(maevsi.geometry, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplifypolygonhull(geom maevsi.geometry, vertex_fraction double precision, is_outer boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_simplifypolygonhull(geom maevsi.geometry, vertex_fraction double precision, is_outer boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplifypreservetopology(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_simplifypreservetopology(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplifyvw(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_simplifyvw(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snap(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_snap(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_snaptogrid(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(maevsi.geometry, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_snaptogrid(maevsi.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(maevsi.geometry, double precision, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_snaptogrid(maevsi.geometry, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_snaptogrid(geom1 maevsi.geometry, geom2 maevsi.geometry, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_split(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_split(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_square(size double precision, cell_i integer, cell_j integer, origin maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_square(size double precision, cell_i integer, cell_j integer, origin maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_squaregrid(size double precision, bounds maevsi.geometry, OUT geom maevsi.geometry, OUT i integer, OUT j integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_squaregrid(size double precision, bounds maevsi.geometry, OUT geom maevsi.geometry, OUT i integer, OUT j integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_srid(geog maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_srid(geog maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_srid(geom maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_srid(geom maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_startpoint(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_startpoint(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_subdivide(geom maevsi.geometry, maxvertices integer, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_subdivide(geom maevsi.geometry, maxvertices integer, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_summary(maevsi.geography); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_summary(maevsi.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_summary(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_summary(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_swapordinates(geom maevsi.geometry, ords cstring); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_swapordinates(geom maevsi.geometry, ords cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_symdifference(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_symdifference(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_symmetricdifference(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_symmetricdifference(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_tileenvelope(zoom integer, x integer, y integer, bounds maevsi.geometry, margin double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_tileenvelope(zoom integer, x integer, y integer, bounds maevsi.geometry, margin double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_touches(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_touches(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(maevsi.geometry, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_transform(maevsi.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(geom maevsi.geometry, to_proj text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_transform(geom maevsi.geometry, to_proj text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(geom maevsi.geometry, from_proj text, to_srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_transform(geom maevsi.geometry, from_proj text, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(geom maevsi.geometry, from_proj text, to_proj text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_transform(geom maevsi.geometry, from_proj text, to_proj text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transformpipeline(geom maevsi.geometry, pipeline text, to_srid integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_transformpipeline(geom maevsi.geometry, pipeline text, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_translate(maevsi.geometry, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_translate(maevsi.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_translate(maevsi.geometry, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_translate(maevsi.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transscale(maevsi.geometry, double precision, double precision, double precision, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_transscale(maevsi.geometry, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_triangulatepolygon(g1 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_triangulatepolygon(g1 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_unaryunion(maevsi.geometry, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_unaryunion(maevsi.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(maevsi.geometry[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_union(maevsi.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_union(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_union(geom1 maevsi.geometry, geom2 maevsi.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_voronoilines(g1 maevsi.geometry, tolerance double precision, extend_to maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_voronoilines(g1 maevsi.geometry, tolerance double precision, extend_to maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_voronoipolygons(g1 maevsi.geometry, tolerance double precision, extend_to maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_voronoipolygons(g1 maevsi.geometry, tolerance double precision, extend_to maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_within(geom1 maevsi.geometry, geom2 maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_within(geom1 maevsi.geometry, geom2 maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_wkbtosql(wkb bytea); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_wkbtosql(wkb bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_wkttosql(text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_wkttosql(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_wrapx(geom maevsi.geometry, wrap double precision, move double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_wrapx(geom maevsi.geometry, wrap double precision, move double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_x(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_x(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_xmax(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_xmax(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_xmin(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_xmin(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_y(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_y(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ymax(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ymax(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ymin(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_ymin(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_z(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_z(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_zmax(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_zmax(maevsi.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_zmflag(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_zmflag(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_zmin(maevsi.box3d); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_zmin(maevsi.box3d) FROM PUBLIC;
 
 
 --
@@ -5948,6 +11182,27 @@ GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_accou
 REVOKE ALL ON FUNCTION maevsi.trigger_invitation_update() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION updategeometrysrid(character varying, character varying, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.updategeometrysrid(character varying, character varying, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION updategeometrysrid(character varying, character varying, character varying, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.updategeometrysrid(character varying, character varying, character varying, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION updategeometrysrid(catalogn_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.updategeometrysrid(catalogn_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer) FROM PUBLIC;
 
 
 --
@@ -5993,101 +11248,255 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION block_account(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_create(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.block_account(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_account(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.create_account(_username text, _email text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_contact(_author_account_id uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_remove(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.create_contact(_author_account_id uuid, _email_address text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.create_event(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_event_category(_category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.create_event_category(_category text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.create_event_category_mapping(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.create_invitation(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
-
-
---
--- Name: FUNCTION get_own_contact(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.get_own_contact(_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION remove_account(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_create(_author_account_id uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.remove_account(_username text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.select_contacts(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_select_by_account_id(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.select_event_category_mappings(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
-
-
---
--- Name: FUNCTION select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.select_events(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.select_invitations(_test_case text, _description text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION unblock_account(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_create(_category text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.unblock_account(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dextent(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_3dextent(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asflatgeobuf(anyelement); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asflatgeobuf(anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asflatgeobuf(anyelement, boolean); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asflatgeobuf(anyelement, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asflatgeobuf(anyelement, boolean, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asflatgeobuf(anyelement, boolean, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeobuf(anyelement); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgeobuf(anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeobuf(anyelement, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asgeobuf(anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmvt(anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmvt(anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text, integer); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmvt(anyelement, text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text, integer, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmvt(anyelement, text, integer, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text, integer, text, text); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_asmvt(anyelement, text, integer, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterintersecting(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterintersecting(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterwithin(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_clusterwithin(maevsi.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collect(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_collect(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coverageunion(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_coverageunion(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_extent(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_extent(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeline(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_makeline(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_memcollect(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_memcollect(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_memunion(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_memunion(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonize(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_polygonize(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(maevsi.geometry); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_union(maevsi.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(maevsi.geometry, double precision); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.st_union(maevsi.geometry, double precision) FROM PUBLIC;
 
 
 --
