@@ -2,9 +2,11 @@ BEGIN;
 
 CREATE TABLE maevsi.achievement (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   account_id  UUID NOT NULL REFERENCES maevsi.account(id),
   achievement maevsi.achievement_type NOT NULL,
   level       INTEGER NOT NULL CHECK (level > 0) DEFAULT 1,
+
   UNIQUE (account_id, achievement)
 );
 

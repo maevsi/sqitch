@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE maevsi.event_category(
-    category TEXT PRIMARY KEY
+  category TEXT PRIMARY KEY
 );
 
 COMMENT ON TABLE maevsi.event_category IS 'Event categories.';

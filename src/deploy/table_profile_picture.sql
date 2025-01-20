@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE TABLE maevsi.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   account_id    UUID NOT NULL REFERENCES maevsi.account(id) UNIQUE,
   upload_id     UUID NOT NULL REFERENCES maevsi.upload(id)
 );
