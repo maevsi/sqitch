@@ -9,12 +9,12 @@ BEGIN
 
   RETURN QUERY
 
-  -- get all events for invitations
-  SELECT invitation.event_id FROM maevsi.invitation
+  -- get all events for guests
+  SELECT guest.event_id FROM maevsi.guest
   WHERE
     (
-      -- whose invitee
-      invitation.contact_id IN (
+      -- whose guest
+      guest.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
@@ -23,12 +23,12 @@ BEGIN
           AND
             -- who is not invited by
             author_account_id NOT IN (
-              -- a user who the invitee blocked
+              -- a user who the guest blocked
               SELECT blocked_account_id
               FROM maevsi.account_block
               WHERE author_account_id = jwt_account_id
               UNION ALL
-              -- or who has blocked the invitee
+              -- or who has blocked the guest
               SELECT author_account_id
               FROM maevsi.account_block
               WHERE blocked_account_id = jwt_account_id
@@ -37,7 +37,7 @@ BEGIN
     )
     OR
       -- for which the requesting user knows the id
-      invitation.id = ANY (maevsi.invitation_claim_array());
+      guest.id = ANY (maevsi.guest_claim_array());
 END
 $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 

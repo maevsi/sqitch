@@ -7,7 +7,7 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 
 -- Only display contacts referencing the invoker's account, omit contacts authored by a blocked account.
 -- Only display contacts authored by the invoker's account, omit contacts referring to a blocked account.
--- Only display contacts for which an accessible invitation exists.
+-- Only display contacts for which an accessible guest exists.
 CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
   (
     account_id = maevsi.invoker_account_id()
@@ -40,7 +40,7 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
       )
     )
   )
-  OR id IN (SELECT maevsi.invitation_contact_ids())
+  OR id IN (SELECT maevsi.guest_contact_ids())
 );
 
 -- Only allow inserts for contacts authored by the invoker's account.

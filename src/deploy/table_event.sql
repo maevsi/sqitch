@@ -6,7 +6,7 @@ CREATE TABLE maevsi.event (
   author_account_id        UUID NOT NULL REFERENCES maevsi.account(id),
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
-  invitee_count_maximum    INTEGER CHECK (invitee_count_maximum > 0),
+  guest_count_maximum    INTEGER CHECK (guest_count_maximum > 0),
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,
   is_remote                BOOLEAN,
@@ -27,7 +27,7 @@ COMMENT ON COLUMN maevsi.event.id IS E'@omit create,update\nThe event''s interna
 COMMENT ON COLUMN maevsi.event.author_account_id IS 'The event author''s id.';
 COMMENT ON COLUMN maevsi.event.description IS 'The event''s description.';
 COMMENT ON COLUMN maevsi.event.end IS 'The event''s end date and time, with timezone.';
-COMMENT ON COLUMN maevsi.event.invitee_count_maximum IS 'The event''s maximum invitee count.';
+COMMENT ON COLUMN maevsi.event.guest_count_maximum IS 'The event''s maximum guest count.';
 COMMENT ON COLUMN maevsi.event.is_archived IS 'Indicates whether the event is archived.';
 COMMENT ON COLUMN maevsi.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes place remotely.';

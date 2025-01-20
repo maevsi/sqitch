@@ -156,7 +156,7 @@ CREATE TYPE maevsi.jwt AS (
 	account_id uuid,
 	account_username text,
 	exp bigint,
-	invitations uuid[],
+	guests uuid[],
 	role text
 );
 
@@ -677,7 +677,7 @@ DECLARE
 BEGIN
   IF (authenticate.username = '' AND authenticate.password = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.guest_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
     -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
     IF (strpos(authenticate.username, '@') = 0) THEN
@@ -747,7 +747,7 @@ CREATE TABLE maevsi.event (
     author_account_id uuid NOT NULL,
     description text,
     "end" timestamp with time zone,
-    invitee_count_maximum integer,
+    guest_count_maximum integer,
     is_archived boolean DEFAULT false NOT NULL,
     is_in_person boolean,
     is_remote boolean,
@@ -759,7 +759,7 @@ CREATE TABLE maevsi.event (
     visibility maevsi.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
-    CONSTRAINT event_invitee_count_maximum_check CHECK ((invitee_count_maximum > 0)),
+    CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text))),
@@ -806,10 +806,10 @@ COMMENT ON COLUMN maevsi.event."end" IS 'The event''s end date and time, with ti
 
 
 --
--- Name: COLUMN event.invitee_count_maximum; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.guest_count_maximum; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.invitee_count_maximum IS 'The event''s maximum invitee count.';
+COMMENT ON COLUMN maevsi.event.guest_count_maximum IS 'The event''s maximum guest count.';
 
 
 --
@@ -926,15 +926,15 @@ COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to de
 
 
 --
--- Name: event_invitee_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_guest_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) RETURNS integer
+CREATE FUNCTION maevsi.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $_$
 BEGIN
   RETURN (
-    SELECT "event".invitee_count_maximum
+    SELECT "event".guest_count_maximum
     FROM maevsi.event
     WHERE
       "event".id = $1
@@ -943,9 +943,9 @@ BEGIN
               "event".visibility = 'public'
               AND
               (
-                "event".invitee_count_maximum IS NULL
+                "event".guest_count_maximum IS NULL
                 OR
-                "event".invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
+                "event".guest_count_maximum > (maevsi.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
               )
             )
         OR (
@@ -960,13 +960,13 @@ END
 $_$;
 
 
-ALTER FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_guest_count_maximum(event_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) IS 'Add a function that returns the maximum invitee count of an accessible event.';
+COMMENT ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) IS 'Add a function that returns the maximum guest count of an accessible event.';
 
 
 --
@@ -999,7 +999,7 @@ COMMENT ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) 
 -- Name: event_unlock(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_unlock(invitation_id uuid) RETURNS maevsi.event_unlock_response
+CREATE FUNCTION maevsi.event_unlock(guest_id uuid) RETURNS maevsi.event_unlock_response
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
@@ -1015,7 +1015,7 @@ BEGIN
     maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
+    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || $1) ORDER BY 1)),
     current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
@@ -1024,12 +1024,12 @@ BEGIN
   WHERE id = _jwt_id;
 
   _event_id := (
-    SELECT event_id FROM maevsi.invitation
-    WHERE invitation.id = $1
+    SELECT event_id FROM maevsi.guest
+    WHERE guest.id = $1
   );
 
   IF (_event_id IS NULL) THEN
-    RAISE 'No invitation for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No guest for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   SELECT *
@@ -1038,7 +1038,7 @@ BEGIN
     INTO _event;
 
   IF (_event IS NULL) THEN
-    RAISE 'No event for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   _event_author_account_username := (
@@ -1048,20 +1048,20 @@ BEGIN
   );
 
   IF (_event_author_account_username IS NULL) THEN
-    RAISE 'No event author username for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No event author username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   RETURN (_event_author_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
 END $_$;
 
 
-ALTER FUNCTION maevsi.event_unlock(invitation_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_unlock(guest_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_unlock(invitation_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_unlock(invitation_id uuid) IS 'Assigns an invitation to the current session.';
+COMMENT ON FUNCTION maevsi.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.';
 
 
 --
@@ -1096,71 +1096,71 @@ COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns al
 
 
 --
--- Name: invitation_claim_array(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_claim_array(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitation_claim_array() RETURNS uuid[]
+CREATE FUNCTION maevsi.guest_claim_array() RETURNS uuid[]
     LANGUAGE plpgsql STABLE STRICT
     AS $$
 DECLARE
-  _invitation_ids UUID[];
-  _invitation_ids_unblocked UUID[] := ARRAY[]::UUID[];
-  _invitation_id UUID;
+  _guest_ids UUID[];
+  _guest_ids_unblocked UUID[] := ARRAY[]::UUID[];
+  _guest_id UUID;
 BEGIN
-  _invitation_ids := string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
+  _guest_ids := string_to_array(replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''), ',')::UUID[];
 
-  IF _invitation_ids IS NOT NULL THEN
-    FOREACH _invitation_id IN ARRAY _invitation_ids
+  IF _guest_ids IS NOT NULL THEN
+    FOREACH _guest_id IN ARRAY _guest_ids
     LOOP
-      -- omit invitations authored by a blocked account
+      -- omit guests authored by a blocked account
       IF NOT EXISTS(
         SELECT 1
-        FROM maevsi.invitation i
-        JOIN maevsi.contact c ON i.contact_id = c.contact_id
+        FROM maevsi.guest g
+        JOIN maevsi.contact c ON g.contact_id = c.contact_id
         JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
-       WHERE i.id = _invitation_id AND b.author_account_id = maevsi.invoker_account_id()
+       WHERE g.id = _guest_id AND b.author_account_id = maevsi.invoker_account_id()
       ) THEN
-        _invitation_ids_unblocked := append_invitation_array(result_invitation_ids, _invitation_id);
+        _guest_ids_unblocked := append_guest_array(result_guest_ids, _guest_id);
       END IF;
     END LOOP;
   END IF;
-  RETURN _invitation_ids_unblocked;
+  RETURN _guest_ids_unblocked;
 END
 $$;
 
 
-ALTER FUNCTION maevsi.invitation_claim_array() OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_claim_array() OWNER TO postgres;
 
 --
--- Name: FUNCTION invitation_claim_array(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_claim_array(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invitation_claim_array() IS 'Returns the current invitation claims as UUID array.';
+COMMENT ON FUNCTION maevsi.guest_claim_array() IS 'Returns the current guest claims as UUID array.';
 
 
 --
--- Name: invitation_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitation_contact_ids() RETURNS TABLE(contact_id uuid)
+CREATE FUNCTION maevsi.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
   RETURN QUERY
-    -- get all contacts for invitations
-    SELECT invitation.contact_id
-    FROM maevsi.invitation
+    -- get all contacts for guests
+    SELECT guest.contact_id
+    FROM maevsi.guest
     WHERE
       (
         -- that are known to the invoker
-        invitation.id = ANY (maevsi.invitation_claim_array())
+        guest.id = ANY (maevsi.guest_claim_array())
       OR
         -- or for events organized by the invoker
-        invitation.event_id IN (SELECT maevsi.events_organized())
+        guest.event_id IN (SELECT maevsi.events_organized())
       )
       AND
         -- except contacts authored by a blocked account or referring to a blocked account
-        invitation.contact_id NOT IN (
+        guest.contact_id NOT IN (
           SELECT contact.id
           FROM maevsi.contact
           WHERE
@@ -1190,20 +1190,42 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.invitation_contact_ids() OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_contact_ids() OWNER TO postgres;
 
 --
--- Name: FUNCTION invitation_contact_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_contact_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invitation_contact_ids() IS 'Returns contact ids that are accessible through invitations.';
+COMMENT ON FUNCTION maevsi.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
+
+
+--
+-- Name: guest_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.guest_count(event_id uuid) RETURNS integer
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $_$
+BEGIN
+  RETURN (SELECT COUNT(1) FROM maevsi.guest WHERE guest.event_id = $1);
+END;
+$_$;
+
+
+ALTER FUNCTION maevsi.guest_count(event_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION guest_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.guest_count(event_id uuid) IS 'Returns the guest count for an event.';
 
 
 --
 -- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invite(invitation_id uuid, language text) RETURNS void
+CREATE FUNCTION maevsi.invite(guest_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $_$
 DECLARE
@@ -1213,28 +1235,28 @@ DECLARE
   _event_author_profile_picture_upload_id UUID;
   _event_author_profile_picture_upload_storage_key TEXT;
   _event_author_username TEXT;
-  _invitation RECORD;
+  _guest RECORD;
 BEGIN
-  -- Invitation UUID
-  SELECT * FROM maevsi.invitation INTO _invitation WHERE invitation.id = $1;
+  -- Guest UUID
+  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = $1;
 
   IF (
-    _invitation IS NULL
+    _guest IS NULL
     OR
-    _invitation.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
+    _guest.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
   ) THEN
-    RAISE 'Invitation not accessible!' USING ERRCODE = 'no_data_found';
+    RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Event
-  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _invitation.event_id;
+  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
+  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1271,7 +1293,7 @@ BEGIN
           'event', _event,
           'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
           'eventAuthorUsername', _event_author_username,
-          'invitationId', _invitation.id
+          'guestId', _guest.id
         ),
         'template', jsonb_build_object('language', $2)
       ))
@@ -1280,35 +1302,13 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.invite(invitation_id uuid, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO postgres;
 
 --
--- Name: FUNCTION invite(invitation_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invite(invitation_id uuid, language text) IS 'Adds a notification for the invitation channel.';
-
-
---
--- Name: invitee_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.invitee_count(event_id uuid) RETURNS integer
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
-BEGIN
-  RETURN (SELECT COUNT(1) FROM maevsi.invitation WHERE invitation.event_id = $1);
-END;
-$_$;
-
-
-ALTER FUNCTION maevsi.invitee_count(event_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION invitee_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.invitee_count(event_id uuid) IS 'Returns the invitee count for an event.';
+COMMENT ON FUNCTION maevsi.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
 
 
 --
@@ -1344,7 +1344,7 @@ DECLARE
   _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt maevsi.jwt;
 BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
+  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role INTO _jwt
   FROM maevsi_private.jwt
   WHERE   id = $1
   AND     (token)."exp" >= _epoch_now;
@@ -1497,10 +1497,10 @@ COMMENT ON FUNCTION maevsi.trigger_contact_update_account_id() IS 'Prevents inva
 
 
 --
--- Name: trigger_invitation_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_guest_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.trigger_invitation_update() RETURNS trigger
+CREATE FUNCTION maevsi.trigger_guest_update() RETURNS trigger
     LANGUAGE plpgsql STRICT
     AS $$
 DECLARE
@@ -1509,7 +1509,7 @@ BEGIN
   IF
       TG_OP = 'UPDATE'
     AND ( -- Invited.
-      OLD.id = ANY (maevsi.invitation_claim_array())
+      OLD.id = ANY (maevsi.guest_claim_array())
       OR
       (
         maevsi.invoker_account_id() IS NOT NULL
@@ -1538,13 +1538,13 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi.trigger_invitation_update() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_guest_update() OWNER TO postgres;
 
 --
--- Name: FUNCTION trigger_invitation_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+COMMENT ON FUNCTION maevsi.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 
 
 --
@@ -1738,12 +1738,12 @@ BEGIN
 
   RETURN QUERY
 
-  -- get all events for invitations
-  SELECT invitation.event_id FROM maevsi.invitation
+  -- get all events for guests
+  SELECT guest.event_id FROM maevsi.guest
   WHERE
     (
-      -- whose invitee
-      invitation.contact_id IN (
+      -- whose guest
+      guest.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
@@ -1752,12 +1752,12 @@ BEGIN
           AND
             -- who is not invited by
             author_account_id NOT IN (
-              -- a user who the invitee blocked
+              -- a user who the guest blocked
               SELECT blocked_account_id
               FROM maevsi.account_block
               WHERE author_account_id = jwt_account_id
               UNION ALL
-              -- or who has blocked the invitee
+              -- or who has blocked the guest
               SELECT author_account_id
               FROM maevsi.account_block
               WHERE blocked_account_id = jwt_account_id
@@ -1766,7 +1766,7 @@ BEGIN
     )
     OR
       -- for which the requesting user knows the id
-      invitation.id = ANY (maevsi.invitation_claim_array());
+      guest.id = ANY (maevsi.guest_claim_array());
 END
 $$;
 
@@ -2079,10 +2079,10 @@ END $$;
 ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
--- Name: invitation_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -2091,7 +2091,7 @@ BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
 
-  INSERT INTO maevsi.invitation(contact_id, event_id)
+  INSERT INTO maevsi.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
@@ -2101,13 +2101,13 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
 
 --
--- Name: invitation_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
+CREATE FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2119,19 +2119,19 @@ BEGIN
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.invitation EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some invitation should not appear in the query result';
+  IF EXISTS (SELECT id FROM maevsi.guest EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some guest should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.invitation) THEN
-    RAISE EXCEPTION 'some invitation is missing in the query result';
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.guest) THEN
+    RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$;
 
 
-ALTER FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
 -- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -2811,7 +2811,7 @@ COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e
 --
 
 COMMENT ON COLUMN maevsi.event_upload.id IS '@omit create,update
-The event''s internal id for which the invitation is valid.';
+The event uploads''s internal id.';
 
 
 --
@@ -2819,7 +2819,7 @@ The event''s internal id for which the invitation is valid.';
 --
 
 COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update
-The event''s internal id for which the invitation is valid.';
+The event uploads''s internal event id.';
 
 
 --
@@ -2827,14 +2827,14 @@ The event''s internal id for which the invitation is valid.';
 --
 
 COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
-The internal id of the uploaded content.';
+The event upload''s internal upload id.';
 
 
 --
--- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.invitation (
+CREATE TABLE maevsi.guest (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
@@ -2846,85 +2846,85 @@ CREATE TABLE maevsi.invitation (
 );
 
 
-ALTER TABLE maevsi.invitation OWNER TO postgres;
+ALTER TABLE maevsi.guest OWNER TO postgres;
 
 --
--- Name: TABLE invitation; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.invitation IS 'An invitation for a contact. A bidirectional mapping between an event and a contact.';
-
-
---
--- Name: COLUMN invitation.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.id IS '@omit create,update
-The invitations''s internal id.';
+COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
 
 
 --
--- Name: COLUMN invitation.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.contact_id IS 'The contact''s internal id for which the invitation is valid.';
-
-
---
--- Name: COLUMN invitation.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.event_id IS 'The event''s internal id for which the invitation is valid.';
+COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
+The guests''s internal id.';
 
 
 --
--- Name: COLUMN invitation.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.feedback IS 'The invitation''s general feedback status.';
-
-
---
--- Name: COLUMN invitation.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper feedback status.';
+COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
 
 
 --
--- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create,update
-Timestamp of when the invitation was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create,update
-Timestamp of when the invitation was last updated.';
+COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
 
 
 --
--- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create,update
-The id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
+COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
 
 
 --
--- Name: invitation_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
- SELECT invitation.id AS invitation_id,
-    invitation.contact_id AS invitation_contact_id,
-    invitation.event_id AS invitation_event_id,
-    invitation.feedback AS invitation_feedback,
-    invitation.feedback_paper AS invitation_feedback_paper,
+COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
+
+
+--
+-- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
+Timestamp of when the guest was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
+Timestamp of when the guest was last updated.';
+
+
+--
+-- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
+The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
+
+
+--
+-- Name: guest_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+--
+
+CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
+ SELECT guest.id AS guest_id,
+    guest.contact_id AS guest_contact_id,
+    guest.event_id AS guest_event_id,
+    guest.feedback AS guest_feedback,
+    guest.feedback_paper AS guest_feedback_paper,
     contact.id AS contact_id,
     contact.account_id AS contact_account_id,
     contact.address AS contact_address,
@@ -2940,7 +2940,7 @@ CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
     event.description AS event_description,
     event.start AS event_start,
     event."end" AS event_end,
-    event.invitee_count_maximum AS event_invitee_count_maximum,
+    event.guest_count_maximum AS event_guest_count_maximum,
     event.is_archived AS event_is_archived,
     event.is_in_person AS event_is_in_person,
     event.is_remote AS event_is_remote,
@@ -2949,18 +2949,18 @@ CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
     event.slug AS event_slug,
     event.url AS event_url,
     event.visibility AS event_visibility
-   FROM ((maevsi.invitation
-     JOIN maevsi.contact ON ((invitation.contact_id = contact.id)))
-     JOIN maevsi.event ON ((invitation.event_id = event.id)));
+   FROM ((maevsi.guest
+     JOIN maevsi.contact ON ((guest.contact_id = contact.id)))
+     JOIN maevsi.event ON ((guest.event_id = event.id)));
 
 
-ALTER VIEW maevsi.invitation_flat OWNER TO postgres;
+ALTER VIEW maevsi.guest_flat OWNER TO postgres;
 
 --
--- Name: VIEW invitation_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: VIEW guest_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON VIEW maevsi.invitation_flat IS 'View returning flattened invitations.';
+COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 
 
 --
@@ -4136,19 +4136,19 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: invitation invitation_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_event_id_contact_id_key UNIQUE (event_id, contact_id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_event_id_contact_id_key UNIQUE (event_id, contact_id);
 
 
 --
--- Name: invitation invitation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_pkey PRIMARY KEY (id);
 
 
 --
@@ -4415,38 +4415,38 @@ COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'Speeds up reverse foreig
 
 
 --
--- Name: idx_invitation_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_guest_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_invitation_contact_id ON maevsi.invitation USING btree (contact_id);
-
-
---
--- Name: INDEX idx_invitation_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_invitation_contact_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_guest_contact_id ON maevsi.guest USING btree (contact_id);
 
 
 --
--- Name: idx_invitation_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_guest_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_invitation_event_id ON maevsi.invitation USING btree (event_id);
-
-
---
--- Name: INDEX idx_invitation_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_invitation_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'Speeds up reverse foreign key lookups.';
 
 
 --
--- Name: invitation maevsi_invitation_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: idx_guest_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE TRIGGER maevsi_invitation_update BEFORE UPDATE ON maevsi.invitation FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_invitation_update();
+CREATE INDEX idx_guest_event_id ON maevsi.guest USING btree (event_id);
+
+
+--
+-- Name: INDEX idx_guest_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_guest_event_id IS 'Speeds up reverse foreign key lookups.';
+
+
+--
+-- Name: guest maevsi_guest_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_guest_update BEFORE UPDATE ON maevsi.guest FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_guest_update();
 
 
 --
@@ -4661,27 +4661,27 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: invitation invitation_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES maevsi.contact(id);
-
-
---
--- Name: invitation invitation_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES maevsi.contact(id);
 
 
 --
--- Name: invitation invitation_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: guest guest_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -4969,7 +4969,7 @@ UNION ALL
 UNION ALL
  SELECT account_block.author_account_id
    FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))) OR (id IN ( SELECT maevsi.guest_contact_ids() AS guest_contact_ids))));
 
 
 --
@@ -5079,7 +5079,7 @@ CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SEL
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id))) AND (NOT (author_account_id IN ( SELECT account_block.blocked_account_id
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > maevsi.guest_count(id))) AND (NOT (author_account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
   WHERE (account_block.author_account_id = maevsi.invoker_account_id())
 UNION ALL
@@ -5130,23 +5130,23 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 
 
 --
--- Name: invitation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: guest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.guest ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: invitation invitation_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)));
+CREATE POLICY guest_delete ON maevsi.guest FOR DELETE USING ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)));
 
 
 --
--- Name: invitation invitation_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_invitee_count_maximum(event_id) IS NULL) OR (maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id))) AND (contact_id IN ( SELECT contact.id
+CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_guest_count_maximum(event_id) IS NULL) OR (maevsi.event_guest_count_maximum(event_id) > maevsi.guest_count(event_id))) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
   WHERE (contact.author_account_id = maevsi.invoker_account_id())
 EXCEPT
@@ -5157,10 +5157,10 @@ EXCEPT
 
 
 --
--- Name: invitation invitation_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
+CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
   WHERE (contact.account_id = maevsi.invoker_account_id())
 EXCEPT
@@ -5179,10 +5179,10 @@ EXCEPT
 
 
 --
--- Name: invitation invitation_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
+CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
   WHERE (contact.account_id = maevsi.invoker_account_id())
 EXCEPT
@@ -6279,12 +6279,12 @@ GRANT ALL ON FUNCTION maevsi.event_delete(id uuid, password text) TO maevsi_acco
 
 
 --
--- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) TO maevsi_anonymous;
 
 
 --
@@ -6297,12 +6297,12 @@ GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text
 
 
 --
--- Name: FUNCTION event_unlock(invitation_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_unlock(guest_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) TO maevsi_anonymous;
 
 
 --
@@ -7071,6 +7071,33 @@ REVOKE ALL ON FUNCTION maevsi.gserialized_gist_sel_nd(internal, oid, internal, i
 
 
 --
+-- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.guest_claim_array() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_claim_array() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.guest_claim_array() TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION guest_contact_ids(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.guest_contact_ids() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_contact_ids() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.guest_contact_ids() TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION guest_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.guest_count(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_count(event_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.guest_count(event_id uuid) TO maevsi_anonymous;
+
+
+--
 -- Name: FUNCTION hmac(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -7085,38 +7112,11 @@ REVOKE ALL ON FUNCTION maevsi.hmac(text, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION invitation_claim_array(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(guest_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.invitation_claim_array() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitation_claim_array() TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitation_claim_array() TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION invitation_contact_ids(); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.invitation_contact_ids() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitation_contact_ids() TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitation_contact_ids() TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION invite(invitation_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.invite(invitation_id uuid, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invite(invitation_id uuid, language text) TO maevsi_account;
-
-
---
--- Name: FUNCTION invitee_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.invitee_count(event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) TO maevsi_account;
 
 
 --
@@ -11040,12 +11040,12 @@ GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_accou
 
 
 --
--- Name: FUNCTION trigger_invitation_update(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_guest_update(); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.trigger_invitation_update() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.trigger_guest_update() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_anonymous;
 
 
 --
@@ -11196,17 +11196,17 @@ REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid,
 
 
 --
--- Name: FUNCTION invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
@@ -11472,19 +11472,19 @@ GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 
 --
--- Name: TABLE invitation; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.invitation TO maevsi_account;
-GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
+GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
 
 
 --
--- Name: TABLE invitation_flat; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest_flat; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_account;
-GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_anonymous;
+GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_anonymous;
 
 
 --

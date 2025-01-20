@@ -101,7 +101,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.invitation_create (
+CREATE OR REPLACE FUNCTION maevsi_test.guest_create (
   _author_account_id UUID,
   _event_id UUID,
   _contact_id UUID
@@ -112,7 +112,7 @@ BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
 
-  INSERT INTO maevsi.invitation(contact_id, event_id)
+  INSERT INTO maevsi.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
@@ -250,7 +250,7 @@ BEGIN
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.invitation_test (
+CREATE OR REPLACE FUNCTION maevsi_test.guest_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -264,12 +264,12 @@ BEGIN
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.invitation EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some invitation should not appear in the query result';
+  IF EXISTS (SELECT id FROM maevsi.guest EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some guest should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.invitation) THEN
-    RAISE EXCEPTION 'some invitation is missing in the query result';
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.guest) THEN
+    RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';

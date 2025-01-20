@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.invite(
-  invitation_id UUID,
+  guest_id UUID,
   "language" TEXT
 ) RETURNS VOID AS $$
 DECLARE
@@ -11,28 +11,28 @@ DECLARE
   _event_author_profile_picture_upload_id UUID;
   _event_author_profile_picture_upload_storage_key TEXT;
   _event_author_username TEXT;
-  _invitation RECORD;
+  _guest RECORD;
 BEGIN
-  -- Invitation UUID
-  SELECT * FROM maevsi.invitation INTO _invitation WHERE invitation.id = $1;
+  -- Guest UUID
+  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = $1;
 
   IF (
-    _invitation IS NULL
+    _guest IS NULL
     OR
-    _invitation.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
+    _guest.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
   ) THEN
-    RAISE 'Invitation not accessible!' USING ERRCODE = 'no_data_found';
+    RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Event
-  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _invitation.event_id;
+  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
+  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -69,7 +69,7 @@ BEGIN
           'event', _event,
           'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
           'eventAuthorUsername', _event_author_username,
-          'invitationId', _invitation.id
+          'guestId', _guest.id
         ),
         'template', jsonb_build_object('language', $2)
       ))

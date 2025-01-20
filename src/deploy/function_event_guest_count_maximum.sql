@@ -1,11 +1,11 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.event_invitee_count_maximum(
+CREATE FUNCTION maevsi.event_guest_count_maximum(
   event_id UUID
 ) RETURNS INTEGER AS $$
 BEGIN
   RETURN (
-    SELECT "event".invitee_count_maximum
+    SELECT "event".guest_count_maximum
     FROM maevsi.event
     WHERE
       "event".id = $1
@@ -14,9 +14,9 @@ BEGIN
               "event".visibility = 'public'
               AND
               (
-                "event".invitee_count_maximum IS NULL
+                "event".guest_count_maximum IS NULL
                 OR
-                "event".invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
+                "event".guest_count_maximum > (maevsi.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
               )
             )
         OR (
@@ -30,8 +30,8 @@ BEGIN
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(UUID) IS 'Add a function that returns the maximum invitee count of an accessible event.';
+COMMENT ON FUNCTION maevsi.event_guest_count_maximum(UUID) IS 'Add a function that returns the maximum guest count of an accessible event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_invitee_count_maximum(UUID) TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.event_guest_count_maximum(UUID) TO maevsi_account, maevsi_anonymous;
 
 COMMIT;
