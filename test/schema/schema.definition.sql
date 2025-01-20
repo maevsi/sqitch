@@ -730,7 +730,6 @@ SET default_table_access_method = heap;
 
 CREATE TABLE maevsi.event (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     author_account_id uuid NOT NULL,
     description text,
     "end" timestamp with time zone,
@@ -744,6 +743,7 @@ CREATE TABLE maevsi.event (
     start timestamp with time zone NOT NULL,
     url text,
     visibility maevsi.event_visibility NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_invitee_count_maximum_check CHECK ((invitee_count_maximum > 0)),
     CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
@@ -768,14 +768,6 @@ COMMENT ON TABLE maevsi.event IS 'An event.';
 
 COMMENT ON COLUMN maevsi.event.id IS '@omit create,update
 The event''s internal id.';
-
-
---
--- Name: COLUMN event.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event.created_at IS '@omit create,update
-Timestamp of when the event was created, defaults to the current timestamp.';
 
 
 --
@@ -867,6 +859,14 @@ COMMENT ON COLUMN maevsi.event.url IS 'The event''s unified resource locator.';
 --
 
 COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
+
+
+--
+-- Name: COLUMN event.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.created_at IS '@omit create,update
+Timestamp of when the event was created, defaults to the current timestamp.';
 
 
 --
@@ -1539,12 +1539,12 @@ COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller 
 
 CREATE TABLE maevsi.upload (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid NOT NULL,
     name text,
     size_byte bigint NOT NULL,
     storage_key text,
     type text DEFAULT 'image'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
@@ -1565,14 +1565,6 @@ COMMENT ON TABLE maevsi.upload IS 'An upload.';
 
 COMMENT ON COLUMN maevsi.upload.id IS '@omit create,update
 The upload''s internal id.';
-
-
---
--- Name: COLUMN upload.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.upload.created_at IS '@omit create,update
-Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
 --
@@ -1608,6 +1600,14 @@ COMMENT ON COLUMN maevsi.upload.storage_key IS 'The upload''s storage key.';
 --
 
 COMMENT ON COLUMN maevsi.upload.type IS 'The type of the uploaded file, default is ''image''.';
+
+
+--
+-- Name: COLUMN upload.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.upload.created_at IS '@omit create,update
+Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
 --
@@ -2243,9 +2243,9 @@ COMMENT ON COLUMN maevsi.account_interest.category IS 'An event category.';
 --
 
 CREATE TABLE maevsi.account_preference_event_size (
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid NOT NULL,
-    event_size maevsi.event_size NOT NULL
+    event_size maevsi.event_size NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -2256,14 +2256,6 @@ ALTER TABLE maevsi.account_preference_event_size OWNER TO postgres;
 --
 
 COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
-
-
---
--- Name: COLUMN account_preference_event_size.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.account_preference_event_size.created_at IS '@omit create,update
-Timestamp of when the event size preference was created, defaults to the current timestamp.';
 
 
 --
@@ -2278,6 +2270,14 @@ COMMENT ON COLUMN maevsi.account_preference_event_size.account_id IS 'The accoun
 --
 
 COMMENT ON COLUMN maevsi.account_preference_event_size.event_size IS 'A preferred event sized';
+
+
+--
+-- Name: COLUMN account_preference_event_size.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_preference_event_size.created_at IS '@omit create,update
+Timestamp of when the event size preference was created, defaults to the current timestamp.';
 
 
 --
@@ -2377,7 +2377,6 @@ COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.'
 
 CREATE TABLE maevsi.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid,
     address text,
     author_account_id uuid NOT NULL,
@@ -2390,6 +2389,7 @@ CREATE TABLE maevsi.contact (
     phone_number text,
     timezone text,
     url text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
@@ -2416,14 +2416,6 @@ COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 
 COMMENT ON COLUMN maevsi.contact.id IS '@omit create,update
 The contact''s internal id.';
-
-
---
--- Name: COLUMN contact.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
-Timestamp of when the contact was created, defaults to the current timestamp.';
 
 
 --
@@ -2509,6 +2501,14 @@ COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, 
 --
 
 COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
+
+
+--
+-- Name: COLUMN contact.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
+Timestamp of when the contact was created, defaults to the current timestamp.';
 
 
 --
@@ -2608,12 +2608,12 @@ COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which t
 
 CREATE TABLE maevsi.event_group (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     author_account_id uuid NOT NULL,
     description text,
     is_archived boolean DEFAULT false NOT NULL,
     name text NOT NULL,
     slug text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT event_group_description_check CHECK ((char_length(description) < 1000000)),
     CONSTRAINT event_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_group_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text)))
@@ -2635,14 +2635,6 @@ COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 
 COMMENT ON COLUMN maevsi.event_group.id IS '@omit create,update
 The event group''s internal id.';
-
-
---
--- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
-Timestamp of when the event group was created, defaults to the current timestamp.';
 
 
 --
@@ -2679,6 +2671,14 @@ COMMENT ON COLUMN maevsi.event_group.name IS 'The event group''s name.';
 
 COMMENT ON COLUMN maevsi.event_group.slug IS '@omit create,update
 The event group''s name, slugified.';
+
+
+--
+-- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
+Timestamp of when the event group was created, defaults to the current timestamp.';
 
 
 --
@@ -2822,13 +2822,13 @@ The internal id of the uploaded content.';
 
 CREATE TABLE maevsi.invitation (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid,
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
     feedback maevsi.invitation_feedback,
-    feedback_paper maevsi.invitation_feedback_paper
+    feedback_paper maevsi.invitation_feedback_paper,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
 );
 
 
@@ -2847,30 +2847,6 @@ COMMENT ON TABLE maevsi.invitation IS 'An invitation for a contact. A bidirectio
 
 COMMENT ON COLUMN maevsi.invitation.id IS '@omit create,update
 The invitations''s internal id.';
-
-
---
--- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create,update
-Timestamp of when the invitation was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create,update
-Timestamp of when the invitation was last updated.';
-
-
---
--- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create,update
-The id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
 
 
 --
@@ -2899,6 +2875,30 @@ COMMENT ON COLUMN maevsi.invitation.feedback IS 'The invitation''s general feedb
 --
 
 COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper feedback status.';
+
+
+--
+-- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create,update
+Timestamp of when the invitation was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create,update
+Timestamp of when the invitation was last updated.';
+
+
+--
+-- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create,update
+The id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
 
 
 --
@@ -2955,10 +2955,10 @@ COMMENT ON VIEW maevsi.invitation_flat IS 'View returning flattened invitations.
 
 CREATE TABLE maevsi.legal_term (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     language character varying(5) DEFAULT 'en'::character varying NOT NULL,
     term text NOT NULL,
     version character varying(20) NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT legal_term_language_check CHECK (((language)::text ~ '^[a-z]{2}(_[A-Z]{2})?$'::text)),
     CONSTRAINT legal_term_term_check CHECK (((char_length(term) > 0) AND (char_length(term) <= 500000))),
     CONSTRAINT legal_term_version_check CHECK (((version)::text ~ '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'::text))
@@ -2983,13 +2983,6 @@ COMMENT ON COLUMN maevsi.legal_term.id IS 'Unique identifier for each legal term
 
 
 --
--- Name: COLUMN legal_term.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
-
-
---
 -- Name: COLUMN legal_term.language; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -3011,14 +3004,21 @@ COMMENT ON COLUMN maevsi.legal_term.version IS 'Semantic versioning string to tr
 
 
 --
+-- Name: COLUMN legal_term.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
+
+
+--
 -- Name: legal_term_acceptance; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.legal_term_acceptance (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     account_id uuid NOT NULL,
-    legal_term_id uuid NOT NULL
+    legal_term_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -3040,14 +3040,6 @@ Unique identifier for this legal term acceptance record. Automatically generated
 
 
 --
--- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.legal_term_acceptance.created_at IS '@omit create
-Timestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
-
-
---
 -- Name: COLUMN legal_term_acceptance.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -3059,6 +3051,14 @@ COMMENT ON COLUMN maevsi.legal_term_acceptance.account_id IS 'The user account I
 --
 
 COMMENT ON COLUMN maevsi.legal_term_acceptance.legal_term_id IS 'The ID of the legal terms that were accepted. Deletion of these legal terms is restricted while they are still referenced in this table.';
+
+
+--
+-- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.legal_term_acceptance.created_at IS '@omit create
+Timestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
 
 
 --
@@ -3109,12 +3109,12 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 CREATE TABLE maevsi.report (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     author_account_id uuid NOT NULL,
     reason text NOT NULL,
     target_account_id uuid,
     target_event_id uuid,
     target_upload_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
     CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
 );
@@ -3136,14 +3136,6 @@ Stores reports made by users on other users, events, or uploads for moderation p
 
 COMMENT ON COLUMN maevsi.report.id IS '@omit create
 Unique identifier for the report, generated randomly using UUIDs.';
-
-
---
--- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
-Timestamp of when the report was created, defaults to the current timestamp.';
 
 
 --
@@ -3182,6 +3174,14 @@ COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being 
 
 
 --
+-- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
+Timestamp of when the report was created, defaults to the current timestamp.';
+
+
+--
 -- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -3202,15 +3202,15 @@ COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reaso
 CREATE TABLE maevsi_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     birth_date date,
-    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
     email_address_verification_valid_until timestamp without time zone,
-    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp without time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
+    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
 
@@ -3239,13 +3239,6 @@ COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s dat
 
 
 --
--- Name: COLUMN account.created; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.account.created IS 'Timestamp at which the account was last active.';
-
-
---
 -- Name: COLUMN account.email_address; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -3264,13 +3257,6 @@ COMMENT ON COLUMN maevsi_private.account.email_address_verification IS 'The UUID
 --
 
 COMMENT ON COLUMN maevsi_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
-
-
---
--- Name: COLUMN account.last_activity; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
 
 
 --
@@ -3299,6 +3285,20 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
+
+
+--
+-- Name: COLUMN account.created; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.created IS 'Timestamp at which the account was last active.';
+
+
+--
+-- Name: COLUMN account.last_activity; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
 
 
 --
