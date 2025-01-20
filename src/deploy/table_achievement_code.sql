@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE TABLE maevsi_private.achievement_code (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   alias       TEXT NOT NULL CHECK (char_length(alias) < 1000) UNIQUE,
   achievement maevsi.achievement_type NOT NULL
 );

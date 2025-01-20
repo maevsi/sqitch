@@ -2,7 +2,6 @@ BEGIN;
 
 CREATE TABLE maevsi.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
   account_id            UUID REFERENCES maevsi.account(id),
   address               TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
@@ -17,12 +16,13 @@ CREATE TABLE maevsi.contact (
   timezone              TEXT CHECK (timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'),
   url                   TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
 
+  created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
   UNIQUE (author_account_id, account_id)
 );
 
 COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 COMMENT ON COLUMN maevsi.contact.id IS E'@omit create,update\nThe contact''s internal id.';
-COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp of when the contact was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
 COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
 COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
@@ -35,6 +35,7 @@ COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
 COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
 COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
 COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
+COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp of when the contact was created, defaults to the current timestamp.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_contact_policy`.
 
