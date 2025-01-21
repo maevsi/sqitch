@@ -9,7 +9,7 @@ CREATE TABLE maevsi_private.account (
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
   email_address_verification_valid_until     TIMESTAMP WITH TIME ZONE,
   last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  location_id                                UUID REFERENCES maevsi.location(id),
+  location                                   maevsi.GEOMETRY(Point, 4839),
   password_hash                              TEXT NOT NULL,
   password_reset_verification                UUID,
   password_reset_verification_valid_until    TIMESTAMP WITH TIME ZONE,
@@ -24,7 +24,7 @@ COMMENT ON COLUMN maevsi_private.account.email_address IS 'The account''s email 
 COMMENT ON COLUMN maevsi_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';
 COMMENT ON COLUMN maevsi_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
 COMMENT ON COLUMN maevsi_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
-COMMENT ON COLUMN maevsi_private.account.location_id IS 'Reference to the account''s location data.';
+COMMENT ON COLUMN maevsi_private.account.location IS 'The account''s geometric location.';
 COMMENT ON COLUMN maevsi_private.account.password_hash IS 'The account''s password, hashed and salted.';
 COMMENT ON COLUMN maevsi_private.account.password_reset_verification IS 'The UUID used to reset a password, or null if there is no pending reset request.';
 COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until IS 'The timestamp until which a password reset is valid.';

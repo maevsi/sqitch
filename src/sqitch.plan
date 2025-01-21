@@ -15,8 +15,7 @@ function_invoker_account_id [privilege_execute_revoke schema_public role_account
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
 enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public, private.
 table_notification [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
-table_location [schema_public role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Location data based on GPS coordinates
-function_distance [schema_public role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Calculates distance betwenn two GPS points.
+extension_postgis [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add functions to work with geospatial data.
 table_account_private [schema_private schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add private table account.
 table_account_public [schema_public schema_private table_account_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add public table account.
 table_account_block [schema_public table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Blocking of an account by another account.
@@ -94,4 +93,6 @@ table_event_recommendation_policy [schema_public table_event_recommendation role
 table_event_favourite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favourite events.
 table_event_favourite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favourite.
 test_account_blocking [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.
-extension_postgis [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add functions to work with geospatial data.
+index_account_location [schema_private extension_postgis table_account_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Spacial index on location column in table maevsi_private.account.
+index_event_location [schema_public extension_postgis table_account_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Spacial index on location_geometry column in table maevsi.event.
+function_package_location [schema_public schema_private extension_postgis table_account_private table_event role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A collection of location related functions.
