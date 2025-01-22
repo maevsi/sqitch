@@ -26,7 +26,7 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET
-      password_hash = maevsi.crypt($2, maevsi.gen_salt('bf')),
+      password_hash = public.crypt($2, public.gen_salt('bf')),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = $1;
 END;
