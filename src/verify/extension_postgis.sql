@@ -1,21 +1,21 @@
 BEGIN;
 
 SELECT 1/count(*) FROM pg_extension WHERE extname = 'postgis';
-SELECT has_function_privilege('maevsi.ST_DWithin(maevsi.geometry, maevsi.geometry, double precision)', 'EXECUTE');
+SELECT has_function_privilege('public.ST_DWithin(public.geometry, public.geometry, double precision)', 'EXECUTE');
 
 SAVEPOINT function_privileges_for_roles;
 DO $$
 DECLARE
   functions TEXT[] := ARRAY[
-    'maevsi.geometry(maevsi.GEOMETRY, INTEGER, BOOLEAN)',
-    'maevsi.geometry(TEXT)',
-    'maevsi.geometrytype(maevsi.GEOMETRY)',
-    'maevsi.postgis_type_name(CHARACTER VARYING, INTEGER, BOOLEAN)',
-    'maevsi.st_asgeojson(maevsi.GEOMETRY, INTEGER, INTEGER)',
-    'maevsi.st_coorddim(maevsi.GEOMETRY)',
-    'maevsi.st_geomfromgeojson(TEXT)',
-    'maevsi.st_srid(maevsi.GEOMETRY)',
-    'maevsi.text(maevsi.GEOMETRY)'
+    'public.geometry(public.GEOMETRY, INTEGER, BOOLEAN)',
+    'public.geometry(TEXT)',
+    'public.geometrytype(public.GEOMETRY)',
+    'public.postgis_type_name(CHARACTER VARYING, INTEGER, BOOLEAN)',
+    'public.st_asgeojson(public.GEOMETRY, INTEGER, INTEGER)',
+    'public.st_coorddim(public.GEOMETRY)',
+    'public.st_geomfromgeojson(TEXT)',
+    'public.st_srid(public.GEOMETRY)',
+    'public.text(public.GEOMETRY)'
   ];
   roles TEXT[] := ARRAY['maevsi_account', 'maevsi_anonymous'];
   function TEXT;

@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE EXTENSION pgcrypto WITH SCHEMA maevsi;
+CREATE EXTENSION pgcrypto WITH SCHEMA public;
 
 COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
 

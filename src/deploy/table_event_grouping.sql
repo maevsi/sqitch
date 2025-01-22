@@ -2,8 +2,10 @@ BEGIN;
 
 CREATE TABLE maevsi.event_grouping (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   event_group_id    UUID NOT NULL REFERENCES maevsi.event_group(id),
   event_id          UUID NOT NULL REFERENCES maevsi.event(id),
+
   UNIQUE (event_id, event_group_id)
 );
 

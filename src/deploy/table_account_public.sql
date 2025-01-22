@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE TABLE maevsi.account (
   id        UUID PRIMARY KEY REFERENCES maevsi_private.account(id) ON DELETE CASCADE,
+
   username  TEXT NOT NULL CHECK (char_length(username) < 100 AND username ~ '^[-A-Za-z0-9]+$') UNIQUE
 );
 
