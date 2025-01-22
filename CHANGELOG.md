@@ -1,3 +1,9 @@
+## [4.13.1](https://github.com/maevsi/sqitch/compare/4.13.0...4.13.1) (2025-01-22)
+
+### Bug Fixes
+
+* **invoker-account-id:** grant execute for tusd ([#123](https://github.com/maevsi/sqitch/issues/123)) ([7245225](https://github.com/maevsi/sqitch/commit/7245225527b7f98a76d881863c574c862254defd))
+
 ## [4.13.0](https://github.com/maevsi/sqitch/compare/4.12.0...4.13.0) (2025-01-16)
 
 ### Features
