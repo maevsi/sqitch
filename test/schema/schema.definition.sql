@@ -319,11 +319,11 @@ BEGIN
   -- return account locations within a given radius around the location of an event
   RETURN QUERY
     WITH e AS (
-      SELECT location_geometry FROM maevsi.event WHERE id = _event_id
+      SELECT location_geography FROM maevsi.event WHERE id = _event_id
     )
-    SELECT a.id as account_id,  maevsi.ST_Distance(e.location_geometry, a.location) distance
+    SELECT a.id as account_id,  maevsi.ST_Distance(e.location_geography, a.location) distance
     FROM e, maevsi_private.account a
-    WHERE maevsi.ST_DWithin(e.location_geometry, a.location, _max_distance * 1000);
+    WHERE maevsi.ST_DWithin(e.location_geography, a.location, _max_distance * 1000);
 END; $$;
 
 
@@ -386,7 +386,7 @@ BEGIN
   -- SRID 4839: "ETRS89 / LCC Germany (N-E)", see https://www.crs-geo.eu/crs-pan-european.htm
   -- SRID 4326: "WGS 84" (default SRID)
   UPDATE maevsi_private.account SET
-    location =  maevsi.ST_Transform( maevsi.ST_Point(_longitude, _latitude, 4326), 4839)
+    location = maevsi.ST_Point(_longitude, _latitude, 4326)
   WHERE id = _account_id;
 END; $$;
 
@@ -806,7 +806,7 @@ CREATE TABLE maevsi.event (
     is_in_person boolean,
     is_remote boolean,
     location text,
-    location_geometry maevsi.geometry(Point,4839),
+    location_geography maevsi.geography(Point,4326),
     name text NOT NULL,
     slug text NOT NULL,
     start timestamp with time zone NOT NULL,
@@ -903,10 +903,10 @@ COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be s
 
 
 --
--- Name: COLUMN event.location_geometry; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.location_geography; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.location_geometry IS 'The event''s geometric location.';
+COMMENT ON COLUMN maevsi.event.location_geography IS 'The event''s geographic location.';
 
 
 --
@@ -998,9 +998,9 @@ BEGIN
     WITH a AS (
       SELECT location FROM maevsi_private.account WHERE id = _account_id
     )
-    SELECT e.id as event_id, maevsi.ST_Distance(a.location, e.location_geometry) distance
+    SELECT e.id as event_id, maevsi.ST_Distance(a.location, e.location_geography) distance
     FROM a, maevsi.event e
-    WHERE maevsi.ST_DWithin(a.location, e.location_geometry, _max_distance * 1000);
+    WHERE maevsi.ST_DWithin(a.location, e.location_geography, _max_distance * 1000);
 END; $$;
 
 
@@ -1094,7 +1094,7 @@ BEGIN
   -- SRID 4839: "ETRS89 / LCC Germany (N-E)", see https://www.crs-geo.eu/crs-pan-european.htm
   -- SRID 4326: "WGS 84" (default SRID)
   UPDATE maevsi.event SET
-    location_geometry =  maevsi.ST_Transform( maevsi.ST_Point(_longitude, _latitude, 4326), 4839)
+    location_geography = maevsi.ST_Point(_longitude, _latitude, 4326)
   WHERE id = _event_id;
 END; $$;
 
@@ -1219,10 +1219,11 @@ DECLARE
   _latitude DOUBLE PRECISION;
   _longitude DOUBLE PRECISION;
 BEGIN
-  SELECT  maevsi.ST_Y( maevsi.ST_Transform(location, 4326)),  maevsi.ST_X( maevsi.ST_Transform(location, 4326))
+  SELECT maevsi.ST_Y(location::maevsi.geometry), maevsi.ST_X(location::maevsi.geometry)
   INTO _latitude, _longitude
   FROM maevsi_private.account
   WHERE id = _account_id;
+
   RETURN ARRAY[_latitude, _longitude];
 END; $$;
 
@@ -1247,7 +1248,7 @@ DECLARE
   _latitude DOUBLE PRECISION;
   _longitude DOUBLE PRECISION;
 BEGIN
-  SELECT  maevsi.ST_Y( maevsi.ST_Transform(location_geometry, 4326)),  maevsi.ST_X( maevsi.ST_Transform(location_geometry, 4326))
+  SELECT maevsi.ST_Y(location_geography::maevsi.geometry), maevsi.ST_X(location_geography::maevsi.geometry)
   INTO _latitude, _longitude
   FROM maevsi.event
   WHERE id = _event_id;
@@ -3390,7 +3391,7 @@ CREATE TABLE maevsi_private.account (
     email_address_verification uuid DEFAULT gen_random_uuid(),
     email_address_verification_valid_until timestamp with time zone,
     last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    location maevsi.geometry(Point,4839),
+    location maevsi.geography(Point,4326),
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp with time zone,
@@ -4595,7 +4596,7 @@ COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'Speeds up reverse foreig
 -- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geometry);
+CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 
 
 --
@@ -5820,6 +5821,8 @@ REVOKE ALL ON FUNCTION maevsi.geography(maevsi.geometry) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.geometry(maevsi.geometry, integer, boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.geometry(maevsi.geometry, integer, boolean) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.geometry(maevsi.geometry, integer, boolean) TO maevsi_account;
 
 
 --
@@ -9523,6 +9526,8 @@ REVOKE ALL ON FUNCTION maevsi.st_geomfromgeojson(jsonb) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.st_geomfromgeojson(text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.st_geomfromgeojson(text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.st_geomfromgeojson(text) TO maevsi_account;
 
 
 --

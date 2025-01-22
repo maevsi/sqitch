@@ -9,7 +9,7 @@ CREATE TABLE maevsi_private.account (
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
   email_address_verification_valid_until     TIMESTAMP WITH TIME ZONE,
   last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  location                                   maevsi.GEOMETRY(Point, 4839),
+  location                                   maevsi.GEOGRAPHY(Point, 4326),
   password_hash                              TEXT NOT NULL,
   password_reset_verification                UUID,
   password_reset_verification_valid_until    TIMESTAMP WITH TIME ZONE,

@@ -7,11 +7,13 @@ SAVEPOINT function_privileges_for_roles;
 DO $$
 DECLARE
   functions TEXT[] := ARRAY[
+    'maevsi.geometry(maevsi.GEOMETRY, INTEGER, BOOLEAN)',
     'maevsi.geometry(TEXT)',
     'maevsi.geometrytype(maevsi.GEOMETRY)',
     'maevsi.postgis_type_name(CHARACTER VARYING, INTEGER, BOOLEAN)',
     'maevsi.st_asgeojson(maevsi.GEOMETRY, INTEGER, INTEGER)',
     'maevsi.st_coorddim(maevsi.GEOMETRY)',
+    'maevsi.st_geomfromgeojson(TEXT)',
     'maevsi.st_srid(maevsi.GEOMETRY)',
     'maevsi.text(maevsi.GEOMETRY)'
   ];
