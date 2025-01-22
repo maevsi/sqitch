@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION maevsi_private.language_iso_full_text_search(language maevsi.language)
+CREATE FUNCTION maevsi.language_iso_full_text_search(language maevsi.language)
 RETURNS regconfig AS $$
 BEGIN
   CASE language
@@ -33,4 +33,8 @@ BEGIN
     ELSE RETURN 'simple';
   END CASE;
 END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+$$ LANGUAGE PLPGSQL STABLE SECURITY DEFINER;
+
+COMMENT ON FUNCTION maevsi.language_iso_full_text_search(maevsi.language) IS 'Maps an ISO language code to the corresponding PostgreSQL text search configuration. This function returns the appropriate text search configuration for supported languages, such as "german" for "de" and "english" for "en". If the language code is not explicitly handled, the function defaults to the "simple" configuration, which is a basic tokenizer that does not perform stemming or handle stop words. This ensures that full-text search can work with a wide range of languages even if specific optimizations are not available for some.';
+
+GRANT EXECUTE ON FUNCTION maevsi.language_iso_full_text_search(maevsi.language) TO maevsi_anonymous, maevsi_account;

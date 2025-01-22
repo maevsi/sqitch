@@ -40,7 +40,7 @@ COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with 
 COMMENT ON COLUMN maevsi.event.url IS 'The event''s unified resource locator.';
 COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
-COMMENT ON COLUMN maevsi.event.search_vector IS E'@omit read\nA vector used for full-text search on events.';
+COMMENT ON COLUMN maevsi.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
 
 CREATE INDEX idx_event_search_vector ON maevsi.event USING GIN(search_vector);
 
@@ -48,7 +48,7 @@ CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS TRIGGER AS $$
 DECLARE
   ts_config regconfig;
 BEGIN
-  ts_config := maevsi_private.language_iso_full_text_search(NEW.language);
+  ts_config := maevsi.language_iso_full_text_search(NEW.language);
 
   NEW.search_vector :=
     setweight(to_tsvector(ts_config, coalesce(NEW.name, '')), 'A') ||

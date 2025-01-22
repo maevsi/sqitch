@@ -3,25 +3,23 @@ BEGIN;
 CREATE FUNCTION maevsi.event_search(
   query TEXT,
   language maevsi.language
-) RETURNS TABLE(
-  event_id UUID
-) AS $$
+) RETURNS SETOF maevsi.event AS $$
 DECLARE
-  ts_config TEXT;
+  ts_config regconfig;
 BEGIN
-  ts_config := maevsi_private.language_iso_full_text_search(event_search.language);
+  ts_config := maevsi.language_iso_full_text_search(event_search.language);
 
   RETURN QUERY
   SELECT
-    id
+    *
   FROM
-    event
+    maevsi.event
   WHERE
-    search_vector @@ plainto_tsquery(ts_config, event_search.query)
+    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
   ORDER BY
-    ts_rank_cd(search_vector, plainto_tsquery(ts_config, event_search.query)) DESC;
+    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$ LANGUAGE PLPGSQL STABLE SECURITY INVOKER;
 
 COMMENT ON FUNCTION maevsi.event_search(TEXT, maevsi.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
 
