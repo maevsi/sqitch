@@ -33,7 +33,7 @@ BEGIN
         FROM maevsi_private.account
         WHERE
               account.id = _account_id
-          AND account.password_hash = maevsi.crypt(authenticate.password, account.password_hash)
+          AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
@@ -44,7 +44,7 @@ BEGIN
       WHERE
             account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = maevsi.crypt(authenticate.password, account.password_hash)
+        AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
       RETURNING *
     ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
