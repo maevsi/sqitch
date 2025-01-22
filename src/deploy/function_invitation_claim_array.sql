@@ -12,16 +12,17 @@ BEGIN
   IF _invitation_ids IS NOT NULL THEN
     FOREACH _invitation_id IN ARRAY _invitation_ids
     LOOP
-      -- omit invitations authored by a blocked account
-      IF NOT EXISTS(
-        SELECT 1
-        FROM maevsi.invitation i
-        JOIN maevsi.contact c ON i.contact_id = c.contact_id
-        JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
-       WHERE i.id = _invitation_id AND b.author_account_id = maevsi.invoker_account_id()
-      ) THEN
-        _invitation_ids_unblocked := append_invitation_array(result_invitation_ids, _invitation_id);
-      END IF;
+      -- omit invitations to events authored by an account blocked by the current user
+      IF EXISTS (
+	      SELECT 1
+	      FROM maevsi.invitation i
+	        JOIN maevsi.event e ON i.event_id = e.id
+	      WHERE i.id = _invitation_id and e.author_account_id NOT IN (
+            SELECT id FROM maevsi.accounts_blocked()
+          )
+	    ) THEN
+        _invitation_ids_unblocked := array_append(_invitation_ids_unblocked, _invitation_id);
+	    END IF;
     END LOOP;
   END IF;
   RETURN _invitation_ids_unblocked;

@@ -18,13 +18,7 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
       invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
     )
     AND author_account_id NOT IN (
-      SELECT blocked_account_id
-      FROM maevsi.account_block
-      WHERE author_account_id = maevsi.invoker_account_id()
-      UNION ALL
-      SELECT author_account_id
-      FROM maevsi.account_block
-      WHERE blocked_account_id = maevsi.invoker_account_id()
+      SELECT id FROM maevsi.accounts_blocked()
     )
   )
   OR (
@@ -46,6 +40,11 @@ CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (
   maevsi.invoker_account_id() IS NOT NULL
   AND
+  author_account_id = maevsi.invoker_account_id()
+);
+
+-- Only allow deletes for events authored by the current user.
+CREATE POLICY event_delete ON maevsi.event FOR DELETE USING (
   author_account_id = maevsi.invoker_account_id()
 );
 

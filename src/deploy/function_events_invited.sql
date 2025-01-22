@@ -19,21 +19,13 @@ BEGIN
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = jwt_account_id -- if `jwt_account_id` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id() -- if `maevsi.invoker_account_id()` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
             -- who is not invited by
             author_account_id NOT IN (
-              -- a user who the invitee blocked
-              SELECT blocked_account_id
-              FROM maevsi.account_block
-              WHERE author_account_id = jwt_account_id
-              UNION ALL
-              -- or who has blocked the invitee
-              SELECT author_account_id
-              FROM maevsi.account_block
-              WHERE blocked_account_id = jwt_account_id
-            ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
-      )
+              SELECT id FROM maevsi.accounts_blocked()
+            )
+      ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
     )
     OR
       -- for which the requesting user knows the id
