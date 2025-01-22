@@ -5862,6 +5862,8 @@ REVOKE ALL ON FUNCTION maevsi.polygon(maevsi.geometry) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.text(maevsi.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.text(maevsi.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.text(maevsi.geometry) TO maevsi_account;
 
 
 --
@@ -5890,6 +5892,8 @@ REVOKE ALL ON FUNCTION maevsi.geometry(polygon) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.geometry(text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.geometry(text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.geometry(text) TO maevsi_account;
 
 
 --
@@ -7256,6 +7260,8 @@ REVOKE ALL ON FUNCTION maevsi.geometrytype(maevsi.geography) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.geometrytype(maevsi.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.geometrytype(maevsi.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.geometrytype(maevsi.geometry) TO maevsi_account;
 
 
 --
@@ -8103,6 +8109,8 @@ REVOKE ALL ON FUNCTION maevsi.postgis_transform_pipeline_geometry(geom maevsi.ge
 --
 
 REVOKE ALL ON FUNCTION maevsi.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) TO maevsi_account;
 
 
 --
@@ -8412,6 +8420,8 @@ REVOKE ALL ON FUNCTION maevsi.st_asgeojson(geog maevsi.geography, maxdecimaldigi
 --
 
 REVOKE ALL ON FUNCTION maevsi.st_asgeojson(geom maevsi.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.st_asgeojson(geom maevsi.geometry, maxdecimaldigits integer, options integer) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.st_asgeojson(geom maevsi.geometry, maxdecimaldigits integer, options integer) TO maevsi_account;
 
 
 --
@@ -8902,6 +8912,8 @@ REVOKE ALL ON FUNCTION maevsi.st_convexhull(maevsi.geometry) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.st_coorddim(geometry maevsi.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.st_coorddim(geometry maevsi.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.st_coorddim(geometry maevsi.geometry) TO maevsi_account;
 
 
 --
@@ -11016,6 +11028,8 @@ REVOKE ALL ON FUNCTION maevsi.st_srid(geog maevsi.geography) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi.st_srid(geom maevsi.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.st_srid(geom maevsi.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.st_srid(geom maevsi.geometry) TO maevsi_account;
 
 
 --
