@@ -5814,6 +5814,8 @@ REVOKE ALL ON FUNCTION public.bytea(public.geometry) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.geography(public.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.geography(public.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.geography(public.geometry) TO maevsi_account;
 
 
 --
@@ -5821,8 +5823,6 @@ REVOKE ALL ON FUNCTION public.geography(public.geometry) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.geometry(public.geometry, integer, boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.geometry(public.geometry, integer, boolean) TO maevsi_anonymous;
-GRANT ALL ON FUNCTION public.geometry(public.geometry, integer, boolean) TO maevsi_account;
 
 
 --
@@ -5865,8 +5865,6 @@ REVOKE ALL ON FUNCTION public.polygon(public.geometry) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.text(public.geometry) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.text(public.geometry) TO maevsi_anonymous;
-GRANT ALL ON FUNCTION public.text(public.geometry) TO maevsi_account;
 
 
 --
@@ -7505,6 +7503,8 @@ REVOKE ALL ON FUNCTION public.geometry_within_nd(public.geometry, public.geometr
 --
 
 REVOKE ALL ON FUNCTION public.geometrytype(public.geography) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.geometrytype(public.geography) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.geometrytype(public.geography) TO maevsi_account;
 
 
 --
@@ -7512,8 +7512,6 @@ REVOKE ALL ON FUNCTION public.geometrytype(public.geography) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.geometrytype(public.geometry) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.geometrytype(public.geometry) TO maevsi_anonymous;
-GRANT ALL ON FUNCTION public.geometrytype(public.geometry) TO maevsi_account;
 
 
 --
@@ -8573,6 +8571,8 @@ REVOKE ALL ON FUNCTION public.st_asgeojson(text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer) TO maevsi_account;
 
 
 --
@@ -8580,8 +8580,6 @@ REVOKE ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigi
 --
 
 REVOKE ALL ON FUNCTION public.st_asgeojson(geom public.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.st_asgeojson(geom public.geometry, maxdecimaldigits integer, options integer) TO maevsi_anonymous;
-GRANT ALL ON FUNCTION public.st_asgeojson(geom public.geometry, maxdecimaldigits integer, options integer) TO maevsi_account;
 
 
 --
@@ -11183,6 +11181,8 @@ REVOKE ALL ON FUNCTION public.st_squaregrid(size double precision, bounds public
 --
 
 REVOKE ALL ON FUNCTION public.st_srid(geog public.geography) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.st_srid(geog public.geography) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.st_srid(geog public.geography) TO maevsi_account;
 
 
 --
@@ -11190,8 +11190,6 @@ REVOKE ALL ON FUNCTION public.st_srid(geog public.geography) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.st_srid(geom public.geometry) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.st_srid(geom public.geometry) TO maevsi_anonymous;
-GRANT ALL ON FUNCTION public.st_srid(geom public.geometry) TO maevsi_account;
 
 
 --

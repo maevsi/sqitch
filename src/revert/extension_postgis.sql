@@ -1,15 +1,14 @@
 BEGIN;
 
 REVOKE EXECUTE ON FUNCTION
-  public.text(public.geometry),
-  public.st_srid(public.geometry),
+  public.st_srid(public.geography),
   public.st_geomfromgeojson(text),
   public.st_coorddim(public.geometry),
-  public.st_asgeojson(public.geometry, integer, integer),
+  public.st_asgeojson(public.geography, integer, integer),
   public.postgis_type_name(character varying, integer, boolean),
-  public.geometrytype(public.geometry),
+  public.geometrytype(public.geography),
   public.geometry(text),
-  public.geometry(public.geometry, integer, boolean)
+  public.geography(public.geometry)
 FROM maevsi_anonymous, maevsi_account;
 
 DROP EXTENSION postgis;
