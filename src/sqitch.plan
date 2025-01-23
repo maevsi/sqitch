@@ -11,7 +11,7 @@ schema_public [role_anonymous role_account role_tusd] 1970-01-01T00:00:00Z Jonas
 schema_private 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add private schema.
 schema_test 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add test schema.
 extension_pgcrypto [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add extension pgcrypto.
-function_invoker_account_id [privilege_execute_revoke schema_public role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Returns the session's account id.
+function_invoker_account_id [privilege_execute_revoke schema_public role_account role_anonymous role_tusd] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Returns the session's account id.
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
 enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public, private.
 table_notification [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.

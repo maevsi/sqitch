@@ -5866,6 +5866,7 @@ GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_anonymous;
 REVOKE ALL ON FUNCTION maevsi.invoker_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_tusd;
 
 
 --
