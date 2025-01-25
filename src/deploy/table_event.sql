@@ -12,6 +12,7 @@ CREATE TABLE maevsi.event (
   is_remote                BOOLEAN,
   language                 maevsi.language,
   location                 TEXT CHECK (char_length("location") > 0 AND char_length("location") < 300),
+  location_geography       GEOGRAPHY(Point, 4326),
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                     TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -34,6 +35,7 @@ COMMENT ON COLUMN maevsi.event.is_archived IS 'Indicates whether the event is ar
 COMMENT ON COLUMN maevsi.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes place remotely.';
 COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
+COMMENT ON COLUMN maevsi.event.location_geography IS 'The event''s geographic location.';
 COMMENT ON COLUMN maevsi.event.name IS 'The event''s name.';
 COMMENT ON COLUMN maevsi.event.slug IS 'The event''s name, slugified.';
 COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with timezone.';
