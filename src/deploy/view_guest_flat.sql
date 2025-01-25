@@ -1,11 +1,11 @@
 BEGIN;
-CREATE VIEW maevsi.invitation_flat WITH (security_invoker) AS
+CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
   SELECT
-    invitation.id               AS invitation_id,
-    invitation.contact_id       AS invitation_contact_id,
-    invitation.event_id         AS invitation_event_id,
-    invitation.feedback         AS invitation_feedback,
-    invitation.feedback_paper   AS invitation_feedback_paper,
+    guest.id               AS guest_id,
+    guest.contact_id       AS guest_contact_id,
+    guest.event_id         AS guest_event_id,
+    guest.feedback         AS guest_feedback,
+    guest.feedback_paper   AS guest_feedback_paper,
 
     contact.id                  AS contact_id,
     contact.account_id          AS contact_account_id,
@@ -23,7 +23,7 @@ CREATE VIEW maevsi.invitation_flat WITH (security_invoker) AS
     event.description           AS event_description,
     event.start                 AS event_start,
     event.end                   AS event_end,
-    event.invitee_count_maximum AS event_invitee_count_maximum,
+    event.guest_count_maximum   AS event_guest_count_maximum,
     event.is_archived           AS event_is_archived,
     event.is_in_person          AS event_is_in_person,
     event.is_remote             AS event_is_remote,
@@ -32,12 +32,12 @@ CREATE VIEW maevsi.invitation_flat WITH (security_invoker) AS
     event.slug                  AS event_slug,
     event.url                   AS event_url,
     event.visibility            AS event_visibility
-  FROM maevsi.invitation
-    JOIN maevsi.contact ON invitation.contact_id = contact.id
-    JOIN maevsi.event   ON invitation.event_id   = event.id;
+  FROM maevsi.guest
+    JOIN maevsi.contact ON guest.contact_id = contact.id
+    JOIN maevsi.event   ON guest.event_id   = event.id;
 
-COMMENT ON VIEW maevsi.invitation_flat IS 'View returning flattened invitations.';
+COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 
-GRANT SELECT ON maevsi.invitation_flat TO maevsi_account, maevsi_anonymous;
+GRANT SELECT ON maevsi.guest_flat TO maevsi_account, maevsi_anonymous;
 
 END;

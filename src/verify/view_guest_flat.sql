@@ -1,11 +1,11 @@
 BEGIN;
 
 SELECT
-  invitation_id,
-  invitation_contact_id,
-  invitation_event_id,
-  invitation_feedback,
-  invitation_feedback_paper,
+  guest_id,
+  guest_contact_id,
+  guest_event_id,
+  guest_feedback,
+  guest_feedback_paper,
   contact_id,
   contact_account_id,
   contact_address,
@@ -21,7 +21,7 @@ SELECT
   event_description,
   event_start,
   event_end,
-  event_invitee_count_maximum,
+  event_guest_count_maximum,
   event_is_archived,
   event_is_in_person,
   event_is_remote,
@@ -30,6 +30,6 @@ SELECT
   event_slug,
   event_url,
   event_visibility
-FROM maevsi.invitation_flat WHERE FALSE;
+FROM maevsi.guest_flat WHERE FALSE;
 
 ROLLBACK;
