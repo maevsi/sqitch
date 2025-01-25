@@ -182,7 +182,8 @@ ALTER TYPE maevsi.event_unlock_response OWNER TO postgres;
 
 CREATE TYPE maevsi.event_visibility AS ENUM (
     'public',
-    'private'
+    'private',
+    'unlisted'
 );
 
 
@@ -192,7 +193,7 @@ ALTER TYPE maevsi.event_visibility OWNER TO postgres;
 -- Name: TYPE event_visibility; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private.';
+COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private, unlisted.';
 
 
 --
