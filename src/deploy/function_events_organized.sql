@@ -2,17 +2,12 @@ BEGIN;
 
 CREATE FUNCTION maevsi.events_organized()
 RETURNS TABLE (event_id UUID) AS $$
-DECLARE
-  account_id UUID;
 BEGIN
-  account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
     SELECT id FROM maevsi.event
     WHERE
-      account_id IS NOT NULL
-      AND
-      "event".author_account_id = account_id;
+      author_account_id = maevsi.invoker_account_id();
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 

@@ -28,7 +28,8 @@ DECLARE
   invitationCA UUID;
   invitationCB UUID;
 
-  test_case TEXT;
+  invitationClaimArray UUID[];
+  invitationClaimArrayNew UUID[];
 
 BEGIN
 
@@ -114,6 +115,21 @@ BEGIN
   PERFORM maevsi_test.contact_test('anonymous login: A blocks B, contacts', null, ARRAY[]::UUID[]);
   PERFORM maevsi_test.invitation_test('anonymous login: A blocks B, invitations', null, ARRAY[]::UUID[]);
 
+  -- tests for function `invitation_claim_array()`
+
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  invitationClaimArray := maevsi.invitation_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim is unset', invitationClaimArray, ARRAY[]::UUID[]);
+
+  invitationClaimArray := maevsi_test.invitation_claim_from_account_invitation(accountA);
+  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim was added', invitationClaimArray, ARRAY[invitationBA, invitationCA]);
+
+  invitationClaimArrayNew := maevsi.invitation_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim includes data', invitationClaimArrayNew, invitationClaimArray);
+
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+  invitationClaimArrayNew := maevsi.invitation_claim_array();
+  PERFORM maevsi_test.uuid_array_test('A blocks B, invitation claim excludes blocked data', invitationClaimArrayNew, ARRAY[invitationCA]);
 END $$;
 
 ROLLBACK;
