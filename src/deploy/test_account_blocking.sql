@@ -275,11 +275,12 @@ BEGIN
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION maevsi_test.set_invitation_claims (
-  _account_id UUID)
+CREATE FUNCTION maevsi_test.invitation_claim_from_account_invitation (
+  _account_id UUID
+)
 RETURNS UUID[] AS $$
 DECLARE
-  rec RECORD;
+  _invitation maevsi.invitation;
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
@@ -290,14 +291,14 @@ BEGIN
   -- sets jwt.claims.invitations to a string representation of these invitations
   -- and returns an array of these invitations.
 
-  FOR rec IN
+  FOR _invitation IN
     SELECT i.id
     FROM maevsi.invitation i JOIN maevsi.contact c
       ON i.contact_id = c.id
     WHERE c.account_id = _account_id
   LOOP
-    _text := _text || ',"' || rec.id || '"';
-    _result := array_append(_result, rec.id);
+    _text := _text || ',"' || _invitation.id || '"';
+    _result := array_append(_result, _invitation.id);
   END LOOP;
 
   IF LENGTH(_text) > 0 THEN
@@ -309,18 +310,15 @@ BEGIN
   SET LOCAL role = 'postgres';
 
   RETURN _result;
-
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.check_uuid_array (
+CREATE OR REPLACE FUNCTION maevsi_test.uuid_array_test (
   _test_case TEXT,
   _array UUID[],
   _expected_array UUID[]
 )
 RETURNS VOID AS $$
 BEGIN
-  RAISE NOTICE '%', _test_case;
-
   IF EXISTS (SELECT * FROM unnest(_array) EXCEPT SELECT * FROM unnest(_expected_array)) THEN
     RAISE EXCEPTION 'some uuid should not appear in the array';
   END IF;
@@ -328,7 +326,6 @@ BEGIN
   IF EXISTS (SELECT * FROM unnest(_expected_array) EXCEPT SELECT * FROM unnest(_array)) THEN
     RAISE EXCEPTION 'some expected uuid is missing in the array';
   END IF;
-
 END $$ LANGUAGE plpgsql;
 
 COMMIT;

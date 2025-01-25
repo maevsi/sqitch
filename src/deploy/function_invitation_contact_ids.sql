@@ -24,11 +24,11 @@ BEGIN
               contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
             OR
               contact.account_id IN (
-                SELECT id FROM maevsi.accounts_blocked()
+                SELECT id FROM maevsi_private.account_block_ids()
               )
             OR
               contact.author_account_id IN (
-                SELECT id FROM maevsi.accounts_blocked()
+                SELECT id FROM maevsi_private.account_block_ids()
               )
         );
 END;

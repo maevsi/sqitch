@@ -115,28 +115,21 @@ BEGIN
   PERFORM maevsi_test.contact_test('anonymous login: A blocks B, contacts', null, ARRAY[]::UUID[]);
   PERFORM maevsi_test.invitation_test('anonymous login: A blocks B, invitations', null, ARRAY[]::UUID[]);
 
--- tests for function invitation_claim_array()
+  -- tests for function `invitation_claim_array()`
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-
   invitationClaimArray := maevsi.invitation_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim is unset', invitationClaimArray, ARRAY[]::UUID[]);
 
-  PERFORM maevsi_test.check_uuid_array('''jwt.claims.invitations'' is not set, test if initial invitation_claim_array is empty', invitationClaimArray, ARRAY[]::UUID[]);
-
-  invitationClaimArray := maevsi_test.set_invitation_claims(accountA);
-
-  PERFORM maevsi_test.check_uuid_array('initial invitation_claim_array', invitationClaimArray, ARRAY[invitationBA, invitationCA]);
+  invitationClaimArray := maevsi_test.invitation_claim_from_account_invitation(accountA);
+  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim was added', invitationClaimArray, ARRAY[invitationBA, invitationCA]);
 
   invitationClaimArrayNew := maevsi.invitation_claim_array();
-
-  PERFORM maevsi_test.check_uuid_array('no blocking, test invitation_claim_array()', invitationClaimArrayNew, invitationClaimArray);
+  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim includes data', invitationClaimArrayNew, invitationClaimArray);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
-
   invitationClaimArrayNew := maevsi.invitation_claim_array();
-
-  PERFORM maevsi_test.check_uuid_array('A blocks B, test invitation_claim_array()', invitationClaimArrayNew, ARRAY[invitationCA]);
-
+  PERFORM maevsi_test.uuid_array_test('A blocks B, invitation claim excludes blocked data', invitationClaimArrayNew, ARRAY[invitationCA]);
 END $$;
 
 ROLLBACK;

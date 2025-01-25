@@ -6,25 +6,25 @@ CREATE FUNCTION maevsi.event_invitee_count_maximum(
 BEGIN
   RETURN (
     SELECT invitee_count_maximum
-    FROM maevsi.event e
+    FROM maevsi.event
     WHERE
-      e.id = $1
+      id = $1
       AND ( -- Copied from `event_select` POLICY.
         (
-          e.visibility = 'public'
+          visibility = 'public'
           AND
           (
-            e.invitee_count_maximum IS NULL
+            invitee_count_maximum IS NULL
             OR
-            e.invitee_count_maximum > (maevsi.invitee_count(e.id)) -- Using the function here is required as there would otherwise be infinite recursion.
+            invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
           )
         )
         OR (
           maevsi.invoker_account_id() IS NOT NULL
           AND
-          e.author_account_id = maevsi.invoker_account_id()
+          author_account_id = maevsi.invoker_account_id()
         )
-        OR e.id IN (SELECT maevsi_private.events_invited())
+        OR id IN (SELECT maevsi_private.events_invited())
       )
   );
 END

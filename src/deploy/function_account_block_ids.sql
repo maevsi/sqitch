@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.accounts_blocked()
+CREATE FUNCTION maevsi_private.account_block_ids()
 RETURNS TABLE (id UUID) AS $$
 BEGIN
   RETURN QUERY
@@ -14,8 +14,8 @@ BEGIN
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.accounts_blocked() IS 'Returns all account ids being blocked by the invoker and all accounts that blocked the invoker.';
+COMMENT ON FUNCTION maevsi_private.account_block_ids() IS 'Returns all account ids being blocked by the invoker and all accounts that blocked the invoker.';
 
-GRANT EXECUTE ON FUNCTION maevsi.accounts_blocked() TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi_private.account_block_ids() TO maevsi_account, maevsi_anonymous;
 
 COMMIT;

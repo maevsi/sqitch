@@ -17,8 +17,8 @@ BEGIN
 	      SELECT 1
 	      FROM maevsi.invitation i
 	        JOIN maevsi.event e ON i.event_id = e.id
-	      WHERE i.id = _invitation_id and e.author_account_id NOT IN (
-            SELECT id FROM maevsi.accounts_blocked()
+	      WHERE i.id = _invitation_id AND e.author_account_id NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
           )
 	    ) THEN
         _invitation_ids_unblocked := array_append(_invitation_ids_unblocked, _invitation_id);

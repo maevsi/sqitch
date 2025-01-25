@@ -18,7 +18,7 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
       invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
     )
     AND author_account_id NOT IN (
-      SELECT id FROM maevsi.accounts_blocked()
+      SELECT id FROM maevsi_private.account_block_ids()
     )
   )
   OR (

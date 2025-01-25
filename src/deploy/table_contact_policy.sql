@@ -15,7 +15,7 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
     account_id = maevsi.invoker_account_id()
     AND
     author_account_id NOT IN (
-      SELECT id FROM maevsi.accounts_blocked()
+      SELECT id FROM maevsi_private.account_block_ids()
     )
   )
   OR
@@ -26,7 +26,7 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
       account_id IS NULL
       OR
       account_id NOT IN (
-        SELECT id FROM maevsi.accounts_blocked()
+        SELECT id FROM maevsi_private.account_block_ids()
       )
     )
   )

@@ -2,11 +2,7 @@ BEGIN;
 
 CREATE FUNCTION maevsi_private.events_invited()
 RETURNS TABLE(event_id uuid) AS $$
-DECLARE
-  jwt_account_id UUID;
 BEGIN
-  jwt_account_id := maevsi.invoker_account_id();
-
   RETURN QUERY
 
   -- get all events for invitations
@@ -19,11 +15,11 @@ BEGIN
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = maevsi.invoker_account_id() -- if `maevsi.invoker_account_id()` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
             -- who is not invited by
             author_account_id NOT IN (
-              SELECT id FROM maevsi.accounts_blocked()
+              SELECT id FROM maevsi_private.account_block_ids()
             )
       ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
     )

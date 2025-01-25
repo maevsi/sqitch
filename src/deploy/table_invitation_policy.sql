@@ -42,7 +42,7 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
             c.account_id IS NULL
           OR
             c.account_id NOT IN (
-              SELECT id FROM maevsi.accounts_blocked()
+              SELECT id FROM maevsi_private.account_block_ids()
             )
       )
   )
@@ -110,7 +110,7 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
       FROM maevsi.contact c
       WHERE c.account_id IS NULL
       OR c.account_id NOT IN (
-        SELECT id FROM maevsi.accounts_blocked()
+        SELECT id FROM maevsi_private.account_block_ids()
       )
     )
   )

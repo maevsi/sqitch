@@ -20,7 +20,7 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
   OR (
     (SELECT visibility FROM maevsi.event WHERE id = event_id) = 'public'
     AND (SELECT author_account_id FROM maevsi.event WHERE id = event_id) NOT IN (
-      SELECT id FROM maevsi.accounts_blocked()
+      SELECT id FROM maevsi_private.account_block_ids()
     )
   )
 );
