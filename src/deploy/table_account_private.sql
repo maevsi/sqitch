@@ -7,6 +7,7 @@ CREATE TABLE maevsi_private.account (
   email_address                              TEXT NOT NULL CHECK (char_length(email_address) < 255) UNIQUE, -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
   email_address_verification_valid_until     TIMESTAMP WITH TIME ZONE,
+  location                                   GEOGRAPHY(Point, 4326),
   password_hash                              TEXT NOT NULL,
   password_reset_verification                UUID,
   password_reset_verification_valid_until    TIMESTAMP WITH TIME ZONE,
@@ -22,6 +23,7 @@ COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s dat
 COMMENT ON COLUMN maevsi_private.account.email_address IS 'The account''s email address for account related information.';
 COMMENT ON COLUMN maevsi_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';
 COMMENT ON COLUMN maevsi_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
+COMMENT ON COLUMN maevsi_private.account.location IS 'The account''s geometric location.';
 COMMENT ON COLUMN maevsi_private.account.password_hash IS 'The account''s password, hashed and salted.';
 COMMENT ON COLUMN maevsi_private.account.password_reset_verification IS 'The UUID used to reset a password, or null if there is no pending reset request.';
 COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until IS 'The timestamp until which a password reset is valid.';

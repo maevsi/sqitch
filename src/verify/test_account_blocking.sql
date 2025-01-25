@@ -28,7 +28,8 @@ DECLARE
   guestCA UUID;
   guestCB UUID;
 
-  test_case TEXT;
+  guestClaimArray UUID[];
+  guestClaimArrayNew UUID[];
 
 BEGIN
 
@@ -114,6 +115,21 @@ BEGIN
   PERFORM maevsi_test.contact_test('anonymous login: A blocks B, contacts', null, ARRAY[]::UUID[]);
   PERFORM maevsi_test.guest_test('anonymous login: A blocks B, guests', null, ARRAY[]::UUID[]);
 
+  -- tests for function `guest_claim_array()`
+
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+  guestClaimArray := maevsi.guest_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim is unset', guestClaimArray, ARRAY[]::UUID[]);
+
+  guestClaimArray := maevsi_test.guest_claim_from_account_guest(accountA);
+  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim was added', guestClaimArray, ARRAY[guestBA, guestCA]);
+
+  guestClaimArrayNew := maevsi.guest_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim includes data', guestClaimArrayNew, guestClaimArray);
+
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+  guestClaimArrayNew := maevsi.guest_claim_array();
+  PERFORM maevsi_test.uuid_array_test('A blocks B, guest claim excludes blocked data', guestClaimArrayNew, ARRAY[guestCA]);
 END $$;
 
 ROLLBACK;

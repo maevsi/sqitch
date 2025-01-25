@@ -1,4 +1,11 @@
 ## [5.0.0-beta.2](https://github.com/maevsi/sqitch/compare/5.0.0-beta.1...5.0.0-beta.2) (2024-12-12)
+## [4.13.2](https://github.com/maevsi/sqitch/compare/4.13.1...4.13.2) (2025-01-25)
+
+### Bug Fixes
+
+* **account-block:** remove bug in function, create new table function ([#125](https://github.com/maevsi/sqitch/issues/125)) ([35b22b4](https://github.com/maevsi/sqitch/commit/35b22b4a1530e6cb95687578c0725428e243b4cd))
+
+## [4.13.1](https://github.com/maevsi/sqitch/compare/4.13.0...4.13.1) (2025-01-22)
 
 ### ⚠ BREAKING CHANGES
 

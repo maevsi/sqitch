@@ -14,5 +14,7 @@ DROP FUNCTION maevsi_test.event_create(UUID, TEXT, TEXT, TEXT, TEXT);
 DROP FUNCTION maevsi_test.event_test(TEXT, UUID, UUID[]);
 DROP FUNCTION maevsi_test.guest_create(UUID, UUID, UUID);
 DROP FUNCTION maevsi_test.guest_test(TEXT, UUID, UUID[]);
+DROP FUNCTION maevsi_test.guest_claim_from_account_guest(UUID);
+DROP FUNCTION maevsi_test.uuid_array_test(TEXT, UUID[], UUID[]);
 
 COMMIT;
