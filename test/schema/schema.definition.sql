@@ -1085,26 +1085,26 @@ CREATE FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) RETURNS intege
     AS $_$
 BEGIN
   RETURN (
-    SELECT "event".invitee_count_maximum
+    SELECT invitee_count_maximum
     FROM maevsi.event
     WHERE
-      "event".id = $1
+      id = $1
       AND ( -- Copied from `event_select` POLICY.
-            (
-              "event".visibility = 'public'
-              AND
-              (
-                "event".invitee_count_maximum IS NULL
-                OR
-                "event".invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
-              )
-            )
+        (
+          visibility = 'public'
+          AND
+          (
+            invitee_count_maximum IS NULL
+            OR
+            invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
+          )
+        )
         OR (
           maevsi.invoker_account_id() IS NOT NULL
           AND
-          "event".author_account_id = maevsi.invoker_account_id()
+          author_account_id = maevsi.invoker_account_id()
         )
-        OR  "event".id IN (SELECT maevsi_private.events_invited())
+        OR id IN (SELECT maevsi_private.events_invited())
       )
   );
 END
@@ -1318,17 +1318,12 @@ COMMENT ON FUNCTION maevsi.event_unlock(invitation_id uuid) IS 'Assigns an invit
 CREATE FUNCTION maevsi.events_organized() RETURNS TABLE(event_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  account_id UUID;
 BEGIN
-  account_id := maevsi.invoker_account_id();
 
   RETURN QUERY
     SELECT id FROM maevsi.event
     WHERE
-      account_id IS NOT NULL
-      AND
-      "event".author_account_id = account_id;
+      author_account_id = maevsi.invoker_account_id();
 END
 $$;
 
@@ -1359,16 +1354,17 @@ BEGIN
   IF _invitation_ids IS NOT NULL THEN
     FOREACH _invitation_id IN ARRAY _invitation_ids
     LOOP
-      -- omit invitations authored by a blocked account
-      IF NOT EXISTS(
-        SELECT 1
-        FROM maevsi.invitation i
-        JOIN maevsi.contact c ON i.contact_id = c.contact_id
-        JOIN maevsi.account_block b ON c.author_account_id = b.blocked_account_id
-       WHERE i.id = _invitation_id AND b.author_account_id = maevsi.invoker_account_id()
-      ) THEN
-        _invitation_ids_unblocked := append_invitation_array(result_invitation_ids, _invitation_id);
-      END IF;
+      -- omit invitations to events authored by an account blocked by the current user
+      IF EXISTS (
+	      SELECT 1
+	      FROM maevsi.invitation i
+	        JOIN maevsi.event e ON i.event_id = e.id
+	      WHERE i.id = _invitation_id AND e.author_account_id NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+	    ) THEN
+        _invitation_ids_unblocked := array_append(_invitation_ids_unblocked, _invitation_id);
+	    END IF;
     END LOOP;
   END IF;
   RETURN _invitation_ids_unblocked;
@@ -1414,23 +1410,11 @@ BEGIN
               contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
             OR
               contact.account_id IN (
-                SELECT blocked_account_id
-                FROM maevsi.account_block
-                WHERE author_account_id = maevsi.invoker_account_id()
-                UNION ALL
-                SELECT author_account_id
-                FROM maevsi.account_block
-                WHERE blocked_account_id = maevsi.invoker_account_id()
+                SELECT id FROM maevsi_private.account_block_ids()
               )
             OR
               contact.author_account_id IN (
-                SELECT blocked_account_id
-                FROM maevsi.account_block
-                WHERE author_account_id = maevsi.invoker_account_id()
-                UNION ALL
-                SELECT author_account_id
-                FROM maevsi.account_block
-                WHERE blocked_account_id = maevsi.invoker_account_id()
+                SELECT id FROM maevsi_private.account_block_ids()
               )
         );
 END;
@@ -1994,6 +1978,35 @@ COMMENT ON FUNCTION maevsi.upload_create(size_byte bigint) IS 'Creates an upload
 
 
 --
+-- Name: account_block_ids(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_private.account_block_ids() RETURNS TABLE(id uuid)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    SELECT blocked_account_id
+    FROM maevsi.account_block
+    WHERE author_account_id = maevsi.invoker_account_id()
+    UNION ALL
+    SELECT author_account_id
+    FROM maevsi.account_block
+    WHERE blocked_account_id = maevsi.invoker_account_id();
+END
+$$;
+
+
+ALTER FUNCTION maevsi_private.account_block_ids() OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_block_ids(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_private.account_block_ids() IS 'Returns all account ids being blocked by the invoker and all accounts that blocked the invoker.';
+
+
+--
 -- Name: account_email_address_verification_valid_until(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
 --
 
@@ -2060,11 +2073,7 @@ COMMENT ON FUNCTION maevsi_private.account_password_reset_verification_valid_unt
 CREATE FUNCTION maevsi_private.events_invited() RETURNS TABLE(event_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  jwt_account_id UUID;
 BEGIN
-  jwt_account_id := maevsi.invoker_account_id();
-
   RETURN QUERY
 
   -- get all events for invitations
@@ -2077,21 +2086,13 @@ BEGIN
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = jwt_account_id -- if `jwt_account_id` is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
             -- who is not invited by
             author_account_id NOT IN (
-              -- a user who the invitee blocked
-              SELECT blocked_account_id
-              FROM maevsi.account_block
-              WHERE author_account_id = jwt_account_id
-              UNION ALL
-              -- or who has blocked the invitee
-              SELECT author_account_id
-              FROM maevsi.account_block
-              WHERE blocked_account_id = jwt_account_id
-            ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
-      )
+              SELECT id FROM maevsi_private.account_block_ids()
+            )
+      ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
     )
     OR
       -- for which the requesting user knows the id
@@ -2408,6 +2409,49 @@ END $$;
 ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
+-- Name: invitation_claim_from_account_invitation(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.invitation_claim_from_account_invitation(_account_id uuid) RETURNS uuid[]
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _invitation maevsi.invitation;
+  _result UUID[] := ARRAY[]::UUID[];
+  _text TEXT := '';
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+
+  -- reads all invitations where _account_id is invited,
+  -- sets jwt.claims.invitations to a string representation of these invitations
+  -- and returns an array of these invitations.
+
+  FOR _invitation IN
+    SELECT i.id
+    FROM maevsi.invitation i JOIN maevsi.contact c
+      ON i.contact_id = c.id
+    WHERE c.account_id = _account_id
+  LOOP
+    _text := _text || ',"' || _invitation.id || '"';
+    _result := array_append(_result, _invitation.id);
+  END LOOP;
+
+  IF LENGTH(_text) > 0 THEN
+    _text := SUBSTR(_text, 2);
+  END IF;
+
+  EXECUTE 'SET LOCAL jwt.claims.invitations = ''[' || _text || ']''';
+
+  SET LOCAL role = 'postgres';
+
+  RETURN _result;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.invitation_claim_from_account_invitation(_account_id uuid) OWNER TO postgres;
+
+--
 -- Name: invitation_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -2461,6 +2505,26 @@ END $$;
 
 
 ALTER FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF EXISTS (SELECT * FROM unnest(_array) EXCEPT SELECT * FROM unnest(_expected_array)) THEN
+    RAISE EXCEPTION 'some uuid should not appear in the array';
+  END IF;
+
+  IF EXISTS (SELECT * FROM unnest(_expected_array) EXCEPT SELECT * FROM unnest(_array)) THEN
+    RAISE EXCEPTION 'some expected uuid is missing in the array';
+  END IF;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) OWNER TO postgres;
 
 --
 -- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -5336,19 +5400,9 @@ CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((author_a
 -- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (author_account_id IN ( SELECT account_block.blocked_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
-UNION ALL
- SELECT account_block.author_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))) OR ((author_account_id = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block.blocked_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
-UNION ALL
- SELECT account_block.author_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (author_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((author_account_id = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id)))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
 
 
 --
@@ -5400,13 +5454,15 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.author_account_id
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block.blocked_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
-UNION ALL
- SELECT account_block.author_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id())))))));
+  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
+
+
+--
+-- Name: event event_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((author_account_id = maevsi.invoker_account_id()));
 
 
 --
@@ -5458,13 +5514,8 @@ CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SEL
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id))) AND (NOT (author_account_id IN ( SELECT account_block.blocked_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id())
-UNION ALL
- SELECT account_block.author_account_id
-   FROM maevsi.account_block
-  WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))) OR (author_account_id = maevsi.invoker_account_id()) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id))) AND (NOT (author_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR (author_account_id = maevsi.invoker_account_id()) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
@@ -5548,13 +5599,8 @@ EXCEPT
      JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block.blocked_account_id
-           FROM maevsi.account_block
-          WHERE (account_block.author_account_id = maevsi.invoker_account_id())
-        UNION ALL
-         SELECT account_block.author_account_id
-           FROM maevsi.account_block
-          WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))))))));
+  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
 
 
 --
@@ -5570,13 +5616,8 @@ EXCEPT
      JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block.blocked_account_id
-           FROM maevsi.account_block
-          WHERE (account_block.author_account_id = maevsi.invoker_account_id())
-        UNION ALL
-         SELECT account_block.author_account_id
-           FROM maevsi.account_block
-          WHERE (account_block.blocked_account_id = maevsi.invoker_account_id()))))))))));
+  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
 
 
 --
@@ -6394,6 +6435,15 @@ GRANT ALL ON FUNCTION maevsi.upload_create(size_byte bigint) TO maevsi_account;
 
 
 --
+-- Name: FUNCTION account_block_ids(); Type: ACL; Schema: maevsi_private; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_private.account_block_ids() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_private.account_block_ids() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi_private.account_block_ids() TO maevsi_anonymous;
+
+
+--
 -- Name: FUNCTION account_email_address_verification_valid_until(); Type: ACL; Schema: maevsi_private; Owner: postgres
 --
 
@@ -6503,6 +6553,13 @@ REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid,
 
 
 --
+-- Name: FUNCTION invitation_claim_from_account_invitation(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invitation_claim_from_account_invitation(_account_id uuid) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
@@ -6514,6 +6571,13 @@ REVOKE ALL ON FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _e
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) FROM PUBLIC;
 
 
 --

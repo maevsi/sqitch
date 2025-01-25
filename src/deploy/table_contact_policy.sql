@@ -5,21 +5,17 @@ GRANT INSERT, UPDATE, DELETE ON TABLE maevsi.contact TO maevsi_account;
 
 ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 
--- Only display contacts referencing the invoker's account, omit contacts authored by a blocked account.
--- Only display contacts authored by the invoker's account, omit contacts referring to a blocked account.
--- Only display contacts for which an accessible invitation exists.
+-- 1) Display contacts referencing the invoker's account, omit contacts authored by an account
+--  blocked by the invoker or by an account that blocked the invoker.
+-- 2) Display contacts authored by the invoker's account, omit contacts referring to an account
+--    blocked by the invoker or by an account that blocked the invoker.
+-- 3) Display contacts for which an accessible invitation exists.
 CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
   (
     account_id = maevsi.invoker_account_id()
     AND
     author_account_id NOT IN (
-      SELECT blocked_account_id
-      FROM maevsi.account_block
-      WHERE author_account_id = maevsi.invoker_account_id()
-      UNION ALL
-      SELECT author_account_id
-      FROM maevsi.account_block
-      WHERE blocked_account_id = maevsi.invoker_account_id()
+      SELECT id FROM maevsi_private.account_block_ids()
     )
   )
   OR
@@ -30,13 +26,7 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING (
       account_id IS NULL
       OR
       account_id NOT IN (
-        SELECT blocked_account_id
-        FROM maevsi.account_block
-        WHERE author_account_id = maevsi.invoker_account_id()
-        UNION ALL
-        SELECT author_account_id
-        FROM maevsi.account_block
-        WHERE blocked_account_id = maevsi.invoker_account_id()
+        SELECT id FROM maevsi_private.account_block_ids()
       )
     )
   )
