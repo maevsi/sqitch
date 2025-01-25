@@ -10,6 +10,7 @@ CREATE TABLE maevsi.event (
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,
   is_remote                BOOLEAN,
+  language                 maevsi.language,
   location                 TEXT CHECK (char_length("location") > 0 AND char_length("location") < 300),
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                     TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
@@ -18,6 +19,7 @@ CREATE TABLE maevsi.event (
   visibility               maevsi.event_visibility NOT NULL,
 
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  search_vector            TSVECTOR,
 
   UNIQUE (author_account_id, slug)
 );
@@ -38,6 +40,35 @@ COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with 
 COMMENT ON COLUMN maevsi.event.url IS 'The event''s unified resource locator.';
 COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
+
+CREATE INDEX idx_event_search_vector ON maevsi.event USING GIN(search_vector);
+
+CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS TRIGGER AS $$
+DECLARE
+  ts_config regconfig;
+BEGIN
+  ts_config := maevsi.language_iso_full_text_search(NEW.language);
+
+  NEW.search_vector :=
+    setweight(to_tsvector(ts_config, coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+
+  RETURN NEW;
+END;
+$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+
+COMMENT ON FUNCTION maevsi.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
+
+GRANT EXECUTE ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_account, maevsi_anonymous;
+
+CREATE TRIGGER maevsi_trigger_event_search_vector
+  BEFORE
+       INSERT
+    OR UPDATE
+  ON maevsi.event
+  FOR EACH ROW
+  EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
 -- GRANTs, RLS and POLICYs are specified in 'table_event_policy`.
 
