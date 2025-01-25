@@ -12,7 +12,7 @@ CREATE TABLE maevsi.event (
   is_remote                BOOLEAN,
   language                 maevsi.language,
   location                 TEXT CHECK (char_length("location") > 0 AND char_length("location") < 300),
-  location_geography       public.GEOGRAPHY(Point, 4326),
+  location_geography       GEOGRAPHY(Point, 4326),
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                     TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
