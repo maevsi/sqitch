@@ -182,7 +182,8 @@ ALTER TYPE maevsi.event_unlock_response OWNER TO postgres;
 
 CREATE TYPE maevsi.event_visibility AS ENUM (
     'public',
-    'private'
+    'private',
+    'unlisted'
 );
 
 
@@ -192,7 +193,7 @@ ALTER TYPE maevsi.event_visibility OWNER TO postgres;
 -- Name: TYPE event_visibility; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private.';
+COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private, unlisted.';
 
 
 --
@@ -804,6 +805,7 @@ CREATE TABLE maevsi.event (
     is_archived boolean DEFAULT false NOT NULL,
     is_in_person boolean,
     is_remote boolean,
+    language maevsi.language,
     location text,
     location_geography public.geography(Point,4326),
     name text NOT NULL,
@@ -812,6 +814,7 @@ CREATE TABLE maevsi.event (
     url text,
     visibility maevsi.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    search_vector tsvector,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_invitee_count_maximum_check CHECK ((invitee_count_maximum > 0)),
     CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
@@ -942,6 +945,14 @@ COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 
 COMMENT ON COLUMN maevsi.event.created_at IS '@omit create,update
 Timestamp of when the event was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN event.search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.search_vector IS '@omit
+A vector used for full-text search on events.';
 
 
 --
@@ -1106,6 +1117,40 @@ ALTER FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double pre
 --
 
 COMMENT ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+
+
+--
+-- Name: event_search(text, maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.event_search(query text, language maevsi.language) RETURNS SETOF maevsi.event
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+  ts_config regconfig;
+BEGIN
+  ts_config := maevsi.language_iso_full_text_search(event_search.language);
+
+  RETURN QUERY
+  SELECT
+    *
+  FROM
+    maevsi.event
+  WHERE
+    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+  ORDER BY
+    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.event_search(query text, language maevsi.language) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_search(query text, language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.event_search(query text, language maevsi.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
 
 
 --
@@ -1551,6 +1596,58 @@ COMMENT ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
+-- Name: language_iso_full_text_search(maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) RETURNS regconfig
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    AS $$
+BEGIN
+  CASE language
+    -- WHEN 'ar' THEN RETURN 'arabic';
+    -- WHEN 'ca' THEN RETURN 'catalan';
+    -- WHEN 'da' THEN RETURN 'danish';
+    WHEN 'de' THEN RETURN 'german';
+    -- WHEN 'el' THEN RETURN 'greek';
+    WHEN 'en' THEN RETURN 'english';
+    -- WHEN 'es' THEN RETURN 'spanish';
+    -- WHEN 'eu' THEN RETURN 'basque';
+    -- WHEN 'fi' THEN RETURN 'finnish';
+    -- WHEN 'fr' THEN RETURN 'french';
+    -- WHEN 'ga' THEN RETURN 'irish';
+    -- WHEN 'hi' THEN RETURN 'hindi';
+    -- WHEN 'hu' THEN RETURN 'hungarian';
+    -- WHEN 'hy' THEN RETURN 'armenian';
+    -- WHEN 'id' THEN RETURN 'indonesian';
+    -- WHEN 'it' THEN RETURN 'italian';
+    -- WHEN 'lt' THEN RETURN 'lithuanian';
+    -- WHEN 'ne' THEN RETURN 'nepali';
+    -- WHEN 'nl' THEN RETURN 'dutch';
+    -- WHEN 'no' THEN RETURN 'norwegian';
+    -- WHEN 'pt' THEN RETURN 'portuguese';
+    -- WHEN 'ro' THEN RETURN 'romanian';
+    -- WHEN 'ru' THEN RETURN 'russian';
+    -- WHEN 'sr' THEN RETURN 'serbian';
+    -- WHEN 'sv' THEN RETURN 'swedish';
+    -- WHEN 'ta' THEN RETURN 'tamil';
+    -- WHEN 'tr' THEN RETURN 'turkish';
+    -- WHEN 'yi' THEN RETURN 'yiddish';
+    ELSE RETURN 'simple';
+  END CASE;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) OWNER TO postgres;
+
+--
+-- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) IS 'Maps an ISO language code to the corresponding PostgreSQL text search configuration. This function returns the appropriate text search configuration for supported languages, such as "german" for "de" and "english" for "en". If the language code is not explicitly handled, the function defaults to the "simple" configuration, which is a basic tokenizer that does not perform stemming or handle stop words. This ensures that full-text search can work with a wide range of languages even if specific optimizations are not available for some.';
+
+
+--
 -- Name: legal_term_change(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -1664,6 +1761,36 @@ ALTER FUNCTION maevsi.trigger_contact_update_account_id() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.trigger_contact_update_account_id() IS 'Prevents invalid updates to contacts.';
+
+
+--
+-- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  ts_config regconfig;
+BEGIN
+  ts_config := maevsi.language_iso_full_text_search(NEW.language);
+
+  NEW.search_vector :=
+    setweight(to_tsvector(ts_config, coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_event_search_vector() OWNER TO postgres;
+
+--
+-- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
 
 
 --
@@ -4607,6 +4734,13 @@ COMMENT ON INDEX maevsi.idx_event_location IS 'Spatial index on column location 
 
 
 --
+-- Name: idx_event_search_vector; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
+
+
+--
 -- Name: idx_invitation_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
@@ -4674,6 +4808,13 @@ CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR E
 --
 
 CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, author_account_id ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+
+
+--
+-- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
 
 --
@@ -6049,6 +6190,15 @@ GRANT ALL ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude dou
 
 
 --
+-- Name: FUNCTION event_search(query text, language maevsi.language); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) TO maevsi_anonymous;
+
+
+--
 -- Name: FUNCTION event_unlock(invitation_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6124,6 +6274,7 @@ GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_anonymous;
 REVOKE ALL ON FUNCTION maevsi.invoker_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_tusd;
 
 
 --
@@ -6133,6 +6284,15 @@ GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
 REVOKE ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) TO maevsi_account;
 
 
 --
@@ -6164,6 +6324,15 @@ GRANT ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) TO maevsi_accou
 
 REVOKE ALL ON FUNCTION maevsi.trigger_contact_update_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_account;
+
+
+--
+-- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_event_search_vector() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_anonymous;
 
 
 --
@@ -6848,6 +7017,13 @@ REVOKE ALL ON FUNCTION public.geog_brin_inclusion_add_value(internal, internal, 
 
 
 --
+-- Name: FUNCTION geog_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geog_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION geography_cmp(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -7009,6 +7185,13 @@ REVOKE ALL ON FUNCTION public.geom2d_brin_inclusion_add_value(internal, internal
 
 
 --
+-- Name: FUNCTION geom2d_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom2d_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION geom3d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -7016,10 +7199,24 @@ REVOKE ALL ON FUNCTION public.geom3d_brin_inclusion_add_value(internal, internal
 
 
 --
+-- Name: FUNCTION geom3d_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom3d_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION geom4d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION public.geom4d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom4d_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom4d_brin_inclusion_merge(internal, internal) FROM PUBLIC;
 
 
 --
