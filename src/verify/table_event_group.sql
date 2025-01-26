@@ -1,12 +1,12 @@
 BEGIN;
 
 SELECT id,
-       created_at,
        author_account_id,
-       "description",
+       description,
        is_archived,
-       "name",
-       slug
+       name,
+       slug,
+       created_at
 FROM maevsi.event_group WHERE FALSE;
 
 DO $$
