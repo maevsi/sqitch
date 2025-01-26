@@ -1081,30 +1081,39 @@ COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns al
 --
 
 CREATE FUNCTION maevsi.invitation_claim_array() RETURNS uuid[]
-    LANGUAGE plpgsql STABLE STRICT
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _invitation_ids UUID[];
   _invitation_ids_unblocked UUID[] := ARRAY[]::UUID[];
-  _invitation_id UUID;
 BEGIN
   _invitation_ids := string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
 
   IF _invitation_ids IS NOT NULL THEN
-    FOREACH _invitation_id IN ARRAY _invitation_ids
-    LOOP
-      -- omit invitations to events authored by an account blocked by the current user
-      IF EXISTS (
-	      SELECT 1
-	      FROM maevsi.invitation i
-	        JOIN maevsi.event e ON i.event_id = e.id
-	      WHERE i.id = _invitation_id AND e.author_account_id NOT IN (
+    _invitation_ids_unblocked := ARRAY (
+      SELECT i.id
+      FROM maevsi.invitation i
+        JOIN maevsi.event e ON i.event_id = e.id
+        JOIN maevsi.contact c ON i.contact_id = c.id
+      WHERE i.id = ANY(_invitation_ids)
+        AND e.author_account_id NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
-	    ) THEN
-        _invitation_ids_unblocked := array_append(_invitation_ids_unblocked, _invitation_id);
-	    END IF;
-    END LOOP;
+        AND (
+          c.author_account_id NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+          AND (
+            c.account_id IS NULL
+            OR
+            c.account_id NOT IN (
+              SELECT id FROM maevsi_private.account_block_ids()
+            )
+          )
+        )
+    );
+  ELSE
+    _invitation_ids_unblocked := ARRAY[]::UUID[];
   END IF;
   RETURN _invitation_ids_unblocked;
 END
@@ -1643,10 +1652,12 @@ CREATE FUNCTION maevsi_private.account_block_ids() RETURNS TABLE(id uuid)
     AS $$
 BEGIN
   RETURN QUERY
+    -- users blocked by the current user
     SELECT blocked_account_id
     FROM maevsi.account_block
     WHERE author_account_id = maevsi.invoker_account_id()
     UNION ALL
+    -- users who blocked the current user
     SELECT author_account_id
     FROM maevsi.account_block
     WHERE blocked_account_id = maevsi.invoker_account_id();
