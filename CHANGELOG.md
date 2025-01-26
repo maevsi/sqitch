@@ -1,3 +1,9 @@
+## [5.0.0-beta.4](https://github.com/maevsi/sqitch/compare/5.0.0-beta.3...5.0.0-beta.4) (2025-01-26)
+
+### Bug Fixes
+
+* **location:** move test function to appropriate schema ([#130](https://github.com/maevsi/sqitch/issues/130)) ([e5b4a36](https://github.com/maevsi/sqitch/commit/e5b4a365eb548f2753394e58da7ea5549b01fe42))
+
 ## [5.0.0-beta.3](https://github.com/maevsi/sqitch/compare/5.0.0-beta.2...5.0.0-beta.3) (2025-01-25)
 
 ### ⚠ BREAKING CHANGES
