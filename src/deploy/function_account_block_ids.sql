@@ -4,10 +4,12 @@ CREATE FUNCTION maevsi_private.account_block_ids()
 RETURNS TABLE (id UUID) AS $$
 BEGIN
   RETURN QUERY
+    -- users blocked the current user
     SELECT blocked_account_id
     FROM maevsi.account_block
     WHERE author_account_id = maevsi.invoker_account_id()
     UNION ALL
+    -- users who blocked the current user
     SELECT author_account_id
     FROM maevsi.account_block
     WHERE blocked_account_id = maevsi.invoker_account_id();
