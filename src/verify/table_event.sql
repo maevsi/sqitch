@@ -1,7 +1,6 @@
 BEGIN;
 
 SELECT id,
-       created_at,
        author_account_id,
        description,
        "end",
@@ -15,7 +14,9 @@ SELECT id,
        slug,
        start,
        url,
-       visibility
+       visibility,
+       created_at,
+       search_vector
 FROM maevsi.event WHERE FALSE;
 
 ROLLBACK;

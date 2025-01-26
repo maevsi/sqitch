@@ -2,16 +2,16 @@ BEGIN;
 
 SELECT id,
        birth_date,
-       created_at,
        email_address,
        email_address_verification,
        email_address_verification_valid_until,
-       last_activity,
        location,
        password_hash,
        password_reset_verification,
        password_reset_verification_valid_until,
-       upload_quota_bytes
+       upload_quota_bytes,
+       created_at,
+       last_activity
 FROM maevsi_private.account WHERE FALSE;
 
 DO $$

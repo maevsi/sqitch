@@ -1,7 +1,6 @@
 BEGIN;
 
 SELECT id,
-       created_at,
        account_id,
        address,
        author_account_id,
@@ -13,7 +12,8 @@ SELECT id,
        nickname,
        phone_number,
        timezone,
-       url
+       url,
+       created_at
 FROM maevsi.contact WHERE FALSE;
 
 ROLLBACK;

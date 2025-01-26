@@ -4,9 +4,9 @@ CREATE TABLE maevsi.event_group (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   author_account_id     UUID NOT NULL REFERENCES maevsi.account(id),
-  "description"         TEXT CHECK (char_length("description") < 1000000),
+  description           TEXT CHECK (char_length("description") < 1000000),
   is_archived           BOOLEAN NOT NULL DEFAULT FALSE,
-  "name"                TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
+  name                  TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                  TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
 
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
