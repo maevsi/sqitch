@@ -1,3 +1,9 @@
+## [4.13.3](https://github.com/maevsi/sqitch/compare/4.13.2...4.13.3) (2025-01-26)
+
+### Bug Fixes
+
+* **account-block:** change function call mode to SECURITY DEFINER ([#131](https://github.com/maevsi/sqitch/issues/131)) ([7160274](https://github.com/maevsi/sqitch/commit/716027482c7707ea126932baedffd80c783f7641))
+
 ## [4.13.2](https://github.com/maevsi/sqitch/compare/4.13.1...4.13.2) (2025-01-25)
 
 ### Bug Fixes
