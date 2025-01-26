@@ -349,103 +349,6 @@ COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Set
 
 
 --
--- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) RETURNS TABLE(account_id uuid, distance double precision)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  RETURN QUERY
-    WITH event AS (
-      SELECT location_geography
-      FROM maevsi.event
-      WHERE id = _event_id
-    )
-    SELECT
-      a.id AS account_id,
-      ST_Distance(e.location_geography, a.location) AS distance
-    FROM
-      event e,
-      maevsi_private.account a
-    WHERE
-      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) IS 'Returns account locations within a given radius around the location of an event.';
-
-
---
--- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_location_coordinates(_account_id uuid) RETURNS double precision[]
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _latitude DOUBLE PRECISION;
-  _longitude DOUBLE PRECISION;
-BEGIN
-  SELECT
-    ST_Y(location::geometry),
-    ST_X(location::geometry)
-  INTO
-    _latitude,
-    _longitude
-  FROM
-    maevsi_private.account
-  WHERE
-    id = _account_id;
-
-  RETURN ARRAY[_latitude, _longitude];
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.account_location_coordinates(_account_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_location_coordinates(_account_id uuid) IS 'Returns an array with latitude and longitude of the account''s current location data';
-
-
---
--- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  UPDATE maevsi_private.account
-  SET
-    location = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = _account_id;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
-
-
---
 -- Name: account_password_change(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -1042,41 +945,6 @@ COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to de
 
 
 --
--- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) RETURNS TABLE(event_id uuid, distance double precision)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  RETURN QUERY
-    WITH account AS (
-      SELECT location
-      FROM maevsi_private.account
-      WHERE id = _account_id
-    )
-    SELECT
-      e.id AS event_id,
-      ST_Distance(a.location, e.location_geography) AS distance
-    FROM
-      account a,
-      maevsi.event e
-    WHERE
-      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) IS 'Returns event locations within a given radius around the location of an account.';
-
-
---
 -- Name: event_invitee_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -1144,68 +1012,6 @@ ALTER FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) OWNER
 --
 
 COMMENT ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) IS 'Shows if an event exists.';
-
-
---
--- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_location_coordinates(_event_id uuid) RETURNS double precision[]
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _latitude DOUBLE PRECISION;
-  _longitude DOUBLE PRECISION;
-BEGIN
-  SELECT
-    ST_Y(location_geography::geometry),
-    ST_X(location_geography::geometry)
-  INTO
-    _latitude,
-    _longitude
-  FROM
-    maevsi.event
-  WHERE
-    id = _event_id;
-
-  RETURN ARRAY[_latitude, _longitude];
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.event_location_coordinates(_event_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_location_coordinates(_event_id uuid) IS 'Returns an array with latitude and longitude of the event''s current location data.';
-
-
---
--- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  UPDATE maevsi.event
-  SET
-    location_geography = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = _event_id;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 
 
 --
@@ -2178,6 +1984,103 @@ END $$;
 ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO postgres;
 
 --
+-- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) RETURNS TABLE(account_id uuid, distance double precision)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    WITH event AS (
+      SELECT location_geography
+      FROM maevsi.event
+      WHERE id = _event_id
+    )
+    SELECT
+      a.id AS account_id,
+      ST_Distance(e.location_geography, a.location) AS distance
+    FROM
+      event e,
+      maevsi_private.account a
+    WHERE
+      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) IS 'Returns account locations within a given radius around the location of an event.';
+
+
+--
+-- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) RETURNS double precision[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _latitude DOUBLE PRECISION;
+  _longitude DOUBLE PRECISION;
+BEGIN
+  SELECT
+    ST_Y(location::geometry),
+    ST_X(location::geometry)
+  INTO
+    _latitude,
+    _longitude
+  FROM
+    maevsi_private.account
+  WHERE
+    id = _account_id;
+
+  RETURN ARRAY[_latitude, _longitude];
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) IS 'Returns an array with latitude and longitude of the account''s current location data';
+
+
+--
+-- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE maevsi_private.account
+  SET
+    location = ST_Point(_longitude, _latitude, 4326)
+  WHERE
+    id = _account_id;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
+
+
+--
 -- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -2377,6 +2280,103 @@ END $$;
 
 
 ALTER FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+
+--
+-- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) RETURNS TABLE(event_id uuid, distance double precision)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    WITH account AS (
+      SELECT location
+      FROM maevsi_private.account
+      WHERE id = _account_id
+    )
+    SELECT
+      e.id AS event_id,
+      ST_Distance(a.location, e.location_geography) AS distance
+    FROM
+      account a,
+      maevsi.event e
+    WHERE
+      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) IS 'Returns event locations within a given radius around the location of an account.';
+
+
+--
+-- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) RETURNS double precision[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _latitude DOUBLE PRECISION;
+  _longitude DOUBLE PRECISION;
+BEGIN
+  SELECT
+    ST_Y(location_geography::geometry),
+    ST_X(location_geography::geometry)
+  INTO
+    _latitude,
+    _longitude
+  FROM
+    maevsi.event
+  WHERE
+    id = _event_id;
+
+  RETURN ARRAY[_latitude, _longitude];
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) IS 'Returns an array with latitude and longitude of the event''s current location data.';
+
+
+--
+-- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE maevsi.event
+  SET
+    location_geography = ST_Point(_longitude, _latitude, 4326)
+  WHERE
+    id = _event_id;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+
 
 --
 -- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -5758,6 +5758,14 @@ GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
 
 
 --
+-- Name: SCHEMA maevsi_test; Type: ACL; Schema: -; Owner: postgres
+--
+
+GRANT USAGE ON SCHEMA maevsi_test TO maevsi_anonymous;
+GRANT USAGE ON SCHEMA maevsi_test TO maevsi_account;
+
+
+--
 -- Name: FUNCTION box2d_in(cstring); Type: ACL; Schema: public; Owner: postgres
 --
 
@@ -6129,30 +6137,6 @@ GRANT ALL ON FUNCTION maevsi.account_email_address_verification(code uuid) TO ma
 
 
 --
--- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) TO maevsi_account;
-
-
---
--- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_location_coordinates(_account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_location_coordinates(_account_id uuid) TO maevsi_account;
-
-
---
--- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
-
-
---
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6237,14 +6221,6 @@ GRANT ALL ON FUNCTION maevsi.event_delete(id uuid, password text) TO maevsi_acco
 
 
 --
--- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) TO maevsi_account;
-
-
---
 -- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6260,22 +6236,6 @@ GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevs
 REVOKE ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_location_coordinates(_event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_location_coordinates(_event_id uuid) TO maevsi_account;
-
-
---
--- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
 
 
 --
@@ -6490,6 +6450,30 @@ REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) F
 
 
 --
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
+
+
+--
 -- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
@@ -6543,6 +6527,30 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, 
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
 
 
 --

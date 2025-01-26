@@ -1,7 +1,7 @@
 BEGIN;
 
 
-CREATE FUNCTION maevsi.account_filter_radius_event(
+CREATE FUNCTION maevsi_test.account_filter_radius_event(
   _event_id UUID,
   _distance_max DOUBLE PRECISION
 )
@@ -27,12 +27,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.account_filter_radius_event(UUID, DOUBLE PRECISION) IS 'Returns account locations within a given radius around the location of an event.';
+COMMENT ON FUNCTION maevsi_test.account_filter_radius_event(UUID, DOUBLE PRECISION) IS 'Returns account locations within a given radius around the location of an event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_filter_radius_event(UUID, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.account_filter_radius_event(UUID, DOUBLE PRECISION) TO maevsi_account;
 
 
-CREATE FUNCTION maevsi.event_filter_radius_account(
+CREATE FUNCTION maevsi_test.event_filter_radius_account(
   _account_id UUID,
   _distance_max DOUBLE PRECISION
 )
@@ -58,12 +58,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_filter_radius_account(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
+COMMENT ON FUNCTION maevsi_test.event_filter_radius_account(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_filter_radius_account(UUID, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_filter_radius_account(UUID, DOUBLE PRECISION) TO maevsi_account;
 
 
-CREATE FUNCTION maevsi.account_location_update(
+CREATE FUNCTION maevsi_test.account_location_update(
   _account_id UUID,
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
@@ -78,12 +78,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION maevsi_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO maevsi_account;
 
 
-CREATE FUNCTION maevsi.event_location_update(
+CREATE FUNCTION maevsi_test.event_location_update(
   _event_id UUID,
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
@@ -98,12 +98,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION maevsi_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO maevsi_account;
 
 
-CREATE FUNCTION maevsi.account_location_coordinates(
+CREATE FUNCTION maevsi_test.account_location_coordinates(
   _account_id UUID
 )
 RETURNS DOUBLE PRECISION[] AS $$
@@ -126,12 +126,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.account_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the account''s current location data';
+COMMENT ON FUNCTION maevsi_test.account_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the account''s current location data';
 
-GRANT EXECUTE ON FUNCTION maevsi.account_location_coordinates(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.account_location_coordinates(UUID) TO maevsi_account;
 
 
-CREATE FUNCTION maevsi.event_location_coordinates(
+CREATE FUNCTION maevsi_test.event_location_coordinates(
   _event_id UUID
 )
 RETURNS DOUBLE PRECISION[] AS $$
@@ -154,9 +154,9 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
+COMMENT ON FUNCTION maevsi_test.event_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_location_coordinates(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_location_coordinates(UUID) TO maevsi_account;
 
 
 COMMIT;
