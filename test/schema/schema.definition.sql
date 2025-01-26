@@ -1652,7 +1652,7 @@ CREATE FUNCTION maevsi_private.account_block_ids() RETURNS TABLE(id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    -- users blocked the current user
+    -- users blocked by the current user
     SELECT blocked_account_id
     FROM maevsi.account_block
     WHERE author_account_id = maevsi.invoker_account_id()
