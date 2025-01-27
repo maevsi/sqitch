@@ -12,6 +12,7 @@ CREATE TABLE maevsi.contact (
   language              maevsi.language,
   last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) < 100),
   nickname              TEXT CHECK (char_length(nickname) > 0 AND char_length(nickname) < 100),
+  note                  TEXT CHECK (char_length(note) > 0 AND char_length(note) <= 1000),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
   timezone              TEXT CHECK (timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'),
   url                   TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
@@ -33,6 +34,7 @@ COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
 COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
 COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
 COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+COMMENT ON COLUMN maevsi.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
 COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp of when the contact was created, defaults to the current timestamp.';
