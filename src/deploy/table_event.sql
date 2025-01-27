@@ -53,7 +53,7 @@ BEGIN
   ts_config := maevsi.language_iso_full_text_search(NEW.language);
 
   NEW.search_vector :=
-    setweight(to_tsvector(ts_config, coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
     setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
 
   RETURN NEW;
@@ -67,7 +67,7 @@ GRANT EXECUTE ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_account
 CREATE TRIGGER maevsi_trigger_event_search_vector
   BEFORE
        INSERT
-    OR UPDATE
+    OR UPDATE OF name, description, language
   ON maevsi.event
   FOR EACH ROW
   EXECUTE FUNCTION maevsi.trigger_event_search_vector();
