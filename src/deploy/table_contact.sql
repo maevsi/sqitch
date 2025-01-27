@@ -22,22 +22,23 @@ CREATE TABLE maevsi.contact (
   UNIQUE (author_account_id, account_id)
 );
 
-COMMENT ON TABLE maevsi.contact IS 'Contact data.';
-COMMENT ON COLUMN maevsi.contact.id IS E'@omit create,update\nThe contact''s internal id.';
-COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
-COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
-COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
-COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.';
-COMMENT ON COLUMN maevsi.contact.email_address_hash IS E'@omit create,update\nThe contact''s email address''s md5 hash.';
-COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
-COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
-COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
-COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+COMMENT ON TABLE maevsi.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
+COMMENT ON COLUMN maevsi.contact.id IS E'@omit create,update\nPrimary key, uniquely identifies each contact.';
+COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associated account.';
+COMMENT ON COLUMN maevsi.contact.address IS 'Physical address of the contact. Must be between 1 and 300 characters.';
+COMMENT ON COLUMN maevsi.contact.author_account_id IS 'Reference to the account that created this contact. Enforces cascading deletion.';
+COMMENT ON COLUMN maevsi.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
+COMMENT ON COLUMN maevsi.contact.email_address_hash IS E'@omit create,update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+COMMENT ON COLUMN maevsi.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
+COMMENT ON COLUMN maevsi.contact.language IS 'Reference to the preferred language of the contact.';
+COMMENT ON COLUMN maevsi.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
+COMMENT ON COLUMN maevsi.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
 COMMENT ON COLUMN maevsi.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
-COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
-COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
-COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp of when the contact was created, defaults to the current timestamp.';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
+COMMENT ON COLUMN maevsi.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
+COMMENT ON COLUMN maevsi.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
+COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp when the contact was created. Defaults to the current timestamp.';
+COMMENT ON CONSTRAINT contact_author_account_id_account_id_key ON maevsi.contact IS 'Ensures the uniqueness of the combination of `author_account_id` and `account_id` for a contact.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_contact_policy`.
 
