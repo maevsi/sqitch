@@ -50,15 +50,6 @@ CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS TRIGGER AS $$
 DECLARE
   ts_config regconfig;
 BEGIN
-  IF NOT (
-    NEW.name IS DISTINCT FROM OLD.name OR
-    NEW.description IS DISTINCT FROM OLD.description OR
-    NEW.language IS DISTINCT FROM OLD.language
-  )
-  THEN
-    RETURN NEW;
-  END IF;
-
   ts_config := maevsi.language_iso_full_text_search(NEW.language);
 
   NEW.search_vector :=
@@ -76,7 +67,7 @@ GRANT EXECUTE ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_account
 CREATE TRIGGER maevsi_trigger_event_search_vector
   BEFORE
        INSERT
-    OR UPDATE
+    OR UPDATE OF name, description, language
   ON maevsi.event
   FOR EACH ROW
   EXECUTE FUNCTION maevsi.trigger_event_search_vector();
