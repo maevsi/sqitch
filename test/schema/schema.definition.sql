@@ -2977,36 +2977,55 @@ COMMENT ON COLUMN maevsi.event_category_mapping.category IS 'A category name.';
 
 
 --
--- Name: event_favourite; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.event_favourite (
-    account_id uuid NOT NULL,
-    event_id uuid NOT NULL
+CREATE TABLE maevsi.event_favorite (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL
 );
 
 
-ALTER TABLE maevsi.event_favourite OWNER TO postgres;
+ALTER TABLE maevsi.event_favorite OWNER TO postgres;
 
 --
--- Name: TABLE event_favourite; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.event_favourite IS 'The user accounts'' favourite events.';
-
-
---
--- Name: COLUMN event_favourite.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event_favourite.account_id IS 'A user account id.';
+COMMENT ON TABLE maevsi.event_favorite IS 'Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
 --
--- Name: COLUMN event_favourite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which the user marked as a favourite.';
+COMMENT ON COLUMN maevsi.event_favorite.id IS '@omit create,update
+Primary key, uniquely identifies each favorite entry.';
+
+
+--
+-- Name: COLUMN event_favorite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.event_id IS 'Reference to the event that is marked as a favorite.';
+
+
+--
+-- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.created_at IS '@omit create,update
+Timestamp when the favorite was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.created_by IS '@omit create,update
+Reference to the account that created the event favorite.';
 
 
 --
@@ -4465,11 +4484,26 @@ ALTER TABLE ONLY maevsi.event_category
 
 
 --
--- Name: event_favourite event_favourite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_event_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_pkey PRIMARY KEY (account_id, event_id);
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_created_by_event_id_key UNIQUE (created_by, event_id);
+
+
+--
+-- Name: CONSTRAINT event_favorite_created_by_event_id_key ON event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON maevsi.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
+
+
+--
+-- Name: event_favorite event_favorite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_pkey PRIMARY KEY (id);
 
 
 --
@@ -5032,19 +5066,19 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
--- Name: event_favourite event_favourite_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
--- Name: event_favourite event_favourite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
 
 
 --
@@ -5466,16 +5500,30 @@ CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((author_account_id 
 
 
 --
--- Name: event_favourite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.event_favourite ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.event_favorite ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_favourite event_favourite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_favourite_select ON maevsi.event_favourite FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_favorite_delete ON maevsi.event_favorite FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: event_favorite event_favorite_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favorite_insert ON maevsi.event_favorite FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: event_favorite event_favorite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favorite_select ON maevsi.event_favorite FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -12005,10 +12053,10 @@ GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_acco
 
 
 --
--- Name: TABLE event_favourite; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favourite TO maevsi_account;
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favorite TO maevsi_account;
 
 
 --

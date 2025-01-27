@@ -92,8 +92,8 @@ table_event_category_mapping [schema_public table_event table_event_category] 19
 table_event_category_mapping_policy [schema_public table_event_category_mapping role_anonymous role_account table_event function_account_block_ids]1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table table_event_category_mapping.
 table_event_recommendation [schema_public table_account_public table_event] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Events recommended to a user account (M:N relationship).
 table_event_recommendation_policy [schema_public table_event_recommendation role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
-table_event_favourite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favourite events.
-table_event_favourite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favourite.
+table_event_favorite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favorite events.
+table_event_favorite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favorite.
 test_account_blocking [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.
 function_event_search [privilege_execute_revoke schema_public enum_language schema_private function_language_iso_full_text_search table_event role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Full-text search on events.
 index_account_private_location [schema_private table_account_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Spacial index on location column in table maevsi_private.account.
