@@ -4,18 +4,18 @@ CREATE TABLE maevsi.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   account_id            UUID REFERENCES maevsi.account(id),
-  address               TEXT CHECK (char_length("address") > 0 AND char_length("address") < 300),
+  address               TEXT CHECK (char_length("address") > 0 AND char_length("address") <= 300),
   author_account_id     UUID NOT NULL REFERENCES maevsi.account(id) ON DELETE CASCADE,
   email_address         TEXT CHECK (char_length(email_address) < 255), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
-  first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) < 100),
+  first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
   language              maevsi.language,
-  last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) < 100),
-  nickname              TEXT CHECK (char_length(nickname) > 0 AND char_length(nickname) < 100),
+  last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) <= 100),
+  nickname              TEXT CHECK (char_length(nickname) > 0 AND char_length(nickname) <= 100),
   note                  TEXT CHECK (char_length(note) > 0 AND char_length(note) <= 1000),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
   timezone              TEXT CHECK (timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'),
-  url                   TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
+  url                   TEXT CHECK (char_length("url") <= 300 AND "url" ~ '^https:\/\/'),
 
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
