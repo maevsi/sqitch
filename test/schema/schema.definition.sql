@@ -1598,7 +1598,7 @@ BEGIN
   ts_config := maevsi.language_iso_full_text_search(NEW.language);
 
   NEW.search_vector :=
-    setweight(to_tsvector(ts_config, coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
     setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
 
   RETURN NEW;
@@ -4910,7 +4910,7 @@ CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account
 -- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
-CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
+CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
 
 --
