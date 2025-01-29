@@ -1,3 +1,13 @@
+## [5.0.0-beta.6](https://github.com/maevsi/sqitch/compare/5.0.0-beta.5...5.0.0-beta.6) (2025-01-29)
+
+### ⚠ BREAKING CHANGES
+
+* **invitation:** rename to guest (#122)
+
+### Features
+
+* **invitation:** rename to guest ([#122](https://github.com/maevsi/sqitch/issues/122)) ([49b20ed](https://github.com/maevsi/sqitch/commit/49b20edb861e1efcd9f061668320bd91dfa8d39b))
+
 ## [5.0.0-beta.5](https://github.com/maevsi/sqitch/compare/5.0.0-beta.4...5.0.0-beta.5) (2025-01-29)
 
 ### ⚠ BREAKING CHANGES
