@@ -1,3 +1,22 @@
+## [5.0.0-beta.5](https://github.com/maevsi/sqitch/compare/5.0.0-beta.4...5.0.0-beta.5) (2025-01-29)
+
+### ⚠ BREAKING CHANGES
+
+* **event-favorite:** align to general schema (#135)
+* add address (#134)
+* **contact:** add note (#133)
+
+### Features
+
+* add address ([#134](https://github.com/maevsi/sqitch/issues/134)) ([97a8645](https://github.com/maevsi/sqitch/commit/97a8645f591f7975f367b1ed7ad6b3c920797b3e))
+* **contact:** add note ([#133](https://github.com/maevsi/sqitch/issues/133)) ([153fd3f](https://github.com/maevsi/sqitch/commit/153fd3f8b6e52263fe317425c4470caf2ddb74a1))
+* **event-favorite:** align to general schema ([#135](https://github.com/maevsi/sqitch/issues/135)) ([87d45df](https://github.com/maevsi/sqitch/commit/87d45dfe526a63d31953c1080ff9abb70f641e21))
+* **metadata:** rename author to creator ([#136](https://github.com/maevsi/sqitch/issues/136)) ([55381ff](https://github.com/maevsi/sqitch/commit/55381ff14c144bb7efee3715cce50135130fd81a))
+
+### Performance Improvements
+
+* **event:** early return search trigger function ([#132](https://github.com/maevsi/sqitch/issues/132)) ([697da38](https://github.com/maevsi/sqitch/commit/697da3855a51552281df0726e121a1d4ecd221db))
+
 ## [5.0.0-beta.4](https://github.com/maevsi/sqitch/compare/5.0.0-beta.3...5.0.0-beta.4) (2025-01-26)
 
 ### Bug Fixes
