@@ -7,6 +7,6 @@ SELECT id,
        created_at,
        updated_at,
        updated_by
-FROM maevsi.invitation WHERE FALSE;
+FROM maevsi.guest WHERE FALSE;
 
 ROLLBACK;

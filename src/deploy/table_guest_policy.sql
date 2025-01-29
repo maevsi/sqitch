@@ -1,15 +1,15 @@
 BEGIN;
 
-GRANT SELECT, UPDATE ON TABLE maevsi.invitation TO maevsi_account, maevsi_anonymous;
-GRANT INSERT, DELETE ON TABLE maevsi.invitation TO maevsi_account;
+GRANT SELECT, UPDATE ON TABLE maevsi.guest TO maevsi_account, maevsi_anonymous;
+GRANT INSERT, DELETE ON TABLE maevsi.guest TO maevsi_account;
 
-ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.guest ENABLE ROW LEVEL SECURITY;
 
--- Only display invitations issued to oneself through invitation claims.
--- Only display invitations issued to oneself through the account, omit invitations created by a blocked user.
--- Only display invitations to events organized by oneself, omit invitations created by a blocked user and invitations issued for a blocked user.
-CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
-    id = ANY (maevsi.invitation_claim_array())
+-- Only display guests accessible through guest claims.
+-- Only display guests accessible through the account, omit guests created by a blocked user.
+-- Only display guests of events organized by oneself, omit guests created by a blocked user and guests issued for a blocked user.
+CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (
+    id = ANY (maevsi.guest_claim_array())
   OR
   (
     contact_id IN (
@@ -19,7 +19,7 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
 
       EXCEPT
 
-      -- contacts to oneself created by a blocked account
+      -- contacts created by a blocked account
       SELECT c.id
       FROM maevsi.contact c
         JOIN maevsi.account_block b
@@ -48,17 +48,17 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
   )
 );
 
--- Only allow inserts for invitations to events organized by oneself.
--- Only allow inserts for invitations to events for which the maximum invitee count is not yet reached.
--- Only allow inserts for invitations issued to a contact that was created by oneself.
--- Do not allow inserts for invitations issued to a contact referring a blocked account.
-CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
+-- Only allow inserts for guests of events organized by oneself.
+-- Only allow inserts for guests of events for which the maximum guest count is not yet reached.
+-- Only allow inserts for guests for a contact that was created by oneself.
+-- Do not allow inserts for guests for a contact referring a blocked account.
+CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (
     event_id IN (SELECT maevsi.events_organized())
   AND
   (
-    maevsi.event_invitee_count_maximum(event_id) IS NULL
+    maevsi.event_guest_count_maximum(event_id) IS NULL
     OR
-    maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id)
+    maevsi.event_guest_count_maximum(event_id) > maevsi.guest_count(event_id)
   )
   AND
     contact_id IN (
@@ -80,11 +80,11 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
     )
 );
 
--- Only allow updates to invitations issued to oneself through invitation claims.
--- Only allow updates to invitations issued to oneself through the account, but not invitations auhored by a blocked account.
--- Only allow updates to invitations to events organized by oneself, but not invitations issued to a blocked account or issued by a blocked account.
-CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
-    id = ANY (maevsi.invitation_claim_array())
+-- Only allow updates to guests accessible through guest claims.
+-- Only allow updates to guests accessible through the account, but not guests auhored by a blocked account.
+-- Only allow updates to guests to events organized by oneself, but not guests referencing a blocked account or authored by a blocked account.
+CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (
+    id = ANY (maevsi.guest_claim_array())
   OR
   (
     contact_id IN (
@@ -116,19 +116,19 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
   )
 );
 
--- Only allow deletes for invitations to events organized by oneself.
-CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING (
+-- Only allow deletes for guests of events organized by oneself.
+CREATE POLICY guest_delete ON maevsi.guest FOR DELETE USING (
   event_id IN (SELECT maevsi.events_organized())
 );
 
-CREATE FUNCTION maevsi.trigger_invitation_update() RETURNS TRIGGER AS $$
+CREATE FUNCTION maevsi.trigger_guest_update() RETURNS TRIGGER AS $$
 DECLARE
   whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
       TG_OP = 'UPDATE'
     AND ( -- Invited.
-      OLD.id = ANY (maevsi.invitation_claim_array())
+      OLD.id = ANY (maevsi.guest_claim_array())
       OR
       (
         maevsi.invoker_account_id() IS NOT NULL
@@ -156,14 +156,14 @@ BEGIN
   END IF;
 END $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;
 
-COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+COMMENT ON FUNCTION maevsi.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 
-GRANT EXECUTE ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.trigger_guest_update() TO maevsi_account, maevsi_anonymous;
 
-CREATE TRIGGER maevsi_invitation_update
+CREATE TRIGGER maevsi_guest_update
   BEFORE UPDATE
-  ON maevsi.invitation
+  ON maevsi.guest
   FOR EACH ROW
-  EXECUTE PROCEDURE maevsi.trigger_invitation_update();
+  EXECUTE PROCEDURE maevsi.trigger_guest_update();
 
 COMMIT;

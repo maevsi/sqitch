@@ -1,23 +1,23 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.invitation_contact_ids()
+CREATE FUNCTION maevsi.guest_contact_ids()
 RETURNS TABLE (contact_id UUID) AS $$
 BEGIN
   RETURN QUERY
-    -- get all contacts for invitations
-    SELECT invitation.contact_id
-    FROM maevsi.invitation
+    -- get all contacts for guests
+    SELECT guest.contact_id
+    FROM maevsi.guest
     WHERE
       (
         -- that are known to the invoker
-        invitation.id = ANY (maevsi.invitation_claim_array())
+        guest.id = ANY (maevsi.guest_claim_array())
       OR
         -- or for events organized by the invoker
-        invitation.event_id IN (SELECT maevsi.events_organized())
+        guest.event_id IN (SELECT maevsi.events_organized())
       )
       AND
         -- except contacts created by a blocked account or referring to a blocked account
-        invitation.contact_id NOT IN (
+        guest.contact_id NOT IN (
           SELECT contact.id
           FROM maevsi.contact
           WHERE
@@ -34,8 +34,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.invitation_contact_ids() IS 'Returns contact ids that are accessible through invitations.';
+COMMENT ON FUNCTION maevsi.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
 
-GRANT EXECUTE ON FUNCTION maevsi.invitation_contact_ids() TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION maevsi.guest_contact_ids() TO maevsi_account, maevsi_anonymous;
 
 COMMIT;

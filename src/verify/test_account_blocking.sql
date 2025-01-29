@@ -21,15 +21,15 @@ DECLARE
   eventB UUID;
   eventC UUID;
 
-  invitationAB UUID;
-  invitationAC UUID;
-  invitationBA UUID;
-  invitationBC UUID;
-  invitationCA UUID;
-  invitationCB UUID;
+  guestAB UUID;
+  guestAC UUID;
+  guestBA UUID;
+  guestBC UUID;
+  guestCA UUID;
+  guestCB UUID;
 
-  invitationClaimArray UUID[];
-  invitationClaimArrayNew UUID[];
+  guestClaimArray UUID[];
+  guestClaimArrayNew UUID[];
 
 BEGIN
 
@@ -65,12 +65,12 @@ BEGIN
   PERFORM maevsi_test.event_category_mapping_create(accountB, eventB, 'category');
   PERFORM maevsi_test.event_category_mapping_create(accountC, eventC, 'category');
 
-  invitationAB := maevsi_test.invitation_create(accountA, eventA, contactAB);
-  invitationAC := maevsi_test.invitation_create(accountA, eventA, contactAC);
-  invitationBA := maevsi_test.invitation_create(accountB, eventB, contactBA);
-  invitationBC := maevsi_test.invitation_create(accountB, eventB, contactBC);
-  invitationCA := maevsi_test.invitation_create(accountC, eventC, contactCA);
-  invitationCB := maevsi_test.invitation_create(accountC, eventC, contactCB);
+  guestAB := maevsi_test.guest_create(accountA, eventA, contactAB);
+  guestAC := maevsi_test.guest_create(accountA, eventA, contactAC);
+  guestBA := maevsi_test.guest_create(accountB, eventB, contactBA);
+  guestBC := maevsi_test.guest_create(accountB, eventB, contactBC);
+  guestCA := maevsi_test.guest_create(accountC, eventC, contactCA);
+  guestCB := maevsi_test.guest_create(accountC, eventC, contactCB);
 
   -- run tests
 
@@ -99,37 +99,37 @@ BEGIN
   PERFORM maevsi_test.contact_test('contact: A blocks B, perspective B', accountB, ARRAY[contactBB, contactBC, contactCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  PERFORM maevsi_test.invitation_test('invitation: no blocking, perspective A', accountA, ARRAY[invitationAB, invitationAC, invitationBA, invitationCA]::UUID[]);
-  PERFORM maevsi_test.invitation_test('invitation: no blocking, perspective B', accountB, ARRAY[invitationBA, invitationBC, invitationAB, invitationCB]::UUID[]);
+  PERFORM maevsi_test.guest_test('guest: no blocking, perspective A', accountA, ARRAY[guestAB, guestAC, guestBA, guestCA]::UUID[]);
+  PERFORM maevsi_test.guest_test('guest: no blocking, perspective B', accountB, ARRAY[guestBA, guestBC, guestAB, guestCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
-  PERFORM maevsi_test.invitation_test('invitation: A blocks B, perspective A', accountA, ARRAY[invitationAC, invitationCA]::UUID[]);
-  PERFORM maevsi_test.invitation_test('invitation: A blocks B, perspective B', accountB, ARRAY[invitationBC, invitationCB]::UUID[]);
+  PERFORM maevsi_test.guest_test('guest: A blocks B, perspective A', accountA, ARRAY[guestAC, guestCA]::UUID[]);
+  PERFORM maevsi_test.guest_test('guest: A blocks B, perspective B', accountB, ARRAY[guestBC, guestCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
   PERFORM maevsi_test.event_test('anonymous login: no blocking, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
   PERFORM maevsi_test.contact_test('anonymous login: no blocking, contacts', null, ARRAY[]::UUID[]);
-  PERFORM maevsi_test.invitation_test('anonymous login: no blocking, invitations', null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.guest_test('anonymous login: no blocking, guests', null, ARRAY[]::UUID[]);
 
   PERFORM maevsi_test.event_test('anonymous login: A blocks B, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
   PERFORM maevsi_test.contact_test('anonymous login: A blocks B, contacts', null, ARRAY[]::UUID[]);
-  PERFORM maevsi_test.invitation_test('anonymous login: A blocks B, invitations', null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.guest_test('anonymous login: A blocks B, guests', null, ARRAY[]::UUID[]);
 
-  -- tests for function `invitation_claim_array()`
+  -- tests for function `guest_claim_array()`
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  invitationClaimArray := maevsi.invitation_claim_array();
-  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim is unset', invitationClaimArray, ARRAY[]::UUID[]);
+  guestClaimArray := maevsi.guest_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim is unset', guestClaimArray, ARRAY[]::UUID[]);
 
-  invitationClaimArray := maevsi_test.invitation_claim_from_account_invitation(accountA);
-  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim was added', invitationClaimArray, ARRAY[invitationBA, invitationCA]);
+  guestClaimArray := maevsi_test.guest_claim_from_account_guest(accountA);
+  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim was added', guestClaimArray, ARRAY[guestBA, guestCA]);
 
-  invitationClaimArrayNew := maevsi.invitation_claim_array();
-  PERFORM maevsi_test.uuid_array_test('no blocking, invitation claim includes data', invitationClaimArrayNew, invitationClaimArray);
+  guestClaimArrayNew := maevsi.guest_claim_array();
+  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim includes data', guestClaimArrayNew, guestClaimArray);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
-  invitationClaimArrayNew := maevsi.invitation_claim_array();
-  PERFORM maevsi_test.uuid_array_test('A blocks B, invitation claim excludes blocked data', invitationClaimArrayNew, ARRAY[invitationCA]);
+  guestClaimArrayNew := maevsi.guest_claim_array();
+  PERFORM maevsi_test.uuid_array_test('A blocks B, guest claim excludes blocked data', guestClaimArrayNew, ARRAY[guestCA]);
 END $$;
 
 ROLLBACK;

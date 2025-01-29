@@ -101,7 +101,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.invitation_create (
+CREATE OR REPLACE FUNCTION maevsi_test.guest_create (
   _created_by UUID,
   _event_id UUID,
   _contact_id UUID
@@ -112,7 +112,7 @@ BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.invitation(contact_id, event_id)
+  INSERT INTO maevsi.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
@@ -250,7 +250,7 @@ BEGIN
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.invitation_test (
+CREATE OR REPLACE FUNCTION maevsi_test.guest_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -264,48 +264,48 @@ BEGIN
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.invitation EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some invitation should not appear in the query result';
+  IF EXISTS (SELECT id FROM maevsi.guest EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some guest should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.invitation) THEN
-    RAISE EXCEPTION 'some invitation is missing in the query result';
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.guest) THEN
+    RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION maevsi_test.invitation_claim_from_account_invitation (
+CREATE FUNCTION maevsi_test.guest_claim_from_account_guest (
   _account_id UUID
 )
 RETURNS UUID[] AS $$
 DECLARE
-  _invitation maevsi.invitation;
+  _guest maevsi.guest;
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
-  -- reads all invitations where _account_id is invited,
-  -- sets jwt.claims.invitations to a string representation of these invitations
-  -- and returns an array of these invitations.
+  -- reads all guests where _account_id is invited,
+  -- sets jwt.claims.guests to a string representation of these guests
+  -- and returns an array of these guests.
 
-  FOR _invitation IN
-    SELECT i.id
-    FROM maevsi.invitation i JOIN maevsi.contact c
-      ON i.contact_id = c.id
+  FOR _guest IN
+    SELECT g.id
+    FROM maevsi.guest g JOIN maevsi.contact c
+      ON g.contact_id = c.id
     WHERE c.account_id = _account_id
   LOOP
-    _text := _text || ',"' || _invitation.id || '"';
-    _result := array_append(_result, _invitation.id);
+    _text := _text || ',"' || _guest.id || '"';
+    _result := array_append(_result, _guest.id);
   END LOOP;
 
   IF LENGTH(_text) > 0 THEN
     _text := SUBSTR(_text, 2);
   END IF;
 
-  EXECUTE 'SET LOCAL jwt.claims.invitations = ''[' || _text || ']''';
+  EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
   SET LOCAL role = 'postgres';
 

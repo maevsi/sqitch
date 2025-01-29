@@ -3,7 +3,7 @@ BEGIN;
 SELECT id,
        description,
        "end",
-       invitee_count_maximum,
+       guest_count_maximum,
        is_archived,
        is_in_person,
        is_remote,

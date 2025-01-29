@@ -71,7 +71,7 @@ index 0000000..5276242
 +    "name",
 +    "slug",
 +    "visibility",
-+    "invitee_count_maximum",
++    "guest_count_maximum",
 +    "created_by",
 +    "description",
 +    "start",
@@ -148,7 +148,7 @@ index 0000000..5276242
 +    '2019-11-27 03:54:29.090009+00'
 +  );
 +
-+INSERT INTO maevsi.invitation (
++INSERT INTO maevsi.guest (
 +    "id",
 +    "event_id",
 +    "contact_id",
@@ -163,7 +163,7 @@ index 0000000..5276242
 +    'paper'
 +  );
 +
-+INSERT INTO maevsi.invitation (
++INSERT INTO maevsi.guest (
 +    "id",
 +    "event_id",
 +    "contact_id",
@@ -178,14 +178,14 @@ index 0000000..5276242
 +    'digital'
 +  );
 +
-+INSERT INTO maevsi.invitation ("id", "event_id", "contact_id")
++INSERT INTO maevsi.guest ("id", "event_id", "contact_id")
 +VALUES (
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a7c',
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a6b',
 +    _contact_id_jonas
 +  );
 +
-+INSERT INTO maevsi.invitation ("id", "event_id", "contact_id")
++INSERT INTO maevsi.guest ("id", "event_id", "contact_id")
 +VALUES (
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a7d',
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a6a',
@@ -207,7 +207,7 @@ index 0000000..50ae98c
 +
 +DELETE FROM maevsi.profile_picture;
 +DELETE FROM maevsi.upload;
-+DELETE FROM maevsi.invitation;
++DELETE FROM maevsi.guest;
 +DELETE FROM maevsi.event;
 +DELETE FROM maevsi.contact;
 +DELETE FROM maevsi_private.account;

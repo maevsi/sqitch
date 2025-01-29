@@ -13,7 +13,7 @@ DECLARE
 BEGIN
   IF (authenticate.username = '' AND authenticate.password = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.guest_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
     -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
     IF (strpos(authenticate.username, '@') = 0) THEN

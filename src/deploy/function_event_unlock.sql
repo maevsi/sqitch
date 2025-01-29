@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE FUNCTION maevsi.event_unlock(
-  invitation_id UUID
+  guest_id UUID
 ) RETURNS maevsi.event_unlock_response AS $$
 DECLARE
   _jwt_id UUID;
@@ -16,7 +16,7 @@ BEGIN
     maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
+    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || $1) ORDER BY 1)),
     current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
@@ -25,12 +25,12 @@ BEGIN
   WHERE id = _jwt_id;
 
   _event_id := (
-    SELECT event_id FROM maevsi.invitation
-    WHERE invitation.id = $1
+    SELECT event_id FROM maevsi.guest
+    WHERE guest.id = $1
   );
 
   IF (_event_id IS NULL) THEN
-    RAISE 'No invitation for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No guest for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   SELECT *
@@ -39,7 +39,7 @@ BEGIN
     INTO _event;
 
   IF (_event IS NULL) THEN
-    RAISE 'No event for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   _event_creator_account_username := (
@@ -49,13 +49,13 @@ BEGIN
   );
 
   IF (_event_creator_account_username IS NULL) THEN
-    RAISE 'No event creator username for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   RETURN (_event_creator_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
 END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_unlock(UUID) IS 'Assigns an invitation to the current session.';
+COMMENT ON FUNCTION maevsi.event_unlock(UUID) IS 'Adds a guest claim to the current session.';
 
 GRANT EXECUTE ON FUNCTION maevsi.event_unlock(UUID) TO maevsi_account, maevsi_anonymous;
 
