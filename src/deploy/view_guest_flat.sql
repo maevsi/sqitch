@@ -1,11 +1,11 @@
 BEGIN;
 CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
   SELECT
-    guest.id               AS guest_id,
-    guest.contact_id       AS guest_contact_id,
-    guest.event_id         AS guest_event_id,
-    guest.feedback         AS guest_feedback,
-    guest.feedback_paper   AS guest_feedback_paper,
+    guest.id                    AS guest_id,
+    guest.contact_id            AS guest_contact_id,
+    guest.event_id              AS guest_event_id,
+    guest.feedback              AS guest_feedback,
+    guest.feedback_paper        AS guest_feedback_paper,
 
     contact.id                  AS contact_id,
     contact.account_id          AS contact_account_id,

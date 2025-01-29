@@ -1171,9 +1171,9 @@ BEGIN
       -- omit guests of events created by an account blocked by the current user
       IF EXISTS (
 	      SELECT 1
-	      FROM maevsi.guest i
-	        JOIN maevsi.event e ON i.event_id = e.id
-	      WHERE i.id = _guest_id AND e.created_by NOT IN (
+	      FROM maevsi.guest g
+	        JOIN maevsi.event e ON g.event_id = e.id
+	      WHERE g.id = _guest_id AND e.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
 	    ) THEN
@@ -2461,9 +2461,9 @@ BEGIN
   -- and returns an array of these guests.
 
   FOR _guest IN
-    SELECT i.id
-    FROM maevsi.guest i JOIN maevsi.contact c
-      ON i.contact_id = c.id
+    SELECT g.id
+    FROM maevsi.guest g JOIN maevsi.contact c
+      ON g.contact_id = c.id
     WHERE c.account_id = _account_id
   LOOP
     _text := _text || ',"' || _guest.id || '"';

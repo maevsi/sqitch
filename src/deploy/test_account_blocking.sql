@@ -292,9 +292,9 @@ BEGIN
   -- and returns an array of these guests.
 
   FOR _guest IN
-    SELECT i.id
-    FROM maevsi.guest i JOIN maevsi.contact c
-      ON i.contact_id = c.id
+    SELECT g.id
+    FROM maevsi.guest g JOIN maevsi.contact c
+      ON g.contact_id = c.id
     WHERE c.account_id = _account_id
   LOOP
     _text := _text || ',"' || _guest.id || '"';
