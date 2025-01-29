@@ -2793,18 +2793,20 @@ CREATE TABLE maevsi.contact (
     language maevsi.language,
     last_name text,
     nickname text,
+    note text,
     phone_number text,
     timezone text,
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
+    CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) <= 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
-    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
-    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
-    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
+    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
+    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
     CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
 );
 
 
@@ -2814,7 +2816,7 @@ ALTER TABLE maevsi.contact OWNER TO postgres;
 -- Name: TABLE contact; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.contact IS 'Contact data.';
+COMMENT ON TABLE maevsi.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 
 
 --
@@ -2822,35 +2824,35 @@ COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 --
 
 COMMENT ON COLUMN maevsi.contact.id IS '@omit create,update
-The contact''s internal id.';
+Primary key, uniquely identifies each contact.';
 
 
 --
 -- Name: COLUMN contact.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
+COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associated account.';
 
 
 --
 -- Name: COLUMN contact.address; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
+COMMENT ON COLUMN maevsi.contact.address IS 'Physical address of the contact. Must be between 1 and 300 characters.';
 
 
 --
 -- Name: COLUMN contact.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
+COMMENT ON COLUMN maevsi.contact.author_account_id IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 
 
 --
 -- Name: COLUMN contact.email_address; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.';
+COMMENT ON COLUMN maevsi.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
 
 
 --
@@ -2858,56 +2860,63 @@ COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.
 --
 
 COMMENT ON COLUMN maevsi.contact.email_address_hash IS '@omit create,update
-The contact''s email address''s md5 hash.';
+Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 
 
 --
 -- Name: COLUMN contact.first_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
+COMMENT ON COLUMN maevsi.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 
 
 --
 -- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
+COMMENT ON COLUMN maevsi.contact.language IS 'Reference to the preferred language of the contact.';
 
 
 --
 -- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
+COMMENT ON COLUMN maevsi.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
 
 
 --
 -- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
+COMMENT ON COLUMN maevsi.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
+
+
+--
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 
 
 --
 -- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
 
 
 --
 -- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
+COMMENT ON COLUMN maevsi.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
 
 
 --
 -- Name: COLUMN contact.url; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
+COMMENT ON COLUMN maevsi.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
 
 
 --
@@ -2915,7 +2924,7 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 --
 
 COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
-Timestamp of when the contact was created, defaults to the current timestamp.';
+Timestamp when the contact was created. Defaults to the current timestamp.';
 
 
 --
@@ -4430,6 +4439,13 @@ ALTER TABLE ONLY maevsi.achievement
 
 ALTER TABLE ONLY maevsi.contact
     ADD CONSTRAINT contact_author_account_id_account_id_key UNIQUE (author_account_id, account_id);
+
+
+--
+-- Name: CONSTRAINT contact_author_account_id_account_id_key ON contact; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT contact_author_account_id_account_id_key ON maevsi.contact IS 'Ensures the uniqueness of the combination of `author_account_id` and `account_id` for a contact.';
 
 
 --
