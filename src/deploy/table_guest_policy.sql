@@ -6,8 +6,8 @@ GRANT INSERT, DELETE ON TABLE maevsi.guest TO maevsi_account;
 ALTER TABLE maevsi.guest ENABLE ROW LEVEL SECURITY;
 
 -- Only display guests accessible through guest claims.
--- Only display guests accessible through the account, omit guests authored by a blocked user.
--- Only display guests of events organized by oneself, omit guests authored by a blocked user and guests issued for a blocked user.
+-- Only display guests accessible through the account, omit guests created by a blocked user.
+-- Only display guests of events organized by oneself, omit guests created by a blocked user and guests issued for a blocked user.
 CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (
     id = ANY (maevsi.guest_claim_array())
   OR
@@ -19,14 +19,14 @@ CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (
 
       EXCEPT
 
-      -- contacts authored by a blocked account
+      -- contacts created by a blocked account
       SELECT c.id
       FROM maevsi.contact c
         JOIN maevsi.account_block b
         ON
-          c.account_id = b.author_account_id
+          c.account_id = b.created_by
           AND
-          c.author_account_id = b.blocked_account_id
+          c.created_by = b.blocked_account_id
       WHERE
         c.account_id = maevsi.invoker_account_id()
     )
@@ -64,7 +64,7 @@ CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE author_account_id = maevsi.invoker_account_id()
+      WHERE created_by = maevsi.invoker_account_id()
 
       EXCEPT
 
@@ -74,9 +74,9 @@ CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (
         ON
           c.account_id = b.blocked_account_id
           AND
-          c.author_account_id = b.author_account_id
+          c.created_by = b.created_by
       WHERE
-        c.author_account_id = maevsi.invoker_account_id()
+        c.created_by = maevsi.invoker_account_id()
     )
 );
 
@@ -96,7 +96,7 @@ CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (
 
     SELECT c.id
     FROM maevsi.contact c
-      JOIN maevsi.account_block b ON c.account_id = b.author_account_id and c.author_account_id = b.blocked_account_id
+      JOIN maevsi.account_block b ON c.account_id = b.created_by and c.created_by = b.blocked_account_id
     WHERE c.account_id = maevsi.invoker_account_id()
     )
   )
@@ -104,7 +104,7 @@ CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (
   (
     event_id IN (SELECT maevsi.events_organized())
     AND
-    -- omit contacts authored by a blocked account or referring to a blocked account
+    -- omit contacts created by a blocked account or referring to a blocked account
     contact_id IN (
       SELECT c.id
       FROM maevsi.contact c

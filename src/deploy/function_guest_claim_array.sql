@@ -12,12 +12,12 @@ BEGIN
   IF _guest_ids IS NOT NULL THEN
     FOREACH _guest_id IN ARRAY _guest_ids
     LOOP
-      -- omit guests of events authored by an account blocked by the current user
+      -- omit guests of events created by an account blocked by the current user
       IF EXISTS (
 	      SELECT 1
 	      FROM maevsi.guest i
 	        JOIN maevsi.event e ON i.event_id = e.id
-	      WHERE i.id = _guest_id AND e.author_account_id NOT IN (
+	      WHERE i.id = _guest_id AND e.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
 	    ) THEN

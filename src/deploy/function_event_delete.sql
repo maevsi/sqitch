@@ -15,7 +15,7 @@ BEGIN
       FROM maevsi.event
       WHERE
             "event".id = $1
-        AND "event".author_account_id = _current_account_id
+        AND "event".created_by = _current_account_id
       RETURNING * INTO _event_deleted;
 
     IF (_event_deleted IS NULL) THEN

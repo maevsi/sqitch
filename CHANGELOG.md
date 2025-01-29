@@ -1,3 +1,83 @@
+## [5.0.0-beta.5](https://github.com/maevsi/sqitch/compare/5.0.0-beta.4...5.0.0-beta.5) (2025-01-29)
+
+### ⚠ BREAKING CHANGES
+
+* **event-favorite:** align to general schema (#135)
+* add address (#134)
+* **contact:** add note (#133)
+
+### Features
+
+* add address ([#134](https://github.com/maevsi/sqitch/issues/134)) ([97a8645](https://github.com/maevsi/sqitch/commit/97a8645f591f7975f367b1ed7ad6b3c920797b3e))
+* **contact:** add note ([#133](https://github.com/maevsi/sqitch/issues/133)) ([153fd3f](https://github.com/maevsi/sqitch/commit/153fd3f8b6e52263fe317425c4470caf2ddb74a1))
+* **event-favorite:** align to general schema ([#135](https://github.com/maevsi/sqitch/issues/135)) ([87d45df](https://github.com/maevsi/sqitch/commit/87d45dfe526a63d31953c1080ff9abb70f641e21))
+* **metadata:** rename author to creator ([#136](https://github.com/maevsi/sqitch/issues/136)) ([55381ff](https://github.com/maevsi/sqitch/commit/55381ff14c144bb7efee3715cce50135130fd81a))
+
+### Performance Improvements
+
+* **event:** early return search trigger function ([#132](https://github.com/maevsi/sqitch/issues/132)) ([697da38](https://github.com/maevsi/sqitch/commit/697da3855a51552281df0726e121a1d4ecd221db))
+
+## [5.0.0-beta.4](https://github.com/maevsi/sqitch/compare/5.0.0-beta.3...5.0.0-beta.4) (2025-01-26)
+
+### Bug Fixes
+
+* **location:** move test function to appropriate schema ([#130](https://github.com/maevsi/sqitch/issues/130)) ([e5b4a36](https://github.com/maevsi/sqitch/commit/e5b4a365eb548f2753394e58da7ea5549b01fe42))
+
+## [5.0.0-beta.3](https://github.com/maevsi/sqitch/compare/5.0.0-beta.2...5.0.0-beta.3) (2025-01-25)
+
+### ⚠ BREAKING CHANGES
+
+* add location (#114)
+* **event:** add full text search (#121)
+* **extension:** add postgis (#119)
+* **grafana:** remove (#107)
+* **timestamp:** add time zone (#92)
+
+### Features
+
+* **account:** add login using email address ([#112](https://github.com/maevsi/sqitch/issues/112)) ([937d255](https://github.com/maevsi/sqitch/commit/937d255ab04313442f173804f2fd87f817249f81))
+* **account:** add possibility to block ([#73](https://github.com/maevsi/sqitch/issues/73)) ([4ab872e](https://github.com/maevsi/sqitch/commit/4ab872eef7c165605f1070636e1050f3a876e51a))
+* **achievement:** add early bird achievement ([#111](https://github.com/maevsi/sqitch/issues/111)) ([0238bea](https://github.com/maevsi/sqitch/commit/0238bea39fc942bd49c894eb57214534a01db0a1))
+* add language enumeration ([76a1465](https://github.com/maevsi/sqitch/commit/76a1465f219c4c0171aafcac1bbbac16580d9691))
+* add location ([#114](https://github.com/maevsi/sqitch/issues/114)) ([8d9a9d1](https://github.com/maevsi/sqitch/commit/8d9a9d1580d6e1c9f9ed1c419350dad57e4fabd9))
+* **contact:** add language ([669570f](https://github.com/maevsi/sqitch/commit/669570f6322aa8ad971990b2de9fcf8afdf14007))
+* **contact:** add nickname ([8b7169a](https://github.com/maevsi/sqitch/commit/8b7169a856b5e81ebb0676ac7de6ce512a83d548))
+* **contact:** add timezone ([02da0f9](https://github.com/maevsi/sqitch/commit/02da0f9cdb644ef78c5c6a4b354d2bd968904337))
+* **event_upload:** adjust policies. ([23eb8f4](https://github.com/maevsi/sqitch/commit/23eb8f4fbc169117e928c3b75a33635d7d970ff3))
+* **event-category-mapping:** check if invited ([4ba7dac](https://github.com/maevsi/sqitch/commit/4ba7dac31bb06937cf01829db9e58d98e9a9c723))
+* **event:** add full text search ([#121](https://github.com/maevsi/sqitch/issues/121)) ([83533e9](https://github.com/maevsi/sqitch/commit/83533e92951db2315fbc689cd1c6e7270d7b06eb))
+* **event:** add visibility unlisted ([#126](https://github.com/maevsi/sqitch/issues/126)) ([759c4d4](https://github.com/maevsi/sqitch/commit/759c4d43f4a3338dce8d55c1eaa347b34edf4ede))
+* **event:** assign images to events ([f4822f8](https://github.com/maevsi/sqitch/commit/f4822f8252089929dea47f3585737d49b19b7c30))
+* **event:** mark events as favourite ([#109](https://github.com/maevsi/sqitch/issues/109)) ([7b75524](https://github.com/maevsi/sqitch/commit/7b75524def9ab2575db922567e9d6db87ef3a929))
+* **extension:** add postgis ([#119](https://github.com/maevsi/sqitch/issues/119)) ([5a24dfa](https://github.com/maevsi/sqitch/commit/5a24dfaf542a1045fbd8ff0ee7a678ee44ad501f))
+* **grafana:** remove ([#107](https://github.com/maevsi/sqitch/issues/107)) ([960b978](https://github.com/maevsi/sqitch/commit/960b97899d8b55cd1b1ef9aad9065c4b1b7f9118))
+* **invitation:** add update metadata ([f493fe4](https://github.com/maevsi/sqitch/commit/f493fe4d6c5e5127a0cad253768c864fcdfe296b))
+* **invitation:** column names prefixed ([2e29431](https://github.com/maevsi/sqitch/commit/2e294319a7b651deb1b472953ebb3ee770c5a5c6))
+* **invitation:** provide flattened invitations ([119b0dd](https://github.com/maevsi/sqitch/commit/119b0dd3c7337db9688a78778eb8a9484e6d3785))
+* **policy:** add policy to recommendation tables ([280f47b](https://github.com/maevsi/sqitch/commit/280f47b8fd93ee871f2bd25ba2daeaf5e496b84f))
+* **recommendation:** add enum and tables needed for event recommendation ([7fb5e21](https://github.com/maevsi/sqitch/commit/7fb5e21f28fc70ea7bcbb6e764cd54cb5f0a899b))
+* **recommendation:** several modifications to db schema ([8581ad0](https://github.com/maevsi/sqitch/commit/8581ad091bea58ff33fab8a31e1c9e8fd2f2c430))
+* **revert:** add revert for recommendation tables ([cff0b7f](https://github.com/maevsi/sqitch/commit/cff0b7fdef045ac3f388553f7c4bbffb3a019c78))
+* **schema:** fix small errors and build schema ([3183da0](https://github.com/maevsi/sqitch/commit/3183da01587f4b83e646a5158cb8fba42f44a7ff))
+* **table:** add creation timestamps ([d8d142d](https://github.com/maevsi/sqitch/commit/d8d142d8d1b12ae4890b97f60fc2daf7eb20fe96))
+* **timestamp:** add time zone ([#92](https://github.com/maevsi/sqitch/issues/92)) ([d36d378](https://github.com/maevsi/sqitch/commit/d36d3786a6eed54feb64f8ace35e42f925d78302))
+* **verify:** add verification for event recommendation tables ([1d6bb59](https://github.com/maevsi/sqitch/commit/1d6bb59a8cd21b4b3bc1c8a48161b3d3ff6226a3))
+
+### Bug Fixes
+
+* **account-block:** remove bug in function, create new table function ([#125](https://github.com/maevsi/sqitch/issues/125)) ([35b22b4](https://github.com/maevsi/sqitch/commit/35b22b4a1530e6cb95687578c0725428e243b4cd))
+* **build:** commit forgotten files ([d554d0f](https://github.com/maevsi/sqitch/commit/d554d0fe33d903da55a1b14ff9b35772ebad867b))
+* **event-upload:** work in feedback ([678ddfc](https://github.com/maevsi/sqitch/commit/678ddfce330171ab340bd112f2734d1ab304559b))
+* **invitation-flat:** work in feedback ([6ac75ac](https://github.com/maevsi/sqitch/commit/6ac75ac03d73bdf6daed20e3bf47668fe9a45e22))
+* **invoker-account-id:** grant execute for tusd ([#123](https://github.com/maevsi/sqitch/issues/123)) ([7245225](https://github.com/maevsi/sqitch/commit/7245225527b7f98a76d881863c574c862254defd))
+* **legal-term-acceptance:** omit update and delete ([555e031](https://github.com/maevsi/sqitch/commit/555e031c96e3a83ae41e3b03dd5c2de72e51780f))
+* omit update for creation timestamps ([084ad1e](https://github.com/maevsi/sqitch/commit/084ad1e7f89dfcfd890fde76f3d5baa9dffe1cd8))
+* **policy:** fix user check in event category mapping policy ([3dfd96a](https://github.com/maevsi/sqitch/commit/3dfd96ab1949933b6326e1762ee6461ff39eda60))
+* **role:** drop before creation ([#106](https://github.com/maevsi/sqitch/issues/106)) ([fecd16e](https://github.com/maevsi/sqitch/commit/fecd16ea860a18f0cfdaa7f0118899acf4133cce))
+* schedule release ([6e32e10](https://github.com/maevsi/sqitch/commit/6e32e10a00373c9d88d843db73038d438b130364))
+* schedule release ([7dbc9bb](https://github.com/maevsi/sqitch/commit/7dbc9bbe6c23449418012ed2eb439df4400749bf))
+* **schema:** remove table prefix so schema can be build ([cc5be2d](https://github.com/maevsi/sqitch/commit/cc5be2d7f0db3a251337325ec0b3aa822d0f8482))
+
 ## [5.0.0-beta.2](https://github.com/maevsi/sqitch/compare/5.0.0-beta.1...5.0.0-beta.2) (2024-12-12)
 ## [4.13.2](https://github.com/maevsi/sqitch/compare/4.13.1...4.13.2) (2025-01-25)
 

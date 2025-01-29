@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE EXTENSION pgcrypto WITH SCHEMA public;
+CREATE EXTENSION pgcrypto;
 
 COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
 

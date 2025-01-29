@@ -7,7 +7,7 @@ DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
   _event maevsi.event;
-  _event_author_account_username TEXT;
+  _event_creator_account_username TEXT;
   _event_id UUID;
 BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
@@ -42,17 +42,17 @@ BEGIN
     RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  _event_author_account_username := (
+  _event_creator_account_username := (
     SELECT username
     FROM maevsi.account
-    WHERE id = _event.author_account_id
+    WHERE id = _event.created_by
   );
 
-  IF (_event_author_account_username IS NULL) THEN
-    RAISE 'No event author username for this guest id found!' USING ERRCODE = 'no_data_found';
+  IF (_event_creator_account_username IS NULL) THEN
+    RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  RETURN (_event_author_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
+  RETURN (_event_creator_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
 END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION maevsi.event_unlock(UUID) IS 'Adds a guest claim to the current session.';

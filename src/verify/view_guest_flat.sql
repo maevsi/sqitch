@@ -9,15 +9,14 @@ SELECT
   contact_id,
   contact_account_id,
   contact_address,
-  contact_author_account_id,
   contact_email_address,
   contact_email_address_hash,
   contact_first_name,
   contact_last_name,
   contact_phone_number,
   contact_url,
+  contact_created_by,
   event_id,
-  event_author_account_id,
   event_description,
   event_start,
   event_end,
@@ -29,7 +28,8 @@ SELECT
   event_name,
   event_slug,
   event_url,
-  event_visibility
+  event_visibility,
+  event_created_by
 FROM maevsi.guest_flat WHERE FALSE;
 
 ROLLBACK;

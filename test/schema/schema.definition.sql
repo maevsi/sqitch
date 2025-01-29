@@ -168,7 +168,7 @@ ALTER TYPE maevsi.jwt OWNER TO postgres;
 --
 
 CREATE TYPE maevsi.event_unlock_response AS (
-	author_account_username text,
+	creator_username text,
 	event_slug text,
 	jwt maevsi.jwt
 );
@@ -193,7 +193,7 @@ ALTER TYPE maevsi.event_visibility OWNER TO postgres;
 -- Name: TYPE event_visibility; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private, unlisted.';
+COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private and unlisted.';
 
 
 --
@@ -288,7 +288,7 @@ BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
   IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt($1, account.password_hash))) THEN
-    IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.author_account_id = _current_account_id)) THEN
+    IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.created_by = _current_account_id)) THEN
       RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
     ELSE
       DELETE FROM maevsi_private.account WHERE account.id = _current_account_id;
@@ -346,103 +346,6 @@ ALTER FUNCTION maevsi.account_email_address_verification(code uuid) OWNER TO pos
 --
 
 COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
-
-
---
--- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) RETURNS TABLE(account_id uuid, distance double precision)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  RETURN QUERY
-    WITH event AS (
-      SELECT location_geography
-      FROM maevsi.event
-      WHERE id = _event_id
-    )
-    SELECT
-      a.id AS account_id,
-      ST_Distance(e.location_geography, a.location) AS distance
-    FROM
-      event e,
-      maevsi_private.account a
-    WHERE
-      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) IS 'Returns account locations within a given radius around the location of an event.';
-
-
---
--- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_location_coordinates(_account_id uuid) RETURNS double precision[]
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _latitude DOUBLE PRECISION;
-  _longitude DOUBLE PRECISION;
-BEGIN
-  SELECT
-    ST_Y(location::geometry),
-    ST_X(location::geometry)
-  INTO
-    _latitude,
-    _longitude
-  FROM
-    maevsi_private.account
-  WHERE
-    id = _account_id;
-
-  RETURN ARRAY[_latitude, _longitude];
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.account_location_coordinates(_account_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_location_coordinates(_account_id uuid) IS 'Returns an array with latitude and longitude of the account''s current location data';
-
-
---
--- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  UPDATE maevsi_private.account
-  SET
-    location = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = _account_id;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
 
 
 --
@@ -611,7 +514,7 @@ BEGIN
     _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
-  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account_private.id, _new_account_private.id);
+  INSERT INTO maevsi.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -842,7 +745,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE maevsi.event (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
+    address uuid,
     description text,
     "end" timestamp with time zone,
     guest_count_maximum integer,
@@ -858,6 +761,7 @@ CREATE TABLE maevsi.event (
     url text,
     visibility maevsi.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     search_vector tsvector,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
@@ -886,10 +790,10 @@ The event''s internal id.';
 
 
 --
--- Name: COLUMN event.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.address; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.author_account_id IS 'The event author''s id.';
+COMMENT ON COLUMN maevsi.event.address IS 'The event''s physical address.';
 
 
 --
@@ -992,6 +896,13 @@ Timestamp of when the event was created, defaults to the current timestamp.';
 
 
 --
+-- Name: COLUMN event.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.created_by IS 'The event creator''s id.';
+
+
+--
 -- Name: COLUMN event.search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -1017,7 +928,7 @@ BEGIN
       FROM maevsi.event
       WHERE
             "event".id = $1
-        AND "event".author_account_id = _current_account_id
+        AND "event".created_by = _current_account_id
       RETURNING * INTO _event_deleted;
 
     IF (_event_deleted IS NULL) THEN
@@ -1039,41 +950,6 @@ ALTER FUNCTION maevsi.event_delete(id uuid, password text) OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to delete an event.';
-
-
---
--- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) RETURNS TABLE(event_id uuid, distance double precision)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  RETURN QUERY
-    WITH account AS (
-      SELECT location
-      FROM maevsi_private.account
-      WHERE id = _account_id
-    )
-    SELECT
-      e.id AS event_id,
-      ST_Distance(a.location, e.location_geography) AS distance
-    FROM
-      account a,
-      maevsi.event e
-    WHERE
-      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) IS 'Returns event locations within a given radius around the location of an account.';
 
 
 --
@@ -1102,7 +978,7 @@ BEGIN
         OR (
           maevsi.invoker_account_id() IS NOT NULL
           AND
-          author_account_id = maevsi.invoker_account_id()
+          created_by = maevsi.invoker_account_id()
         )
         OR id IN (SELECT maevsi_private.events_invited())
       )
@@ -1124,11 +1000,11 @@ COMMENT ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) IS 'Add a fu
 -- Name: event_is_existing(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) RETURNS boolean
+CREATE FUNCTION maevsi.event_is_existing(created_by uuid, slug text) RETURNS boolean
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $_$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".author_account_id = $1 AND "event".slug = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".created_by = $1 AND "event".slug = $2)) THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
@@ -1137,75 +1013,13 @@ END;
 $_$;
 
 
-ALTER FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_is_existing(created_by uuid, slug text) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_is_existing(author_account_id uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) IS 'Shows if an event exists.';
-
-
---
--- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_location_coordinates(_event_id uuid) RETURNS double precision[]
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _latitude DOUBLE PRECISION;
-  _longitude DOUBLE PRECISION;
-BEGIN
-  SELECT
-    ST_Y(location_geography::geometry),
-    ST_X(location_geography::geometry)
-  INTO
-    _latitude,
-    _longitude
-  FROM
-    maevsi.event
-  WHERE
-    id = _event_id;
-
-  RETURN ARRAY[_latitude, _longitude];
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.event_location_coordinates(_event_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_location_coordinates(_event_id uuid) IS 'Returns an array with latitude and longitude of the event''s current location data.';
-
-
---
--- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  UPDATE maevsi.event
-  SET
-    location_geography = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = _event_id;
-END;
-$$;
-
-
-ALTER FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
-
---
--- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) IS 'Shows if an event exists.';
 
 
 --
@@ -1253,7 +1067,7 @@ DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
   _event maevsi.event;
-  _event_author_account_username TEXT;
+  _event_creator_account_username TEXT;
   _event_id UUID;
 BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
@@ -1288,17 +1102,17 @@ BEGIN
     RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  _event_author_account_username := (
+  _event_creator_account_username := (
     SELECT username
     FROM maevsi.account
-    WHERE id = _event.author_account_id
+    WHERE id = _event.created_by
   );
 
-  IF (_event_author_account_username IS NULL) THEN
-    RAISE 'No event author username for this guest id found!' USING ERRCODE = 'no_data_found';
+  IF (_event_creator_account_username IS NULL) THEN
+    RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  RETURN (_event_author_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
+  RETURN (_event_creator_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
 END $_$;
 
 
@@ -1323,7 +1137,7 @@ BEGIN
   RETURN QUERY
     SELECT id FROM maevsi.event
     WHERE
-      author_account_id = maevsi.invoker_account_id();
+      created_by = maevsi.invoker_account_id();
 END
 $$;
 
@@ -1334,7 +1148,7 @@ ALTER FUNCTION maevsi.events_organized() OWNER TO postgres;
 -- Name: FUNCTION events_organized(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the author.';
+COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
 
 
 --
@@ -1354,12 +1168,12 @@ BEGIN
   IF _guest_ids IS NOT NULL THEN
     FOREACH _guest_id IN ARRAY _guest_ids
     LOOP
-      -- omit guests of events authored by an account blocked by the current user
+      -- omit guests of events created by an account blocked by the current user
       IF EXISTS (
 	      SELECT 1
 	      FROM maevsi.guest i
 	        JOIN maevsi.event e ON i.event_id = e.id
-	      WHERE i.id = _guest_id AND e.author_account_id NOT IN (
+	      WHERE i.id = _guest_id AND e.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
 	    ) THEN
@@ -1402,7 +1216,7 @@ BEGIN
         guest.event_id IN (SELECT maevsi.events_organized())
       )
       AND
-        -- except contacts authored by a blocked account or referring to a blocked account
+        -- except contacts created by a blocked account or referring to a blocked account
         guest.contact_id NOT IN (
           SELECT contact.id
           FROM maevsi.contact
@@ -1413,7 +1227,7 @@ BEGIN
                 SELECT id FROM maevsi_private.account_block_ids()
               )
             OR
-              contact.author_account_id IN (
+              contact.created_by IN (
                 SELECT id FROM maevsi_private.account_block_ids()
               )
         );
@@ -1463,9 +1277,9 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_author_profile_picture_upload_id UUID;
-  _event_author_profile_picture_upload_storage_key TEXT;
-  _event_author_username TEXT;
+  _event_creator_profile_picture_upload_id UUID;
+  _event_creator_profile_picture_upload_storage_key TEXT;
+  _event_creator_username TEXT;
   _guest RECORD;
 BEGIN
   -- Guest UUID
@@ -1508,12 +1322,12 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event author username
-  SELECT username FROM maevsi.account INTO _event_author_username WHERE account.id = _event.author_account_id;
+  -- Event creator username
+  SELECT username FROM maevsi.account INTO _event_creator_username WHERE account.id = _event.created_by;
 
-  -- Event author profile picture storage key
-  SELECT upload_id FROM maevsi.profile_picture INTO _event_author_profile_picture_upload_id WHERE profile_picture.account_id = _event.author_account_id;
-  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.id = _event_author_profile_picture_upload_id;
+  -- Event creator profile picture storage key
+  SELECT upload_id FROM maevsi.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key FROM maevsi.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -1522,8 +1336,8 @@ BEGIN
         'data', jsonb_build_object(
           'emailAddress', _email_address,
           'event', _event,
-          'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
-          'eventAuthorUsername', _event_author_username,
+          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
+          'eventCreatorUsername', _event_creator_username,
           'guestId', _guest.id
         ),
         'template', jsonb_build_object('language', $2)
@@ -1752,13 +1566,13 @@ CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS trigger
         -- updating own account's contact
         OLD.account_id = maevsi.invoker_account_id()
         AND
-        OLD.author_account_id = maevsi.invoker_account_id()
+        OLD.created_by = maevsi.invoker_account_id()
         AND
         (
           -- trying to detach from account
           NEW.account_id != OLD.account_id
           OR
-          NEW.author_account_id != OLD.author_account_id
+          NEW.created_by != OLD.created_by
         )
       )
     ) THEN
@@ -1792,7 +1606,7 @@ BEGIN
   ts_config := maevsi.language_iso_full_text_search(NEW.language);
 
   NEW.search_vector :=
-    setweight(to_tsvector(ts_config, coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
     setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
 
   RETURN NEW;
@@ -1858,6 +1672,31 @@ ALTER FUNCTION maevsi.trigger_guest_update() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+
+
+--
+-- Name: trigger_metadata_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_metadata_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.updated_by = maevsi.invoker_account_id();
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_metadata_update() OWNER TO postgres;
+
+--
+-- Name: FUNCTION trigger_metadata_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.trigger_metadata_update() IS 'Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.';
 
 
 --
@@ -1988,9 +1827,9 @@ BEGIN
   RETURN QUERY
     SELECT blocked_account_id
     FROM maevsi.account_block
-    WHERE author_account_id = maevsi.invoker_account_id()
+    WHERE created_by = maevsi.invoker_account_id()
     UNION ALL
-    SELECT author_account_id
+    SELECT created_by
     FROM maevsi.account_block
     WHERE blocked_account_id = maevsi.invoker_account_id();
 END
@@ -2089,7 +1928,7 @@ BEGIN
             account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
           AND
             -- who is not invited by
-            author_account_id NOT IN (
+            created_by NOT IN (
               SELECT id FROM maevsi_private.account_block_ids()
             )
       ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
@@ -2114,17 +1953,17 @@ COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that retu
 -- Name: account_block_create(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.account_block(author_account_id, blocked_account_id)
-  VALUES (_author_account_id, _blocked_Account_id)
+  INSERT INTO maevsi.account_block(created_by, blocked_account_id)
+  VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -2133,24 +1972,24 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) OWNER TO postgres;
 
 --
 -- Name: account_block_remove(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) RETURNS void
+CREATE FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   DELETE FROM maevsi.account_block
-  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
+  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO postgres;
 
 --
 -- Name: account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2178,6 +2017,103 @@ END $$;
 ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO postgres;
 
 --
+-- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) RETURNS TABLE(account_id uuid, distance double precision)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    WITH event AS (
+      SELECT location_geography
+      FROM maevsi.event
+      WHERE id = _event_id
+    )
+    SELECT
+      a.id AS account_id,
+      ST_Distance(e.location_geography, a.location) AS distance
+    FROM
+      event e,
+      maevsi_private.account a
+    WHERE
+      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) IS 'Returns account locations within a given radius around the location of an event.';
+
+
+--
+-- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) RETURNS double precision[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _latitude DOUBLE PRECISION;
+  _longitude DOUBLE PRECISION;
+BEGIN
+  SELECT
+    ST_Y(location::geometry),
+    ST_X(location::geometry)
+  INTO
+    _latitude,
+    _longitude
+  FROM
+    maevsi_private.account
+  WHERE
+    id = _account_id;
+
+  RETURN ARRAY[_latitude, _longitude];
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) IS 'Returns an array with latitude and longitude of the account''s current location data';
+
+
+--
+-- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE maevsi_private.account
+  SET
+    location = ST_Point(_longitude, _latitude, 4326)
+  WHERE
+    id = _account_id;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
+
+
+--
 -- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -2194,7 +2130,7 @@ BEGIN
     SET LOCAL role = 'maevsi_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
-    DELETE FROM maevsi.event WHERE author_account_id = _id;
+    DELETE FROM maevsi.event WHERE created_by = _id;
 
     PERFORM maevsi.account_delete('password');
 
@@ -2209,7 +2145,7 @@ ALTER FUNCTION maevsi_test.account_remove(_username text) OWNER TO postgres;
 -- Name: contact_create(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) RETURNS uuid
+CREATE FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -2219,10 +2155,10 @@ BEGIN
   SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
 
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.contact(author_account_id, email_address)
-  VALUES (_author_account_id, _email_address)
+  INSERT INTO maevsi.contact(created_by, email_address)
+  VALUES (_created_by, _email_address)
   RETURNING id INTO _id;
 
   IF (_account_id IS NOT NULL) THEN
@@ -2235,7 +2171,7 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) OWNER TO postgres;
 
 --
 -- Name: contact_select_by_account_id(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2249,7 +2185,7 @@ DECLARE
 BEGIN
   SELECT id INTO _id
   FROM maevsi.contact
-  WHERE author_account_id = _account_id AND account_id = _account_id;
+  WHERE created_by = _account_id AND account_id = _account_id;
 
   RETURN _id;
 END $$;
@@ -2307,12 +2243,12 @@ ALTER FUNCTION maevsi_test.event_category_create(_category text) OWNER TO postgr
 -- Name: event_category_mapping_create(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
+CREATE FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
@@ -2321,7 +2257,7 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) OWNER TO postgres;
 
 --
 -- Name: event_category_mapping_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2357,17 +2293,17 @@ ALTER FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account
 -- Name: event_create(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
+CREATE FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
-  VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
+  INSERT INTO maevsi.event(created_by, name, slug, start, visibility)
+  VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -2376,7 +2312,104 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+
+--
+-- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) RETURNS TABLE(event_id uuid, distance double precision)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    WITH account AS (
+      SELECT location
+      FROM maevsi_private.account
+      WHERE id = _account_id
+    )
+    SELECT
+      e.id AS event_id,
+      ST_Distance(a.location, e.location_geography) AS distance
+    FROM
+      account a,
+      maevsi.event e
+    WHERE
+      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) IS 'Returns event locations within a given radius around the location of an account.';
+
+
+--
+-- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) RETURNS double precision[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _latitude DOUBLE PRECISION;
+  _longitude DOUBLE PRECISION;
+BEGIN
+  SELECT
+    ST_Y(location_geography::geometry),
+    ST_X(location_geography::geometry)
+  INTO
+    _latitude,
+    _longitude
+  FROM
+    maevsi.event
+  WHERE
+    id = _event_id;
+
+  RETURN ARRAY[_latitude, _longitude];
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) IS 'Returns an array with latitude and longitude of the event''s current location data.';
+
+
+--
+-- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE maevsi.event
+  SET
+    location_geography = ST_Point(_longitude, _latitude, 4326)
+  WHERE
+    id = _event_id;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+
 
 --
 -- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2455,14 +2488,14 @@ ALTER FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) OWNE
 -- Name: guest_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO maevsi.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
@@ -2474,7 +2507,7 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
 
 --
 -- Name: guest_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2566,10 +2599,10 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 CREATE TABLE maevsi.account_block (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
     blocked_account_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT account_block_check CHECK ((author_account_id <> blocked_account_id))
+    created_by uuid NOT NULL,
+    CONSTRAINT account_block_check CHECK ((created_by <> blocked_account_id))
 );
 
 
@@ -2591,13 +2624,6 @@ COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account blocking
 
 
 --
--- Name: COLUMN account_block.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The account id of the user who created the blocking.';
-
-
---
 -- Name: COLUMN account_block.blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -2610,6 +2636,13 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of 
 
 COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create,update,delete
 Timestamp of when the blocking was created.';
+
+
+--
+-- Name: COLUMN account_block.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the blocking.';
 
 
 --
@@ -2779,32 +2812,158 @@ COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.'
 
 
 --
+-- Name: address; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.address (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    line_1 text NOT NULL,
+    line_2 text,
+    postal_code text NOT NULL,
+    city text NOT NULL,
+    region text NOT NULL,
+    country text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid NOT NULL,
+    CONSTRAINT address_city_check CHECK (((char_length(city) > 0) AND (char_length(city) <= 300))),
+    CONSTRAINT address_country_check CHECK (((char_length(country) > 0) AND (char_length(country) <= 300))),
+    CONSTRAINT address_line_1_check CHECK (((char_length(line_1) > 0) AND (char_length(line_1) <= 300))),
+    CONSTRAINT address_line_2_check CHECK (((char_length(line_2) > 0) AND (char_length(line_2) <= 300))),
+    CONSTRAINT address_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 300))),
+    CONSTRAINT address_postal_code_check CHECK (((char_length(postal_code) > 0) AND (char_length(postal_code) <= 20))),
+    CONSTRAINT address_region_check CHECK (((char_length(region) > 0) AND (char_length(region) <= 300)))
+);
+
+
+ALTER TABLE maevsi.address OWNER TO postgres;
+
+--
+-- Name: TABLE address; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.address IS 'Stores detailed address information, including lines, city, state, country, and metadata.';
+
+
+--
+-- Name: COLUMN address.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.id IS '@omit create,update
+Primary key, uniquely identifies each address.';
+
+
+--
+-- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.line_1; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.line_1 IS 'First line of the address (e.g., street address). Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.line_2; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.line_2 IS 'Second line of the address, if needed. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.postal_code; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.postal_code IS 'Postal or ZIP code for the address. Must be between 1 and 20 characters.';
+
+
+--
+-- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.region; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.region IS 'Region of the address (e.g., state, province, county, department or territory). Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.created_at IS '@omit create,update
+Timestamp when the address was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN address.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.created_by IS '@omit create,update
+Reference to the account that created the address.';
+
+
+--
+-- Name: COLUMN address.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.updated_at IS '@omit create,update
+Timestamp when the address was last updated.';
+
+
+--
+-- Name: COLUMN address.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.updated_by IS '@omit create,update
+Reference to the account that last updated the address.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid,
-    address text,
-    author_account_id uuid NOT NULL,
+    address uuid,
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
     language maevsi.language,
     last_name text,
     nickname text,
+    note text,
     phone_number text,
     timezone text,
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
+    created_by uuid NOT NULL,
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
-    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
-    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
-    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
+    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
+    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
     CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
 );
 
 
@@ -2814,7 +2973,7 @@ ALTER TABLE maevsi.contact OWNER TO postgres;
 -- Name: TABLE contact; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.contact IS 'Contact data.';
+COMMENT ON TABLE maevsi.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 
 
 --
@@ -2822,35 +2981,28 @@ COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 --
 
 COMMENT ON COLUMN maevsi.contact.id IS '@omit create,update
-The contact''s internal id.';
+Primary key, uniquely identifies each contact.';
 
 
 --
 -- Name: COLUMN contact.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
+COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associated account.';
 
 
 --
 -- Name: COLUMN contact.address; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
-
-
---
--- Name: COLUMN contact.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
+COMMENT ON COLUMN maevsi.contact.address IS 'Physical address of the contact. Must be between 1 and 300 characters.';
 
 
 --
 -- Name: COLUMN contact.email_address; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.';
+COMMENT ON COLUMN maevsi.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
 
 
 --
@@ -2858,56 +3010,63 @@ COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.
 --
 
 COMMENT ON COLUMN maevsi.contact.email_address_hash IS '@omit create,update
-The contact''s email address''s md5 hash.';
+Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 
 
 --
 -- Name: COLUMN contact.first_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
+COMMENT ON COLUMN maevsi.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 
 
 --
 -- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
+COMMENT ON COLUMN maevsi.contact.language IS 'Reference to the preferred language of the contact.';
 
 
 --
 -- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
+COMMENT ON COLUMN maevsi.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
 
 
 --
 -- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
+COMMENT ON COLUMN maevsi.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
+
+
+--
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 
 
 --
 -- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
 
 
 --
 -- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
+COMMENT ON COLUMN maevsi.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
 
 
 --
 -- Name: COLUMN contact.url; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
+COMMENT ON COLUMN maevsi.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
 
 
 --
@@ -2915,7 +3074,14 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 --
 
 COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
-Timestamp of when the contact was created, defaults to the current timestamp.';
+Timestamp when the contact was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 
 
 --
@@ -2977,36 +3143,55 @@ COMMENT ON COLUMN maevsi.event_category_mapping.category IS 'A category name.';
 
 
 --
--- Name: event_favourite; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.event_favourite (
-    account_id uuid NOT NULL,
-    event_id uuid NOT NULL
+CREATE TABLE maevsi.event_favorite (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL
 );
 
 
-ALTER TABLE maevsi.event_favourite OWNER TO postgres;
+ALTER TABLE maevsi.event_favorite OWNER TO postgres;
 
 --
--- Name: TABLE event_favourite; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.event_favourite IS 'The user accounts'' favourite events.';
-
-
---
--- Name: COLUMN event_favourite.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event_favourite.account_id IS 'A user account id.';
+COMMENT ON TABLE maevsi.event_favorite IS 'Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
 --
--- Name: COLUMN event_favourite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which the user marked as a favourite.';
+COMMENT ON COLUMN maevsi.event_favorite.id IS '@omit create,update
+Primary key, uniquely identifies each favorite entry.';
+
+
+--
+-- Name: COLUMN event_favorite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.event_id IS 'Reference to the event that is marked as a favorite.';
+
+
+--
+-- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.created_at IS '@omit create,update
+Timestamp when the favorite was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.created_by IS '@omit create,update
+Reference to the account that created the event favorite.';
 
 
 --
@@ -3015,12 +3200,12 @@ COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which t
 
 CREATE TABLE maevsi.event_group (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
     description text,
     is_archived boolean DEFAULT false NOT NULL,
     name text NOT NULL,
     slug text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     CONSTRAINT event_group_description_check CHECK ((char_length(description) < 1000000)),
     CONSTRAINT event_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_group_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text)))
@@ -3042,13 +3227,6 @@ COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 
 COMMENT ON COLUMN maevsi.event_group.id IS '@omit create,update
 The event group''s internal id.';
-
-
---
--- Name: COLUMN event_group.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event_group.author_account_id IS 'The event group author''s id.';
 
 
 --
@@ -3086,6 +3264,13 @@ The event group''s name, slugified.';
 
 COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
 Timestamp of when the event group was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN event_group.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_group.created_by IS 'The event group creator''s id.';
 
 
 --
@@ -3321,15 +3506,14 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
     contact.id AS contact_id,
     contact.account_id AS contact_account_id,
     contact.address AS contact_address,
-    contact.author_account_id AS contact_author_account_id,
     contact.email_address AS contact_email_address,
     contact.email_address_hash AS contact_email_address_hash,
     contact.first_name AS contact_first_name,
     contact.last_name AS contact_last_name,
     contact.phone_number AS contact_phone_number,
     contact.url AS contact_url,
+    contact.created_by AS contact_created_by,
     event.id AS event_id,
-    event.author_account_id AS event_author_account_id,
     event.description AS event_description,
     event.start AS event_start,
     event."end" AS event_end,
@@ -3341,7 +3525,8 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
     event.name AS event_name,
     event.slug AS event_slug,
     event.url AS event_url,
-    event.visibility AS event_visibility
+    event.visibility AS event_visibility,
+    event.created_by AS event_created_by
    FROM ((maevsi.guest
      JOIN maevsi.contact ON ((guest.contact_id = contact.id)))
      JOIN maevsi.event ON ((guest.event_id = event.id)));
@@ -3516,12 +3701,12 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 CREATE TABLE maevsi.report (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
     reason text NOT NULL,
     target_account_id uuid,
     target_event_id uuid,
     target_upload_id uuid,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
     CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
 );
@@ -3543,13 +3728,6 @@ Stores reports made by users on other users, events, or uploads for moderation p
 
 COMMENT ON COLUMN maevsi.report.id IS '@omit create
 Unique identifier for the report, generated randomly using UUIDs.';
-
-
---
--- Name: COLUMN report.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
 
 
 --
@@ -3586,6 +3764,13 @@ COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being 
 
 COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
 Timestamp of when the report was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN report.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_by IS 'The ID of the user who created the report.';
 
 
 --
@@ -4346,11 +4531,11 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
--- Name: account_block account_block_author_account_id_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_created_by_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.account_block
-    ADD CONSTRAINT account_block_author_account_id_blocked_account_id_key UNIQUE (author_account_id, blocked_account_id);
+    ADD CONSTRAINT account_block_created_by_blocked_account_id_key UNIQUE (created_by, blocked_account_id);
 
 
 --
@@ -4425,11 +4610,26 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
--- Name: contact contact_author_account_id_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: address address_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contact contact_created_by_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_id_account_id_key UNIQUE (author_account_id, account_id);
+    ADD CONSTRAINT contact_created_by_account_id_key UNIQUE (created_by, account_id);
+
+
+--
+-- Name: CONSTRAINT contact_created_by_account_id_key ON contact; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT contact_created_by_account_id_key ON maevsi.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
 
 
 --
@@ -4438,14 +4638,6 @@ ALTER TABLE ONLY maevsi.contact
 
 ALTER TABLE ONLY maevsi.contact
     ADD CONSTRAINT contact_pkey PRIMARY KEY (id);
-
-
---
--- Name: event event_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_account_id_slug_key UNIQUE (author_account_id, slug);
 
 
 --
@@ -4465,19 +4657,42 @@ ALTER TABLE ONLY maevsi.event_category
 
 
 --
--- Name: event_favourite event_favourite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_pkey PRIMARY KEY (account_id, event_id);
+ALTER TABLE ONLY maevsi.event
+    ADD CONSTRAINT event_created_by_slug_key UNIQUE (created_by, slug);
 
 
 --
--- Name: event_group event_group_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_event_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_created_by_event_id_key UNIQUE (created_by, event_id);
+
+
+--
+-- Name: CONSTRAINT event_favorite_created_by_event_id_key ON event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON maevsi.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
+
+
+--
+-- Name: event_favorite event_favorite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_group event_group_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_account_id_slug_key UNIQUE (author_account_id, slug);
+    ADD CONSTRAINT event_group_created_by_slug_key UNIQUE (created_by, slug);
 
 
 --
@@ -4593,18 +4808,18 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_author_account_id_target_account_id_target_event_id__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_created_by_target_account_id_target_event_id_target__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_author_account_id_target_account_id_target_event_id__key UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id);
+    ADD CONSTRAINT report_created_by_target_account_id_target_event_id_target__key UNIQUE (created_by, target_account_id, target_event_id, target_upload_id);
 
 
 --
--- Name: CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
+COMMENT ON CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
 
 
 --
@@ -4760,31 +4975,31 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_event_author_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_event_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_author_account_id ON maevsi.event USING btree (author_account_id);
-
-
---
--- Name: INDEX idx_event_author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_author_account_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_event_created_by ON maevsi.event USING btree (created_by);
 
 
 --
--- Name: idx_event_group_author_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_group_author_account_id ON maevsi.event_group USING btree (author_account_id);
+COMMENT ON INDEX maevsi.idx_event_created_by IS 'Speeds up reverse foreign key lookups.';
 
 
 --
--- Name: INDEX idx_event_group_author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: idx_event_group_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_group_author_account_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_event_group_created_by ON maevsi.event_group USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_event_group_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'Speeds up reverse foreign key lookups.';
 
 
 --
@@ -4900,17 +5115,24 @@ CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR E
 
 
 --
+-- Name: address maevsi_trigger_address_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_address_update BEFORE UPDATE ON maevsi.address FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
+
+
+--
 -- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
-CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, author_account_id ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
 
 
 --
 -- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
-CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
+CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
 
 --
@@ -4928,19 +5150,19 @@ CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BE
 
 
 --
--- Name: account_block account_block_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.account_block
-    ADD CONSTRAINT account_block_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
-
-
---
 -- Name: account_block account_block_blocked_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.account_block
     ADD CONSTRAINT account_block_blocked_account_id_fkey FOREIGN KEY (blocked_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: account_block account_block_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_block
+    ADD CONSTRAINT account_block_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -4992,6 +5214,22 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
+-- Name: address address_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: address address_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5000,19 +5238,27 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: contact contact_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_address_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT contact_address_fkey FOREIGN KEY (address) REFERENCES maevsi.address(id);
 
 
 --
--- Name: event event_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.contact
+    ADD CONSTRAINT contact_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event event_address_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT event_address_fkey FOREIGN KEY (address) REFERENCES maevsi.address(id);
 
 
 --
@@ -5032,27 +5278,35 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
--- Name: event_favourite event_favourite_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
-
-
---
--- Name: event_favourite event_favourite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+ALTER TABLE ONLY maevsi.event
+    ADD CONSTRAINT event_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
--- Name: event_group event_group_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: event_favorite event_favorite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: event_group event_group_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT event_group_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5160,11 +5414,11 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT report_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5263,14 +5517,14 @@ ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
 -- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((author_account_id = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((created_by = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
 
 
 --
@@ -5375,6 +5629,41 @@ CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
 
 
 --
+-- Name: address; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.address ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: address address_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_delete ON maevsi.address FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: address address_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_insert ON maevsi.address FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: address address_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_select ON maevsi.address FOR SELECT USING (((created_by = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))));
+
+
+--
+-- Name: address address_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_update ON maevsi.address FOR UPDATE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
 -- Name: contact; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -5384,24 +5673,24 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 -- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id()) AND (account_id IS DISTINCT FROM maevsi.invoker_account_id())));
+CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id()) AND (account_id IS DISTINCT FROM maevsi.invoker_account_id())));
 
 
 --
 -- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((author_account_id = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id()))))));
+  WHERE (account_block.created_by = maevsi.invoker_account_id()))))));
 
 
 --
 -- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (author_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((author_account_id = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block_ids.id
+CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((created_by = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block_ids.id
    FROM maevsi_private.account_block_ids() account_block_ids(id)))))) OR (id IN ( SELECT maevsi.guest_contact_ids() AS guest_contact_ids))));
 
 
@@ -5409,9 +5698,9 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id =
 -- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((author_account_id = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id()))))));
+  WHERE (account_block.created_by = maevsi.invoker_account_id()))))));
 
 
 --
@@ -5430,7 +5719,7 @@ ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
 -- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())));
 
@@ -5439,7 +5728,7 @@ CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())));
 
@@ -5448,11 +5737,11 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT event.visibility
    FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.author_account_id
+  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.created_by
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block_ids.id
    FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
@@ -5462,20 +5751,34 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
 -- Name: event event_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((author_account_id = maevsi.invoker_account_id()));
+CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: event_favourite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.event_favourite ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.event_favorite ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_favourite event_favourite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_favourite_select ON maevsi.event_favourite FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_favorite_delete ON maevsi.event_favorite FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: event_favorite event_favorite_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favorite_insert ON maevsi.event_favorite FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: event_favorite event_favorite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favorite_select ON maevsi.event_favorite FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -5494,7 +5797,7 @@ ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 -- Name: event event_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
@@ -5514,15 +5817,15 @@ CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SEL
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > maevsi.guest_count(id))) AND (NOT (author_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR (author_account_id = maevsi.invoker_account_id()) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > maevsi.guest_count(id))) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR (created_by = maevsi.invoker_account_id()) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
 -- Name: event event_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
@@ -5537,7 +5840,7 @@ ALTER TABLE maevsi.event_upload ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((event_id IN ( SELECT event.id
    FROM maevsi.event
-  WHERE (event.author_account_id = maevsi.invoker_account_id()))));
+  WHERE (event.created_by = maevsi.invoker_account_id()))));
 
 
 --
@@ -5546,7 +5849,7 @@ CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((even
 
 CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (((event_id IN ( SELECT event.id
    FROM maevsi.event
-  WHERE (event.author_account_id = maevsi.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
+  WHERE (event.created_by = maevsi.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
    FROM maevsi.upload
   WHERE (upload.account_id = maevsi.invoker_account_id())))));
 
@@ -5578,12 +5881,12 @@ CREATE POLICY guest_delete ON maevsi.guest FOR DELETE USING ((event_id IN ( SELE
 
 CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_guest_count_maximum(event_id) IS NULL) OR (maevsi.event_guest_count_maximum(event_id) > maevsi.guest_count(event_id))) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.author_account_id = maevsi.invoker_account_id())
+  WHERE (contact.created_by = maevsi.invoker_account_id())
 EXCEPT
  SELECT c.id
    FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.blocked_account_id) AND (c.author_account_id = b.author_account_id))))
-  WHERE (c.author_account_id = maevsi.invoker_account_id())))));
+     JOIN maevsi.account_block b ON (((c.account_id = b.blocked_account_id) AND (c.created_by = b.created_by))))
+  WHERE (c.created_by = maevsi.invoker_account_id())))));
 
 
 --
@@ -5596,7 +5899,7 @@ CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.
 EXCEPT
  SELECT c.id
    FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
+     JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
   WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
@@ -5613,7 +5916,7 @@ CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (((id = ANY (maevsi.
 EXCEPT
  SELECT c.id
    FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
+     JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
   WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
@@ -5697,14 +6000,14 @@ ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
 -- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
 -- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY report_select ON maevsi.report FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
@@ -5755,6 +6058,14 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
+
+
+--
+-- Name: SCHEMA maevsi_test; Type: ACL; Schema: -; Owner: postgres
+--
+
+GRANT USAGE ON SCHEMA maevsi_test TO maevsi_anonymous;
+GRANT USAGE ON SCHEMA maevsi_test TO maevsi_account;
 
 
 --
@@ -6129,30 +6440,6 @@ GRANT ALL ON FUNCTION maevsi.account_email_address_verification(code uuid) TO ma
 
 
 --
--- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_filter_radius_event(_event_id uuid, _distance_max double precision) TO maevsi_account;
-
-
---
--- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_location_coordinates(_account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_location_coordinates(_account_id uuid) TO maevsi_account;
-
-
---
--- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
-
-
---
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6237,14 +6524,6 @@ GRANT ALL ON FUNCTION maevsi.event_delete(id uuid, password text) TO maevsi_acco
 
 
 --
--- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_filter_radius_account(_account_id uuid, _distance_max double precision) TO maevsi_account;
-
-
---
 -- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6254,28 +6533,12 @@ GRANT ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) TO maevsi_
 
 
 --
--- Name: FUNCTION event_is_existing(author_account_id uuid, slug text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_location_coordinates(_event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_location_coordinates(_event_id uuid) TO maevsi_account;
-
-
---
--- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
+REVOKE ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) TO maevsi_anonymous;
 
 
 --
@@ -6418,6 +6681,14 @@ GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_anonymous;
 
 
 --
+-- Name: FUNCTION trigger_metadata_update(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
+
+
+--
 -- Name: TABLE upload; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6469,17 +6740,17 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION account_block_create(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_create(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION account_block_remove(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_remove(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
@@ -6490,6 +6761,30 @@ REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) F
 
 
 --
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
+
+
+--
 -- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
@@ -6497,10 +6792,10 @@ REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION contact_create(_author_account_id uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_create(_created_by uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) FROM PUBLIC;
 
 
 --
@@ -6525,10 +6820,10 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PU
 
 
 --
--- Name: FUNCTION event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_mapping_create(_created_by uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) FROM PUBLIC;
 
 
 --
@@ -6539,10 +6834,34 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, 
 
 
 --
--- Name: FUNCTION event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
 
 
 --
@@ -6560,10 +6879,10 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uu
 
 
 --
--- Name: FUNCTION guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_create(_created_by uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.guest_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
 
 
 --
@@ -11973,6 +12292,14 @@ GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE address; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.address TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
+
+
+--
 -- Name: TABLE contact; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -11997,10 +12324,10 @@ GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_acco
 
 
 --
--- Name: TABLE event_favourite; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favourite TO maevsi_account;
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favorite TO maevsi_account;
 
 
 --
