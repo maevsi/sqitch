@@ -6,9 +6,9 @@ BEGIN
   RETURN QUERY
     SELECT blocked_account_id
     FROM maevsi.account_block
-    WHERE author_account_id = maevsi.invoker_account_id()
+    WHERE created_by = maevsi.invoker_account_id()
     UNION ALL
-    SELECT author_account_id
+    SELECT created_by
     FROM maevsi.account_block
     WHERE blocked_account_id = maevsi.invoker_account_id();
 END

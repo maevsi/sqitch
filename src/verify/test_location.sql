@@ -18,7 +18,7 @@ BEGIN
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
   -- Create event
-  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
+  INSERT INTO maevsi.event(created_by, name, slug, start, visibility)
   VALUES (_account_id, 'event', 'event', CURRENT_TIMESTAMP, 'public'::maevsi.event_visibility)
   RETURNING id INTO _event_id;
 

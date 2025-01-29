@@ -22,7 +22,7 @@ BEGIN
         OR (
           maevsi.invoker_account_id() IS NOT NULL
           AND
-          author_account_id = maevsi.invoker_account_id()
+          created_by = maevsi.invoker_account_id()
         )
         OR id IN (SELECT maevsi_private.events_invited())
       )

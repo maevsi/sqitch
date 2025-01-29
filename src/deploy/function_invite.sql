@@ -8,9 +8,9 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_author_profile_picture_upload_id UUID;
-  _event_author_profile_picture_upload_storage_key TEXT;
-  _event_author_username TEXT;
+  _event_creator_profile_picture_upload_id UUID;
+  _event_creator_profile_picture_upload_storage_key TEXT;
+  _event_creator_username TEXT;
   _invitation RECORD;
 BEGIN
   -- Invitation UUID
@@ -53,12 +53,12 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event author username
-  SELECT username FROM maevsi.account INTO _event_author_username WHERE account.id = _event.author_account_id;
+  -- Event creator username
+  SELECT username FROM maevsi.account INTO _event_creator_username WHERE account.id = _event.created_by;
 
-  -- Event author profile picture storage key
-  SELECT upload_id FROM maevsi.profile_picture INTO _event_author_profile_picture_upload_id WHERE profile_picture.account_id = _event.author_account_id;
-  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.id = _event_author_profile_picture_upload_id;
+  -- Event creator profile picture storage key
+  SELECT upload_id FROM maevsi.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key FROM maevsi.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -67,8 +67,8 @@ BEGIN
         'data', jsonb_build_object(
           'emailAddress', _email_address,
           'event', _event,
-          'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
-          'eventAuthorUsername', _event_author_username,
+          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
+          'eventCreatorUsername', _event_creator_username,
           'invitationId', _invitation.id
         ),
         'template', jsonb_build_object('language', $2)

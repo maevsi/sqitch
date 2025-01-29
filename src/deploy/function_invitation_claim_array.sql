@@ -12,12 +12,12 @@ BEGIN
   IF _invitation_ids IS NOT NULL THEN
     FOREACH _invitation_id IN ARRAY _invitation_ids
     LOOP
-      -- omit invitations to events authored by an account blocked by the current user
+      -- omit invitations to events created by an account blocked by the current user
       IF EXISTS (
 	      SELECT 1
 	      FROM maevsi.invitation i
 	        JOIN maevsi.event e ON i.event_id = e.id
-	      WHERE i.id = _invitation_id AND e.author_account_id NOT IN (
+	      WHERE i.id = _invitation_id AND e.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
 	    ) THEN
