@@ -745,6 +745,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE maevsi.event (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    address uuid,
     author_account_id uuid NOT NULL,
     description text,
     "end" timestamp with time zone,
@@ -786,6 +787,13 @@ COMMENT ON TABLE maevsi.event IS 'An event.';
 
 COMMENT ON COLUMN maevsi.event.id IS '@omit create,update
 The event''s internal id.';
+
+
+--
+-- Name: COLUMN event.address; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.address IS 'The event''s physical address.';
 
 
 --
@@ -1664,6 +1672,31 @@ ALTER FUNCTION maevsi.trigger_invitation_update() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+
+
+--
+-- Name: trigger_metadata_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_metadata_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.updated_by = maevsi.invoker_account_id();
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_metadata_update() OWNER TO postgres;
+
+--
+-- Name: FUNCTION trigger_metadata_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.trigger_metadata_update() IS 'Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.';
 
 
 --
@@ -2779,13 +2812,138 @@ COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.'
 
 
 --
+-- Name: address; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.address (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    line_1 text NOT NULL,
+    line_2 text,
+    postal_code text NOT NULL,
+    city text NOT NULL,
+    region text NOT NULL,
+    country text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid NOT NULL,
+    CONSTRAINT address_city_check CHECK (((char_length(city) > 0) AND (char_length(city) <= 300))),
+    CONSTRAINT address_country_check CHECK (((char_length(country) > 0) AND (char_length(country) <= 300))),
+    CONSTRAINT address_line_1_check CHECK (((char_length(line_1) > 0) AND (char_length(line_1) <= 300))),
+    CONSTRAINT address_line_2_check CHECK (((char_length(line_2) > 0) AND (char_length(line_2) <= 300))),
+    CONSTRAINT address_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 300))),
+    CONSTRAINT address_postal_code_check CHECK (((char_length(postal_code) > 0) AND (char_length(postal_code) <= 20))),
+    CONSTRAINT address_region_check CHECK (((char_length(region) > 0) AND (char_length(region) <= 300)))
+);
+
+
+ALTER TABLE maevsi.address OWNER TO postgres;
+
+--
+-- Name: TABLE address; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.address IS 'Stores detailed address information, including lines, city, state, country, and metadata.';
+
+
+--
+-- Name: COLUMN address.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.id IS '@omit create,update
+Primary key, uniquely identifies each address.';
+
+
+--
+-- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.line_1; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.line_1 IS 'First line of the address (e.g., street address). Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.line_2; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.line_2 IS 'Second line of the address, if needed. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.postal_code; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.postal_code IS 'Postal or ZIP code for the address. Must be between 1 and 20 characters.';
+
+
+--
+-- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.region; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.region IS 'Region of the address (e.g., state, province, county, department or territory). Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.created_at IS '@omit create,update
+Timestamp when the address was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN address.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.created_by IS '@omit create,update
+Reference to the account that created the address.';
+
+
+--
+-- Name: COLUMN address.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.updated_at IS '@omit create,update
+Timestamp when the address was last updated.';
+
+
+--
+-- Name: COLUMN address.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.updated_by IS '@omit create,update
+Reference to the account that last updated the address.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid,
-    address text,
+    address uuid,
     author_account_id uuid NOT NULL,
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
@@ -2798,7 +2956,6 @@ CREATE TABLE maevsi.contact (
     timezone text,
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) <= 300))),
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
@@ -4434,6 +4591,14 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
+-- Name: address address_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contact contact_author_account_id_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4916,6 +5081,13 @@ CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR E
 
 
 --
+-- Name: address maevsi_trigger_address_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_address_update BEFORE UPDATE ON maevsi.address FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
+
+
+--
 -- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
@@ -5008,6 +5180,22 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
+-- Name: address address_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: address address_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5016,11 +5204,27 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
+-- Name: contact contact_address_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.contact
+    ADD CONSTRAINT contact_address_fkey FOREIGN KEY (address) REFERENCES maevsi.address(id);
+
+
+--
 -- Name: contact contact_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
     ADD CONSTRAINT contact_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event event_address_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event
+    ADD CONSTRAINT event_address_fkey FOREIGN KEY (address) REFERENCES maevsi.address(id);
 
 
 --
@@ -5388,6 +5592,41 @@ ALTER TABLE maevsi.achievement ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
+
+
+--
+-- Name: address; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.address ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: address address_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_delete ON maevsi.address FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: address address_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_insert ON maevsi.address FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: address address_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_select ON maevsi.address FOR SELECT USING (((created_by = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))));
+
+
+--
+-- Name: address address_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_update ON maevsi.address FOR UPDATE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -6391,6 +6630,14 @@ GRANT ALL ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_anonymous;
 REVOKE ALL ON FUNCTION maevsi.trigger_invitation_update() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION trigger_metadata_update(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
 
 
 --
@@ -11994,6 +12241,14 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.account_social_network TO maev
 
 GRANT SELECT ON TABLE maevsi.achievement TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE address; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.address TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
 
 
 --
