@@ -13,7 +13,7 @@ CREATE TABLE maevsi.legal_term (
 
   -- other potential columns:
   -- - content management extensions:
-  --   - author
+  --   - creator
   --   - approver
   --   - status (draft, published, active, archived)
   -- - features

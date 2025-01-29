@@ -32,7 +32,7 @@ BEGIN
     SET LOCAL role = 'maevsi_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
-    DELETE FROM maevsi.event WHERE author_account_id = _id;
+    DELETE FROM maevsi.event WHERE created_by = _id;
 
     PERFORM maevsi.account_delete('password');
 
@@ -48,13 +48,13 @@ DECLARE
 BEGIN
   SELECT id INTO _id
   FROM maevsi.contact
-  WHERE author_account_id = _account_id AND account_id = _account_id;
+  WHERE created_by = _account_id AND account_id = _account_id;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.contact_create (
-  _author_account_id UUID,
+  _created_by UUID,
   _email_address TEXT
 ) RETURNS UUID AS $$
 DECLARE
@@ -64,10 +64,10 @@ BEGIN
   SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
 
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.contact(author_account_id, email_address)
-  VALUES (_author_account_id, _email_address)
+  INSERT INTO maevsi.contact(created_by, email_address)
+  VALUES (_created_by, _email_address)
   RETURNING id INTO _id;
 
   IF (_account_id IS NOT NULL) THEN
@@ -80,7 +80,7 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.event_create (
-  _author_account_id UUID,
+  _created_by UUID,
   _name TEXT,
   _slug TEXT,
   _start TEXT,
@@ -90,10 +90,10 @@ DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
-  VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
+  INSERT INTO maevsi.event(created_by, name, slug, start, visibility)
+  VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -102,7 +102,7 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.invitation_create (
-  _author_account_id UUID,
+  _created_by UUID,
   _event_id UUID,
   _contact_id UUID
 ) RETURNS UUID AS $$
@@ -110,7 +110,7 @@ DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO maevsi.invitation(contact_id, event_id)
   VALUES (_contact_id, _event_id)
@@ -129,13 +129,13 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_create (
-  _author_account_id UUID,
+  _created_by UUID,
   _event_id UUID,
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
@@ -144,17 +144,17 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.account_block_create (
-  _author_account_id UUID,
+  _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.account_block(author_account_id, blocked_account_id)
-  VALUES (_author_account_id, _blocked_Account_id)
+  INSERT INTO maevsi.account_block(created_by, blocked_account_id)
+  VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -163,14 +163,14 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.account_block_remove (
-  _author_account_id UUID,
+  _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS VOID AS $$
 DECLARE
   _id UUID;
 BEGIN
   DELETE FROM maevsi.account_block
-  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
+  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.event_test (

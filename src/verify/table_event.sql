@@ -1,7 +1,6 @@
 BEGIN;
 
 SELECT id,
-       author_account_id,
        description,
        "end",
        invitee_count_maximum,
@@ -16,6 +15,7 @@ SELECT id,
        url,
        visibility,
        created_at,
+       created_by,
        search_vector
 FROM maevsi.event WHERE FALSE;
 

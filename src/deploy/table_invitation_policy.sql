@@ -6,8 +6,8 @@ GRANT INSERT, DELETE ON TABLE maevsi.invitation TO maevsi_account;
 ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
 
 -- Only display invitations issued to oneself through invitation claims.
--- Only display invitations issued to oneself through the account, omit invitations authored by a blocked user.
--- Only display invitations to events organized by oneself, omit invitations authored by a blocked user and invitations issued for a blocked user.
+-- Only display invitations issued to oneself through the account, omit invitations created by a blocked user.
+-- Only display invitations to events organized by oneself, omit invitations created by a blocked user and invitations issued for a blocked user.
 CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
     id = ANY (maevsi.invitation_claim_array())
   OR
@@ -19,14 +19,14 @@ CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (
 
       EXCEPT
 
-      -- contacts to oneself authored by a blocked account
+      -- contacts to oneself created by a blocked account
       SELECT c.id
       FROM maevsi.contact c
         JOIN maevsi.account_block b
         ON
-          c.account_id = b.author_account_id
+          c.account_id = b.created_by
           AND
-          c.author_account_id = b.blocked_account_id
+          c.created_by = b.blocked_account_id
       WHERE
         c.account_id = maevsi.invoker_account_id()
     )
@@ -64,7 +64,7 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
     contact_id IN (
       SELECT id
       FROM maevsi.contact
-      WHERE author_account_id = maevsi.invoker_account_id()
+      WHERE created_by = maevsi.invoker_account_id()
 
       EXCEPT
 
@@ -74,9 +74,9 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (
         ON
           c.account_id = b.blocked_account_id
           AND
-          c.author_account_id = b.author_account_id
+          c.created_by = b.created_by
       WHERE
-        c.author_account_id = maevsi.invoker_account_id()
+        c.created_by = maevsi.invoker_account_id()
     )
 );
 
@@ -96,7 +96,7 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
 
     SELECT c.id
     FROM maevsi.contact c
-      JOIN maevsi.account_block b ON c.account_id = b.author_account_id and c.author_account_id = b.blocked_account_id
+      JOIN maevsi.account_block b ON c.account_id = b.created_by and c.created_by = b.blocked_account_id
     WHERE c.account_id = maevsi.invoker_account_id()
     )
   )
@@ -104,7 +104,7 @@ CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (
   (
     event_id IN (SELECT maevsi.events_organized())
     AND
-    -- omit contacts authored by a blocked account or referring to a blocked account
+    -- omit contacts created by a blocked account or referring to a blocked account
     contact_id IN (
       SELECT c.id
       FROM maevsi.contact c

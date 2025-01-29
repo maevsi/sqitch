@@ -38,7 +38,7 @@ BEGIN
     _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
-  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account_private.id, _new_account_private.id);
+  INSERT INTO maevsi.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',

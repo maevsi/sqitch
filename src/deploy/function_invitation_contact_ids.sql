@@ -16,7 +16,7 @@ BEGIN
         invitation.event_id IN (SELECT maevsi.events_organized())
       )
       AND
-        -- except contacts authored by a blocked account or referring to a blocked account
+        -- except contacts created by a blocked account or referring to a blocked account
         invitation.contact_id NOT IN (
           SELECT contact.id
           FROM maevsi.contact
@@ -27,7 +27,7 @@ BEGIN
                 SELECT id FROM maevsi_private.account_block_ids()
               )
             OR
-              contact.author_account_id IN (
+              contact.created_by IN (
                 SELECT id FROM maevsi_private.account_block_ids()
               )
         );

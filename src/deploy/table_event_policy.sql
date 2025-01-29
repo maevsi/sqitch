@@ -7,7 +7,7 @@ ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 
 -- Only display events that are public and not full and not organized by a blocked account.
 -- Only display events that are organized by oneself.
--- Only display events to which oneself is invited, but not by an invitation authored by a blocked account.
+-- Only display events to which oneself is invited, but not by an invitation created by a blocked account.
 CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
   (
     visibility = 'public'
@@ -17,35 +17,35 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING (
       OR
       invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
     )
-    AND author_account_id NOT IN (
+    AND created_by NOT IN (
       SELECT id FROM maevsi_private.account_block_ids()
     )
   )
   OR (
-    author_account_id = maevsi.invoker_account_id()
+    created_by = maevsi.invoker_account_id()
   )
   OR (
     id IN (SELECT maevsi_private.events_invited())
   )
 );
 
--- Only allow inserts for events authored by the current user.
+-- Only allow inserts for events created by the current user.
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (
   maevsi.invoker_account_id() IS NOT NULL
   AND
-  author_account_id = maevsi.invoker_account_id()
+  created_by = maevsi.invoker_account_id()
 );
 
--- Only allow updates for events authored by the current user.
+-- Only allow updates for events created by the current user.
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (
   maevsi.invoker_account_id() IS NOT NULL
   AND
-  author_account_id = maevsi.invoker_account_id()
+  created_by = maevsi.invoker_account_id()
 );
 
--- Only allow deletes for events authored by the current user.
+-- Only allow deletes for events created by the current user.
 CREATE POLICY event_delete ON maevsi.event FOR DELETE USING (
-  author_account_id = maevsi.invoker_account_id()
+  created_by = maevsi.invoker_account_id()
 );
 
 COMMIT;

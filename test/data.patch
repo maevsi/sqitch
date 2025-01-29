@@ -42,12 +42,12 @@ index 0000000..5276242
 +SELECT id
 +FROM maevsi.contact
 +WHERE account_id = _account_id_jonas
-+  AND author_account_id = _account_id_jonas INTO _contact_id_jonas;
++  AND created_by = _account_id_jonas INTO _contact_id_jonas;
 +
 +SELECT id
 +FROM maevsi.contact
 +WHERE account_id = _account_id_peter
-+  AND author_account_id = _account_id_peter INTO _contact_id_peter;
++  AND created_by = _account_id_peter INTO _contact_id_peter;
 +
 +INSERT INTO maevsi.contact (
 +    "id",
@@ -55,7 +55,7 @@ index 0000000..5276242
 +    "email_address",
 +    "first_name",
 +    "last_name",
-+    "author_account_id"
++    "created_by"
 +  )
 +VALUES (
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a5a',
@@ -72,7 +72,7 @@ index 0000000..5276242
 +    "slug",
 +    "visibility",
 +    "invitee_count_maximum",
-+    "author_account_id",
++    "created_by",
 +    "description",
 +    "start",
 +    "end"
@@ -94,7 +94,7 @@ index 0000000..5276242
 +    "name",
 +    "slug",
 +    "visibility",
-+    "author_account_id",
++    "created_by",
 +    "start",
 +    "end"
 +  )
@@ -113,7 +113,7 @@ index 0000000..5276242
 +    "name",
 +    "slug",
 +    "visibility",
-+    "author_account_id",
++    "created_by",
 +    "start",
 +    "end"
 +  )
@@ -132,7 +132,7 @@ index 0000000..5276242
 +    "name",
 +    "slug",
 +    "visibility",
-+    "author_account_id",
++    "created_by",
 +    "description",
 +    "location",
 +    "start"
