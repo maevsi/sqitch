@@ -197,6 +197,26 @@ COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and 
 
 
 --
+-- Name: invitation_action; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.invitation_action AS ENUM (
+    'send',
+    'bounceaccept',
+    'reject'
+);
+
+
+ALTER TYPE maevsi.invitation_action OWNER TO postgres;
+
+--
+-- Name: TYPE invitation_action; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.invitation_action IS 'Possible actions around invitations.';
+
+
+--
 -- Name: invitation_feedback; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -3542,6 +3562,56 @@ COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 
 
 --
+-- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.invitation (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    guest_id uuid NOT NULL,
+    action maevsi.invitation_action NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE maevsi.invitation OWNER TO postgres;
+
+--
+-- Name: TABLE invitation; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.invitation IS '@omit update,delete\nThe table tracks actions around invitations.';
+
+
+--
+-- Name: COLUMN invitation.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.id IS '@omit create
+The tracking record''s internal id.';
+
+
+--
+-- Name: COLUMN invitation.guest_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.guest_id IS 'The guest information (containing event and contact).';
+
+
+--
+-- Name: COLUMN invitation.action; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.action IS 'The action';
+
+
+--
+-- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create\nThe timestamp when the action was executed';
+
+
+--
 -- Name: legal_term; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -4768,6 +4838,22 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
+-- Name: invitation invitation_guest_id_created_at_action_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_guest_id_created_at_action_key UNIQUE (guest_id, created_at, action);
+
+
+--
+-- Name: invitation invitation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: legal_term_acceptance legal_term_acceptance_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5382,6 +5468,14 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
+-- Name: invitation invitation_guest_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES maevsi.guest(id);
+
+
+--
 -- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5921,6 +6015,32 @@ EXCEPT
    FROM maevsi.contact c
   WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
            FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
+
+
+--
+-- Name: invitation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: invitation invitation_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK ((maevsi.invoker_account_id() = ( SELECT e.created_by
+   FROM (maevsi.guest g
+     JOIN maevsi.event e ON ((g.event_id = e.id)))
+  WHERE (g.id = invitation.guest_id))));
+
+
+--
+-- Name: invitation invitation_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING ((maevsi.invoker_account_id() = ( SELECT e.created_by
+   FROM (maevsi.guest g
+     JOIN maevsi.event e ON ((g.event_id = e.id)))
+  WHERE (g.id = invitation.guest_id))));
 
 
 --
@@ -12375,6 +12495,13 @@ GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
 
 GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE invitation; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT ON TABLE maevsi.invitation TO maevsi_account;
 
 
 --

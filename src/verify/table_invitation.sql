@@ -1,0 +1,8 @@
+BEGIN;
+
+DO $$
+BEGIN
+
+END $$;
+
+ROLLBACK;
