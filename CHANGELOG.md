@@ -1,3 +1,9 @@
+## [5.0.0-beta.7](https://github.com/maevsi/sqitch/compare/5.0.0-beta.6...5.0.0-beta.7) (2025-01-30)
+
+### Bug Fixes
+
+* **account-block:** change function call mode to SECURITY DEFINER ([#131](https://github.com/maevsi/sqitch/issues/131)) ([7160274](https://github.com/maevsi/sqitch/commit/716027482c7707ea126932baedffd80c783f7641))
+
 ## [5.0.0-beta.6](https://github.com/maevsi/sqitch/compare/5.0.0-beta.5...5.0.0-beta.6) (2025-01-29)
 
 ### ⚠ BREAKING CHANGES
