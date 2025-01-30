@@ -1156,30 +1156,39 @@ COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns al
 --
 
 CREATE FUNCTION maevsi.guest_claim_array() RETURNS uuid[]
-    LANGUAGE plpgsql STABLE STRICT
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _guest_ids UUID[];
   _guest_ids_unblocked UUID[] := ARRAY[]::UUID[];
-  _guest_id UUID;
 BEGIN
   _guest_ids := string_to_array(replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''), ',')::UUID[];
 
   IF _guest_ids IS NOT NULL THEN
-    FOREACH _guest_id IN ARRAY _guest_ids
-    LOOP
-      -- omit guests of events created by an account blocked by the current user
-      IF EXISTS (
-	      SELECT 1
-	      FROM maevsi.guest g
-	        JOIN maevsi.event e ON g.event_id = e.id
-	      WHERE g.id = _guest_id AND e.created_by NOT IN (
+    _guest_ids_unblocked := ARRAY (
+      SELECT g.id
+      FROM maevsi.guest g
+        JOIN maevsi.event e ON g.event_id = e.id
+        JOIN maevsi.contact c ON g.contact_id = c.id
+      WHERE g.id = ANY(_guest_ids)
+        AND e.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
-	    ) THEN
-        _guest_ids_unblocked := array_append(_guest_ids_unblocked, _guest_id);
-	    END IF;
-    END LOOP;
+        AND (
+          c.created_by NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+          AND (
+            c.account_id IS NULL
+            OR
+            c.account_id NOT IN (
+              SELECT id FROM maevsi_private.account_block_ids()
+            )
+          )
+        )
+    );
+  ELSE
+    _guest_ids_unblocked := ARRAY[]::UUID[];
   END IF;
   RETURN _guest_ids_unblocked;
 END
@@ -1825,10 +1834,12 @@ CREATE FUNCTION maevsi_private.account_block_ids() RETURNS TABLE(id uuid)
     AS $$
 BEGIN
   RETURN QUERY
+    -- users blocked by the current user
     SELECT blocked_account_id
     FROM maevsi.account_block
     WHERE created_by = maevsi.invoker_account_id()
     UNION ALL
+    -- users who blocked the current user
     SELECT created_by
     FROM maevsi.account_block
     WHERE blocked_account_id = maevsi.invoker_account_id();
