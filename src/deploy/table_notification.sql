@@ -7,7 +7,7 @@ CREATE TABLE maevsi_private.notification (
   is_acknowledged    BOOLEAN,
   payload            TEXT NOT NULL CHECK (octet_length(payload) <= 8000),
 
-  "timestamp"        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 COMMENT ON TABLE maevsi_private.notification IS 'A notification.';
@@ -15,6 +15,6 @@ COMMENT ON COLUMN maevsi_private.notification.id IS 'The notification''s interna
 COMMENT ON COLUMN maevsi_private.notification.channel IS 'The notification''s channel.';
 COMMENT ON COLUMN maevsi_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
 COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s payload.';
-COMMENT ON COLUMN maevsi_private.notification.timestamp IS 'The notification''s timestamp.';
+COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
 
 COMMIT;

@@ -10,12 +10,12 @@ DECLARE
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt($2, account.password_hash))) THEN
     DELETE
       FROM maevsi.event
       WHERE
             "event".id = $1
-        AND "event".author_account_id = _current_account_id
+        AND "event".created_by = _current_account_id
       RETURNING * INTO _event_deleted;
 
     IF (_event_deleted IS NULL) THEN
