@@ -6,11 +6,22 @@ BEGIN
   RETURN QUERY
 
   -- get all events for guests
-  SELECT guest.event_id FROM maevsi.guest
+  SELECT g.event_id FROM maevsi.guest g
   WHERE
     (
-      -- whose guest
-      guest.contact_id IN (
+      -- whose event ...
+      g.event_id IN (
+        SELECT id
+        FROM maevsi.event
+        WHERE
+          -- is not created by ...
+          created_by NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+      )
+      AND
+      -- whose invitee
+      g.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
@@ -25,7 +36,7 @@ BEGIN
     )
     OR
       -- for which the requesting user knows the id
-      guest.id = ANY (maevsi.guest_claim_array());
+      g.id = ANY (maevsi.guest_claim_array());
 END
 $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 

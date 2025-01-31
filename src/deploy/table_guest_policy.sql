@@ -5,35 +5,29 @@ GRANT INSERT, DELETE ON TABLE maevsi.guest TO maevsi_account;
 
 ALTER TABLE maevsi.guest ENABLE ROW LEVEL SECURITY;
 
--- Only display guests accessible through guest claims.
--- Only display guests accessible through the account, omit guests created by a blocked user.
--- Only display guests of events organized by oneself, omit guests created by a blocked user and guests issued for a blocked user.
 CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (
+    -- Display guests accessible through guest claims.
     id = ANY (maevsi.guest_claim_array())
   OR
   (
+    -- Display guests where the contact is the invoker account.
     contact_id IN (
       SELECT id
       FROM maevsi.contact
       WHERE account_id = maevsi.invoker_account_id()
-
-      EXCEPT
-
-      -- contacts created by a blocked account
-      SELECT c.id
-      FROM maevsi.contact c
-        JOIN maevsi.account_block b
-        ON
-          c.account_id = b.created_by
-          AND
-          c.created_by = b.blocked_account_id
-      WHERE
-        c.account_id = maevsi.invoker_account_id()
+        -- omit contacts created by a user who is blocked by the invoker
+        -- omit contacts created by a user who blocked the invoker.
+        AND created_by NOT IN (
+          SELECT id FROM maevsi_private.account_block_ids()
+        )
     )
   )
   OR
   (
-      event_id IN (SELECT maevsi.events_organized())
+    -- Display guests to events organized by the invoker,
+    -- but omit guests with contacts pointing at a user
+    -- blocked by the invoker or pointing at a user who blocked the invoker.
+    event_id IN (SELECT maevsi.events_organized())
     AND
       contact_id IN (
         SELECT c.id

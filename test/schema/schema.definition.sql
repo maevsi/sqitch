@@ -1213,33 +1213,32 @@ CREATE FUNCTION maevsi.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    -- get all contacts for guests
-    SELECT guest.contact_id
-    FROM maevsi.guest
+    -- get all contacts of guests
+    SELECT g.contact_id
+    FROM maevsi.guest g
     WHERE
       (
-        -- that are known to the invoker
-        guest.id = ANY (maevsi.guest_claim_array())
+        -- that are known through a guest claim
+        g.id = ANY (maevsi.guest_claim_array())
       OR
         -- or for events organized by the invoker
-        guest.event_id IN (SELECT maevsi.events_organized())
-      )
-      AND
-        -- except contacts created by a blocked account or referring to a blocked account
-        guest.contact_id NOT IN (
-          SELECT contact.id
+        g.event_id IN (SELECT maevsi.events_organized())
+        and g.contact_id IN (
+          SELECT id
           FROM maevsi.contact
           WHERE
-              contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
-            OR
-              contact.account_id IN (
+            created_by NOT IN (
+              SELECT id FROM maevsi_private.account_block_ids()
+            )
+            AND (
+              account_id IS NULL
+              OR
+              account_id NOT IN (
                 SELECT id FROM maevsi_private.account_block_ids()
               )
-            OR
-              contact.created_by IN (
-                SELECT id FROM maevsi_private.account_block_ids()
-              )
-        );
+            )
+        )
+      );
 END;
 $$;
 
@@ -1927,11 +1926,22 @@ BEGIN
   RETURN QUERY
 
   -- get all events for guests
-  SELECT guest.event_id FROM maevsi.guest
+  SELECT g.event_id FROM maevsi.guest g
   WHERE
     (
-      -- whose guest
-      guest.contact_id IN (
+      -- whose event ...
+      g.event_id IN (
+        SELECT id
+        FROM maevsi.event
+        WHERE
+          -- is not created by ...
+          created_by NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+      )
+      AND
+      -- whose invitee
+      g.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
@@ -1946,7 +1956,7 @@ BEGIN
     )
     OR
       -- for which the requesting user knows the id
-      guest.id = ANY (maevsi.guest_claim_array());
+      g.id = ANY (maevsi.guest_claim_array());
 END
 $$;
 
@@ -5528,14 +5538,14 @@ ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
 -- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((created_by = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -5748,14 +5758,8 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT event.visibility
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.created_by
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
+   FROM maevsi.event)));
 
 
 --
@@ -5906,12 +5910,8 @@ EXCEPT
 
 CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_id = maevsi.invoker_account_id())
-EXCEPT
- SELECT c.id
-   FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
-  WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
+  WHERE ((contact.account_id = maevsi.invoker_account_id()) AND (NOT (contact.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
   WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
            FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
