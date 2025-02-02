@@ -4,7 +4,7 @@ CREATE TABLE maevsi.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   account_id            UUID REFERENCES maevsi.account(id),
-  address               UUID REFERENCES maevsi.address(id),
+  address_id            UUID REFERENCES maevsi.address(id),
   email_address         TEXT CHECK (char_length(email_address) < 255), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
@@ -25,7 +25,7 @@ CREATE TABLE maevsi.contact (
 COMMENT ON TABLE maevsi.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 COMMENT ON COLUMN maevsi.contact.id IS E'@omit create,update\nPrimary key, uniquely identifies each contact.';
 COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associated account.';
-COMMENT ON COLUMN maevsi.contact.address IS 'Physical address of the contact. Must be between 1 and 300 characters.';
+COMMENT ON COLUMN maevsi.contact.address_id IS 'Optional reference to the physical address of the contact.';
 COMMENT ON COLUMN maevsi.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
 COMMENT ON COLUMN maevsi.contact.email_address_hash IS E'@omit create,update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 COMMENT ON COLUMN maevsi.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
