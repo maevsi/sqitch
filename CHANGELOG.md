@@ -1,3 +1,13 @@
+## [5.0.0-beta.8](https://github.com/maevsi/sqitch/compare/5.0.0-beta.7...5.0.0-beta.8) (2025-02-02)
+
+### ⚠ BREAKING CHANGES
+
+* **address:** correct reference columns' name suffix (#140)
+
+### Features
+
+* **address:** correct reference columns' name suffix ([#140](https://github.com/maevsi/sqitch/issues/140)) ([9039aee](https://github.com/maevsi/sqitch/commit/9039aee79b8618e2213793a2690278b900cd2e18)), closes [#138](https://github.com/maevsi/sqitch/issues/138) [#141](https://github.com/maevsi/sqitch/issues/141) [#138](https://github.com/maevsi/sqitch/issues/138)
+
 ## [5.0.0-beta.7](https://github.com/maevsi/sqitch/compare/5.0.0-beta.6...5.0.0-beta.7) (2025-01-30)
 
 ### Bug Fixes
