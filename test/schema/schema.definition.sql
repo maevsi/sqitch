@@ -1946,13 +1946,13 @@ BEGIN
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id()
           AND
             -- who is not invited by
             created_by NOT IN (
               SELECT id FROM maevsi_private.account_block_ids()
             )
-      ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
+      )
     )
     OR
       -- for which the requesting user knows the id
@@ -2641,7 +2641,7 @@ Blocking of one account by another.';
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account blocking''s internal id.';
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account block''s internal id.';
 
 
 --
@@ -2656,14 +2656,14 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of 
 --
 
 COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create
-Timestamp of when the blocking was created.';
+Timestamp of when the account block was created.';
 
 
 --
 -- Name: COLUMN account_block.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the blocking.';
+COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the account block.';
 
 
 --

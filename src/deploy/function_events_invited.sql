@@ -26,13 +26,13 @@ BEGIN
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id()
           AND
             -- who is not invited by
             created_by NOT IN (
               SELECT id FROM maevsi_private.account_block_ids()
             )
-      ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
+      )
     )
     OR
       -- for which the requesting user knows the id
