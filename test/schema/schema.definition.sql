@@ -745,7 +745,7 @@ SET default_table_access_method = heap;
 
 CREATE TABLE maevsi.event (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    address uuid,
+    address_id uuid,
     description text,
     "end" timestamp with time zone,
     guest_count_maximum integer,
@@ -790,10 +790,10 @@ The event''s internal id.';
 
 
 --
--- Name: COLUMN event.address; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.address_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.address IS 'The event''s physical address.';
+COMMENT ON COLUMN maevsi.event.address_id IS 'Optional reference to the physical address of the event.';
 
 
 --
@@ -2964,7 +2964,7 @@ Reference to the account that last updated the address.';
 CREATE TABLE maevsi.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid,
-    address uuid,
+    address_id uuid,
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
@@ -3013,10 +3013,10 @@ COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associa
 
 
 --
--- Name: COLUMN contact.address; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.address_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.address IS 'Physical address of the contact. Must be between 1 and 300 characters.';
+COMMENT ON COLUMN maevsi.contact.address_id IS 'Optional reference to the physical address of the contact.';
 
 
 --
@@ -3526,7 +3526,7 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
     guest.feedback_paper AS guest_feedback_paper,
     contact.id AS contact_id,
     contact.account_id AS contact_account_id,
-    contact.address AS contact_address,
+    contact.address_id AS contact_address_id,
     contact.email_address AS contact_email_address,
     contact.email_address_hash AS contact_email_address_hash,
     contact.first_name AS contact_first_name,
@@ -5259,11 +5259,11 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: contact contact_address_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_address_fkey FOREIGN KEY (address) REFERENCES maevsi.address(id);
+    ADD CONSTRAINT contact_address_id_fkey FOREIGN KEY (address_id) REFERENCES maevsi.address(id);
 
 
 --
@@ -5275,11 +5275,11 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: event event_address_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_address_fkey FOREIGN KEY (address) REFERENCES maevsi.address(id);
+    ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES maevsi.address(id);
 
 
 --

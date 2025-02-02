@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT id,
        account_id,
-       address,
+       address_id,
        email_address,
        email_address_hash,
        first_name,
