@@ -1,6 +1,7 @@
 BEGIN;
 
 SELECT id,
+       address_id,
        description,
        "end",
        guest_count_maximum,
