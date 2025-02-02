@@ -8,7 +8,7 @@ SELECT
   guest_feedback_paper,
   contact_id,
   contact_account_id,
-  contact_address,
+  contact_address_id,
   contact_email_address,
   contact_email_address_hash,
   contact_first_name,

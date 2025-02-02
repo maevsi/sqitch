@@ -9,7 +9,7 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
 
     contact.id                  AS contact_id,
     contact.account_id          AS contact_account_id,
-    contact.address             AS contact_address,
+    contact.address_id          AS contact_address_id,
     contact.email_address       AS contact_email_address,
     contact.email_address_hash  AS contact_email_address_hash,
     contact.first_name          AS contact_first_name ,

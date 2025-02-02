@@ -1,3 +1,9 @@
+## [5.0.0-beta.7](https://github.com/maevsi/sqitch/compare/5.0.0-beta.6...5.0.0-beta.7) (2025-01-30)
+
+### Bug Fixes
+
+* **account-block:** change function call mode to SECURITY DEFINER ([#131](https://github.com/maevsi/sqitch/issues/131)) ([7160274](https://github.com/maevsi/sqitch/commit/716027482c7707ea126932baedffd80c783f7641))
+
 ## [5.0.0-beta.6](https://github.com/maevsi/sqitch/compare/5.0.0-beta.5...5.0.0-beta.6) (2025-01-29)
 
 ### ⚠ BREAKING CHANGES
@@ -89,6 +95,12 @@
 * **schema:** remove table prefix so schema can be build ([cc5be2d](https://github.com/maevsi/sqitch/commit/cc5be2d7f0db3a251337325ec0b3aa822d0f8482))
 
 ## [5.0.0-beta.2](https://github.com/maevsi/sqitch/compare/5.0.0-beta.1...5.0.0-beta.2) (2024-12-12)
+## [4.13.3](https://github.com/maevsi/sqitch/compare/4.13.2...4.13.3) (2025-01-26)
+
+### Bug Fixes
+
+* **account-block:** change function call mode to SECURITY DEFINER ([#131](https://github.com/maevsi/sqitch/issues/131)) ([7160274](https://github.com/maevsi/sqitch/commit/716027482c7707ea126932baedffd80c783f7641))
+
 ## [4.13.2](https://github.com/maevsi/sqitch/compare/4.13.1...4.13.2) (2025-01-25)
 
 ### Bug Fixes

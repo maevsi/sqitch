@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE maevsi.event (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  address                  UUID REFERENCES maevsi.address(id),
+  address_id               UUID REFERENCES maevsi.address(id),
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
   guest_count_maximum    INTEGER CHECK (guest_count_maximum > 0),
@@ -28,7 +28,7 @@ CREATE TABLE maevsi.event (
 
 COMMENT ON TABLE maevsi.event IS 'An event.';
 COMMENT ON COLUMN maevsi.event.id IS E'@omit create,update\nThe event''s internal id.';
-COMMENT ON COLUMN maevsi.event.address IS 'The event''s physical address.';
+COMMENT ON COLUMN maevsi.event.address_id IS 'Optional reference to the physical address of the event.';
 COMMENT ON COLUMN maevsi.event.description IS 'The event''s description.';
 COMMENT ON COLUMN maevsi.event.end IS 'The event''s end date and time, with timezone.';
 COMMENT ON COLUMN maevsi.event.guest_count_maximum IS 'The event''s maximum guest count.';
