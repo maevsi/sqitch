@@ -23,7 +23,7 @@ COPY ./src ./
 
 
 ###########################
-FROM quay.io/debezium/postgres:17@sha256:98ab06ab92df44641f5667e7d49980fc8051f5e6d0bc13b986061206eeb0a1bf AS test-build
+FROM quay.io/debezium/postgres:17 AS test-build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
