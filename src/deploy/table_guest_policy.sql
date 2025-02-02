@@ -25,8 +25,7 @@ CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (
   OR
   (
     -- Display guests to events organized by the invoker,
-    -- but omit guests with contacts pointing at a user
-    -- blocked by the invoker or pointing at a user who blocked the invoker.
+    -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
     event_id IN (SELECT maevsi.events_organized())
     AND
       contact_id IN (

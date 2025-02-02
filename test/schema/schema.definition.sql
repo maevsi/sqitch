@@ -2633,7 +2633,7 @@ ALTER TABLE maevsi.account_block OWNER TO postgres;
 -- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.account_block IS '@omit update,delete
+COMMENT ON TABLE maevsi.account_block IS '@omit update
 Blocking of one account by another.';
 
 
@@ -2655,7 +2655,7 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of 
 -- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create,update,delete
+COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create
 Timestamp of when the blocking was created.';
 
 
@@ -5533,6 +5533,13 @@ ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_block account_block_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_block_delete ON maevsi.account_block FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
 
 --
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
