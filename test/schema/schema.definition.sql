@@ -197,26 +197,6 @@ COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and 
 
 
 --
--- Name: invitation_action; Type: TYPE; Schema: maevsi; Owner: postgres
---
-
-CREATE TYPE maevsi.invitation_action AS ENUM (
-    'send',
-    'bounceaccept',
-    'reject'
-);
-
-
-ALTER TYPE maevsi.invitation_action OWNER TO postgres;
-
---
--- Name: TYPE invitation_action; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON TYPE maevsi.invitation_action IS 'Possible actions around invitations.';
-
-
---
 -- Name: invitation_feedback; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -253,6 +233,27 @@ ALTER TYPE maevsi.invitation_feedback_paper OWNER TO postgres;
 --
 
 COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
+
+
+--
+-- Name: invitation_status; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.invitation_status AS ENUM (
+    'accepted',
+    'bounced',
+    'rejected',
+    'sent'
+);
+
+
+ALTER TYPE maevsi.invitation_status OWNER TO postgres;
+
+--
+-- Name: TYPE invitation_status; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.invitation_status IS 'Represents the status of an invitation.';
 
 
 --
@@ -3579,8 +3580,11 @@ COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 CREATE TABLE maevsi.invitation (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     guest_id uuid NOT NULL,
-    action maevsi.invitation_action NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+    status maevsi.invitation_status NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid NOT NULL
 );
 
 
@@ -3590,7 +3594,7 @@ ALTER TABLE maevsi.invitation OWNER TO postgres;
 -- Name: TABLE invitation; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.invitation IS '@omit update,delete\nThe table tracks actions around invitations.';
+COMMENT ON TABLE maevsi.invitation IS '@omit update,delete\nStores invitations and their statuses.';
 
 
 --
@@ -3598,28 +3602,53 @@ COMMENT ON TABLE maevsi.invitation IS '@omit update,delete\nThe table tracks act
 --
 
 COMMENT ON COLUMN maevsi.invitation.id IS '@omit create
-The tracking record''s internal id.';
+The unique identifier for the invitation.';
 
 
 --
 -- Name: COLUMN invitation.guest_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.guest_id IS 'The guest information (containing event and contact).';
+COMMENT ON COLUMN maevsi.invitation.guest_id IS 'The ID of the guest associated with this invitation.';
 
 
 --
--- Name: COLUMN invitation.action; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN invitation.status; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.action IS 'The action';
+COMMENT ON COLUMN maevsi.invitation.status IS 'The current status of the invitation.';
 
 
 --
 -- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create\nThe timestamp when the action was executed';
+COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create
+Timestamp when the invitation was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN invitation.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.created_by IS '@omit create
+Reference to the account that created the invitation.';
+
+
+--
+-- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create
+Timestamp when the invitation was last updated.';
+
+
+--
+-- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create
+Reference to the account that last updated the invitation.';
 
 
 --
@@ -4849,11 +4878,11 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: invitation invitation_guest_id_created_at_action_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: invitation invitation_guest_id_status_created_at_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_guest_id_created_at_action_key UNIQUE (guest_id, created_at, action);
+    ADD CONSTRAINT invitation_guest_id_status_created_at_key UNIQUE (guest_id, status, created_at);
 
 
 --
@@ -5233,6 +5262,13 @@ CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF nam
 
 
 --
+-- Name: invitation maevsi_trigger_invitation_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_invitation_update BEFORE UPDATE ON maevsi.invitation FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
+
+
+--
 -- Name: account maevsi_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
 --
 
@@ -5479,11 +5515,27 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
+-- Name: invitation invitation_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: invitation invitation_guest_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.invitation
     ADD CONSTRAINT invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES maevsi.guest(id);
+
+
+--
+-- Name: invitation invitation_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation
+    ADD CONSTRAINT invitation_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -6038,10 +6090,10 @@ ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
 -- Name: invitation invitation_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK ((maevsi.invoker_account_id() = ( SELECT e.created_by
+CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND (maevsi.invoker_account_id() = ( SELECT e.created_by
    FROM (maevsi.guest g
      JOIN maevsi.event e ON ((g.event_id = e.id)))
-  WHERE (g.id = invitation.guest_id))));
+  WHERE (g.id = invitation.guest_id)))));
 
 
 --

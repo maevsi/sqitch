@@ -101,7 +101,7 @@ test_account_blocking [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.th
 function_event_search [privilege_execute_revoke schema_public enum_language schema_private function_language_iso_full_text_search table_event role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Full-text search on events.
 index_account_private_location [schema_private table_account_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Spacial index on location column in table maevsi_private.account.
 index_event_location [schema_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Spacial index on location_geography column in table maevsi.event.
-enum_invitation_action [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible actions around invitations.
-table_invitation [schema_public enum_invitation_action table_guest] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
-table_invitation_policy [schema_public function_invoker_account_id table_invitation table_guest table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table invitation.
+enum_invitation_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Represents the status of an invitation.
+table_invitation [schema_public table_guest enum_invitation_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
+table_invitation_policy [schema_public table_invitation role_account function_invoker_account_id table_guest table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Stores invitations and their statuses.
 test_location [schema_public schema_private extension_postgis table_account_private table_event role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A collection of location related functions.
