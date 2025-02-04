@@ -75,41 +75,41 @@ BEGIN
   -- run tests
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  PERFORM maevsi_test.event_test('event: no blocking, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.event_test('event: no blocking, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.event_test('event: no block, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.event_test('event: no block, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
   PERFORM maevsi_test.event_test('event: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM maevsi_test.event_test('event: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: no blocking, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: no blocking, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: no block, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: no block, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
   PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM maevsi_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  PERFORM maevsi_test.contact_test('contact: no blocking, perspective A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
-  PERFORM maevsi_test.contact_test('contact: no blocking, perspective B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
+  PERFORM maevsi_test.contact_test('contact: no block, perspective A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
+  PERFORM maevsi_test.contact_test('contact: no block, perspective B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
   PERFORM maevsi_test.contact_test('contact: A blocks B, perspective A', accountA, ARRAY[contactAA, contactAC, contactCA]::UUID[]);
   PERFORM maevsi_test.contact_test('contact: A blocks B, perspective B', accountB, ARRAY[contactBB, contactBC, contactCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  PERFORM maevsi_test.guest_test('guest: no blocking, perspective A', accountA, ARRAY[guestAB, guestAC, guestBA, guestCA]::UUID[]);
-  PERFORM maevsi_test.guest_test('guest: no blocking, perspective B', accountB, ARRAY[guestBA, guestBC, guestAB, guestCB]::UUID[]);
+  PERFORM maevsi_test.guest_test('guest: no block, perspective A', accountA, ARRAY[guestAB, guestAC, guestBA, guestCA]::UUID[]);
+  PERFORM maevsi_test.guest_test('guest: no block, perspective B', accountB, ARRAY[guestBA, guestBC, guestAB, guestCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
   PERFORM maevsi_test.guest_test('guest: A blocks B, perspective A', accountA, ARRAY[guestAC, guestCA]::UUID[]);
   PERFORM maevsi_test.guest_test('guest: A blocks B, perspective B', accountB, ARRAY[guestBC, guestCB]::UUID[]);
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
-  PERFORM maevsi_test.event_test('anonymous login: no blocking, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
-  PERFORM maevsi_test.contact_test('anonymous login: no blocking, contacts', null, ARRAY[]::UUID[]);
-  PERFORM maevsi_test.guest_test('anonymous login: no blocking, guests', null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.event_test('anonymous login: no block, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
+  PERFORM maevsi_test.contact_test('anonymous login: no block, contacts', null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.guest_test('anonymous login: no block, guests', null, ARRAY[]::UUID[]);
 
   PERFORM maevsi_test.event_test('anonymous login: A blocks B, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
   PERFORM maevsi_test.contact_test('anonymous login: A blocks B, contacts', null, ARRAY[]::UUID[]);
@@ -119,13 +119,13 @@ BEGIN
 
   PERFORM maevsi_test.account_block_remove(accountA, accountB);
   guestClaimArray := maevsi.guest_claim_array();
-  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim is unset', guestClaimArray, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.uuid_array_test('no block, guest claim is unset', guestClaimArray, ARRAY[]::UUID[]);
 
   guestClaimArray := maevsi_test.guest_claim_from_account_guest(accountA);
-  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim was added', guestClaimArray, ARRAY[guestBA, guestCA]);
+  PERFORM maevsi_test.uuid_array_test('no block, guest claim was added', guestClaimArray, ARRAY[guestBA, guestCA]);
 
   guestClaimArrayNew := maevsi.guest_claim_array();
-  PERFORM maevsi_test.uuid_array_test('no blocking, guest claim includes data', guestClaimArrayNew, guestClaimArray);
+  PERFORM maevsi_test.uuid_array_test('no block, guest claim includes data', guestClaimArrayNew, guestClaimArray);
 
   PERFORM maevsi_test.account_block_create(accountA, accountB);
   guestClaimArrayNew := maevsi.guest_claim_array();
