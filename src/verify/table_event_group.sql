@@ -9,6 +9,10 @@ SELECT id,
        created_by
 FROM maevsi.event_group WHERE FALSE;
 
+SELECT maevsi_test.index_existence(
+  ARRAY ['event_group_created_by_slug_key']
+);
+
 DO $$
 BEGIN
   ASSERT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.event_group', 'SELECT'));

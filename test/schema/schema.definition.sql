@@ -2551,6 +2551,40 @@ END $$;
 ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
+-- Name: index_existence(text[], text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.index_existence(indexes text[], schema text DEFAULT 'maevsi'::text) RETURNS void
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _existing_count INTEGER;
+  _expected_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO _existing_count
+  FROM pg_indexes
+  WHERE schemaname = index_existence.schema
+    AND indexname = ANY(index_existence.indexes);
+
+  _expected_count := array_length(index_existence.indexes, 1);
+
+  IF _existing_count <> _expected_count THEN
+    RAISE EXCEPTION 'Index mismatch in schema "%". Expected: %, Found: %', schema, _expected_count, _existing_count;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';
+
+
+--
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -4986,59 +5020,31 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_event_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_created_by ON maevsi.event USING btree (created_by);
-
-
---
--- Name: INDEX idx_event_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_created_by IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_address_created_by ON maevsi.address USING btree (created_by);
 
 
 --
--- Name: idx_event_group_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_group_created_by ON maevsi.event_group USING btree (created_by);
-
-
---
--- Name: INDEX idx_event_group_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
--- Name: idx_event_grouping_event_group_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_group_id ON maevsi.event_grouping USING btree (event_group_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_group_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_group_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_address_updated_by ON maevsi.address USING btree (updated_by);
 
 
 --
--- Name: idx_event_grouping_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_id ON maevsi.event_grouping USING btree (event_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
@@ -5052,7 +5058,7 @@ CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 -- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_location IS 'Spatial index on column location in maevsi.event.';
+COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
@@ -5063,31 +5069,24 @@ CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
 
 
 --
--- Name: idx_guest_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_guest_contact_id ON maevsi.guest USING btree (contact_id);
-
-
---
--- Name: INDEX idx_guest_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 
 --
--- Name: idx_guest_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_guest_event_id ON maevsi.guest USING btree (event_id);
+CREATE INDEX idx_guest_updated_by ON maevsi.guest USING btree (updated_by);
 
 
 --
--- Name: INDEX idx_guest_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_guest_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_guest_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
@@ -5101,7 +5100,7 @@ CREATE INDEX idx_account_private_location ON maevsi_private.account USING gist (
 -- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'Spatial index on column location in maevsi_private.account.';
+COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
@@ -6901,6 +6900,13 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) FROM PUBLIC;
 
 
 --
