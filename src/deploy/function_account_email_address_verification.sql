@@ -9,7 +9,7 @@ BEGIN
   SELECT *
     FROM maevsi_private.account
     INTO _account
-    WHERE account.email_address_verification = $1;
+    WHERE account.email_address_verification = account_email_address_verification.code;
 
   IF (_account IS NULL) THEN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
@@ -21,7 +21,7 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET email_address_verification = NULL
-    WHERE email_address_verification = $1;
+    WHERE email_address_verification = account_email_address_verification.code;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 

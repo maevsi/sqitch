@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE FUNCTION maevsi.account_password_reset_request(
   email_address TEXT,
-  "language" TEXT
+  language TEXT
 ) RETURNS VOID AS $$
 DECLARE
   _notify_data RECORD;
@@ -10,7 +10,7 @@ BEGIN
   WITH updated AS (
     UPDATE maevsi_private.account
       SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = $1
+      WHERE account.email_address = account_password_reset_request.email_address
       RETURNING *
   ) SELECT
     account.username,
@@ -28,7 +28,7 @@ BEGIN
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
-        'template', jsonb_build_object('language', $2)
+        'template', jsonb_build_object('language', account_password_reset_request.language)
       ))
     );
   END IF;
