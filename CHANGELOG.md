@@ -1,3 +1,9 @@
+## [5.0.0-beta.10](https://github.com/maevsi/sqitch/compare/5.0.0-beta.9...5.0.0-beta.10) (2025-02-04)
+
+### Bug Fixes
+
+* **account-block:** bug fixes in functions and policies ([#139](https://github.com/maevsi/sqitch/issues/139)) ([8d71f87](https://github.com/maevsi/sqitch/commit/8d71f87cfd64c09f8753bb5913d139095b9ccbc7))
+
 ## [5.0.0-beta.9](https://github.com/maevsi/sqitch/compare/5.0.0-beta.8...5.0.0-beta.9) (2025-02-04)
 
 ### ⚠ BREAKING CHANGES
