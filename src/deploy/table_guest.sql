@@ -15,6 +15,9 @@ CREATE TABLE maevsi.guest (
   UNIQUE (event_id, contact_id)
 );
 
+CREATE INDEX idx_guest_contact_id ON maevsi.guest USING btree (contact_id);
+CREATE INDEX idx_guest_event_id ON maevsi.guest USING btree (event_id);
+
 COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
 COMMENT ON COLUMN maevsi.guest.id IS E'@omit create,update\nThe guests''s internal id.';
 COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
@@ -24,6 +27,8 @@ COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback st
 COMMENT ON COLUMN maevsi.guest.created_at IS E'@omit create,update\nTimestamp of when the guest was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.guest.updated_at IS E'@omit create,update\nTimestamp of when the guest was last updated.';
 COMMENT ON COLUMN maevsi.guest.updated_by IS E'@omit create,update\nThe id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
+COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'B-Tree index to optimize lookups by contact foreign key.';
+COMMENT ON INDEX maevsi.idx_guest_event_id IS 'B-Tree index to optimize lookups by event foreign key.';
 
 -- GRANTs, RLS and POLICYs are specified in 'table_guest_policy`.
 

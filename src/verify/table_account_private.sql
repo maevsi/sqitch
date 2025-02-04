@@ -14,6 +14,21 @@ SELECT id,
        last_activity
 FROM maevsi_private.account WHERE FALSE;
 
+-- TODO: extract to helper function
+WITH expected_indexes AS (
+    SELECT unnest(ARRAY['idx_account_private_location']) AS indexname
+),
+existing_indexes AS (
+    SELECT indexname FROM pg_indexes
+    WHERE schemaname = 'maevsi_private'
+    AND indexname IN (SELECT indexname FROM expected_indexes)
+)
+SELECT 1 / NULLIF(
+    0,
+    (SELECT COUNT(*) FROM existing_indexes) -
+    (SELECT COUNT(*) FROM expected_indexes)
+) AS status;
+
 DO $$
 BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi_private.account', 'SELECT'));

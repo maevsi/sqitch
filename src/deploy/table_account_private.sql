@@ -17,6 +17,8 @@ CREATE TABLE maevsi_private.account (
   last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_account_private_location ON maevsi_private.account USING gist (location);
+
 COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 COMMENT ON COLUMN maevsi_private.account.id IS 'The account''s internal id.';
 COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s date of birth.';
@@ -30,6 +32,7 @@ COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
 COMMENT ON COLUMN maevsi_private.account.created_at IS 'Timestamp at which the account was last active.';
 COMMENT ON COLUMN maevsi_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
+COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
 CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() RETURNS TRIGGER AS $$
   BEGIN

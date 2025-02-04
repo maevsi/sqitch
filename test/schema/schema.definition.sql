@@ -4996,7 +4996,7 @@ CREATE INDEX idx_event_created_by ON maevsi.event USING btree (created_by);
 -- Name: INDEX idx_event_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_created_by IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_event_created_by IS 'B-Tree index to optimize lookups by event creator foreign key.';
 
 
 --
@@ -5010,7 +5010,7 @@ CREATE INDEX idx_event_group_created_by ON maevsi.event_group USING btree (creat
 -- Name: INDEX idx_event_group_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'B-Tree index to optimize lookups by event creator foreign key.';
 
 
 --
@@ -5024,7 +5024,7 @@ CREATE INDEX idx_event_grouping_event_group_id ON maevsi.event_grouping USING bt
 -- Name: INDEX idx_event_grouping_event_group_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_grouping_event_group_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_event_grouping_event_group_id IS 'B-Tree index to optimize lookups by event group foreign key.';
 
 
 --
@@ -5038,7 +5038,7 @@ CREATE INDEX idx_event_grouping_event_id ON maevsi.event_grouping USING btree (e
 -- Name: INDEX idx_event_grouping_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'B-Tree index to optimize lookups by event foreign key.';
 
 
 --
@@ -5052,7 +5052,7 @@ CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 -- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_location IS 'Spatial index on column location in maevsi.event.';
+COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
@@ -5060,6 +5060,13 @@ COMMENT ON INDEX maevsi.idx_event_location IS 'Spatial index on column location 
 --
 
 CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
+
+
+--
+-- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 
 --
@@ -5073,7 +5080,7 @@ CREATE INDEX idx_guest_contact_id ON maevsi.guest USING btree (contact_id);
 -- Name: INDEX idx_guest_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'B-Tree index to optimize lookups by contact foreign key.';
 
 
 --
@@ -5087,7 +5094,7 @@ CREATE INDEX idx_guest_event_id ON maevsi.guest USING btree (event_id);
 -- Name: INDEX idx_guest_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_guest_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_guest_event_id IS 'B-Tree index to optimize lookups by event foreign key.';
 
 
 --
@@ -5101,7 +5108,7 @@ CREATE INDEX idx_account_private_location ON maevsi_private.account USING gist (
 -- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'Spatial index on column location in maevsi_private.account.';
+COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --

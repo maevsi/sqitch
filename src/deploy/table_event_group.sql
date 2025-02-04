@@ -14,6 +14,8 @@ CREATE TABLE maevsi.event_group (
   UNIQUE (created_by, slug)
 );
 
+CREATE INDEX idx_event_group_created_by ON maevsi.event_group USING btree (created_by);
+
 COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 COMMENT ON COLUMN maevsi.event_group.id IS E'@omit create,update\nThe event group''s internal id.';
 COMMENT ON COLUMN maevsi.event_group.description IS 'The event group''s description.';
@@ -22,6 +24,7 @@ COMMENT ON COLUMN maevsi.event_group.name IS 'The event group''s name.';
 COMMENT ON COLUMN maevsi.event_group.slug IS E'@omit create,update\nThe event group''s name, slugified.';
 COMMENT ON COLUMN maevsi.event_group.created_at IS E'@omit create,update\nTimestamp of when the event group was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.event_group.created_by IS 'The event group creator''s id.';
+COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'B-Tree index to optimize lookups by event creator foreign key.';
 
 GRANT SELECT ON TABLE maevsi.event_group TO maevsi_account, maevsi_anonymous;
 GRANT INSERT, UPDATE, DELETE ON TABLE maevsi.event_group TO maevsi_account;
