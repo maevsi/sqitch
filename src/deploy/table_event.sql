@@ -27,7 +27,6 @@ CREATE TABLE maevsi.event (
 );
 
 CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
-CREATE INDEX idx_event_created_by ON maevsi.event USING btree (created_by);
 CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
 
 COMMENT ON TABLE maevsi.event IS 'An event.';
@@ -50,7 +49,6 @@ COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create,update\nTimestamp of
 COMMENT ON COLUMN maevsi.event.created_by IS 'The event creator''s id.';
 COMMENT ON COLUMN maevsi.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
 COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
-COMMENT ON INDEX maevsi.idx_event_created_by IS 'B-Tree index to optimize lookups by event creator foreign key.';
 COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS TRIGGER AS $$

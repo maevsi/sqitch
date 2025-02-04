@@ -10,7 +10,7 @@ SELECT id,
 FROM maevsi.guest WHERE FALSE;
 
 SELECT maevsi_test.index_existence(
-  ARRAY ['idx_guest_contact_id', 'idx_guest_event_id']
+  ARRAY ['guest_event_id_contact_id_key', 'idx_guest_updated_by']
 );
 
 ROLLBACK;

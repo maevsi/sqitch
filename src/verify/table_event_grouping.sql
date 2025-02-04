@@ -6,7 +6,7 @@ SELECT id,
 FROM maevsi.event_grouping WHERE FALSE;
 
 SELECT maevsi_test.index_existence(
-  ARRAY ['idx_event_grouping_event_group_id', 'idx_event_grouping_event_id']
+  ARRAY ['event_grouping_event_id_event_group_id_key']
 );
 
 DO $$
