@@ -1,3 +1,13 @@
+## [5.0.0-beta.9](https://github.com/maevsi/sqitch/compare/5.0.0-beta.8...5.0.0-beta.9) (2025-02-04)
+
+### ⚠ BREAKING CHANGES
+
+* **index:** merge into table definitions (#147)
+
+### Performance Improvements
+
+* **index:** merge into table definitions ([#147](https://github.com/maevsi/sqitch/issues/147)) ([20b8c5d](https://github.com/maevsi/sqitch/commit/20b8c5d4b34104b055a52bbf06e1debe0264bb8f)), closes [#149](https://github.com/maevsi/sqitch/issues/149)
+
 ## [5.0.0-beta.8](https://github.com/maevsi/sqitch/compare/5.0.0-beta.7...5.0.0-beta.8) (2025-02-02)
 
 ### ⚠ BREAKING CHANGES
