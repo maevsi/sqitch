@@ -3140,6 +3140,60 @@ COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that cr
 
 
 --
+-- Name: device; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.device (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    messaging_id text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid DEFAULT maevsi.invoker_account_id() NOT NULL,
+    CONSTRAINT device_messaging_id_check CHECK (((char_length(messaging_id) > 0) AND (char_length(messaging_id) < 300)))
+);
+
+
+ALTER TABLE maevsi.device OWNER TO postgres;
+
+--
+-- Name: TABLE device; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.device IS '@omit read,update
+A device that''s assigned to an account.';
+
+
+--
+-- Name: COLUMN device.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.id IS '@omit create,update
+The internal id of the device.';
+
+
+--
+-- Name: COLUMN device.messaging_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.messaging_id IS 'The messaging id of the device that''s used to deliver notifications.';
+
+
+--
+-- Name: COLUMN device.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.created_at IS '@omit create,update
+Timestamp when the device was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN device.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.created_by IS '@omit create,update
+Reference to the account that created the device.';
+
+
+--
 -- Name: event_category; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -4696,6 +4750,22 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
+-- Name: device device_created_by_messaging_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_created_by_messaging_id_key UNIQUE (created_by, messaging_id);
+
+
+--
+-- Name: device device_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: event_category_mapping event_category_mapping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5274,6 +5344,14 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
+-- Name: device device_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: event event_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5728,6 +5806,26 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id =
 CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
   WHERE (account_block.created_by = maevsi.invoker_account_id()))))));
+
+
+--
+-- Name: device; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.device ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: device device_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY device_delete ON maevsi.device FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: device device_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY device_insert ON maevsi.device FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -12331,6 +12429,13 @@ GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.contact TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE device; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT INSERT,DELETE ON TABLE maevsi.device TO maevsi_account;
 
 
 --
