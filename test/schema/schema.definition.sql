@@ -2551,6 +2551,40 @@ END $$;
 ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
+-- Name: index_existence(text[], text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.index_existence(indexes text[], schema text DEFAULT 'maevsi'::text) RETURNS void
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _existing_count INTEGER;
+  _expected_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO _existing_count
+  FROM pg_indexes
+  WHERE schemaname = index_existence.schema
+    AND indexname = ANY(index_existence.indexes);
+
+  _expected_count := array_length(index_existence.indexes, 1);
+
+  IF _existing_count <> _expected_count THEN
+    RAISE EXCEPTION 'Index mismatch in schema "%". Expected: %, Found: %', schema, _expected_count, _existing_count;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';
+
+
+--
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -6908,6 +6942,13 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) FROM PUBLIC;
 
 
 --
