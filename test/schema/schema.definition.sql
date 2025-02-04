@@ -1105,7 +1105,7 @@ CREATE FUNCTION maevsi.friendship_account_ids() RETURNS TABLE(id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    WITH friend_bidirectional_account_ids AS (
+    WITH friendship_account_ids AS (
       SELECT b_account_id as account_id
       FROM maevsi.friendship
       WHERE a_account = maevsi.invoker_account_id()
@@ -1117,7 +1117,7 @@ BEGIN
         and status = 'accepted'::maevsi.friendship_status
     )
     SELECT account_id
-    FROM friend_bidirectional_account_ids
+    FROM friendship_account_ids
     WHERE account NOT IN (maevsi_private.account_block_ids());
 END
 $$;
@@ -5375,32 +5375,32 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 
 
 --
--- Name: friendship friend_insert; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY friend_insert ON maevsi.friendship FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND ((created_by = a_account_id) OR (created_by = b_account_id)) AND (status = 'pending'::maevsi.friendship_status)));
-
-
---
--- Name: friendship friend_select; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY friend_select ON maevsi.friendship FOR SELECT USING ((maevsi.invoker_account_id() IN ( SELECT friendship_account_ids.id
-   FROM maevsi.friendship_account_ids() friendship_account_ids(id))));
-
-
---
--- Name: friendship friend_update; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY friend_update ON maevsi.friendship FOR INSERT WITH CHECK (((updated_by = maevsi.invoker_account_id()) AND ((updated_by = a_account_id) OR (updated_by = b_account_id)) AND (updated_by <> created_by)));
-
-
---
 -- Name: friendship; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE maevsi.friendship ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: friendship friendship_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_insert ON maevsi.friendship FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND ((created_by = a_account_id) OR (created_by = b_account_id)) AND (status = 'pending'::maevsi.friendship_status)));
+
+
+--
+-- Name: friendship friendship_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_select ON maevsi.friendship FOR SELECT USING ((maevsi.invoker_account_id() IN ( SELECT friendship_account_ids.id
+   FROM maevsi.friendship_account_ids() friendship_account_ids(id))));
+
+
+--
+-- Name: friendship friendship_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_update ON maevsi.friendship FOR INSERT WITH CHECK (((updated_by = maevsi.invoker_account_id()) AND ((updated_by = a_account_id) OR (updated_by = b_account_id)) AND (updated_by <> created_by)));
+
 
 --
 -- Name: invitation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
