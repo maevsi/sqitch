@@ -17,8 +17,10 @@ CREATE TABLE maevsi.address (
   updated_by  UUID REFERENCES maevsi.account(id) NOT NULL
 );
 
-COMMENT ON TABLE maevsi.address IS 'Stores detailed address information, including lines, city, state, country, and metadata.';
+CREATE INDEX idx_address_created_by ON maevsi.address USING btree (created_by);
+CREATE INDEX idx_address_updated_by ON maevsi.address USING btree (updated_by);
 
+COMMENT ON TABLE maevsi.address IS 'Stores detailed address information, including lines, city, state, country, and metadata.';
 COMMENT ON COLUMN maevsi.address.id IS E'@omit create,update\nPrimary key, uniquely identifies each address.';
 COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
 COMMENT ON COLUMN maevsi.address.line_1 IS 'First line of the address (e.g., street address). Must be between 1 and 300 characters.';
@@ -31,7 +33,8 @@ COMMENT ON COLUMN maevsi.address.created_at IS E'@omit create,update\nTimestamp 
 COMMENT ON COLUMN maevsi.address.created_by IS E'@omit create,update\nReference to the account that created the address.';
 COMMENT ON COLUMN maevsi.address.updated_at IS E'@omit create,update\nTimestamp when the address was last updated.';
 COMMENT ON COLUMN maevsi.address.updated_by IS E'@omit create,update\nReference to the account that last updated the address.';
-
+COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
+COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 -- GRANTs, RLS and POLICYs are specified in 'table_address_policy`.
 
 CREATE TRIGGER maevsi_trigger_address_update

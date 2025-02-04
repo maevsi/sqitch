@@ -10,7 +10,7 @@ SELECT id,
 FROM maevsi.event_group WHERE FALSE;
 
 SELECT maevsi_test.index_existence(
-  ARRAY ['idx_event_group_created_by']
+  ARRAY ['event_group_created_by_slug_key']
 );
 
 DO $$

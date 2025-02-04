@@ -5020,59 +5020,31 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_event_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_created_by ON maevsi.event USING btree (created_by);
-
-
---
--- Name: INDEX idx_event_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_created_by IS 'B-Tree index to optimize lookups by event creator foreign key.';
+CREATE INDEX idx_address_created_by ON maevsi.address USING btree (created_by);
 
 
 --
--- Name: idx_event_group_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_group_created_by ON maevsi.event_group USING btree (created_by);
-
-
---
--- Name: INDEX idx_event_group_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'B-Tree index to optimize lookups by event creator foreign key.';
+COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
--- Name: idx_event_grouping_event_group_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_group_id ON maevsi.event_grouping USING btree (event_group_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_group_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_group_id IS 'B-Tree index to optimize lookups by event group foreign key.';
+CREATE INDEX idx_address_updated_by ON maevsi.address USING btree (updated_by);
 
 
 --
--- Name: idx_event_grouping_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_id ON maevsi.event_grouping USING btree (event_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'B-Tree index to optimize lookups by event foreign key.';
+COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
@@ -5104,31 +5076,17 @@ COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vect
 
 
 --
--- Name: idx_guest_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_guest_contact_id ON maevsi.guest USING btree (contact_id);
-
-
---
--- Name: INDEX idx_guest_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'B-Tree index to optimize lookups by contact foreign key.';
+CREATE INDEX idx_guest_updated_by ON maevsi.guest USING btree (updated_by);
 
 
 --
--- Name: idx_guest_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_guest_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_guest_event_id ON maevsi.guest USING btree (event_id);
-
-
---
--- Name: INDEX idx_guest_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_guest_event_id IS 'B-Tree index to optimize lookups by event foreign key.';
+COMMENT ON INDEX maevsi.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
