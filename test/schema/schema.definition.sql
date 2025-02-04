@@ -5020,6 +5020,34 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
+-- Name: idx_account_block_blocked_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_account_block_blocked_account_id ON maevsi.account_block USING btree (blocked_account_id);
+
+
+--
+-- Name: INDEX idx_account_block_blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_account_block_blocked_account_id IS 'B-Tree index to optimize lookups by blocked account foreign key.';
+
+
+--
+-- Name: idx_account_block_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_account_block_created_by ON maevsi.account_block USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_account_block_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_account_block_created_by IS 'B-Tree index to optimize lookups by account block creator foreign key.';
+
+
+--
 -- Name: idx_event_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
