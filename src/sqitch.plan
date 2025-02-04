@@ -94,8 +94,8 @@ table_event_recommendation [schema_public table_account_public table_event] 1970
 table_event_recommendation_policy [schema_public table_event_recommendation role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
 table_event_favourite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favourite events.
 table_event_favourite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favourite.
-enum_friend_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible status values of a friend relation.
-table_friend [schema_public table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
-function_friend_ids [schema_public table_friend role_account function_invoker_account_id function_account_block_ids] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Returns the account ids of all the invoker's friends.
-table_friend_policy [schema_public table_friend function_friend_ids role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
+enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible status values of a friend relation.
+table_friendship [schema_public table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
+function_friendship_account_ids [schema_public table_friendship role_account function_invoker_account_id function_account_block_ids] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Returns the account ids of all the invoker's friends.
+table_friendship_policy [schema_public table_friendship function_friendship_account_ids role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
 test_account_blocking [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.

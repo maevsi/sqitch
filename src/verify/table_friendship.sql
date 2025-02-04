@@ -9,7 +9,7 @@ SELECT
   created_by,
   updated_at,
   updated_by
-FROM maevsi.friend
+FROM maevsi.friendship
 WHERE FALSE;
 
 ROLLBACK;

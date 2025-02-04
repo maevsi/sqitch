@@ -182,23 +182,23 @@ COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and 
 
 
 --
--- Name: friend_status; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: friendship_status; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TYPE maevsi.friend_status AS ENUM (
-    'pending',
+CREATE TYPE maevsi.friendship_status AS ENUM (
     'accepted',
+    'pending',
     'rejected'
 );
 
 
-ALTER TYPE maevsi.friend_status OWNER TO postgres;
+ALTER TYPE maevsi.friendship_status OWNER TO postgres;
 
 --
--- Name: TYPE friend_status; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE friendship_status; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.friend_status IS 'Possible status values of a friend relation.';
+COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.';
 
 
 --
@@ -1097,39 +1097,39 @@ COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns al
 
 
 --
--- Name: friend_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: friendship_account_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.friend_ids() RETURNS TABLE(id uuid)
+CREATE FUNCTION maevsi.friendship_account_ids() RETURNS TABLE(id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
   RETURN QUERY
-    WITH t AS (
+    WITH friend_bidirectional_account_ids AS (
       SELECT b_account_id as account_id
-      FROM maevsi.friend
+      FROM maevsi.friendship
       WHERE a_account = maevsi.invoker_account_id()
-        and status = 'accepted'::maevsi.friend_status
+        and status = 'accepted'::maevsi.friendship_status
       UNION ALL
       SELECT a_account_id as account_id
-      FROM maevsi.friend
+      FROM maevsi.friendship
       WHERE b_account_id = maevsi.invoker_account_id()
-        and status = 'accepted'::maevsi.friend_status
+        and status = 'accepted'::maevsi.friendship_status
     )
     SELECT account_id
-    FROM t
-    WHERE t.account NOT IN (maevsi_private.account_block_ids());
+    FROM friend_bidirectional_account_ids
+    WHERE account NOT IN (maevsi_private.account_block_ids());
 END
 $$;
 
 
-ALTER FUNCTION maevsi.friend_ids() OWNER TO postgres;
+ALTER FUNCTION maevsi.friendship_account_ids() OWNER TO postgres;
 
 --
--- Name: FUNCTION friend_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION friendship_account_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.friend_ids() IS 'Returns the account ids of all the invoker''s friends.';
+COMMENT ON FUNCTION maevsi.friendship_account_ids() IS 'Returns the account ids of all the invoker''s friends.';
 
 
 --
@@ -2948,95 +2948,95 @@ The internal id of the uploaded content.';
 
 
 --
--- Name: friend; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: friendship; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.friend (
+CREATE TABLE maevsi.friendship (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     a_account_id uuid NOT NULL,
     b_account_id uuid NOT NULL,
-    status maevsi.friend_status DEFAULT 'pending'::maevsi.friend_status NOT NULL,
+    status maevsi.friendship_status DEFAULT 'pending'::maevsi.friendship_status NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    CONSTRAINT friend_check CHECK ((a_account_id < b_account_id)),
-    CONSTRAINT friend_check1 CHECK ((created_by <> updated_by)),
-    CONSTRAINT friend_check2 CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
-    CONSTRAINT friend_check3 CHECK (((updated_by = a_account_id) OR (updated_by = b_account_id)))
+    CONSTRAINT friendship_check CHECK ((a_account_id < b_account_id)),
+    CONSTRAINT friendship_check1 CHECK ((created_by <> updated_by)),
+    CONSTRAINT friendship_check2 CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
+    CONSTRAINT friendship_check3 CHECK (((updated_by = a_account_id) OR (updated_by = b_account_id)))
 );
 
 
-ALTER TABLE maevsi.friend OWNER TO postgres;
+ALTER TABLE maevsi.friendship OWNER TO postgres;
 
 --
--- Name: TABLE friend; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE friendship; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.friend IS 'A friend relation together with its status.';
+COMMENT ON TABLE maevsi.friendship IS 'A friend relation together with its status.';
 
 
 --
--- Name: COLUMN friend.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.id IS '@omit create,update
+COMMENT ON COLUMN maevsi.friendship.id IS '@omit create,update
 The friend relation''s internal id.';
 
 
 --
--- Name: COLUMN friend.a_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.a_account_id IS '@omit update
+COMMENT ON COLUMN maevsi.friendship.a_account_id IS '@omit update
 The ''left'' side of the friend relation.';
 
 
 --
--- Name: COLUMN friend.b_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.b_account_id IS '@omit update
+COMMENT ON COLUMN maevsi.friendship.b_account_id IS '@omit update
 The ''right'' side of the friend relation.';
 
 
 --
--- Name: COLUMN friend.status; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.status; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.status IS '@omit create
+COMMENT ON COLUMN maevsi.friendship.status IS '@omit create
 The status of the friend relation.';
 
 
 --
--- Name: COLUMN friend.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.created_at IS '@omit create,update
+COMMENT ON COLUMN maevsi.friendship.created_at IS '@omit create,update
 The timestamp when the friend relation was created.';
 
 
 --
--- Name: COLUMN friend.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.created_by IS '@omit update
+COMMENT ON COLUMN maevsi.friendship.created_by IS '@omit update
 The account that created the friend relation was created.';
 
 
 --
--- Name: COLUMN friend.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.updated_at IS '@omit create
+COMMENT ON COLUMN maevsi.friendship.updated_at IS '@omit create
 The timestamp when the friend relation''s status was updated.';
 
 
 --
--- Name: COLUMN friend.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friend.updated_by IS '@omit create
+COMMENT ON COLUMN maevsi.friendship.updated_by IS '@omit create
 The account that updated the friend relation''s status.';
 
 
@@ -4346,19 +4346,19 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: friend friend_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.friend
-    ADD CONSTRAINT friend_a_account_id_b_account_id_key UNIQUE (a_account_id, b_account_id);
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_a_account_id_b_account_id_key UNIQUE (a_account_id, b_account_id);
 
 
 --
--- Name: friend friend_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.friend
-    ADD CONSTRAINT friend_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_pkey PRIMARY KEY (id);
 
 
 --
@@ -4887,35 +4887,35 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: friend friend_a_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_a_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.friend
-    ADD CONSTRAINT friend_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES maevsi.account(id);
-
-
---
--- Name: friend friend_b_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.friend
-    ADD CONSTRAINT friend_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES maevsi.account(id);
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: friend friend_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_b_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.friend
-    ADD CONSTRAINT friend_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES maevsi.account(id);
 
 
 --
--- Name: friend friend_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.friend
-    ADD CONSTRAINT friend_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: friendship friendship_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5375,32 +5375,32 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 
 
 --
--- Name: friend; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: friendship friend_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.friend ENABLE ROW LEVEL SECURITY;
-
---
--- Name: friend friend_insert; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY friend_insert ON maevsi.friend FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND ((created_by = a_account_id) OR (created_by = b_account_id)) AND (status = 'pending'::maevsi.friend_status)));
+CREATE POLICY friend_insert ON maevsi.friendship FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND ((created_by = a_account_id) OR (created_by = b_account_id)) AND (status = 'pending'::maevsi.friendship_status)));
 
 
 --
--- Name: friend friend_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: friendship friend_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friend_select ON maevsi.friend FOR SELECT USING ((maevsi.invoker_account_id() IN ( SELECT friend_ids.id
-   FROM maevsi.friend_ids() friend_ids(id))));
+CREATE POLICY friend_select ON maevsi.friendship FOR SELECT USING ((maevsi.invoker_account_id() IN ( SELECT friendship_account_ids.id
+   FROM maevsi.friendship_account_ids() friendship_account_ids(id))));
 
 
 --
--- Name: friend friend_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: friendship friend_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friend_update ON maevsi.friend FOR INSERT WITH CHECK (((updated_by = maevsi.invoker_account_id()) AND ((updated_by = a_account_id) OR (updated_by = b_account_id)) AND (updated_by <> created_by)));
+CREATE POLICY friend_update ON maevsi.friendship FOR INSERT WITH CHECK (((updated_by = maevsi.invoker_account_id()) AND ((updated_by = a_account_id) OR (updated_by = b_account_id)) AND (updated_by <> created_by)));
 
+
+--
+-- Name: friendship; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.friendship ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: invitation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
@@ -5808,11 +5808,11 @@ GRANT ALL ON FUNCTION maevsi.events_organized() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION friend_ids(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION friendship_account_ids(); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.friend_ids() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.friend_ids() TO maevsi_account;
+REVOKE ALL ON FUNCTION maevsi.friendship_account_ids() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.friendship_account_ids() TO maevsi_account;
 
 
 --
@@ -6363,10 +6363,10 @@ GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 
 --
--- Name: TABLE friend; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE friendship; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,UPDATE ON TABLE maevsi.friend TO maevsi_account;
+GRANT SELECT,INSERT,UPDATE ON TABLE maevsi.friendship TO maevsi_account;
 
 
 --
