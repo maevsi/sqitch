@@ -16,7 +16,7 @@ BEGIN
     maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || $1) ORDER BY 1)),
+    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
     current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
@@ -26,7 +26,7 @@ BEGIN
 
   _event_id := (
     SELECT event_id FROM maevsi.guest
-    WHERE guest.id = $1
+    WHERE guest.id = event_unlock.guest_id
   );
 
   IF (_event_id IS NULL) THEN

@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE FUNCTION maevsi.invite(
   guest_id UUID,
-  "language" TEXT
+  language TEXT
 ) RETURNS VOID AS $$
 DECLARE
   _contact RECORD;
@@ -14,7 +14,7 @@ DECLARE
   _guest RECORD;
 BEGIN
   -- Guest UUID
-  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = $1;
+  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
@@ -71,7 +71,7 @@ BEGIN
           'eventCreatorUsername', _event_creator_username,
           'guestId', _guest.id
         ),
-        'template', jsonb_build_object('language', $2)
+        'template', jsonb_build_object('language', invite.language)
       ))
     );
 END;

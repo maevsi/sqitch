@@ -2,21 +2,21 @@ BEGIN;
 
 CREATE FUNCTION maevsi.account_registration_refresh(
   account_id UUID,
-  "language" TEXT
+  language TEXT
 ) RETURNS VOID AS $$
 DECLARE
   _new_account_notify RECORD;
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
-  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
+  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
     RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
     UPDATE maevsi_private.account
       SET email_address_verification = DEFAULT
-      WHERE account.id = $1
+      WHERE account.id = account_registration_refresh.account_id
       RETURNING *
   ) SELECT
     account.username,
@@ -31,7 +31,7 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', $2)
+      'template', jsonb_build_object('language', account_registration_refresh.language)
     ))
   );
 END;
