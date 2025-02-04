@@ -26,17 +26,24 @@ CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (
   (
     -- Display guests to events organized by the invoker,
     -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
+    -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
     event_id IN (SELECT maevsi.events_organized())
     AND
       contact_id IN (
         SELECT c.id
         FROM maevsi.contact c
         WHERE
+          (
             c.account_id IS NULL
-          OR
+            OR
             c.account_id NOT IN (
               SELECT id FROM maevsi_private.account_block_ids()
             )
+          )
+          AND
+          c.created_by NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
       )
   )
 );
@@ -85,12 +92,12 @@ CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (
       FROM maevsi.contact
       WHERE account_id = maevsi.invoker_account_id()
 
-    EXCEPT
+      EXCEPT
 
-    SELECT c.id
-    FROM maevsi.contact c
-      JOIN maevsi.account_block b ON c.account_id = b.created_by and c.created_by = b.blocked_account_id
-    WHERE c.account_id = maevsi.invoker_account_id()
+      SELECT c.id
+      FROM maevsi.contact c
+        JOIN maevsi.account_block b ON c.account_id = b.created_by and c.created_by = b.blocked_account_id
+      WHERE c.account_id = maevsi.invoker_account_id()
     )
   )
   OR
@@ -101,10 +108,18 @@ CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (
     contact_id IN (
       SELECT c.id
       FROM maevsi.contact c
-      WHERE c.account_id IS NULL
-      OR c.account_id NOT IN (
-        SELECT id FROM maevsi_private.account_block_ids()
-      )
+      WHERE
+        c.created_by NOT IN (
+          SELECT id FROM maevsi_private.account_block_ids()
+        )
+        AND
+        (
+          c.account_id IS NULL
+          OR
+          c.account_id NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+        )
     )
   )
 );

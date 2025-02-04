@@ -5920,7 +5920,8 @@ CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.
   WHERE ((contact.account_id = maevsi.invoker_account_id()) AND (NOT (contact.created_by IN ( SELECT account_block_ids.id
            FROM maevsi_private.account_block_ids() account_block_ids(id))))))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+  WHERE (((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))) AND (NOT (c.created_by IN ( SELECT account_block_ids.id
            FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
 
 
@@ -5937,8 +5938,9 @@ EXCEPT
      JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
-           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
+  WHERE ((NOT (c.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id)))) AND ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id)))))))))));
 
 
 --
