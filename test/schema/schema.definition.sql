@@ -3145,10 +3145,12 @@ COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that cr
 
 CREATE TABLE maevsi.device (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    messaging_id text,
+    fcm_token text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid DEFAULT maevsi.invoker_account_id() NOT NULL,
-    CONSTRAINT device_messaging_id_check CHECK (((char_length(messaging_id) > 0) AND (char_length(messaging_id) < 300)))
+    updated_at timestamp with time zone,
+    updated_by uuid NOT NULL,
+    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) < 300)))
 );
 
 
@@ -3171,10 +3173,10 @@ The internal id of the device.';
 
 
 --
--- Name: COLUMN device.messaging_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.device.messaging_id IS 'The messaging id of the device that''s used to deliver notifications.';
+COMMENT ON COLUMN maevsi.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications.';
 
 
 --
@@ -3191,6 +3193,22 @@ Timestamp when the device was created. Defaults to the current timestamp.';
 
 COMMENT ON COLUMN maevsi.device.created_by IS '@omit create,update
 Reference to the account that created the device.';
+
+
+--
+-- Name: COLUMN device.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.updated_at IS '@omit create,update
+Timestamp when the device was last updated.';
+
+
+--
+-- Name: COLUMN device.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.updated_by IS '@omit create,update
+Reference to the account that last updated the device.';
 
 
 --
@@ -4750,11 +4768,11 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: device device_created_by_messaging_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: device device_created_by_fcm_token_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.device
-    ADD CONSTRAINT device_created_by_messaging_id_key UNIQUE (created_by, messaging_id);
+    ADD CONSTRAINT device_created_by_fcm_token_key UNIQUE (created_by, fcm_token);
 
 
 --
@@ -5128,6 +5146,20 @@ COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize look
 
 
 --
+-- Name: idx_device_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_device_updated_by ON maevsi.device USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_device_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
 -- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
@@ -5216,6 +5248,13 @@ CREATE TRIGGER maevsi_trigger_address_update BEFORE UPDATE ON maevsi.address FOR
 --
 
 CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+
+
+--
+-- Name: device maevsi_trigger_device_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_device_update BEFORE UPDATE ON maevsi.device FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
@@ -5349,6 +5388,14 @@ ALTER TABLE ONLY maevsi.contact
 
 ALTER TABLE ONLY maevsi.device
     ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: device device_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5826,6 +5873,13 @@ CREATE POLICY device_delete ON maevsi.device FOR DELETE USING ((created_by = mae
 --
 
 CREATE POLICY device_insert ON maevsi.device FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: device device_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY device_update ON maevsi.device FOR UPDATE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -12435,7 +12489,7 @@ GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
 -- Name: TABLE device; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT INSERT,DELETE ON TABLE maevsi.device TO maevsi_account;
+GRANT INSERT,DELETE,UPDATE ON TABLE maevsi.device TO maevsi_account;
 
 
 --
