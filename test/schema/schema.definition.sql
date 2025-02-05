@@ -1105,7 +1105,7 @@ CREATE FUNCTION maevsi.friendship_account_ids() RETURNS TABLE(id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    WITH friendship_account_ids AS (
+    WITH friend_bidirectional_account_ids AS (
       SELECT b_account_id as account_id
       FROM maevsi.friendship
       WHERE a_account_id = maevsi.invoker_account_id()
