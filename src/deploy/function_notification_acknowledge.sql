@@ -5,8 +5,8 @@ CREATE FUNCTION maevsi.notification_acknowledge(
   is_acknowledged BOOLEAN
 ) RETURNS VOID AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = $1)) THEN
-    UPDATE maevsi_private.notification SET is_acknowledged = $2 WHERE "notification".id = $1;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
+    UPDATE maevsi_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
   ELSE
     RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;

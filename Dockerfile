@@ -44,11 +44,13 @@ RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib
     /dev/null
 
 COPY ./src ./
+COPY ./test/index-missing.sql ./test/
 
 RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U postgres -p 5432; do sleep 1; done \
   && sqitch deploy -t db:pg://postgres:postgres@/maevsi \
+  && psql -h localhost -U postgres -d maevsi -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
   && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql \
   && sqitch revert -t db:pg://postgres:postgres@/maevsi
 
