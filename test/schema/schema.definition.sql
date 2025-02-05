@@ -1108,7 +1108,7 @@ BEGIN
     WITH friend_bidirectional_account_ids AS (
       SELECT b_account_id as account_id
       FROM maevsi.friendship
-      WHERE a_account = maevsi.invoker_account_id()
+      WHERE a_account_id = maevsi.invoker_account_id()
         and status = 'accepted'::maevsi.friendship_status
       UNION ALL
       SELECT a_account_id as account_id
@@ -1118,7 +1118,7 @@ BEGIN
     )
     SELECT account_id
     FROM friend_bidirectional_account_ids
-    WHERE account NOT IN (maevsi_private.account_block_ids());
+    WHERE account_id NOT IN (maevsi_private.account_block_ids());
 END
 $$;
 
@@ -1581,6 +1581,24 @@ ALTER FUNCTION maevsi.trigger_invitation_update() OWNER TO postgres;
 
 COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 
+
+--
+-- Name: trigger_metadata_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_metadata_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.updated_by = maevsi.invoker_account_id();
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_metadata_update() OWNER TO postgres;
 
 --
 -- Name: upload; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -2956,14 +2974,14 @@ CREATE TABLE maevsi.friendship (
     a_account_id uuid NOT NULL,
     b_account_id uuid NOT NULL,
     status maevsi.friendship_status DEFAULT 'pending'::maevsi.friendship_status NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
     CONSTRAINT friendship_check CHECK ((a_account_id < b_account_id)),
     CONSTRAINT friendship_check1 CHECK ((created_by <> updated_by)),
     CONSTRAINT friendship_check2 CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
-    CONSTRAINT friendship_check3 CHECK (((updated_by = a_account_id) OR (updated_by = b_account_id)))
+    CONSTRAINT friendship_check3 CHECK (((updated_by IS NULL) OR (updated_by = a_account_id) OR (updated_by = b_account_id)))
 );
 
 
@@ -3028,7 +3046,7 @@ The account that created the friend relation was created.';
 -- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friendship.updated_at IS '@omit create
+COMMENT ON COLUMN maevsi.friendship.updated_at IS '@omit create,update
 The timestamp when the friend relation''s status was updated.';
 
 
@@ -3036,7 +3054,7 @@ The timestamp when the friend relation''s status was updated.';
 -- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.friendship.updated_by IS '@omit create
+COMMENT ON COLUMN maevsi.friendship.updated_by IS '@omit create,update
 The account that updated the friend relation''s status.';
 
 
@@ -4697,6 +4715,13 @@ CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account
 
 
 --
+-- Name: friendship maevsi_trigger_friendship_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_friendship_update BEFORE UPDATE ON maevsi.friendship FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
+
+
+--
 -- Name: account maevsi_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
 --
 
@@ -5378,22 +5403,23 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 -- Name: friendship friend_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friend_insert ON maevsi.friendship FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND ((created_by = a_account_id) OR (created_by = b_account_id)) AND (status = 'pending'::maevsi.friendship_status)));
+CREATE POLICY friend_insert ON maevsi.friendship FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
 -- Name: friendship friend_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friend_select ON maevsi.friendship FOR SELECT USING ((maevsi.invoker_account_id() IN ( SELECT friendship_account_ids.id
-   FROM maevsi.friendship_account_ids() friendship_account_ids(id))));
+CREATE POLICY friend_select ON maevsi.friendship FOR SELECT USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((maevsi.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
 
 
 --
 -- Name: friendship friend_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friend_update ON maevsi.friendship FOR INSERT WITH CHECK (((updated_by = maevsi.invoker_account_id()) AND ((updated_by = a_account_id) OR (updated_by = b_account_id)) AND (updated_by <> created_by)));
+CREATE POLICY friend_update ON maevsi.friendship FOR UPDATE WITH CHECK ((updated_by = maevsi.invoker_account_id()));
 
 
 --
@@ -6089,6 +6115,13 @@ GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_accou
 REVOKE ALL ON FUNCTION maevsi.trigger_invitation_update() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION trigger_metadata_update(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update() FROM PUBLIC;
 
 
 --
