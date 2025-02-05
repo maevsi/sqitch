@@ -28,6 +28,6 @@ COMMENT ON COLUMN maevsi.guest.updated_at IS E'@omit create,update\nTimestamp of
 COMMENT ON COLUMN maevsi.guest.updated_by IS E'@omit create,update\nThe id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
 COMMENT ON INDEX maevsi.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
--- GRANTs, RLS and POLICYs are specified in 'table_guest_policy`.
+-- GRANTs, RLS and POLICYs are specified in `table_guest_policy`.
 
 COMMIT;
