@@ -4,7 +4,7 @@ CREATE FUNCTION maevsi.friendship_account_ids()
 RETURNS TABLE (id UUID) AS $$
 BEGIN
   RETURN QUERY
-    WITH friend_bidirectional_account_ids AS (
+    WITH friendship_account_ids AS (
       SELECT b_account_id as account_id
       FROM maevsi.friendship
       WHERE a_account_id = maevsi.invoker_account_id()
@@ -16,7 +16,7 @@ BEGIN
         and status = 'accepted'::maevsi.friendship_status
     )
     SELECT account_id
-    FROM friend_bidirectional_account_ids
+    FROM friendship_account_ids
     WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b);
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;

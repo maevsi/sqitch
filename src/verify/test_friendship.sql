@@ -14,9 +14,9 @@ BEGIN
 
   -- fill with test data
 
-  accountA := maevsi_test.account_create('a', 'a@example.com');
-  accountB := maevsi_test.account_create('b', 'b@example.com');
-  accountC := maevsi_test.account_create('c', 'c@example.com');
+  accountA := maevsi_test.friendship_account_create('a', 'a@example.com');
+  accountB := maevsi_test.friendship_account_create('b', 'b@example.com');
+  accountC := maevsi_test.friendship_account_create('c', 'c@example.com');
 
   RAISE NOTICE 'accountA = %', accountA;
   RAISE NOTICE 'accountB = %', accountB;

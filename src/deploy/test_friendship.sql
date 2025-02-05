@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_create (
+CREATE OR REPLACE FUNCTION maevsi_test.friendship_account_create (
   _username TEXT,
   _email TEXT
 ) RETURNS UUID AS $$
@@ -27,23 +27,23 @@ DECLARE
   rec RECORD;
   _count INTEGER;
 BEGIN
-  RAISE NOTICE 'friendship_accept: _invoker = %, _id = %', _invoker_account_id, _id;
+--  RAISE NOTICE 'friendship_accept: _invoker = %, _id = %', _invoker_account_id, _id;
 
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
-
+/*
   FOR rec IN
     SELECT * FROM maevsi.friendship WHERE id = _id
   LOOP
 	RAISE NOTICE 'friendship: id = %, a_account_id = %, b_account_id = %, status = %, created_by = %, updated_by = %', rec.id, rec.a_account_id, rec.b_account_id, rec.status, rec.created_by, rec.updated_by;
   END LOOP;
-
+*/
   UPDATE maevsi.friendship
   SET "status" = 'accepted'::maevsi.friendship_status
   WHERE id = _id;
 
-  GET DIAGNOSTICS _count = ROW_COUNT;
-  RAISE NOTICE '#updated = %', _count;
+--  GET DIAGNOSTICS _count = ROW_COUNT;
+--  RAISE NOTICE '#updated = %', _count;
 
   SET LOCAL role = 'postgres';
 
