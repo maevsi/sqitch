@@ -19,6 +19,9 @@ CREATE TABLE maevsi.friendship (
   CHECK (updated_by IS NULL or updated_by = a_account_id or updated_by = b_account_id)
 );
 
+CREATE INDEX idx_friendship_created_by ON maevsi.friendship USING btree (created_by);
+CREATE INDEX idx_friendship_updated_by ON maevsi.friendship USING btree (updated_by);
+
 COMMENT ON TABLE maevsi.friendship IS 'A friend relation together with its status.';
 COMMENT ON COLUMN maevsi.friendship.id IS E'@omit create,update\nThe friend relation''s internal id.';
 COMMENT ON COLUMN maevsi.friendship.a_account_id IS E'@omit update\nThe ''left'' side of the friend relation.';
@@ -28,16 +31,8 @@ COMMENT ON COLUMN maevsi.friendship.created_at IS E'@omit create,update\nThe tim
 COMMENT ON COLUMN maevsi.friendship.created_by IS E'@omit update\nThe account that created the friend relation was created.';
 COMMENT ON COLUMN maevsi.friendship.updated_at IS E'@omit create,update\nThe timestamp when the friend relation''s status was updated.';
 COMMENT ON COLUMN maevsi.friendship.updated_by IS E'@omit create,update\nThe account that updated the friend relation''s status.';
-
-CREATE FUNCTION maevsi.trigger_metadata_update()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = CURRENT_TIMESTAMP;
-  NEW.updated_by = maevsi.invoker_account_id();
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+COMMENT ON INDEX maevsi.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
+COMMENT ON INDEX maevsi.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 CREATE TRIGGER maevsi_trigger_friendship_update
   BEFORE

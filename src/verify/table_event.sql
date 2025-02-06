@@ -1,20 +1,27 @@
 BEGIN;
 
 SELECT id,
-       created_at,
-       author_account_id,
+       address_id,
        description,
        "end",
-       invitee_count_maximum,
+       guest_count_maximum,
        is_archived,
        is_in_person,
        is_remote,
        location,
+       location_geography,
        name,
        slug,
        start,
        url,
-       visibility
+       visibility,
+       created_at,
+       created_by,
+       search_vector
 FROM maevsi.event WHERE FALSE;
+
+SELECT maevsi_test.index_existence(
+  ARRAY ['event_created_by_slug_key', 'idx_event_location', 'idx_event_search_vector']
+);
 
 ROLLBACK;

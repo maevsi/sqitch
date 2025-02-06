@@ -12,4 +12,8 @@ SELECT
 FROM maevsi.friendship
 WHERE FALSE;
 
+SELECT maevsi_test.index_existence(
+  ARRAY ['idx_friendship_created_by', 'idx_friendship_updated_by']
+);
+
 ROLLBACK;

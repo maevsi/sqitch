@@ -83,7 +83,7 @@ COMMENT ON SCHEMA sqitch IS 'Sqitch database deployment metadata v1.1.';
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA maevsi;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA public;
 
 
 --
@@ -91,6 +91,20 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA maevsi;
 --
 
 COMMENT ON EXTENSION pgcrypto IS 'Provides password hashing functions.';
+
+
+--
+-- Name: postgis; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION postgis IS 'Functions to work with geospatial data.';
 
 
 --
@@ -142,7 +156,7 @@ CREATE TYPE maevsi.jwt AS (
 	account_id uuid,
 	account_username text,
 	exp bigint,
-	invitations uuid[],
+	guests uuid[],
 	role text
 );
 
@@ -154,7 +168,7 @@ ALTER TYPE maevsi.jwt OWNER TO postgres;
 --
 
 CREATE TYPE maevsi.event_unlock_response AS (
-	author_account_username text,
+	creator_username text,
 	event_slug text,
 	jwt maevsi.jwt
 );
@@ -168,7 +182,8 @@ ALTER TYPE maevsi.event_unlock_response OWNER TO postgres;
 
 CREATE TYPE maevsi.event_visibility AS ENUM (
     'public',
-    'private'
+    'private',
+    'unlisted'
 );
 
 
@@ -178,7 +193,7 @@ ALTER TYPE maevsi.event_visibility OWNER TO postgres;
 -- Name: TYPE event_visibility; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private.';
+COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private and unlisted.';
 
 
 --
@@ -286,14 +301,14 @@ COMMENT ON TYPE maevsi.social_network IS 'Social networks.';
 
 CREATE FUNCTION maevsi.account_delete(password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _current_account_id UUID;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
-    IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.author_account_id = _current_account_id)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_delete.password, account.password_hash))) THEN
+    IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.created_by = _current_account_id)) THEN
       RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
     ELSE
       DELETE FROM maevsi_private.account WHERE account.id = _current_account_id;
@@ -302,7 +317,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_delete(password text) OWNER TO postgres;
@@ -320,14 +335,14 @@ COMMENT ON FUNCTION maevsi.account_delete(password text) IS 'Allows to delete an
 
 CREATE FUNCTION maevsi.account_email_address_verification(code uuid) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _account maevsi_private.account;
 BEGIN
   SELECT *
     FROM maevsi_private.account
     INTO _account
-    WHERE account.email_address_verification = $1;
+    WHERE account.email_address_verification = account_email_address_verification.code;
 
   IF (_account IS NULL) THEN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
@@ -339,9 +354,9 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET email_address_verification = NULL
-    WHERE email_address_verification = $1;
+    WHERE email_address_verification = account_email_address_verification.code;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_email_address_verification(code uuid) OWNER TO postgres;
@@ -359,23 +374,23 @@ COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Set
 
 CREATE FUNCTION maevsi.account_password_change(password_current text, password_new text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _current_account_id UUID;
 BEGIN
-  IF (char_length($2) < 8) THEN
+  IF (char_length(account_password_change.password_new) < 8) THEN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
-    UPDATE maevsi_private.account SET password_hash = maevsi.crypt($2, maevsi.gen_salt('bf')) WHERE account.id = _current_account_id;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_password_change.password_current, account.password_hash))) THEN
+    UPDATE maevsi_private.account SET password_hash = crypt(account_password_change.password_new, gen_salt('bf')) WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_password_change(password_current text, password_new text) OWNER TO postgres;
@@ -393,18 +408,18 @@ COMMENT ON FUNCTION maevsi.account_password_change(password_current text, passwo
 
 CREATE FUNCTION maevsi.account_password_reset(code uuid, password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _account maevsi_private.account;
 BEGIN
-  IF (char_length($2) < 8) THEN
+  IF (char_length(account_password_reset.password) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   SELECT *
     FROM maevsi_private.account
     INTO _account
-    WHERE account.password_reset_verification = $1;
+    WHERE account.password_reset_verification = account_password_reset.code;
 
   IF (_account IS NULL) THEN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
@@ -416,11 +431,11 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET
-      password_hash = maevsi.crypt($2, maevsi.gen_salt('bf')),
+      password_hash = crypt(account_password_reset.password, gen_salt('bf')),
       password_reset_verification = NULL
-    WHERE account.password_reset_verification = $1;
+    WHERE account.password_reset_verification = account_password_reset.code;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_password_reset(code uuid, password text) OWNER TO postgres;
@@ -438,14 +453,14 @@ COMMENT ON FUNCTION maevsi.account_password_reset(code uuid, password text) IS '
 
 CREATE FUNCTION maevsi.account_password_reset_request(email_address text, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _notify_data RECORD;
 BEGIN
   WITH updated AS (
     UPDATE maevsi_private.account
       SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = $1
+      WHERE account.email_address = account_password_reset_request.email_address
       RETURNING *
   ) SELECT
     account.username,
@@ -463,12 +478,12 @@ BEGIN
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
-        'template', jsonb_build_object('language', $2)
+        'template', jsonb_build_object('language', account_password_reset_request.language)
       ))
     );
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_password_reset_request(email_address text, language text) OWNER TO postgres;
@@ -505,7 +520,7 @@ BEGIN
   END IF;
 
   INSERT INTO maevsi_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, maevsi.crypt(account_registration.password, maevsi.gen_salt('bf')), CURRENT_TIMESTAMP)
+    (account_registration.email_address, crypt(account_registration.password, gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO maevsi.account(id, username) VALUES
@@ -519,7 +534,7 @@ BEGIN
     _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
-  INSERT INTO maevsi.contact(account_id, author_account_id) VALUES (_new_account_private.id, _new_account_private.id);
+  INSERT INTO maevsi.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -549,20 +564,20 @@ COMMENT ON FUNCTION maevsi.account_registration(username text, email_address tex
 
 CREATE FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _new_account_notify RECORD;
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
-  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
+  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
     RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
     UPDATE maevsi_private.account
       SET email_address_verification = DEFAULT
-      WHERE account.id = $1
+      WHERE account.id = account_registration_refresh.account_id
       RETURNING *
   ) SELECT
     account.username,
@@ -577,11 +592,11 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', $2)
+      'template', jsonb_build_object('language', account_registration_refresh.language)
     ))
   );
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) OWNER TO postgres;
@@ -621,7 +636,7 @@ COMMENT ON FUNCTION maevsi.account_upload_quota_bytes() IS 'Gets the total uploa
 
 CREATE FUNCTION maevsi.achievement_unlock(code uuid, alias text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _account_id UUID;
   _achievement maevsi.achievement_type;
@@ -632,7 +647,7 @@ BEGIN
   SELECT achievement
     FROM maevsi_private.achievement_code
     INTO _achievement
-    WHERE achievement_code.id = $1 OR achievement_code.alias = $2;
+    WHERE achievement_code.id = achievement_unlock.code OR achievement_code.alias = achievement_unlock.alias;
 
   IF (_achievement IS NULL) THEN
     RAISE 'Unknown achievement!' USING ERRCODE = 'no_data_found';
@@ -655,7 +670,7 @@ BEGIN
 
   RETURN _achievement_id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.achievement_unlock(code uuid, alias text) OWNER TO postgres;
@@ -677,13 +692,13 @@ CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt maevsi.jwt;
   _username TEXT;
 BEGIN
   IF (authenticate.username = '' AND authenticate.password = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.invitation_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.guest_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
   ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
     -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
     IF (strpos(authenticate.username, '@') = 0) THEN
@@ -703,7 +718,7 @@ BEGIN
         FROM maevsi_private.account
         WHERE
               account.id = _account_id
-          AND account.password_hash = maevsi.crypt(authenticate.password, account.password_hash)
+          AND account.password_hash = crypt(authenticate.password, account.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
@@ -714,7 +729,7 @@ BEGIN
       WHERE
             account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = maevsi.crypt(authenticate.password, account.password_hash)
+        AND account.password_hash = crypt(authenticate.password, account.password_hash)
       RETURNING *
     ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'maevsi_account'
       FROM updated
@@ -750,22 +765,26 @@ SET default_table_access_method = heap;
 
 CREATE TABLE maevsi.event (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
+    address_id uuid,
     description text,
     "end" timestamp with time zone,
-    invitee_count_maximum integer,
+    guest_count_maximum integer,
     is_archived boolean DEFAULT false NOT NULL,
     is_in_person boolean,
     is_remote boolean,
+    language maevsi.language,
     location text,
+    location_geography public.geography(Point,4326),
     name text NOT NULL,
     slug text NOT NULL,
     start timestamp with time zone NOT NULL,
     url text,
     visibility maevsi.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    search_vector tsvector,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
-    CONSTRAINT event_invitee_count_maximum_check CHECK ((invitee_count_maximum > 0)),
+    CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text))),
@@ -791,10 +810,10 @@ The event''s internal id.';
 
 
 --
--- Name: COLUMN event.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.address_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.author_account_id IS 'The event author''s id.';
+COMMENT ON COLUMN maevsi.event.address_id IS 'Optional reference to the physical address of the event.';
 
 
 --
@@ -812,10 +831,10 @@ COMMENT ON COLUMN maevsi.event."end" IS 'The event''s end date and time, with ti
 
 
 --
--- Name: COLUMN event.invitee_count_maximum; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.guest_count_maximum; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event.invitee_count_maximum IS 'The event''s maximum invitee count.';
+COMMENT ON COLUMN maevsi.event.guest_count_maximum IS 'The event''s maximum guest count.';
 
 
 --
@@ -844,6 +863,13 @@ COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes p
 --
 
 COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
+
+
+--
+-- Name: COLUMN event.location_geography; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.location_geography IS 'The event''s geographic location.';
 
 
 --
@@ -890,24 +916,39 @@ Timestamp of when the event was created, defaults to the current timestamp.';
 
 
 --
+-- Name: COLUMN event.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.created_by IS 'The event creator''s id.';
+
+
+--
+-- Name: COLUMN event.search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event.search_vector IS '@omit
+A vector used for full-text search on events.';
+
+
+--
 -- Name: event_delete(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
 CREATE FUNCTION maevsi.event_delete(id uuid, password text) RETURNS maevsi.event
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _current_account_id UUID;
   _event_deleted maevsi.event;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($2, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
     DELETE
       FROM maevsi.event
       WHERE
-            "event".id = $1
-        AND "event".author_account_id = _current_account_id
+            "event".id = event_delete.id
+        AND "event".created_by = _current_account_id
       RETURNING * INTO _event_deleted;
 
     IF (_event_deleted IS NULL) THEN
@@ -919,7 +960,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.event_delete(id uuid, password text) OWNER TO postgres;
@@ -932,87 +973,121 @@ COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to de
 
 
 --
--- Name: event_invitee_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_guest_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) RETURNS integer
+CREATE FUNCTION maevsi.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
   RETURN (
-    SELECT invitee_count_maximum
+    SELECT guest_count_maximum
     FROM maevsi.event
     WHERE
-      id = $1
+      id = event_guest_count_maximum.event_id
       AND ( -- Copied from `event_select` POLICY.
         (
           visibility = 'public'
           AND
           (
-            invitee_count_maximum IS NULL
+            guest_count_maximum IS NULL
             OR
-            invitee_count_maximum > (maevsi.invitee_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
+            guest_count_maximum > (maevsi.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
           )
         )
         OR (
           maevsi.invoker_account_id() IS NOT NULL
           AND
-          author_account_id = maevsi.invoker_account_id()
+          created_by = maevsi.invoker_account_id()
         )
         OR id IN (SELECT maevsi_private.events_invited())
       )
   );
 END
-$_$;
+$$;
 
 
-ALTER FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_guest_count_maximum(event_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) IS 'Add a function that returns the maximum invitee count of an accessible event.';
+COMMENT ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) IS 'Add a function that returns the maximum guest count of an accessible event.';
 
 
 --
 -- Name: event_is_existing(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) RETURNS boolean
+CREATE FUNCTION maevsi.event_is_existing(created_by uuid, slug text) RETURNS boolean
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".author_account_id = $1 AND "event".slug = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".created_by = event_is_existing.created_by AND "event".slug = event_is_existing.slug)) THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
   END IF;
 END;
-$_$;
+$$;
 
 
-ALTER FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_is_existing(created_by uuid, slug text) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_is_existing(author_account_id uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) IS 'Shows if an event exists.';
+COMMENT ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) IS 'Shows if an event exists.';
+
+
+--
+-- Name: event_search(text, maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.event_search(query text, language maevsi.language) RETURNS SETOF maevsi.event
+    LANGUAGE plpgsql STABLE
+    AS $$
+DECLARE
+  ts_config regconfig;
+BEGIN
+  ts_config := maevsi.language_iso_full_text_search(event_search.language);
+
+  RETURN QUERY
+  SELECT
+    *
+  FROM
+    maevsi.event
+  WHERE
+    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+  ORDER BY
+    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.event_search(query text, language maevsi.language) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_search(query text, language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.event_search(query text, language maevsi.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
 
 
 --
 -- Name: event_unlock(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.event_unlock(invitation_id uuid) RETURNS maevsi.event_unlock_response
+CREATE FUNCTION maevsi.event_unlock(guest_id uuid) RETURNS maevsi.event_unlock_response
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
   _event maevsi.event;
-  _event_author_account_username TEXT;
+  _event_creator_account_username TEXT;
   _event_id UUID;
 BEGIN
   _jwt_id := current_setting('jwt.claims.id', true)::UUID;
@@ -1021,7 +1096,7 @@ BEGIN
     maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.invitation_claim_array() || $1) ORDER BY 1)),
+    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
     current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
@@ -1030,12 +1105,12 @@ BEGIN
   WHERE id = _jwt_id;
 
   _event_id := (
-    SELECT event_id FROM maevsi.invitation
-    WHERE invitation.id = $1
+    SELECT event_id FROM maevsi.guest
+    WHERE guest.id = event_unlock.guest_id
   );
 
   IF (_event_id IS NULL) THEN
-    RAISE 'No invitation for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No guest for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
   SELECT *
@@ -1044,30 +1119,30 @@ BEGIN
     INTO _event;
 
   IF (_event IS NULL) THEN
-    RAISE 'No event for this invitation id found!' USING ERRCODE = 'no_data_found';
+    RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  _event_author_account_username := (
+  _event_creator_account_username := (
     SELECT username
     FROM maevsi.account
-    WHERE id = _event.author_account_id
+    WHERE id = _event.created_by
   );
 
-  IF (_event_author_account_username IS NULL) THEN
-    RAISE 'No event author username for this invitation id found!' USING ERRCODE = 'no_data_found';
+  IF (_event_creator_account_username IS NULL) THEN
+    RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  RETURN (_event_author_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
-END $_$;
+  RETURN (_event_creator_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
+END $$;
 
 
-ALTER FUNCTION maevsi.event_unlock(invitation_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_unlock(guest_id uuid) OWNER TO postgres;
 
 --
--- Name: FUNCTION event_unlock(invitation_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.event_unlock(invitation_id uuid) IS 'Assigns an invitation to the current session.';
+COMMENT ON FUNCTION maevsi.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.';
 
 
 --
@@ -1082,7 +1157,7 @@ BEGIN
   RETURN QUERY
     SELECT id FROM maevsi.event
     WHERE
-      author_account_id = maevsi.invoker_account_id();
+      created_by = maevsi.invoker_account_id();
 END
 $$;
 
@@ -1093,7 +1168,7 @@ ALTER FUNCTION maevsi.events_organized() OWNER TO postgres;
 -- Name: FUNCTION events_organized(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the author.';
+COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
 
 
 --
@@ -1133,30 +1208,30 @@ COMMENT ON FUNCTION maevsi.friendship_account_ids() IS 'Returns the account ids 
 
 
 --
--- Name: invitation_claim_array(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_claim_array(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitation_claim_array() RETURNS uuid[]
+CREATE FUNCTION maevsi.guest_claim_array() RETURNS uuid[]
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _invitation_ids UUID[];
-  _invitation_ids_unblocked UUID[] := ARRAY[]::UUID[];
+  _guest_ids UUID[];
+  _guest_ids_unblocked UUID[] := ARRAY[]::UUID[];
 BEGIN
-  _invitation_ids := string_to_array(replace(btrim(current_setting('jwt.claims.invitations', true), '[]'), '"', ''), ',')::UUID[];
+  _guest_ids := string_to_array(replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''), ',')::UUID[];
 
-  IF _invitation_ids IS NOT NULL THEN
-    _invitation_ids_unblocked := ARRAY (
-      SELECT i.id
-      FROM maevsi.invitation i
-        JOIN maevsi.event e ON i.event_id = e.id
-        JOIN maevsi.contact c ON i.contact_id = c.id
-      WHERE i.id = ANY(_invitation_ids)
-        AND e.author_account_id NOT IN (
+  IF _guest_ids IS NOT NULL THEN
+    _guest_ids_unblocked := ARRAY (
+      SELECT g.id
+      FROM maevsi.guest g
+        JOIN maevsi.event e ON g.event_id = e.id
+        JOIN maevsi.contact c ON g.contact_id = c.id
+      WHERE g.id = ANY(_guest_ids)
+        AND e.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
         AND (
-          c.author_account_id NOT IN (
+          c.created_by NOT IN (
             SELECT id FROM maevsi_private.account_block_ids()
           )
           AND (
@@ -1169,107 +1244,128 @@ BEGIN
         )
     );
   ELSE
-    _invitation_ids_unblocked := ARRAY[]::UUID[];
+    _guest_ids_unblocked := ARRAY[]::UUID[];
   END IF;
-  RETURN _invitation_ids_unblocked;
+  RETURN _guest_ids_unblocked;
 END
 $$;
 
 
-ALTER FUNCTION maevsi.invitation_claim_array() OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_claim_array() OWNER TO postgres;
 
 --
--- Name: FUNCTION invitation_claim_array(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_claim_array(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invitation_claim_array() IS 'Returns the current invitation claims as UUID array.';
+COMMENT ON FUNCTION maevsi.guest_claim_array() IS 'Returns the current guest claims as UUID array.';
 
 
 --
--- Name: invitation_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitation_contact_ids() RETURNS TABLE(contact_id uuid)
+CREATE FUNCTION maevsi.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
     AS $$
 BEGIN
   RETURN QUERY
-    -- get all contacts for invitations
-    SELECT invitation.contact_id
-    FROM maevsi.invitation
+    -- get all contacts of guests
+    SELECT g.contact_id
+    FROM maevsi.guest g
     WHERE
       (
-        -- that are known to the invoker
-        invitation.id = ANY (maevsi.invitation_claim_array())
+        -- that are known through a guest claim
+        g.id = ANY (maevsi.guest_claim_array())
       OR
         -- or for events organized by the invoker
-        invitation.event_id IN (SELECT maevsi.events_organized())
-      )
-      AND
-        -- except contacts authored by a blocked account or referring to a blocked account
-        invitation.contact_id NOT IN (
-          SELECT contact.id
+        g.event_id IN (SELECT maevsi.events_organized())
+        and g.contact_id IN (
+          SELECT id
           FROM maevsi.contact
           WHERE
-              contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
-            OR
-              contact.account_id IN (
+            created_by NOT IN (
+              SELECT id FROM maevsi_private.account_block_ids()
+            )
+            AND (
+              account_id IS NULL
+              OR
+              account_id NOT IN (
                 SELECT id FROM maevsi_private.account_block_ids()
               )
-            OR
-              contact.author_account_id IN (
-                SELECT id FROM maevsi_private.account_block_ids()
-              )
-        );
+            )
+        )
+      );
 END;
 $$;
 
 
-ALTER FUNCTION maevsi.invitation_contact_ids() OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_contact_ids() OWNER TO postgres;
 
 --
--- Name: FUNCTION invitation_contact_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_contact_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invitation_contact_ids() IS 'Returns contact ids that are accessible through invitations.';
+COMMENT ON FUNCTION maevsi.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
+
+
+--
+-- Name: guest_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.guest_count(event_id uuid) RETURNS integer
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN (SELECT COUNT(1) FROM maevsi.guest WHERE guest.event_id = guest_count.event_id);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.guest_count(event_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION guest_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.guest_count(event_id uuid) IS 'Returns the guest count for an event.';
 
 
 --
 -- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invite(invitation_id uuid, language text) RETURNS void
+CREATE FUNCTION maevsi.invite(guest_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_author_profile_picture_upload_id UUID;
-  _event_author_profile_picture_upload_storage_key TEXT;
-  _event_author_username TEXT;
-  _invitation RECORD;
+  _event_creator_profile_picture_upload_id UUID;
+  _event_creator_profile_picture_upload_storage_key TEXT;
+  _event_creator_username TEXT;
+  _guest RECORD;
 BEGIN
-  -- Invitation UUID
-  SELECT * FROM maevsi.invitation INTO _invitation WHERE invitation.id = $1;
+  -- Guest UUID
+  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = invite.guest_id;
 
   IF (
-    _invitation IS NULL
+    _guest IS NULL
     OR
-    _invitation.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
+    _guest.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
   ) THEN
-    RAISE 'Invitation not accessible!' USING ERRCODE = 'no_data_found';
+    RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Event
-  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _invitation.event_id;
+  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _invitation.contact_id;
+  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1290,12 +1386,12 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event author username
-  SELECT username FROM maevsi.account INTO _event_author_username WHERE account.id = _event.author_account_id;
+  -- Event creator username
+  SELECT username FROM maevsi.account INTO _event_creator_username WHERE account.id = _event.created_by;
 
-  -- Event author profile picture storage key
-  SELECT upload_id FROM maevsi.profile_picture INTO _event_author_profile_picture_upload_id WHERE profile_picture.account_id = _event.author_account_id;
-  SELECT storage_key FROM maevsi.upload INTO _event_author_profile_picture_upload_storage_key WHERE upload.id = _event_author_profile_picture_upload_id;
+  -- Event creator profile picture storage key
+  SELECT upload_id FROM maevsi.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key FROM maevsi.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO maevsi_private.notification (channel, payload)
     VALUES (
@@ -1304,46 +1400,24 @@ BEGIN
         'data', jsonb_build_object(
           'emailAddress', _email_address,
           'event', _event,
-          'eventAuthorProfilePictureUploadStorageKey', _event_author_profile_picture_upload_storage_key,
-          'eventAuthorUsername', _event_author_username,
-          'invitationId', _invitation.id
+          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
+          'eventCreatorUsername', _event_creator_username,
+          'guestId', _guest.id
         ),
-        'template', jsonb_build_object('language', $2)
+        'template', jsonb_build_object('language', invite.language)
       ))
     );
 END;
-$_$;
+$$;
 
 
-ALTER FUNCTION maevsi.invite(invitation_id uuid, language text) OWNER TO postgres;
-
---
--- Name: FUNCTION invite(invitation_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.invite(invitation_id uuid, language text) IS 'Adds a notification for the invitation channel.';
-
+ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO postgres;
 
 --
--- Name: invitee_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invitee_count(event_id uuid) RETURNS integer
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
-BEGIN
-  RETURN (SELECT COUNT(1) FROM maevsi.invitation WHERE invitation.event_id = $1);
-END;
-$_$;
-
-
-ALTER FUNCTION maevsi.invitee_count(event_id uuid) OWNER TO postgres;
-
---
--- Name: FUNCTION invitee_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.invitee_count(event_id uuid) IS 'Returns the invitee count for an event.';
+COMMENT ON FUNCTION maevsi.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
 
 
 --
@@ -1374,22 +1448,22 @@ COMMENT ON FUNCTION maevsi.invoker_account_id() IS 'Returns the session''s accou
 
 CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)));
+  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt maevsi.jwt;
 BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
+  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role INTO _jwt
   FROM maevsi_private.jwt
-  WHERE   id = $1
+  WHERE   id = jwt_refresh.jwt_id
   AND     (token)."exp" >= _epoch_now;
 
   IF (_jwt IS NULL) THEN
     RETURN NULL;
   ELSE
     UPDATE maevsi_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE id = $1;
+    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
+    WHERE id = jwt_refresh.jwt_id;
 
     UPDATE maevsi_private.account
     SET last_activity = DEFAULT
@@ -1398,12 +1472,12 @@ BEGIN
     RETURN (
       SELECT token
       FROM maevsi_private.jwt
-      WHERE   id = $1
+      WHERE   id = jwt_refresh.jwt_id
       AND     (token)."exp" >= _epoch_now
     );
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.jwt_refresh(jwt_id uuid) OWNER TO postgres;
@@ -1413,6 +1487,58 @@ ALTER FUNCTION maevsi.jwt_refresh(jwt_id uuid) OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
+
+
+--
+-- Name: language_iso_full_text_search(maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) RETURNS regconfig
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    AS $$
+BEGIN
+  CASE language
+    -- WHEN 'ar' THEN RETURN 'arabic';
+    -- WHEN 'ca' THEN RETURN 'catalan';
+    -- WHEN 'da' THEN RETURN 'danish';
+    WHEN 'de' THEN RETURN 'german';
+    -- WHEN 'el' THEN RETURN 'greek';
+    WHEN 'en' THEN RETURN 'english';
+    -- WHEN 'es' THEN RETURN 'spanish';
+    -- WHEN 'eu' THEN RETURN 'basque';
+    -- WHEN 'fi' THEN RETURN 'finnish';
+    -- WHEN 'fr' THEN RETURN 'french';
+    -- WHEN 'ga' THEN RETURN 'irish';
+    -- WHEN 'hi' THEN RETURN 'hindi';
+    -- WHEN 'hu' THEN RETURN 'hungarian';
+    -- WHEN 'hy' THEN RETURN 'armenian';
+    -- WHEN 'id' THEN RETURN 'indonesian';
+    -- WHEN 'it' THEN RETURN 'italian';
+    -- WHEN 'lt' THEN RETURN 'lithuanian';
+    -- WHEN 'ne' THEN RETURN 'nepali';
+    -- WHEN 'nl' THEN RETURN 'dutch';
+    -- WHEN 'no' THEN RETURN 'norwegian';
+    -- WHEN 'pt' THEN RETURN 'portuguese';
+    -- WHEN 'ro' THEN RETURN 'romanian';
+    -- WHEN 'ru' THEN RETURN 'russian';
+    -- WHEN 'sr' THEN RETURN 'serbian';
+    -- WHEN 'sv' THEN RETURN 'swedish';
+    -- WHEN 'ta' THEN RETURN 'tamil';
+    -- WHEN 'tr' THEN RETURN 'turkish';
+    -- WHEN 'yi' THEN RETURN 'yiddish';
+    ELSE RETURN 'simple';
+  END CASE;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) OWNER TO postgres;
+
+--
+-- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) IS 'Maps an ISO language code to the corresponding PostgreSQL text search configuration. This function returns the appropriate text search configuration for supported languages, such as "german" for "de" and "english" for "en". If the language code is not explicitly handled, the function defaults to the "simple" configuration, which is a basic tokenizer that does not perform stemming or handle stop words. This ensures that full-text search can work with a wide range of languages even if specific optimizations are not available for some.';
 
 
 --
@@ -1437,15 +1563,15 @@ ALTER FUNCTION maevsi.legal_term_change() OWNER TO postgres;
 
 CREATE FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = $1)) THEN
-    UPDATE maevsi_private.notification SET is_acknowledged = $2 WHERE "notification".id = $1;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
+    UPDATE maevsi_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
   ELSE
     RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO postgres;
@@ -1463,18 +1589,18 @@ COMMENT ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boo
 
 CREATE FUNCTION maevsi.profile_picture_set(upload_id uuid) RETURNS void
     LANGUAGE plpgsql STRICT
-    AS $_$
+    AS $$
 BEGIN
   INSERT INTO maevsi.profile_picture(account_id, upload_id)
   VALUES (
     current_setting('jwt.claims.account_id')::UUID,
-    $1
+    profile_picture_set.upload_id
   )
   ON CONFLICT (account_id)
   DO UPDATE
-  SET upload_id = $1;
+  SET upload_id = profile_picture_set.upload_id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.profile_picture_set(upload_id uuid) OWNER TO postgres;
@@ -1504,13 +1630,13 @@ CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS trigger
         -- updating own account's contact
         OLD.account_id = maevsi.invoker_account_id()
         AND
-        OLD.author_account_id = maevsi.invoker_account_id()
+        OLD.created_by = maevsi.invoker_account_id()
         AND
         (
           -- trying to detach from account
           NEW.account_id != OLD.account_id
           OR
-          NEW.author_account_id != OLD.author_account_id
+          NEW.created_by != OLD.created_by
         )
       )
     ) THEN
@@ -1532,10 +1658,40 @@ COMMENT ON FUNCTION maevsi.trigger_contact_update_account_id() IS 'Prevents inva
 
 
 --
--- Name: trigger_invitation_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.trigger_invitation_update() RETURNS trigger
+CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  ts_config regconfig;
+BEGIN
+  ts_config := maevsi.language_iso_full_text_search(NEW.language);
+
+  NEW.search_vector :=
+    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
+    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_event_search_vector() OWNER TO postgres;
+
+--
+-- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
+
+
+--
+-- Name: trigger_guest_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_guest_update() RETURNS trigger
     LANGUAGE plpgsql STRICT
     AS $$
 DECLARE
@@ -1544,7 +1700,7 @@ BEGIN
   IF
       TG_OP = 'UPDATE'
     AND ( -- Invited.
-      OLD.id = ANY (maevsi.invitation_claim_array())
+      OLD.id = ANY (maevsi.guest_claim_array())
       OR
       (
         maevsi.invoker_account_id() IS NOT NULL
@@ -1573,13 +1729,13 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi.trigger_invitation_update() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_guest_update() OWNER TO postgres;
 
 --
--- Name: FUNCTION trigger_invitation_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.trigger_invitation_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+COMMENT ON FUNCTION maevsi.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 
 
 --
@@ -1599,6 +1755,13 @@ $$;
 
 
 ALTER FUNCTION maevsi.trigger_metadata_update() OWNER TO postgres;
+
+--
+-- Name: FUNCTION trigger_metadata_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.trigger_metadata_update() IS 'Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.';
+
 
 --
 -- Name: upload; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -1683,7 +1846,7 @@ Timestamp of when the upload was created, defaults to the current timestamp.';
 
 CREATE FUNCTION maevsi.upload_create(size_byte bigint) RETURNS maevsi.upload
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
     _upload maevsi.upload;
 BEGIN
@@ -1691,13 +1854,13 @@ BEGIN
     SELECT SUM(upload.size_byte)
     FROM maevsi.upload
     WHERE upload.account_id = current_setting('jwt.claims.account_id')::UUID
-  ), 0) + $1 <= (
+  ), 0) + upload_create.size_byte <= (
     SELECT upload_quota_bytes
     FROM maevsi_private.account
     WHERE account.id = current_setting('jwt.claims.account_id')::UUID
   )) THEN
     INSERT INTO maevsi.upload(account_id, size_byte)
-    VALUES (current_setting('jwt.claims.account_id')::UUID, $1)
+    VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
     RETURNING upload.id INTO _upload;
 
     RETURN _upload;
@@ -1705,7 +1868,7 @@ BEGIN
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.upload_create(size_byte bigint) OWNER TO postgres;
@@ -1729,10 +1892,10 @@ BEGIN
     -- users blocked by the current user
     SELECT blocked_account_id
     FROM maevsi.account_block
-    WHERE author_account_id = maevsi.invoker_account_id()
+    WHERE created_by = maevsi.invoker_account_id()
     UNION ALL
     -- users who blocked the current user
-    SELECT author_account_id
+    SELECT created_by
     FROM maevsi.account_block
     WHERE blocked_account_id = maevsi.invoker_account_id();
 END
@@ -1760,7 +1923,7 @@ CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() 
       NEW.email_address_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP);
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -1790,7 +1953,7 @@ CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until()
       NEW.password_reset_verification_valid_until = NULL;
     ELSE
       IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP);
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -1818,27 +1981,38 @@ CREATE FUNCTION maevsi_private.events_invited() RETURNS TABLE(event_id uuid)
 BEGIN
   RETURN QUERY
 
-  -- get all events for invitations
-  SELECT invitation.event_id FROM maevsi.invitation
+  -- get all events for guests
+  SELECT g.event_id FROM maevsi.guest g
   WHERE
     (
+      -- whose event ...
+      g.event_id IN (
+        SELECT id
+        FROM maevsi.event
+        WHERE
+          -- is not created by ...
+          created_by NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+      )
+      AND
       -- whose invitee
-      invitation.contact_id IN (
+      g.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id()
           AND
             -- who is not invited by
-            author_account_id NOT IN (
+            created_by NOT IN (
               SELECT id FROM maevsi_private.account_block_ids()
             )
-      ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
+      )
     )
     OR
       -- for which the requesting user knows the id
-      invitation.id = ANY (maevsi.invitation_claim_array());
+      g.id = ANY (maevsi.guest_claim_array());
 END
 $$;
 
@@ -1856,17 +2030,17 @@ COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that retu
 -- Name: account_block_create(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.account_block(author_account_id, blocked_account_id)
-  VALUES (_author_account_id, _blocked_Account_id)
+  INSERT INTO maevsi.account_block(created_by, blocked_account_id)
+  VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -1875,24 +2049,24 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) OWNER TO postgres;
 
 --
 -- Name: account_block_remove(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) RETURNS void
+CREATE FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   DELETE FROM maevsi.account_block
-  WHERE author_account_id = _author_account_id  and blocked_account_id = _blocked_account_id;
+  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO postgres;
 
 --
 -- Name: account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -1920,6 +2094,103 @@ END $$;
 ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO postgres;
 
 --
+-- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) RETURNS TABLE(account_id uuid, distance double precision)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    WITH event AS (
+      SELECT location_geography
+      FROM maevsi.event
+      WHERE id = _event_id
+    )
+    SELECT
+      a.id AS account_id,
+      ST_Distance(e.location_geography, a.location) AS distance
+    FROM
+      event e,
+      maevsi_private.account a
+    WHERE
+      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) IS 'Returns account locations within a given radius around the location of an event.';
+
+
+--
+-- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) RETURNS double precision[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _latitude DOUBLE PRECISION;
+  _longitude DOUBLE PRECISION;
+BEGIN
+  SELECT
+    ST_Y(location::geometry),
+    ST_X(location::geometry)
+  INTO
+    _latitude,
+    _longitude
+  FROM
+    maevsi_private.account
+  WHERE
+    id = _account_id;
+
+  RETURN ARRAY[_latitude, _longitude];
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) IS 'Returns an array with latitude and longitude of the account''s current location data';
+
+
+--
+-- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE maevsi_private.account
+  SET
+    location = ST_Point(_longitude, _latitude, 4326)
+  WHERE
+    id = _account_id;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
+
+
+--
 -- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -1936,7 +2207,7 @@ BEGIN
     SET LOCAL role = 'maevsi_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
-    DELETE FROM maevsi.event WHERE author_account_id = _id;
+    DELETE FROM maevsi.event WHERE created_by = _id;
 
     PERFORM maevsi.account_delete('password');
 
@@ -1951,7 +2222,7 @@ ALTER FUNCTION maevsi_test.account_remove(_username text) OWNER TO postgres;
 -- Name: contact_create(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) RETURNS uuid
+CREATE FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -1961,10 +2232,10 @@ BEGIN
   SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
 
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.contact(author_account_id, email_address)
-  VALUES (_author_account_id, _email_address)
+  INSERT INTO maevsi.contact(created_by, email_address)
+  VALUES (_created_by, _email_address)
   RETURNING id INTO _id;
 
   IF (_account_id IS NOT NULL) THEN
@@ -1977,7 +2248,7 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) OWNER TO postgres;
 
 --
 -- Name: contact_select_by_account_id(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -1991,7 +2262,7 @@ DECLARE
 BEGIN
   SELECT id INTO _id
   FROM maevsi.contact
-  WHERE author_account_id = _account_id AND account_id = _account_id;
+  WHERE created_by = _account_id AND account_id = _account_id;
 
   RETURN _id;
 END $$;
@@ -2049,12 +2320,12 @@ ALTER FUNCTION maevsi_test.event_category_create(_category text) OWNER TO postgr
 -- Name: event_category_mapping_create(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) RETURNS void
+CREATE FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
@@ -2063,7 +2334,7 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) OWNER TO postgres;
 
 --
 -- Name: event_category_mapping_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2099,17 +2370,17 @@ ALTER FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account
 -- Name: event_create(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
+CREATE FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.event(author_account_id, name, slug, start, visibility)
-  VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
+  INSERT INTO maevsi.event(created_by, name, slug, start, visibility)
+  VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -2118,7 +2389,104 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+
+--
+-- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) RETURNS TABLE(event_id uuid, distance double precision)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    WITH account AS (
+      SELECT location
+      FROM maevsi_private.account
+      WHERE id = _account_id
+    )
+    SELECT
+      e.id AS event_id,
+      ST_Distance(a.location, e.location_geography) AS distance
+    FROM
+      account a,
+      maevsi.event e
+    WHERE
+      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) IS 'Returns event locations within a given radius around the location of an account.';
+
+
+--
+-- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) RETURNS double precision[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _latitude DOUBLE PRECISION;
+  _longitude DOUBLE PRECISION;
+BEGIN
+  SELECT
+    ST_Y(location_geography::geometry),
+    ST_X(location_geography::geometry)
+  INTO
+    _latitude,
+    _longitude
+  FROM
+    maevsi.event
+  WHERE
+    id = _event_id;
+
+  RETURN ARRAY[_latitude, _longitude];
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) IS 'Returns an array with latitude and longitude of the event''s current location data.';
+
+
+--
+-- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE maevsi.event
+  SET
+    location_geography = ST_Point(_longitude, _latitude, 4326)
+  WHERE
+    id = _event_id;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+
+--
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+
 
 --
 -- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2358,39 +2726,39 @@ END $$;
 ALTER FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) OWNER TO postgres;
 
 --
--- Name: invitation_claim_from_account_invitation(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_claim_from_account_guest(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.invitation_claim_from_account_invitation(_account_id uuid) RETURNS uuid[]
+CREATE FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) RETURNS uuid[]
     LANGUAGE plpgsql
     AS $$
 DECLARE
-  _invitation maevsi.invitation;
+  _guest maevsi.guest;
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
-  -- reads all invitations where _account_id is invited,
-  -- sets jwt.claims.invitations to a string representation of these invitations
-  -- and returns an array of these invitations.
+  -- reads all guests where _account_id is invited,
+  -- sets jwt.claims.guests to a string representation of these guests
+  -- and returns an array of these guests.
 
-  FOR _invitation IN
-    SELECT i.id
-    FROM maevsi.invitation i JOIN maevsi.contact c
-      ON i.contact_id = c.id
+  FOR _guest IN
+    SELECT g.id
+    FROM maevsi.guest g JOIN maevsi.contact c
+      ON g.contact_id = c.id
     WHERE c.account_id = _account_id
   LOOP
-    _text := _text || ',"' || _invitation.id || '"';
-    _result := array_append(_result, _invitation.id);
+    _text := _text || ',"' || _guest.id || '"';
+    _result := array_append(_result, _guest.id);
   END LOOP;
 
   IF LENGTH(_text) > 0 THEN
     _text := SUBSTR(_text, 2);
   END IF;
 
-  EXECUTE 'SET LOCAL jwt.claims.invitations = ''[' || _text || ']''';
+  EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
   SET LOCAL role = 'postgres';
 
@@ -2398,22 +2766,22 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.invitation_claim_from_account_invitation(_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) OWNER TO postgres;
 
 --
--- Name: invitation_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
+CREATE FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
     LANGUAGE plpgsql
     AS $$
 DECLARE
   _id UUID;
 BEGIN
   SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _author_account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.invitation(contact_id, event_id)
+  INSERT INTO maevsi.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
@@ -2423,13 +2791,13 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
 
 --
--- Name: invitation_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
-CREATE FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
+CREATE FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -2441,19 +2809,53 @@ BEGIN
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.invitation EXCEPT SELECT * FROM unnest(_expected_result)) THEN
-    RAISE EXCEPTION 'some invitation should not appear in the query result';
+  IF EXISTS (SELECT id FROM maevsi.guest EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+    RAISE EXCEPTION 'some guest should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.invitation) THEN
-    RAISE EXCEPTION 'some invitation is missing in the query result';
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.guest) THEN
+    RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$;
 
 
-ALTER FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: index_existence(text[], text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.index_existence(indexes text[], schema text DEFAULT 'maevsi'::text) RETURNS void
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _existing_count INTEGER;
+  _expected_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO _existing_count
+  FROM pg_indexes
+  WHERE schemaname = index_existence.schema
+    AND indexname = ANY(index_existence.indexes);
+
+  _expected_count := array_length(index_existence.indexes, 1);
+
+  IF _existing_count <> _expected_count THEN
+    RAISE EXCEPTION 'Index mismatch in schema "%". Expected: %, Found: %', schema, _expected_count, _existing_count;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';
+
 
 --
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2515,10 +2917,10 @@ COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 CREATE TABLE maevsi.account_block (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
     blocked_account_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT account_block_check CHECK ((author_account_id <> blocked_account_id))
+    created_by uuid NOT NULL,
+    CONSTRAINT account_block_check CHECK ((created_by <> blocked_account_id))
 );
 
 
@@ -2528,7 +2930,7 @@ ALTER TABLE maevsi.account_block OWNER TO postgres;
 -- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.account_block IS '@omit update,delete
+COMMENT ON TABLE maevsi.account_block IS '@omit update
 Blocking of one account by another.';
 
 
@@ -2536,14 +2938,7 @@ Blocking of one account by another.';
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account blocking''s internal id.';
-
-
---
--- Name: COLUMN account_block.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.account_block.author_account_id IS 'The account id of the user who created the blocking.';
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account block''s internal id.';
 
 
 --
@@ -2557,8 +2952,15 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of 
 -- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create,update,delete
-Timestamp of when the blocking was created.';
+COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create
+Timestamp of when the account block was created.';
+
+
+--
+-- Name: COLUMN account_block.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the account block.';
 
 
 --
@@ -2728,32 +3130,158 @@ COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.'
 
 
 --
+-- Name: address; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.address (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    line_1 text NOT NULL,
+    line_2 text,
+    postal_code text NOT NULL,
+    city text NOT NULL,
+    region text NOT NULL,
+    country text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid NOT NULL,
+    CONSTRAINT address_city_check CHECK (((char_length(city) > 0) AND (char_length(city) <= 300))),
+    CONSTRAINT address_country_check CHECK (((char_length(country) > 0) AND (char_length(country) <= 300))),
+    CONSTRAINT address_line_1_check CHECK (((char_length(line_1) > 0) AND (char_length(line_1) <= 300))),
+    CONSTRAINT address_line_2_check CHECK (((char_length(line_2) > 0) AND (char_length(line_2) <= 300))),
+    CONSTRAINT address_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 300))),
+    CONSTRAINT address_postal_code_check CHECK (((char_length(postal_code) > 0) AND (char_length(postal_code) <= 20))),
+    CONSTRAINT address_region_check CHECK (((char_length(region) > 0) AND (char_length(region) <= 300)))
+);
+
+
+ALTER TABLE maevsi.address OWNER TO postgres;
+
+--
+-- Name: TABLE address; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.address IS 'Stores detailed address information, including lines, city, state, country, and metadata.';
+
+
+--
+-- Name: COLUMN address.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.id IS '@omit create,update
+Primary key, uniquely identifies each address.';
+
+
+--
+-- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.line_1; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.line_1 IS 'First line of the address (e.g., street address). Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.line_2; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.line_2 IS 'Second line of the address, if needed. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.postal_code; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.postal_code IS 'Postal or ZIP code for the address. Must be between 1 and 20 characters.';
+
+
+--
+-- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.region; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.region IS 'Region of the address (e.g., state, province, county, department or territory). Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.created_at IS '@omit create,update
+Timestamp when the address was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN address.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.created_by IS '@omit create,update
+Reference to the account that created the address.';
+
+
+--
+-- Name: COLUMN address.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.updated_at IS '@omit create,update
+Timestamp when the address was last updated.';
+
+
+--
+-- Name: COLUMN address.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.address.updated_by IS '@omit create,update
+Reference to the account that last updated the address.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid,
-    address text,
-    author_account_id uuid NOT NULL,
+    address_id uuid,
     email_address text,
     email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
     language maevsi.language,
     last_name text,
     nickname text,
+    note text,
     phone_number text,
     timezone text,
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT contact_address_check CHECK (((char_length(address) > 0) AND (char_length(address) < 300))),
+    created_by uuid NOT NULL,
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
-    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) < 100))),
-    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) < 100))),
-    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) < 100))),
+    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
+    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
     CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
 );
 
 
@@ -2763,7 +3291,7 @@ ALTER TABLE maevsi.contact OWNER TO postgres;
 -- Name: TABLE contact; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.contact IS 'Contact data.';
+COMMENT ON TABLE maevsi.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 
 
 --
@@ -2771,35 +3299,28 @@ COMMENT ON TABLE maevsi.contact IS 'Contact data.';
 --
 
 COMMENT ON COLUMN maevsi.contact.id IS '@omit create,update
-The contact''s internal id.';
+Primary key, uniquely identifies each contact.';
 
 
 --
 -- Name: COLUMN contact.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.account_id IS 'The contact account''s id.';
+COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associated account.';
 
 
 --
--- Name: COLUMN contact.address; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.address_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.address IS 'The contact''s physical address.';
-
-
---
--- Name: COLUMN contact.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.contact.author_account_id IS 'The contact author''s id.';
+COMMENT ON COLUMN maevsi.contact.address_id IS 'Optional reference to the physical address of the contact.';
 
 
 --
 -- Name: COLUMN contact.email_address; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.';
+COMMENT ON COLUMN maevsi.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
 
 
 --
@@ -2807,56 +3328,63 @@ COMMENT ON COLUMN maevsi.contact.email_address IS 'The contact''s email address.
 --
 
 COMMENT ON COLUMN maevsi.contact.email_address_hash IS '@omit create,update
-The contact''s email address''s md5 hash.';
+Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 
 
 --
 -- Name: COLUMN contact.first_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.first_name IS 'The contact''s first name.';
+COMMENT ON COLUMN maevsi.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 
 
 --
 -- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.language IS 'The contact''s language.';
+COMMENT ON COLUMN maevsi.contact.language IS 'Reference to the preferred language of the contact.';
 
 
 --
 -- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.last_name IS 'The contact''s last name.';
+COMMENT ON COLUMN maevsi.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
 
 
 --
 -- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.nickname IS 'The contact''s nickname.';
+COMMENT ON COLUMN maevsi.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
+
+
+--
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 
 
 --
 -- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.phone_number IS 'The contact''s international phone number in E.164 format (https://wikipedia.org/wiki/E.164).';
+COMMENT ON COLUMN maevsi.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
 
 
 --
 -- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.timezone IS 'The contact''s ISO 8601 timezone, e.g. `+02:00`, `-05:30` or `Z`.';
+COMMENT ON COLUMN maevsi.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
 
 
 --
 -- Name: COLUMN contact.url; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
+COMMENT ON COLUMN maevsi.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
 
 
 --
@@ -2864,7 +3392,14 @@ COMMENT ON COLUMN maevsi.contact.url IS 'The contact''s website url.';
 --
 
 COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
-Timestamp of when the contact was created, defaults to the current timestamp.';
+Timestamp when the contact was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 
 
 --
@@ -2926,36 +3461,55 @@ COMMENT ON COLUMN maevsi.event_category_mapping.category IS 'A category name.';
 
 
 --
--- Name: event_favourite; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.event_favourite (
-    account_id uuid NOT NULL,
-    event_id uuid NOT NULL
+CREATE TABLE maevsi.event_favorite (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL
 );
 
 
-ALTER TABLE maevsi.event_favourite OWNER TO postgres;
+ALTER TABLE maevsi.event_favorite OWNER TO postgres;
 
 --
--- Name: TABLE event_favourite; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.event_favourite IS 'The user accounts'' favourite events.';
-
-
---
--- Name: COLUMN event_favourite.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event_favourite.account_id IS 'A user account id.';
+COMMENT ON TABLE maevsi.event_favorite IS 'Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
 --
--- Name: COLUMN event_favourite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which the user marked as a favourite.';
+COMMENT ON COLUMN maevsi.event_favorite.id IS '@omit create,update
+Primary key, uniquely identifies each favorite entry.';
+
+
+--
+-- Name: COLUMN event_favorite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.event_id IS 'Reference to the event that is marked as a favorite.';
+
+
+--
+-- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.created_at IS '@omit create,update
+Timestamp when the favorite was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_favorite.created_by IS '@omit create,update
+Reference to the account that created the event favorite.';
 
 
 --
@@ -2964,12 +3518,12 @@ COMMENT ON COLUMN maevsi.event_favourite.event_id IS 'The ID of an event which t
 
 CREATE TABLE maevsi.event_group (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
     description text,
     is_archived boolean DEFAULT false NOT NULL,
     name text NOT NULL,
     slug text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     CONSTRAINT event_group_description_check CHECK ((char_length(description) < 1000000)),
     CONSTRAINT event_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_group_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text)))
@@ -2991,13 +3545,6 @@ COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 
 COMMENT ON COLUMN maevsi.event_group.id IS '@omit create,update
 The event group''s internal id.';
-
-
---
--- Name: COLUMN event_group.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.event_group.author_account_id IS 'The event group author''s id.';
 
 
 --
@@ -3035,6 +3582,13 @@ The event group''s name, slugified.';
 
 COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
 Timestamp of when the event group was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN event_group.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_group.created_by IS 'The event group creator''s id.';
 
 
 --
@@ -3153,7 +3707,7 @@ COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e
 --
 
 COMMENT ON COLUMN maevsi.event_upload.id IS '@omit create,update
-The event''s internal id for which the invitation is valid.';
+The event uploads''s internal id.';
 
 
 --
@@ -3161,7 +3715,7 @@ The event''s internal id for which the invitation is valid.';
 --
 
 COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update
-The event''s internal id for which the invitation is valid.';
+The event uploads''s internal event id.';
 
 
 --
@@ -3169,7 +3723,7 @@ The event''s internal id for which the invitation is valid.';
 --
 
 COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
-The internal id of the uploaded content.';
+The event upload''s internal upload id.';
 
 
 --
@@ -3266,10 +3820,10 @@ The account that updated the friend relation''s status.';
 
 
 --
--- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
-CREATE TABLE maevsi.invitation (
+CREATE TABLE maevsi.guest (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
@@ -3281,101 +3835,100 @@ CREATE TABLE maevsi.invitation (
 );
 
 
-ALTER TABLE maevsi.invitation OWNER TO postgres;
+ALTER TABLE maevsi.guest OWNER TO postgres;
 
 --
--- Name: TABLE invitation; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.invitation IS 'An invitation for a contact. A bidirectional mapping between an event and a contact.';
-
-
---
--- Name: COLUMN invitation.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.id IS '@omit create,update
-The invitations''s internal id.';
+COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
 
 
 --
--- Name: COLUMN invitation.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.contact_id IS 'The contact''s internal id for which the invitation is valid.';
-
-
---
--- Name: COLUMN invitation.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.event_id IS 'The event''s internal id for which the invitation is valid.';
+COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
+The guests''s internal id.';
 
 
 --
--- Name: COLUMN invitation.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.feedback IS 'The invitation''s general feedback status.';
-
-
---
--- Name: COLUMN invitation.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.feedback_paper IS 'The invitation''s paper feedback status.';
+COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
 
 
 --
--- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create,update
-Timestamp of when the invitation was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create,update
-Timestamp of when the invitation was last updated.';
+COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
 
 
 --
--- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create,update
-The id of the account which last updated the invitation. `NULL` if the invitation was updated by an anonymous user.';
+COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
 
 
 --
--- Name: invitation_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
- SELECT invitation.id AS invitation_id,
-    invitation.contact_id AS invitation_contact_id,
-    invitation.event_id AS invitation_event_id,
-    invitation.feedback AS invitation_feedback,
-    invitation.feedback_paper AS invitation_feedback_paper,
+COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
+
+
+--
+-- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
+Timestamp of when the guest was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
+Timestamp of when the guest was last updated.';
+
+
+--
+-- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
+The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
+
+
+--
+-- Name: guest_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+--
+
+CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
+ SELECT guest.id AS guest_id,
+    guest.contact_id AS guest_contact_id,
+    guest.event_id AS guest_event_id,
+    guest.feedback AS guest_feedback,
+    guest.feedback_paper AS guest_feedback_paper,
     contact.id AS contact_id,
     contact.account_id AS contact_account_id,
-    contact.address AS contact_address,
-    contact.author_account_id AS contact_author_account_id,
+    contact.address_id AS contact_address_id,
     contact.email_address AS contact_email_address,
     contact.email_address_hash AS contact_email_address_hash,
     contact.first_name AS contact_first_name,
     contact.last_name AS contact_last_name,
     contact.phone_number AS contact_phone_number,
     contact.url AS contact_url,
+    contact.created_by AS contact_created_by,
     event.id AS event_id,
-    event.author_account_id AS event_author_account_id,
     event.description AS event_description,
     event.start AS event_start,
     event."end" AS event_end,
-    event.invitee_count_maximum AS event_invitee_count_maximum,
+    event.guest_count_maximum AS event_guest_count_maximum,
     event.is_archived AS event_is_archived,
     event.is_in_person AS event_is_in_person,
     event.is_remote AS event_is_remote,
@@ -3383,19 +3936,20 @@ CREATE VIEW maevsi.invitation_flat WITH (security_invoker='true') AS
     event.name AS event_name,
     event.slug AS event_slug,
     event.url AS event_url,
-    event.visibility AS event_visibility
-   FROM ((maevsi.invitation
-     JOIN maevsi.contact ON ((invitation.contact_id = contact.id)))
-     JOIN maevsi.event ON ((invitation.event_id = event.id)));
+    event.visibility AS event_visibility,
+    event.created_by AS event_created_by
+   FROM ((maevsi.guest
+     JOIN maevsi.contact ON ((guest.contact_id = contact.id)))
+     JOIN maevsi.event ON ((guest.event_id = event.id)));
 
 
-ALTER VIEW maevsi.invitation_flat OWNER TO postgres;
+ALTER VIEW maevsi.guest_flat OWNER TO postgres;
 
 --
--- Name: VIEW invitation_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: VIEW guest_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON VIEW maevsi.invitation_flat IS 'View returning flattened invitations.';
+COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 
 
 --
@@ -3558,12 +4112,12 @@ COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 CREATE TABLE maevsi.report (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    author_account_id uuid NOT NULL,
     reason text NOT NULL,
     target_account_id uuid,
     target_event_id uuid,
     target_upload_id uuid,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
     CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
 );
@@ -3585,13 +4139,6 @@ Stores reports made by users on other users, events, or uploads for moderation p
 
 COMMENT ON COLUMN maevsi.report.id IS '@omit create
 Unique identifier for the report, generated randomly using UUIDs.';
-
-
---
--- Name: COLUMN report.author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.report.author_account_id IS 'The ID of the user who created the report.';
 
 
 --
@@ -3631,6 +4178,13 @@ Timestamp of when the report was created, defaults to the current timestamp.';
 
 
 --
+-- Name: COLUMN report.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.report.created_by IS 'The ID of the user who created the report.';
+
+
+--
 -- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
@@ -3653,13 +4207,14 @@ CREATE TABLE maevsi_private.account (
     birth_date date,
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
-    email_address_verification_valid_until timestamp without time zone,
+    email_address_verification_valid_until timestamp with time zone,
+    location public.geography(Point,4326),
     password_hash text NOT NULL,
     password_reset_verification uuid,
-    password_reset_verification_valid_until timestamp without time zone,
+    password_reset_verification_valid_until timestamp with time zone,
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
-    created timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    last_activity timestamp without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
 );
 
@@ -3709,6 +4264,13 @@ COMMENT ON COLUMN maevsi_private.account.email_address_verification_valid_until 
 
 
 --
+-- Name: COLUMN account.location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi_private.account.location IS 'The account''s geometric location.';
+
+
+--
 -- Name: COLUMN account.password_hash; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
@@ -3737,10 +4299,10 @@ COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s u
 
 
 --
--- Name: COLUMN account.created; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi_private.account.created IS 'Timestamp at which the account was last active.';
+COMMENT ON COLUMN maevsi_private.account.created_at IS 'Timestamp at which the account was last active.';
 
 
 --
@@ -3834,7 +4396,7 @@ CREATE TABLE maevsi_private.notification (
     channel text NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    "timestamp" timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 
@@ -3877,10 +4439,10 @@ COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s pa
 
 
 --
--- Name: COLUMN notification."timestamp"; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi_private.notification."timestamp" IS 'The notification''s timestamp.';
+COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
 
 
 --
@@ -4380,11 +4942,11 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
--- Name: account_block account_block_author_account_id_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_created_by_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.account_block
-    ADD CONSTRAINT account_block_author_account_id_blocked_account_id_key UNIQUE (author_account_id, blocked_account_id);
+    ADD CONSTRAINT account_block_created_by_blocked_account_id_key UNIQUE (created_by, blocked_account_id);
 
 
 --
@@ -4459,11 +5021,26 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
--- Name: contact contact_author_account_id_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: address address_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contact contact_created_by_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_id_account_id_key UNIQUE (author_account_id, account_id);
+    ADD CONSTRAINT contact_created_by_account_id_key UNIQUE (created_by, account_id);
+
+
+--
+-- Name: CONSTRAINT contact_created_by_account_id_key ON contact; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT contact_created_by_account_id_key ON maevsi.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
 
 
 --
@@ -4472,14 +5049,6 @@ ALTER TABLE ONLY maevsi.contact
 
 ALTER TABLE ONLY maevsi.contact
     ADD CONSTRAINT contact_pkey PRIMARY KEY (id);
-
-
---
--- Name: event event_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_account_id_slug_key UNIQUE (author_account_id, slug);
 
 
 --
@@ -4499,19 +5068,42 @@ ALTER TABLE ONLY maevsi.event_category
 
 
 --
--- Name: event_favourite event_favourite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_pkey PRIMARY KEY (account_id, event_id);
+ALTER TABLE ONLY maevsi.event
+    ADD CONSTRAINT event_created_by_slug_key UNIQUE (created_by, slug);
 
 
 --
--- Name: event_group event_group_author_account_id_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_event_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_created_by_event_id_key UNIQUE (created_by, event_id);
+
+
+--
+-- Name: CONSTRAINT event_favorite_created_by_event_id_key ON event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON maevsi.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
+
+
+--
+-- Name: event_favorite event_favorite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_group event_group_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_account_id_slug_key UNIQUE (author_account_id, slug);
+    ADD CONSTRAINT event_group_created_by_slug_key UNIQUE (created_by, slug);
 
 
 --
@@ -4587,19 +5179,19 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: invitation invitation_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_event_id_contact_id_key UNIQUE (event_id, contact_id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_event_id_contact_id_key UNIQUE (event_id, contact_id);
 
 
 --
--- Name: invitation invitation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_pkey PRIMARY KEY (id);
 
 
 --
@@ -4643,18 +5235,18 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_author_account_id_target_account_id_target_event_id__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_created_by_target_account_id_target_event_id_target__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_author_account_id_target_account_id_target_event_id__key UNIQUE (author_account_id, target_account_id, target_event_id, target_upload_id);
+    ADD CONSTRAINT report_created_by_target_account_id_target_event_id_target__key UNIQUE (created_by, target_account_id, target_event_id, target_upload_id);
 
 
 --
--- Name: CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON CONSTRAINT report_author_account_id_target_account_id_target_event_id__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
+COMMENT ON CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
 
 
 --
@@ -4810,94 +5402,122 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_event_author_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_author_account_id ON maevsi.event USING btree (author_account_id);
-
-
---
--- Name: INDEX idx_event_author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_author_account_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_address_created_by ON maevsi.address USING btree (created_by);
 
 
 --
--- Name: idx_event_group_author_account_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_group_author_account_id ON maevsi.event_group USING btree (author_account_id);
-
-
---
--- Name: INDEX idx_event_group_author_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_group_author_account_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
--- Name: idx_event_grouping_event_group_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_group_id ON maevsi.event_grouping USING btree (event_group_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_group_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_group_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_address_updated_by ON maevsi.address USING btree (updated_by);
 
 
 --
--- Name: idx_event_grouping_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_id ON maevsi.event_grouping USING btree (event_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
--- Name: idx_invitation_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_invitation_contact_id ON maevsi.invitation USING btree (contact_id);
-
-
---
--- Name: INDEX idx_invitation_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_invitation_contact_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 
 
 --
--- Name: idx_invitation_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_invitation_event_id ON maevsi.invitation USING btree (event_id);
-
-
---
--- Name: INDEX idx_invitation_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_invitation_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
--- Name: invitation maevsi_invitation_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: idx_event_search_vector; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE TRIGGER maevsi_invitation_update BEFORE UPDATE ON maevsi.invitation FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_invitation_update();
+CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
+
+
+--
+-- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
+
+
+--
+-- Name: idx_friendship_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_friendship_created_by ON maevsi.friendship USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_friendship_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
+
+
+--
+-- Name: idx_friendship_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_friendship_updated_by ON maevsi.friendship USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_friendship_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_guest_updated_by ON maevsi.guest USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_guest_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_account_private_location; Type: INDEX; Schema: maevsi_private; Owner: postgres
+--
+
+CREATE INDEX idx_account_private_location ON maevsi_private.account USING gist (location);
+
+
+--
+-- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
+
+
+--
+-- Name: guest maevsi_guest_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_guest_update BEFORE UPDATE ON maevsi.guest FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_guest_update();
 
 
 --
@@ -4915,10 +5535,24 @@ CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR E
 
 
 --
+-- Name: address maevsi_trigger_address_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_address_update BEFORE UPDATE ON maevsi.address FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
+
+
+--
 -- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
-CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, author_account_id ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+
+
+--
+-- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
 
 --
@@ -4943,19 +5577,19 @@ CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BE
 
 
 --
--- Name: account_block account_block_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.account_block
-    ADD CONSTRAINT account_block_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
-
-
---
 -- Name: account_block account_block_blocked_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.account_block
     ADD CONSTRAINT account_block_blocked_account_id_fkey FOREIGN KEY (blocked_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: account_block account_block_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.account_block
+    ADD CONSTRAINT account_block_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5007,6 +5641,22 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
+-- Name: address address_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: address address_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.address
+    ADD CONSTRAINT address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+
+
+--
 -- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5015,19 +5665,27 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: contact contact_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.contact
-    ADD CONSTRAINT contact_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT contact_address_id_fkey FOREIGN KEY (address_id) REFERENCES maevsi.address(id);
 
 
 --
--- Name: event event_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.contact
+    ADD CONSTRAINT contact_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event event_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event
-    ADD CONSTRAINT event_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES maevsi.address(id);
 
 
 --
@@ -5047,27 +5705,35 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
--- Name: event_favourite event_favourite_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_account_id_fkey FOREIGN KEY (account_id) REFERENCES maevsi.account(id) ON DELETE CASCADE;
-
-
---
--- Name: event_favourite event_favourite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.event_favourite
-    ADD CONSTRAINT event_favourite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id) ON DELETE CASCADE;
+ALTER TABLE ONLY maevsi.event
+    ADD CONSTRAINT event_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
--- Name: event_group event_group_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: event_favorite event_favorite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.event_favorite
+    ADD CONSTRAINT event_favorite_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: event_group event_group_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.event_group
-    ADD CONSTRAINT event_group_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT event_group_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5151,27 +5817,27 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: invitation invitation_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES maevsi.contact(id);
-
-
---
--- Name: invitation invitation_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES maevsi.contact(id);
 
 
 --
--- Name: invitation invitation_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_event_id_fkey FOREIGN KEY (event_id) REFERENCES maevsi.event(id);
+
+
+--
+-- Name: guest guest_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.guest
+    ADD CONSTRAINT guest_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5207,11 +5873,11 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_author_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
 ALTER TABLE ONLY maevsi.report
-    ADD CONSTRAINT report_author_account_id_fkey FOREIGN KEY (author_account_id) REFERENCES maevsi.account(id);
+    ADD CONSTRAINT report_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5307,17 +5973,24 @@ ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: account_block account_block_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_block_delete ON maevsi.account_block FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
 -- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((author_account_id = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -5422,6 +6095,41 @@ CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
 
 
 --
+-- Name: address; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.address ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: address address_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_delete ON maevsi.address FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: address address_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_insert ON maevsi.address FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: address address_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_select ON maevsi.address FOR SELECT USING (((created_by = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))));
+
+
+--
+-- Name: address address_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY address_update ON maevsi.address FOR UPDATE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
 -- Name: contact; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -5431,34 +6139,34 @@ ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 -- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id()) AND (account_id IS DISTINCT FROM maevsi.invoker_account_id())));
+CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id()) AND (account_id IS DISTINCT FROM maevsi.invoker_account_id())));
 
 
 --
 -- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((author_account_id = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id()))))));
+  WHERE (account_block.created_by = maevsi.invoker_account_id()))))));
 
 
 --
 -- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (author_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((author_account_id = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id)))))) OR (id IN ( SELECT maevsi.invitation_contact_ids() AS invitation_contact_ids))));
+CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((created_by = maevsi.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id)))))) OR (id IN ( SELECT maevsi.guest_contact_ids() AS guest_contact_ids))));
 
 
 --
 -- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((author_account_id = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
+CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
-  WHERE (account_block.author_account_id = maevsi.invoker_account_id()))))));
+  WHERE (account_block.created_by = maevsi.invoker_account_id()))))));
 
 
 --
@@ -5477,7 +6185,7 @@ ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
 -- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())));
 
@@ -5486,7 +6194,7 @@ CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
+CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
    FROM maevsi.event
   WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())));
 
@@ -5495,34 +6203,42 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.author_account_id
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT event.visibility
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.author_account_id
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
+   FROM maevsi.event)));
 
 
 --
 -- Name: event event_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((author_account_id = maevsi.invoker_account_id()));
+CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: event_favourite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.event_favourite ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.event_favorite ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_favourite event_favourite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_favourite_select ON maevsi.event_favourite FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_favorite_delete ON maevsi.event_favorite FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: event_favorite event_favorite_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favorite_insert ON maevsi.event_favorite FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: event_favorite event_favorite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY event_favorite_select ON maevsi.event_favorite FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -5541,7 +6257,7 @@ ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 -- Name: event event_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
@@ -5561,15 +6277,15 @@ CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SEL
 -- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((invitee_count_maximum IS NULL) OR (invitee_count_maximum > maevsi.invitee_count(id))) AND (NOT (author_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR (author_account_id = maevsi.invoker_account_id()) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > maevsi.guest_count(id))) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR (created_by = maevsi.invoker_account_id()) OR (id IN ( SELECT maevsi_private.events_invited() AS events_invited))));
 
 
 --
 -- Name: event event_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
@@ -5584,7 +6300,7 @@ ALTER TABLE maevsi.event_upload ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((event_id IN ( SELECT event.id
    FROM maevsi.event
-  WHERE (event.author_account_id = maevsi.invoker_account_id()))));
+  WHERE (event.created_by = maevsi.invoker_account_id()))));
 
 
 --
@@ -5593,7 +6309,7 @@ CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((even
 
 CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (((event_id IN ( SELECT event.id
    FROM maevsi.event
-  WHERE (event.author_account_id = maevsi.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
+  WHERE (event.created_by = maevsi.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
    FROM maevsi.upload
   WHERE (upload.account_id = maevsi.invoker_account_id())))));
 
@@ -5638,64 +6354,62 @@ CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING ((((maevsi
 
 
 --
--- Name: invitation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: guest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
-ALTER TABLE maevsi.invitation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maevsi.guest ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: invitation invitation_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_delete ON maevsi.invitation FOR DELETE USING ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)));
+CREATE POLICY guest_delete ON maevsi.guest FOR DELETE USING ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)));
 
 
 --
--- Name: invitation invitation_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_invitee_count_maximum(event_id) IS NULL) OR (maevsi.event_invitee_count_maximum(event_id) > maevsi.invitee_count(event_id))) AND (contact_id IN ( SELECT contact.id
+CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_guest_count_maximum(event_id) IS NULL) OR (maevsi.event_guest_count_maximum(event_id) > maevsi.guest_count(event_id))) AND (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.author_account_id = maevsi.invoker_account_id())
+  WHERE (contact.created_by = maevsi.invoker_account_id())
 EXCEPT
  SELECT c.id
    FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.blocked_account_id) AND (c.author_account_id = b.author_account_id))))
-  WHERE (c.author_account_id = maevsi.invoker_account_id())))));
+     JOIN maevsi.account_block b ON (((c.account_id = b.blocked_account_id) AND (c.created_by = b.created_by))))
+  WHERE (c.created_by = maevsi.invoker_account_id())))));
 
 
 --
--- Name: invitation invitation_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
+CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
+   FROM maevsi.contact
+  WHERE ((contact.account_id = maevsi.invoker_account_id()) AND (NOT (contact.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
+   FROM maevsi.contact c
+  WHERE (((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))) AND (NOT (c.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
+
+
+--
+-- Name: guest guest_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
   WHERE (contact.account_id = maevsi.invoker_account_id())
 EXCEPT
  SELECT c.id
    FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
+     JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
-           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
-
-
---
--- Name: invitation invitation_update; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY invitation_update ON maevsi.invitation FOR UPDATE USING (((id = ANY (maevsi.invitation_claim_array())) OR (contact_id IN ( SELECT contact.id
-   FROM maevsi.contact
-  WHERE (contact.account_id = maevsi.invoker_account_id())
-EXCEPT
- SELECT c.id
-   FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.author_account_id) AND (c.author_account_id = b.blocked_account_id))))
-  WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
-   FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
-           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
+  WHERE ((NOT (c.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id)))) AND ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id)))))))))));
 
 
 --
@@ -5775,14 +6489,14 @@ ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
 -- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
 -- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY report_select ON maevsi.report FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (author_account_id = maevsi.invoker_account_id())));
+CREATE POLICY report_select ON maevsi.report FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
@@ -5833,6 +6547,368 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
+
+
+--
+-- Name: SCHEMA maevsi_test; Type: ACL; Schema: -; Owner: postgres
+--
+
+GRANT USAGE ON SCHEMA maevsi_test TO maevsi_anonymous;
+GRANT USAGE ON SCHEMA maevsi_test TO maevsi_account;
+
+
+--
+-- Name: FUNCTION box2d_in(cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box2d_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2d_out(public.box2d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box2d_out(public.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2df_in(cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box2df_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2df_out(public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box2df_out(public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d_in(cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box3d_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d_out(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box3d_out(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_analyze(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_analyze(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_in(cstring, oid, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_in(cstring, oid, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_out(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_out(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_recv(internal, oid, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_recv(internal, oid, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_send(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_send(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_typmod_in(cstring[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_typmod_in(cstring[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_typmod_out(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_typmod_out(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_analyze(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_analyze(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_in(cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_out(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_out(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_recv(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_recv(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_send(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_send(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_typmod_in(cstring[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_typmod_in(cstring[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_typmod_out(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_typmod_out(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gidx_in(cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gidx_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gidx_out(public.gidx); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gidx_out(public.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION spheroid_in(cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.spheroid_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION spheroid_out(public.spheroid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.spheroid_out(public.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d(public.box2d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box3d(public.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(public.box2d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(public.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2d(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box2d(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION bytea(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.bytea(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography(public.geography, integer, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography(public.geography, integer, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box2d(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box2d(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3d(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box3d(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION bytea(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.bytea(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography(public.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.geography(public.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.geography(public.geometry) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION geometry(public.geometry, integer, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(public.geometry, integer, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION "json"(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public."json"(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION jsonb(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.jsonb(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION path(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.path(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION point(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.point(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION polygon(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.polygon(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION text(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.text(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(path); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(path) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(point); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(point) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(polygon); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(polygon) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry(text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.geometry(text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.geometry(text) TO maevsi_account;
 
 
 --
@@ -5912,82 +6988,12 @@ GRANT ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) TO maevsi
 
 
 --
--- Name: FUNCTION armor(bytea); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.armor(bytea) FROM PUBLIC;
-
-
---
--- Name: FUNCTION armor(bytea, text[], text[]); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.armor(bytea, text[], text[]) FROM PUBLIC;
-
-
---
 -- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION maevsi.authenticate(username text, password text) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION crypt(text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.crypt(text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION dearmor(text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.dearmor(text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION decrypt(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.decrypt(bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION decrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.decrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION digest(bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.digest(bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION digest(text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.digest(text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.encrypt(bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION encrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.encrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
 
 
 --
@@ -6007,30 +7013,39 @@ GRANT ALL ON FUNCTION maevsi.event_delete(id uuid, password text) TO maevsi_acco
 
 
 --
--- Name: FUNCTION event_invitee_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_invitee_count_maximum(event_id uuid) TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION event_is_existing(author_account_id uuid, slug text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_is_existing(author_account_id uuid, slug text) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION event_unlock(invitation_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.event_unlock(invitation_id uuid) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION event_search(query text, language maevsi.language); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION event_unlock(guest_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) TO maevsi_anonymous;
 
 
 --
@@ -6051,80 +7066,38 @@ GRANT ALL ON FUNCTION maevsi.friendship_account_ids() TO maevsi_account;
 
 
 --
--- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.gen_random_bytes(integer) FROM PUBLIC;
-
-
---
--- Name: FUNCTION gen_random_uuid(); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.gen_random_uuid() FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi.guest_claim_array() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_claim_array() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.guest_claim_array() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION gen_salt(text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_contact_ids(); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.gen_salt(text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION gen_salt(text, integer); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.gen_salt(text, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi.guest_contact_ids() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_contact_ids() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.guest_contact_ids() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION hmac(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.hmac(bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION hmac(text, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.hmac(text, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi.guest_count(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_count(event_id uuid) TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.guest_count(event_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION invitation_claim_array(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(guest_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.invitation_claim_array() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitation_claim_array() TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitation_claim_array() TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION invitation_contact_ids(); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.invitation_contact_ids() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitation_contact_ids() TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitation_contact_ids() TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION invite(invitation_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.invite(invitation_id uuid, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invite(invitation_id uuid, language text) TO maevsi_account;
-
-
---
--- Name: FUNCTION invitee_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.invitee_count(event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.invitee_count(event_id uuid) TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) TO maevsi_account;
 
 
 --
@@ -6147,6 +7120,15 @@ GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_anonymous;
 
 
 --
+-- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) TO maevsi_account;
+
+
+--
 -- Name: FUNCTION legal_term_change(); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6159,146 +7141,6 @@ REVOKE ALL ON FUNCTION maevsi.legal_term_change() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION pgp_armor_headers(text, OUT key text, OUT value text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_armor_headers(text, OUT key text, OUT value text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_key_id(bytea); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_key_id(bytea) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_decrypt(bytea, bytea) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_decrypt(bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_decrypt(bytea, bytea, text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_decrypt_bytea(bytea, bytea) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_decrypt_bytea(bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_decrypt_bytea(bytea, bytea, text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt(text, bytea); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_encrypt(text, bytea) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt(text, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_encrypt(text, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_encrypt_bytea(bytea, bytea) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_pub_encrypt_bytea(bytea, bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt(bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_decrypt(bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt(bytea, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_decrypt(bytea, text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_decrypt_bytea(bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_decrypt_bytea(bytea, text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt(text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt(text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt(text, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt(text, text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt_bytea(bytea, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text, text); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBLIC;
 
 
 --
@@ -6318,12 +7160,21 @@ GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_accou
 
 
 --
--- Name: FUNCTION trigger_invitation_update(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi.trigger_invitation_update() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_account;
-GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
+REVOKE ALL ON FUNCTION maevsi.trigger_event_search_vector() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION trigger_guest_update(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_guest_update() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_account;
+GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_anonymous;
 
 
 --
@@ -6331,6 +7182,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_invitation_update() TO maevsi_anonymous;
 --
 
 REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
 
 
 --
@@ -6385,17 +7237,17 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION account_block_create(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_create(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION account_block_remove(_author_account_id uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_remove(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_author_account_id uuid, _blocked_account_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
@@ -6406,6 +7258,30 @@ REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) F
 
 
 --
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
+
+
+--
 -- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
@@ -6413,10 +7289,10 @@ REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION contact_create(_author_account_id uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_create(_created_by uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.contact_create(_author_account_id uuid, _email_address text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) FROM PUBLIC;
 
 
 --
@@ -6441,10 +7317,10 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PU
 
 
 --
--- Name: FUNCTION event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_mapping_create(_created_by uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_author_account_id uuid, _event_id uuid, _category text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) FROM PUBLIC;
 
 
 --
@@ -6455,10 +7331,34 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, 
 
 
 --
--- Name: FUNCTION event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.event_create(_author_account_id uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) TO maevsi_account;
 
 
 --
@@ -6511,24 +7411,31 @@ REVOKE ALL ON FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_acc
 
 
 --
--- Name: FUNCTION invitation_claim_from_account_invitation(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_claim_from_account_guest(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.invitation_claim_from_account_invitation(_account_id uuid) FROM PUBLIC;
-
-
---
--- Name: FUNCTION invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.invitation_create(_author_account_id uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_create(_created_by uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION guest_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) FROM PUBLIC;
 
 
 --
@@ -6536,6 +7443,5352 @@ REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id 
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_deprecate(oldname text, newname text, version text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_deprecate(oldname text, newname text, version text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_index_extent(tbl regclass, col text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_index_extent(tbl regclass, col text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_join_selectivity(regclass, text, regclass, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_join_selectivity(regclass, text, regclass, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_pgsql_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_pgsql_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_scripts_pgsql_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_scripts_pgsql_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_selectivity(tbl regclass, att_name text, geom public.geometry, mode text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_selectivity(tbl regclass, att_name text, geom public.geometry, mode text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _postgis_stats(tbl regclass, att_name text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._postgis_stats(tbl regclass, att_name text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_3ddfullywithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_3ddfullywithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_3ddwithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_3ddwithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_3dintersects(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_3dintersects(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_asgml(integer, public.geometry, integer, integer, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_asgml(integer, public.geometry, integer, integer, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_asx3d(integer, public.geometry, integer, integer, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_asx3d(integer, public.geometry, integer, integer, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_bestsrid(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_bestsrid(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_bestsrid(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_bestsrid(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_concavehull(param_inputgeom public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_concavehull(param_inputgeom public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_contains(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_contains(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_containsproperly(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_containsproperly(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_coveredby(geog1 public.geography, geog2 public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_coveredby(geog1 public.geography, geog2 public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_coveredby(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_coveredby(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_covers(geog1 public.geography, geog2 public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_covers(geog1 public.geography, geog2 public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_covers(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_covers(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_crosses(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_crosses(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dfullywithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_dfullywithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distancetree(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_distancetree(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distancetree(public.geography, public.geography, double precision, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_distancetree(public.geography, public.geography, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distanceuncached(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_distanceuncached(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distanceuncached(public.geography, public.geography, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_distanceuncached(public.geography, public.geography, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_distanceuncached(public.geography, public.geography, double precision, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_distanceuncached(public.geography, public.geography, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_dwithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithin(geog1 public.geography, geog2 public.geography, tolerance double precision, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_dwithin(geog1 public.geography, geog2 public.geography, tolerance double precision, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithinuncached(public.geography, public.geography, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_dwithinuncached(public.geography, public.geography, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_dwithinuncached(public.geography, public.geography, double precision, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_dwithinuncached(public.geography, public.geography, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_equals(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_equals(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_expand(public.geography, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_expand(public.geography, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_geomfromgml(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_geomfromgml(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_intersects(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_intersects(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_linecrossingdirection(line1 public.geometry, line2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_linecrossingdirection(line1 public.geometry, line2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_longestline(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_longestline(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_maxdistance(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_maxdistance(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_orderingequals(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_orderingequals(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_overlaps(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_overlaps(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_pointoutside(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_pointoutside(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_sortablehash(geom public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_sortablehash(geom public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_touches(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_touches(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_voronoi(g1 public.geometry, clip public.geometry, tolerance double precision, return_polygons boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_voronoi(g1 public.geometry, clip public.geometry, tolerance double precision, return_polygons boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION _st_within(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public._st_within(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION addgeometrycolumn(table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.addgeometrycolumn(table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION addgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.addgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying, new_srid integer, new_type character varying, new_dim integer, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION addgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.addgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer, new_type character varying, new_dim integer, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.armor(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION armor(bytea, text[], text[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.armor(bytea, text[], text[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION box3dtobox(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.box3dtobox(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contains_2d(public.box2df, public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.contains_2d(public.box2df, public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contains_2d(public.box2df, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.contains_2d(public.box2df, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contains_2d(public.geometry, public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.contains_2d(public.geometry, public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION crypt(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.crypt(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dearmor(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dearmor(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.decrypt(bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION decrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.decrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION digest(bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.digest(bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION digest(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.digest(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrycolumn(table_name character varying, column_name character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dropgeometrycolumn(table_name character varying, column_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dropgeometrycolumn(schema_name character varying, table_name character varying, column_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dropgeometrycolumn(catalog_name character varying, schema_name character varying, table_name character varying, column_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrytable(table_name character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dropgeometrytable(table_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrytable(schema_name character varying, table_name character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dropgeometrytable(schema_name character varying, table_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION dropgeometrytable(catalog_name character varying, schema_name character varying, table_name character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.dropgeometrytable(catalog_name character varying, schema_name character varying, table_name character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.encrypt(bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION encrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.encrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION equals(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.equals(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION find_srid(character varying, character varying, character varying); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.find_srid(character varying, character varying, character varying) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gen_random_bytes(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gen_random_uuid(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gen_random_uuid() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gen_salt(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gen_salt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gen_salt(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gen_salt(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geog_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geog_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geog_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geog_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_cmp(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_cmp(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_distance_knn(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_distance_knn(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_eq(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_eq(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_ge(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_ge(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_compress(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_compress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_consistent(internal, public.geography, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_consistent(internal, public.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_decompress(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_decompress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_distance(internal, public.geography, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_distance(internal, public.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_penalty(internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_penalty(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_picksplit(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_picksplit(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_same(public.box2d, public.box2d, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_same(public.box2d, public.box2d, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gist_union(bytea, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gist_union(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_gt(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_gt(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_le(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_le(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_lt(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_lt(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_overlaps(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_overlaps(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_choose_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_spgist_choose_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_compress_nd(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_spgist_compress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_config_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_spgist_config_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_inner_consistent_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_spgist_inner_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_leaf_consistent_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_spgist_leaf_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geography_spgist_picksplit_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geography_spgist_picksplit_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom2d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom2d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom2d_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom2d_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom3d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom3d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom3d_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom3d_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom4d_brin_inclusion_add_value(internal, internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom4d_brin_inclusion_add_value(internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geom4d_brin_inclusion_merge(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geom4d_brin_inclusion_merge(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_above(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_above(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_below(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_below(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_cmp(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_cmp(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contained_3d(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_contained_3d(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contains(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_contains(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contains_3d(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_contains_3d(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_contains_nd(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_contains_nd(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_box(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_distance_box(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_centroid(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_distance_centroid(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_centroid_nd(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_distance_centroid_nd(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_distance_cpa(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_distance_cpa(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_eq(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_eq(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_ge(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_ge(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_compress_2d(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_compress_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_compress_nd(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_compress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_consistent_2d(internal, public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_consistent_2d(internal, public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_consistent_nd(internal, public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_consistent_nd(internal, public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_decompress_2d(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_decompress_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_decompress_nd(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_decompress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_distance_2d(internal, public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_distance_2d(internal, public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_distance_nd(internal, public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_distance_nd(internal, public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_penalty_2d(internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_penalty_2d(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_penalty_nd(internal, internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_penalty_nd(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_picksplit_2d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_picksplit_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_picksplit_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_picksplit_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_same_2d(geom1 public.geometry, geom2 public.geometry, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_same_2d(geom1 public.geometry, geom2 public.geometry, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_same_nd(public.geometry, public.geometry, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_same_nd(public.geometry, public.geometry, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_sortsupport_2d(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_sortsupport_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_union_2d(bytea, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_union_2d(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gist_union_nd(bytea, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gist_union_nd(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_gt(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_gt(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_hash(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_hash(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_le(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_le(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_left(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_left(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_lt(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_lt(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_neq(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_neq(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overabove(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overabove(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overbelow(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overbelow(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overlaps(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overlaps(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overlaps_3d(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overlaps_3d(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overlaps_nd(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overlaps_nd(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overleft(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overleft(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_overright(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_overright(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_right(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_right(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_same(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_same(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_same_3d(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_same_3d(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_same_nd(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_same_nd(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_sortsupport(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_sortsupport(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_choose_2d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_choose_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_choose_3d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_choose_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_choose_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_choose_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_compress_2d(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_compress_2d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_compress_3d(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_compress_3d(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_compress_nd(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_compress_nd(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_config_2d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_config_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_config_3d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_config_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_config_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_config_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_inner_consistent_2d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_inner_consistent_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_inner_consistent_3d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_inner_consistent_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_inner_consistent_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_inner_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_leaf_consistent_2d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_leaf_consistent_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_leaf_consistent_3d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_leaf_consistent_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_leaf_consistent_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_leaf_consistent_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_picksplit_2d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_picksplit_2d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_picksplit_3d(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_picksplit_3d(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_spgist_picksplit_nd(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_spgist_picksplit_nd(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_within(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_within(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometry_within_nd(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometry_within_nd(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geometrytype(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometrytype(public.geography) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.geometrytype(public.geography) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.geometrytype(public.geography) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION geometrytype(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geometrytype(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geomfromewkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geomfromewkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION geomfromewkt(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.geomfromewkt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION get_proj4_from_srid(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.get_proj4_from_srid(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_joinsel_2d(internal, oid, internal, smallint); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gserialized_gist_joinsel_2d(internal, oid, internal, smallint) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_joinsel_nd(internal, oid, internal, smallint); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gserialized_gist_joinsel_nd(internal, oid, internal, smallint) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_sel_2d(internal, oid, internal, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gserialized_gist_sel_2d(internal, oid, internal, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gserialized_gist_sel_nd(internal, oid, internal, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.gserialized_gist_sel_nd(internal, oid, internal, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION hmac(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.hmac(bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION hmac(text, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.hmac(text, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION is_contained_2d(public.box2df, public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.is_contained_2d(public.box2df, public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION is_contained_2d(public.box2df, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.is_contained_2d(public.box2df, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION is_contained_2d(public.geometry, public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.is_contained_2d(public.geometry, public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_2d(public.box2df, public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_2d(public.box2df, public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_2d(public.box2df, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_2d(public.box2df, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_2d(public.geometry, public.box2df); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_2d(public.geometry, public.box2df) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_geog(public.geography, public.gidx); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_geog(public.geography, public.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_geog(public.gidx, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_geog(public.gidx, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_geog(public.gidx, public.gidx); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_geog(public.gidx, public.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_nd(public.geometry, public.gidx); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_nd(public.geometry, public.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_nd(public.gidx, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_nd(public.gidx, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION overlaps_nd(public.gidx, public.gidx); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.overlaps_nd(public.gidx, public.gidx) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asflatgeobuf_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_transfn(internal, anyelement); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asflatgeobuf_transfn(internal, anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_transfn(internal, anyelement, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asflatgeobuf_transfn(internal, anyelement, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asflatgeobuf_transfn(internal, anyelement, boolean, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asflatgeobuf_transfn(internal, anyelement, boolean, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asgeobuf_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asgeobuf_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asgeobuf_transfn(internal, anyelement); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asgeobuf_transfn(internal, anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asgeobuf_transfn(internal, anyelement, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asgeobuf_transfn(internal, anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_combinefn(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_combinefn(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_deserialfn(bytea, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_deserialfn(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_serialfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_serialfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_transfn(internal, anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_transfn(internal, anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_transfn(internal, anyelement, text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text, integer, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_transfn(internal, anyelement, text, integer, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_asmvt_transfn(internal, anyelement, text, integer, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_asmvt_transfn(internal, anyelement, text, integer, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_accum_transfn(internal, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_accum_transfn(internal, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_accum_transfn(internal, public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_accum_transfn(internal, public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_accum_transfn(internal, public.geometry, double precision, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_accum_transfn(internal, public.geometry, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_clusterintersecting_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_clusterintersecting_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_clusterwithin_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_clusterwithin_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_collect_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_collect_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_coverageunion_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_coverageunion_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_makeline_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_makeline_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_polygonize_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_polygonize_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_combinefn(internal, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_union_parallel_combinefn(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_deserialfn(bytea, internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_union_parallel_deserialfn(bytea, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_finalfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_union_parallel_finalfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_serialfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_union_parallel_serialfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_transfn(internal, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_union_parallel_transfn(internal, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgis_geometry_union_parallel_transfn(internal, public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgis_geometry_union_parallel_transfn(internal, public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_armor_headers(text, OUT key text, OUT value text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_armor_headers(text, OUT key text, OUT value text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_key_id(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_key_id(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_decrypt(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_encrypt(text, bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_encrypt(text, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_decrypt(bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_decrypt(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_encrypt(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_encrypt(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_encrypt(text, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_encrypt(text, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION populate_geometry_columns(use_typmod boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.populate_geometry_columns(use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION populate_geometry_columns(tbl_oid oid, use_typmod boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.populate_geometry_columns(tbl_oid oid, use_typmod boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_addbbox(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_addbbox(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_cache_bbox(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_cache_bbox() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_constraint_dims(geomschema text, geomtable text, geomcolumn text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_constraint_dims(geomschema text, geomtable text, geomcolumn text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_constraint_srid(geomschema text, geomtable text, geomcolumn text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_constraint_srid(geomschema text, geomtable text, geomcolumn text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_constraint_type(geomschema text, geomtable text, geomcolumn text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_constraint_type(geomschema text, geomtable text, geomcolumn text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_dropbbox(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_dropbbox(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_extensions_upgrade(target_version text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_extensions_upgrade(target_version text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_full_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_full_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_geos_compiled_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_geos_compiled_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_geos_noop(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_geos_noop(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_geos_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_geos_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_getbbox(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_getbbox(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_hasbbox(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_hasbbox(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_index_supportfn(internal); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_index_supportfn(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_lib_build_date(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_lib_build_date() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_lib_revision(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_lib_revision() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_lib_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_lib_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_libjson_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_libjson_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_liblwgeom_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_liblwgeom_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_libprotobuf_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_libprotobuf_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_libxml_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_libxml_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_noop(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_noop(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_proj_compiled_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_proj_compiled_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_proj_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_proj_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_scripts_build_date(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_scripts_build_date() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_scripts_installed(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_scripts_installed() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_scripts_released(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_scripts_released() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs(auth_name text, auth_srid text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_srs(auth_name text, auth_srid text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs_all(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_srs_all() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs_codes(auth_name text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_srs_codes(auth_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_srs_search(bounds public.geometry, authname text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_srs_search(bounds public.geometry, authname text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_svn_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_svn_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_transform_geometry(geom public.geometry, text, text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_transform_geometry(geom public.geometry, text, text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_transform_pipeline_geometry(geom public.geometry, pipeline text, forward boolean, to_srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_transform_pipeline_geometry(geom public.geometry, pipeline text, forward boolean, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.postgis_type_name(geomname character varying, coord_dimension integer, use_new_name boolean) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION postgis_typmod_dims(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_typmod_dims(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_typmod_srid(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_typmod_srid(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_typmod_type(integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_typmod_type(integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION postgis_wagyu_version(); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.postgis_wagyu_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dclosestpoint(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dclosestpoint(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3ddfullywithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3ddfullywithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3ddistance(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3ddistance(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3ddwithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3ddwithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dintersects(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dintersects(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dlength(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dlength(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dlineinterpolatepoint(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dlineinterpolatepoint(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dlongestline(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dlongestline(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dmakebox(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dmakebox(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dmaxdistance(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dmaxdistance(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dperimeter(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dperimeter(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dshortestline(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dshortestline(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_addmeasure(public.geometry, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_addmeasure(public.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_addpoint(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_addpoint(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_addpoint(geom1 public.geometry, geom2 public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_addpoint(geom1 public.geometry, geom2 public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_affine(public.geometry, double precision, double precision, double precision, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_affine(public.geometry, double precision, double precision, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_affine(public.geometry, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_affine(public.geometry, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_angle(line1 public.geometry, line2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_angle(line1 public.geometry, line2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_angle(pt1 public.geometry, pt2 public.geometry, pt3 public.geometry, pt4 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_angle(pt1 public.geometry, pt2 public.geometry, pt3 public.geometry, pt4 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_area(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_area(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area(geog public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_area(geog public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_area2d(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_area2d(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asbinary(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asbinary(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(public.geography, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asbinary(public.geography, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asbinary(public.geometry, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asbinary(public.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asencodedpolyline(geom public.geometry, nprecision integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asencodedpolyline(geom public.geometry, nprecision integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkb(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkb(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkb(public.geometry, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkb(public.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkt(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkt(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(public.geography, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkt(public.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asewkt(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asewkt(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgeojson(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.st_asgeojson(geog public.geography, maxdecimaldigits integer, options integer) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION st_asgeojson(geom public.geometry, maxdecimaldigits integer, options integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgeojson(geom public.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeojson(r record, geom_column text, maxdecimaldigits integer, pretty_bool boolean, id_column text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgeojson(r record, geom_column text, maxdecimaldigits integer, pretty_bool boolean, id_column text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(geom public.geometry, maxdecimaldigits integer, options integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgml(geom public.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(geog public.geography, maxdecimaldigits integer, options integer, nprefix text, id text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgml(geog public.geography, maxdecimaldigits integer, options integer, nprefix text, id text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(version integer, geog public.geography, maxdecimaldigits integer, options integer, nprefix text, id text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgml(version integer, geog public.geography, maxdecimaldigits integer, options integer, nprefix text, id text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgml(version integer, geom public.geometry, maxdecimaldigits integer, options integer, nprefix text, id text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgml(version integer, geom public.geometry, maxdecimaldigits integer, options integer, nprefix text, id text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ashexewkb(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ashexewkb(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ashexewkb(public.geometry, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ashexewkb(public.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_askml(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_askml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_askml(geog public.geography, maxdecimaldigits integer, nprefix text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_askml(geog public.geography, maxdecimaldigits integer, nprefix text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_askml(geom public.geometry, maxdecimaldigits integer, nprefix text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_askml(geom public.geometry, maxdecimaldigits integer, nprefix text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_aslatlontext(geom public.geometry, tmpl text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_aslatlontext(geom public.geometry, tmpl text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmarc21(geom public.geometry, format text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmarc21(geom public.geometry, format text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvtgeom(geom public.geometry, bounds public.box2d, extent integer, buffer integer, clip_geom boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmvtgeom(geom public.geometry, bounds public.box2d, extent integer, buffer integer, clip_geom boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_assvg(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_assvg(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_assvg(geog public.geography, rel integer, maxdecimaldigits integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_assvg(geog public.geography, rel integer, maxdecimaldigits integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_assvg(geom public.geometry, rel integer, maxdecimaldigits integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_assvg(geom public.geometry, rel integer, maxdecimaldigits integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astext(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astext(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(public.geography, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astext(public.geography, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astext(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astext(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astwkb(geom public.geometry, prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astwkb(geom public.geometry, prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_astwkb(geom public.geometry[], ids bigint[], prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_astwkb(geom public.geometry[], ids bigint[], prec integer, prec_z integer, prec_m integer, with_sizes boolean, with_boxes boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asx3d(geom public.geometry, maxdecimaldigits integer, options integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asx3d(geom public.geometry, maxdecimaldigits integer, options integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_azimuth(geog1 public.geography, geog2 public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_azimuth(geog1 public.geography, geog2 public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_azimuth(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_azimuth(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_bdmpolyfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_bdmpolyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_bdpolyfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_bdpolyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_boundary(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_boundary(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_boundingdiagonal(geom public.geometry, fits boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_boundingdiagonal(geom public.geometry, fits boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_box2dfromgeohash(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_box2dfromgeohash(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(text, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(public.geography, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(public.geography, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(text, double precision, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(text, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(text, double precision, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(text, double precision, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(public.geography, double precision, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(public.geography, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(public.geography, double precision, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(public.geography, double precision, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(geom public.geometry, radius double precision, quadsegs integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(geom public.geometry, radius double precision, quadsegs integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buffer(geom public.geometry, radius double precision, options text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buffer(geom public.geometry, radius double precision, options text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_buildarea(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_buildarea(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_centroid(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_centroid(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_centroid(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_centroid(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_centroid(public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_centroid(public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_chaikinsmoothing(public.geometry, integer, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_chaikinsmoothing(public.geometry, integer, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_cleangeometry(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_cleangeometry(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clipbybox2d(geom public.geometry, box public.box2d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clipbybox2d(geom public.geometry, box public.box2d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpoint(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_closestpoint(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpoint(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_closestpoint(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpoint(public.geography, public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_closestpoint(public.geography, public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_closestpointofapproach(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_closestpointofapproach(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterdbscan(public.geometry, eps double precision, minpoints integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterdbscan(public.geometry, eps double precision, minpoints integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterintersecting(public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterintersecting(public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterintersectingwin(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterintersectingwin(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterkmeans(geom public.geometry, k integer, max_radius double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterkmeans(geom public.geometry, k integer, max_radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterwithin(public.geometry[], double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterwithin(public.geometry[], double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterwithinwin(public.geometry, distance double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterwithinwin(public.geometry, distance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collect(public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_collect(public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collect(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_collect(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collectionextract(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_collectionextract(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collectionextract(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_collectionextract(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collectionhomogenize(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_collectionhomogenize(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_combinebbox(public.box2d, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_combinebbox(public.box2d, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_combinebbox(public.box3d, public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_combinebbox(public.box3d, public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_combinebbox(public.box3d, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_combinebbox(public.box3d, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_concavehull(param_geom public.geometry, param_pctconvex double precision, param_allow_holes boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_concavehull(param_geom public.geometry, param_pctconvex double precision, param_allow_holes boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_contains(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_contains(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_containsproperly(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_containsproperly(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_convexhull(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_convexhull(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coorddim(geometry public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coorddim(geometry public.geometry) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.st_coorddim(geometry public.geometry) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.st_coorddim(geometry public.geometry) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION st_coverageinvalidedges(geom public.geometry, tolerance double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coverageinvalidedges(geom public.geometry, tolerance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveragesimplify(geom public.geometry, tolerance double precision, simplifyboundary boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coveragesimplify(geom public.geometry, tolerance double precision, simplifyboundary boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coverageunion(public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coverageunion(public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveredby(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coveredby(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveredby(geog1 public.geography, geog2 public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coveredby(geog1 public.geography, geog2 public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coveredby(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coveredby(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_covers(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_covers(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_covers(geog1 public.geography, geog2 public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_covers(geog1 public.geography, geog2 public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_covers(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_covers(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_cpawithin(public.geometry, public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_cpawithin(public.geometry, public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_crosses(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_crosses(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_curven(geometry public.geometry, i integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_curven(geometry public.geometry, i integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_curvetoline(geom public.geometry, tol double precision, toltype integer, flags integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_curvetoline(geom public.geometry, tol double precision, toltype integer, flags integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_delaunaytriangles(g1 public.geometry, tolerance double precision, flags integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_delaunaytriangles(g1 public.geometry, tolerance double precision, flags integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dfullywithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dfullywithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_difference(geom1 public.geometry, geom2 public.geometry, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_difference(geom1 public.geometry, geom2 public.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dimension(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dimension(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_disjoint(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_disjoint(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distance(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distance(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distance(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distance(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distance(geog1 public.geography, geog2 public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distance(geog1 public.geography, geog2 public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancecpa(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distancecpa(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancesphere(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distancesphere(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancesphere(geom1 public.geometry, geom2 public.geometry, radius double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distancesphere(geom1 public.geometry, geom2 public.geometry, radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancespheroid(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distancespheroid(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_distancespheroid(geom1 public.geometry, geom2 public.geometry, public.spheroid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_distancespheroid(geom1 public.geometry, geom2 public.geometry, public.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dump(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dump(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dumppoints(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dumppoints(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dumprings(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dumprings(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dumpsegments(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dumpsegments(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dwithin(text, text, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dwithin(text, text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dwithin(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dwithin(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_dwithin(geog1 public.geography, geog2 public.geography, tolerance double precision, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_dwithin(geog1 public.geography, geog2 public.geography, tolerance double precision, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_endpoint(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_endpoint(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_envelope(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_envelope(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_equals(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_equals(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_estimatedextent(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_estimatedextent(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_estimatedextent(text, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_estimatedextent(text, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_estimatedextent(text, text, text, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_estimatedextent(text, text, text, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(public.box2d, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_expand(public.box2d, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(public.box3d, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_expand(public.box3d, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_expand(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(box public.box2d, dx double precision, dy double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_expand(box public.box2d, dx double precision, dy double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(box public.box3d, dx double precision, dy double precision, dz double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_expand(box public.box3d, dx double precision, dy double precision, dz double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_expand(geom public.geometry, dx double precision, dy double precision, dz double precision, dm double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_expand(geom public.geometry, dx double precision, dy double precision, dz double precision, dm double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_exteriorring(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_exteriorring(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_filterbym(public.geometry, double precision, double precision, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_filterbym(public.geometry, double precision, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_findextent(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_findextent(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_findextent(text, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_findextent(text, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_flipcoordinates(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_flipcoordinates(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force2d(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_force2d(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force3d(geom public.geometry, zvalue double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_force3d(geom public.geometry, zvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force3dm(geom public.geometry, mvalue double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_force3dm(geom public.geometry, mvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force3dz(geom public.geometry, zvalue double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_force3dz(geom public.geometry, zvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_force4d(geom public.geometry, zvalue double precision, mvalue double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_force4d(geom public.geometry, zvalue double precision, mvalue double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcecollection(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcecollection(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcecurve(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcecurve(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcepolygonccw(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcepolygonccw(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcepolygoncw(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcepolygoncw(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcerhr(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcerhr(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcesfs(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcesfs(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_forcesfs(public.geometry, version text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_forcesfs(public.geometry, version text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_frechetdistance(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_frechetdistance(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_fromflatgeobuf(anyelement, bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_fromflatgeobuf(anyelement, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_fromflatgeobuftotable(text, text, bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_fromflatgeobuftotable(text, text, bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_generatepoints(area public.geometry, npoints integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_generatepoints(area public.geometry, npoints integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_generatepoints(area public.geometry, npoints integer, seed integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_generatepoints(area public.geometry, npoints integer, seed integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geogfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geogfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geogfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geogfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geographyfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geographyfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geohash(geog public.geography, maxchars integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geohash(geog public.geography, maxchars integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geohash(geom public.geometry, maxchars integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geohash(geom public.geometry, maxchars integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomcollfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomcollfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomcollfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomcollfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomcollfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometricmedian(g public.geometry, tolerance double precision, max_iter integer, fail_if_not_converged boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geometricmedian(g public.geometry, tolerance double precision, max_iter integer, fail_if_not_converged boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometryfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geometryfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometryfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geometryfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometryn(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geometryn(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geometrytype(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geometrytype(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromewkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromewkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromewkt(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromewkt(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeohash(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromgeohash(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeojson(json); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromgeojson(json) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeojson(jsonb); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromgeojson(jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgeojson(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromgeojson(text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.st_geomfromgeojson(text) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.st_geomfromgeojson(text) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION st_geomfromgml(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromgml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromgml(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromgml(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromkml(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromkml(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfrommarc21(marc21xml text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfrommarc21(marc21xml text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromtwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromtwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_geomfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_geomfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_gmltosql(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_gmltosql(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_gmltosql(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_gmltosql(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hasarc(geometry public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hasarc(geometry public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hasm(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hasm(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hasz(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hasz(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hausdorffdistance(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hausdorffdistance(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hausdorffdistance(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hausdorffdistance(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hexagon(size double precision, cell_i integer, cell_j integer, origin public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hexagon(size double precision, cell_i integer, cell_j integer, origin public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_hexagongrid(size double precision, bounds public.geometry, OUT geom public.geometry, OUT i integer, OUT j integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_hexagongrid(size double precision, bounds public.geometry, OUT geom public.geometry, OUT i integer, OUT j integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_interiorringn(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_interiorringn(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_interpolatepoint(line public.geometry, point public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_interpolatepoint(line public.geometry, point public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersection(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_intersection(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersection(public.geography, public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_intersection(public.geography, public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersection(geom1 public.geometry, geom2 public.geometry, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_intersection(geom1 public.geometry, geom2 public.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersects(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_intersects(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersects(geog1 public.geography, geog2 public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_intersects(geog1 public.geography, geog2 public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_intersects(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_intersects(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_inversetransformpipeline(geom public.geometry, pipeline text, to_srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_inversetransformpipeline(geom public.geometry, pipeline text, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isclosed(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isclosed(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_iscollection(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_iscollection(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isempty(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isempty(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ispolygonccw(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ispolygonccw(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ispolygoncw(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ispolygoncw(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isring(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isring(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_issimple(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_issimple(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalid(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isvalid(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalid(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isvalid(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvaliddetail(geom public.geometry, flags integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isvaliddetail(geom public.geometry, flags integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalidreason(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isvalidreason(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalidreason(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isvalidreason(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_isvalidtrajectory(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_isvalidtrajectory(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_largestemptycircle(geom public.geometry, tolerance double precision, boundary public.geometry, OUT center public.geometry, OUT nearest public.geometry, OUT radius double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_largestemptycircle(geom public.geometry, tolerance double precision, boundary public.geometry, OUT center public.geometry, OUT nearest public.geometry, OUT radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_length(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_length(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length(geog public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_length(geog public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length2d(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_length2d(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_length2dspheroid(public.geometry, public.spheroid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_length2dspheroid(public.geometry, public.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lengthspheroid(public.geometry, public.spheroid); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lengthspheroid(public.geometry, public.spheroid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_letters(letters text, font json); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_letters(letters text, font json) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linecrossingdirection(line1 public.geometry, line2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linecrossingdirection(line1 public.geometry, line2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineextend(geom public.geometry, distance_forward double precision, distance_backward double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineextend(geom public.geometry, distance_forward double precision, distance_backward double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromencodedpolyline(txtin text, nprecision integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linefromencodedpolyline(txtin text, nprecision integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefrommultipoint(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linefrommultipoint(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linefromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linefromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linefromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linefromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linefromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoint(text, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineinterpolatepoint(text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoint(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineinterpolatepoint(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoint(public.geography, double precision, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineinterpolatepoint(public.geography, double precision, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoints(text, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineinterpolatepoints(text, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoints(public.geometry, double precision, repeat boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineinterpolatepoints(public.geometry, double precision, repeat boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_lineinterpolatepoints(public.geography, double precision, use_spheroid boolean, repeat boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_lineinterpolatepoints(public.geography, double precision, use_spheroid boolean, repeat boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linelocatepoint(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linelocatepoint(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linelocatepoint(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linelocatepoint(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linelocatepoint(public.geography, public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linelocatepoint(public.geography, public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linemerge(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linemerge(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linemerge(public.geometry, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linemerge(public.geometry, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linestringfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linestringfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linestringfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linestringfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linesubstring(text, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linesubstring(text, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linesubstring(public.geography, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linesubstring(public.geography, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linesubstring(public.geometry, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linesubstring(public.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_linetocurve(geometry public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_linetocurve(geometry public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_locatealong(geometry public.geometry, measure double precision, leftrightoffset double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_locatealong(geometry public.geometry, measure double precision, leftrightoffset double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_locatebetween(geometry public.geometry, frommeasure double precision, tomeasure double precision, leftrightoffset double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_locatebetween(geometry public.geometry, frommeasure double precision, tomeasure double precision, leftrightoffset double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_locatebetweenelevations(geometry public.geometry, fromelevation double precision, toelevation double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_locatebetweenelevations(geometry public.geometry, fromelevation double precision, toelevation double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_longestline(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_longestline(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_m(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_m(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makebox2d(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makebox2d(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeenvelope(double precision, double precision, double precision, double precision, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makeenvelope(double precision, double precision, double precision, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeline(public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makeline(public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeline(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makeline(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepoint(double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makepoint(double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepoint(double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makepoint(double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepoint(double precision, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makepoint(double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepointm(double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makepointm(double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepolygon(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makepolygon(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makepolygon(public.geometry, public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makepolygon(public.geometry, public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makevalid(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makevalid(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makevalid(geom public.geometry, params text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makevalid(geom public.geometry, params text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_maxdistance(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_maxdistance(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_maximuminscribedcircle(public.geometry, OUT center public.geometry, OUT nearest public.geometry, OUT radius double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_maximuminscribedcircle(public.geometry, OUT center public.geometry, OUT nearest public.geometry, OUT radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_memsize(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_memsize(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumboundingcircle(inputgeom public.geometry, segs_per_quarter integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_minimumboundingcircle(inputgeom public.geometry, segs_per_quarter integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumboundingradius(public.geometry, OUT center public.geometry, OUT radius double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_minimumboundingradius(public.geometry, OUT center public.geometry, OUT radius double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumclearance(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_minimumclearance(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_minimumclearanceline(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_minimumclearanceline(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mlinefromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mlinefromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mlinefromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mlinefromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mlinefromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpointfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpointfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpointfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpointfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpointfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpolyfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpolyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpolyfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_mpolyfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_mpolyfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multi(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multi(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multilinefromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multilinefromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multilinestringfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multilinestringfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multilinestringfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multilinestringfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipointfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipointfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipointfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipointfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipointfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipointfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolyfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipolyfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolyfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipolyfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolygonfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipolygonfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_multipolygonfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_multipolygonfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ndims(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ndims(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_node(g public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_node(g public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_normalize(geom public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_normalize(geom public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_npoints(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_npoints(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_nrings(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_nrings(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numcurves(geometry public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_numcurves(geometry public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numgeometries(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_numgeometries(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numinteriorring(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_numinteriorring(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numinteriorrings(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_numinteriorrings(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numpatches(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_numpatches(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_numpoints(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_numpoints(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_offsetcurve(line public.geometry, distance double precision, params text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_offsetcurve(line public.geometry, distance double precision, params text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_orderingequals(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_orderingequals(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_orientedenvelope(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_orientedenvelope(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_overlaps(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_overlaps(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_patchn(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_patchn(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_perimeter(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_perimeter(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_perimeter(geog public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_perimeter(geog public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_perimeter2d(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_perimeter2d(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_point(double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_point(double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_point(double precision, double precision, srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_point(double precision, double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromgeohash(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointfromgeohash(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointinsidecircle(public.geometry, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointinsidecircle(public.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointm(xcoordinate double precision, ycoordinate double precision, mcoordinate double precision, srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointm(xcoordinate double precision, ycoordinate double precision, mcoordinate double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointn(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointn(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointonsurface(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointonsurface(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_points(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_points(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointz(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointz(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_pointzm(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, mcoordinate double precision, srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_pointzm(xcoordinate double precision, ycoordinate double precision, zcoordinate double precision, mcoordinate double precision, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polyfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polyfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polyfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polyfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polyfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygon(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygon(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromtext(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygonfromtext(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromtext(text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygonfromtext(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromwkb(bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygonfromwkb(bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonfromwkb(bytea, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygonfromwkb(bytea, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonize(public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygonize(public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geog public.geography, distance double precision, azimuth double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_project(geog public.geography, distance double precision, azimuth double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geog_from public.geography, geog_to public.geography, distance double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_project(geog_from public.geography, geog_to public.geography, distance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geom1 public.geometry, distance double precision, azimuth double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_project(geom1 public.geometry, distance double precision, azimuth double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_project(geom1 public.geometry, geom2 public.geometry, distance double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_project(geom1 public.geometry, geom2 public.geometry, distance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_quantizecoordinates(g public.geometry, prec_x integer, prec_y integer, prec_z integer, prec_m integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_quantizecoordinates(g public.geometry, prec_x integer, prec_y integer, prec_z integer, prec_m integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_reduceprecision(geom public.geometry, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_reduceprecision(geom public.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relate(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_relate(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relate(geom1 public.geometry, geom2 public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_relate(geom1 public.geometry, geom2 public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relate(geom1 public.geometry, geom2 public.geometry, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_relate(geom1 public.geometry, geom2 public.geometry, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_relatematch(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_relatematch(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removeirrelevantpointsforview(public.geometry, public.box2d, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_removeirrelevantpointsforview(public.geometry, public.box2d, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removepoint(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_removepoint(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removerepeatedpoints(geom public.geometry, tolerance double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_removerepeatedpoints(geom public.geometry, tolerance double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_removesmallparts(public.geometry, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_removesmallparts(public.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_reverse(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_reverse(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotate(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_rotate(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotate(public.geometry, double precision, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_rotate(public.geometry, double precision, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotate(public.geometry, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_rotate(public.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotatex(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_rotatex(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotatey(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_rotatey(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_rotatez(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_rotatez(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_scale(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(public.geometry, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_scale(public.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(public.geometry, public.geometry, origin public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_scale(public.geometry, public.geometry, origin public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scale(public.geometry, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_scale(public.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_scroll(public.geometry, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_scroll(public.geometry, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_segmentize(geog public.geography, max_segment_length double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_segmentize(geog public.geography, max_segment_length double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_segmentize(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_segmentize(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_seteffectivearea(public.geometry, double precision, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_seteffectivearea(public.geometry, double precision, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_setpoint(public.geometry, integer, public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_setpoint(public.geometry, integer, public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_setsrid(geog public.geography, srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_setsrid(geog public.geography, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_setsrid(geom public.geometry, srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_setsrid(geom public.geometry, srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_sharedpaths(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_sharedpaths(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shiftlongitude(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_shiftlongitude(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shortestline(text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_shortestline(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shortestline(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_shortestline(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_shortestline(public.geography, public.geography, use_spheroid boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_shortestline(public.geography, public.geography, use_spheroid boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplify(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_simplify(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplify(public.geometry, double precision, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_simplify(public.geometry, double precision, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplifypolygonhull(geom public.geometry, vertex_fraction double precision, is_outer boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_simplifypolygonhull(geom public.geometry, vertex_fraction double precision, is_outer boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplifypreservetopology(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_simplifypreservetopology(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_simplifyvw(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_simplifyvw(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snap(geom1 public.geometry, geom2 public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_snap(geom1 public.geometry, geom2 public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_snaptogrid(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(public.geometry, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_snaptogrid(public.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(public.geometry, double precision, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_snaptogrid(public.geometry, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_snaptogrid(geom1 public.geometry, geom2 public.geometry, double precision, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_snaptogrid(geom1 public.geometry, geom2 public.geometry, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_split(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_split(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_square(size double precision, cell_i integer, cell_j integer, origin public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_square(size double precision, cell_i integer, cell_j integer, origin public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_squaregrid(size double precision, bounds public.geometry, OUT geom public.geometry, OUT i integer, OUT j integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_squaregrid(size double precision, bounds public.geometry, OUT geom public.geometry, OUT i integer, OUT j integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_srid(geog public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_srid(geog public.geography) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.st_srid(geog public.geography) TO maevsi_anonymous;
+GRANT ALL ON FUNCTION public.st_srid(geog public.geography) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION st_srid(geom public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_srid(geom public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_startpoint(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_startpoint(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_subdivide(geom public.geometry, maxvertices integer, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_subdivide(geom public.geometry, maxvertices integer, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_summary(public.geography); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_summary(public.geography) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_summary(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_summary(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_swapordinates(geom public.geometry, ords cstring); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_swapordinates(geom public.geometry, ords cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_symdifference(geom1 public.geometry, geom2 public.geometry, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_symdifference(geom1 public.geometry, geom2 public.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_symmetricdifference(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_symmetricdifference(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_tileenvelope(zoom integer, x integer, y integer, bounds public.geometry, margin double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_tileenvelope(zoom integer, x integer, y integer, bounds public.geometry, margin double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_touches(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_touches(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(public.geometry, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_transform(public.geometry, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(geom public.geometry, to_proj text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_transform(geom public.geometry, to_proj text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(geom public.geometry, from_proj text, to_srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_transform(geom public.geometry, from_proj text, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transform(geom public.geometry, from_proj text, to_proj text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_transform(geom public.geometry, from_proj text, to_proj text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transformpipeline(geom public.geometry, pipeline text, to_srid integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_transformpipeline(geom public.geometry, pipeline text, to_srid integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_translate(public.geometry, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_translate(public.geometry, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_translate(public.geometry, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_translate(public.geometry, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_transscale(public.geometry, double precision, double precision, double precision, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_transscale(public.geometry, double precision, double precision, double precision, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_triangulatepolygon(g1 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_triangulatepolygon(g1 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_unaryunion(public.geometry, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_unaryunion(public.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(public.geometry[]); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_union(public.geometry[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_union(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(geom1 public.geometry, geom2 public.geometry, gridsize double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_union(geom1 public.geometry, geom2 public.geometry, gridsize double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_voronoilines(g1 public.geometry, tolerance double precision, extend_to public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_voronoilines(g1 public.geometry, tolerance double precision, extend_to public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_voronoipolygons(g1 public.geometry, tolerance double precision, extend_to public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_voronoipolygons(g1 public.geometry, tolerance double precision, extend_to public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_within(geom1 public.geometry, geom2 public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_within(geom1 public.geometry, geom2 public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_wkbtosql(wkb bytea); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_wkbtosql(wkb bytea) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_wkttosql(text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_wkttosql(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_wrapx(geom public.geometry, wrap double precision, move double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_wrapx(geom public.geometry, wrap double precision, move double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_x(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_x(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_xmax(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_xmax(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_xmin(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_xmin(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_y(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_y(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ymax(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ymax(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_ymin(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_ymin(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_z(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_z(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_zmax(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_zmax(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_zmflag(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_zmflag(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_zmin(public.box3d); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_zmin(public.box3d) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION updategeometrysrid(character varying, character varying, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.updategeometrysrid(character varying, character varying, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION updategeometrysrid(character varying, character varying, character varying, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.updategeometrysrid(character varying, character varying, character varying, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION updategeometrysrid(catalogn_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.updategeometrysrid(catalogn_name character varying, schema_name character varying, table_name character varying, column_name character varying, new_srid_in integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_3dextent(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_3dextent(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asflatgeobuf(anyelement); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asflatgeobuf(anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asflatgeobuf(anyelement, boolean); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asflatgeobuf(anyelement, boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asflatgeobuf(anyelement, boolean, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asflatgeobuf(anyelement, boolean, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeobuf(anyelement); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgeobuf(anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asgeobuf(anyelement, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asgeobuf(anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmvt(anyelement) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmvt(anyelement, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text, integer); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmvt(anyelement, text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text, integer, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmvt(anyelement, text, integer, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_asmvt(anyelement, text, integer, text, text); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_asmvt(anyelement, text, integer, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterintersecting(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterintersecting(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_clusterwithin(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_clusterwithin(public.geometry, double precision) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_collect(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_collect(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_coverageunion(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_coverageunion(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_extent(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_extent(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_makeline(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_makeline(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_memcollect(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_memcollect(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_memunion(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_memunion(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_polygonize(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_polygonize(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(public.geometry); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_union(public.geometry) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION st_union(public.geometry, double precision); Type: ACL; Schema: public; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION public.st_union(public.geometry, double precision) FROM PUBLIC;
 
 
 --
@@ -6585,6 +12838,14 @@ GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE address; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.address TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
+
+
+--
 -- Name: TABLE contact; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6609,10 +12870,10 @@ GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_acco
 
 
 --
--- Name: TABLE event_favourite; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favourite TO maevsi_account;
+GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favorite TO maevsi_account;
 
 
 --
@@ -6654,19 +12915,19 @@ GRANT SELECT,INSERT,UPDATE ON TABLE maevsi.friendship TO maevsi_account;
 
 
 --
--- Name: TABLE invitation; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.invitation TO maevsi_account;
-GRANT SELECT,UPDATE ON TABLE maevsi.invitation TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
+GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
 
 
 --
--- Name: TABLE invitation_flat; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest_flat; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_account;
-GRANT SELECT ON TABLE maevsi.invitation_flat TO maevsi_anonymous;
+GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_account;
+GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_anonymous;
 
 
 --

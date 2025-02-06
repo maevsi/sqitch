@@ -2,16 +2,22 @@ BEGIN;
 
 SELECT id,
        birth_date,
-       created,
        email_address,
        email_address_verification,
        email_address_verification_valid_until,
-       last_activity,
+       location,
        password_hash,
        password_reset_verification,
        password_reset_verification_valid_until,
-       upload_quota_bytes
+       upload_quota_bytes,
+       created_at,
+       last_activity
 FROM maevsi_private.account WHERE FALSE;
+
+SELECT maevsi_test.index_existence(
+  ARRAY ['idx_account_private_location'],
+  'maevsi_private'
+);
 
 DO $$
 BEGIN

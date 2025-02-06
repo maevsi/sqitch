@@ -10,8 +10,8 @@ CREATE TABLE maevsi.event_upload (
 );
 
 COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e.g. an image) to an event.';
-COMMENT ON COLUMN maevsi.event_upload.id IS E'@omit create,update\nThe event''s internal id for which the invitation is valid.';
-COMMENT ON COLUMN maevsi.event_upload.event_id IS E'@omit update\nThe event''s internal id for which the invitation is valid.';
-COMMENT ON COLUMN maevsi.event_upload.upload_id IS E'@omit update\nThe internal id of the uploaded content.';
+COMMENT ON COLUMN maevsi.event_upload.id IS E'@omit create,update\nThe event uploads''s internal id.';
+COMMENT ON COLUMN maevsi.event_upload.event_id IS E'@omit update\nThe event uploads''s internal event id.';
+COMMENT ON COLUMN maevsi.event_upload.upload_id IS E'@omit update\nThe event upload''s internal upload id.';
 
 END;

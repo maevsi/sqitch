@@ -1,9 +1,9 @@
 BEGIN;
 
 SELECT id,
-       created_at,
        account_id,
-       legal_term_id
+       legal_term_id,
+       created_at
 FROM maevsi.legal_term_acceptance WHERE FALSE;
 
 DO $$
