@@ -1,8 +1,11 @@
 DO $$
 DECLARE
-    violation_count INT;
+    violation_details TEXT;
 BEGIN
-    SELECT COUNT(*) INTO violation_count FROM (
+    -- Find missing indexes for foreign key constraints
+    SELECT string_agg(format('%s.%s', conrelid::regclass, conname), E'\n')
+    INTO violation_details
+    FROM (
         WITH indexed_tables AS (
             SELECT
                 ns.nspname,
@@ -34,7 +37,8 @@ BEGIN
         )
     ) AS violations;
 
-    IF violation_count > 0 THEN
-        RAISE EXCEPTION 'Foreign key constraints found without indexes!';
+    -- If missing indexes exist, raise an exception
+    IF violation_details IS NOT NULL THEN
+        RAISE EXCEPTION E'Foreign key constraints without indexes:\n%', violation_details;
     END IF;
 END $$;
