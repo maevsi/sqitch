@@ -4,20 +4,20 @@ CREATE FUNCTION maevsi.jwt_refresh(
   jwt_id UUID
 ) RETURNS maevsi.jwt AS $$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)));
+  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt maevsi.jwt;
 BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).invitations, (token).role INTO _jwt
+  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role INTO _jwt
   FROM maevsi_private.jwt
-  WHERE   id = $1
+  WHERE   id = jwt_refresh.jwt_id
   AND     (token)."exp" >= _epoch_now;
 
   IF (_jwt IS NULL) THEN
     RETURN NULL;
   ELSE
     UPDATE maevsi_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE id = $1;
+    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
+    WHERE id = jwt_refresh.jwt_id;
 
     UPDATE maevsi_private.account
     SET last_activity = DEFAULT
@@ -26,7 +26,7 @@ BEGIN
     RETURN (
       SELECT token
       FROM maevsi_private.jwt
-      WHERE   id = $1
+      WHERE   id = jwt_refresh.jwt_id
       AND     (token)."exp" >= _epoch_now
     );
   END IF;

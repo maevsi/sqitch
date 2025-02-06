@@ -10,13 +10,13 @@ BEGIN
     SELECT SUM(upload.size_byte)
     FROM maevsi.upload
     WHERE upload.account_id = current_setting('jwt.claims.account_id')::UUID
-  ), 0) + $1 <= (
+  ), 0) + upload_create.size_byte <= (
     SELECT upload_quota_bytes
     FROM maevsi_private.account
     WHERE account.id = current_setting('jwt.claims.account_id')::UUID
   )) THEN
     INSERT INTO maevsi.upload(account_id, size_byte)
-    VALUES (current_setting('jwt.claims.account_id')::UUID, $1)
+    VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
     RETURNING upload.id INTO _upload;
 
     RETURN _upload;

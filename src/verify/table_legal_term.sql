@@ -1,10 +1,10 @@
 BEGIN;
 
 SELECT id,
-       created_at,
        language,
        term,
-       version
+       version,
+       created_at
 FROM maevsi.legal_term WHERE FALSE;
 
 DO $$

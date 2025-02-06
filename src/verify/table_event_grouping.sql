@@ -5,6 +5,10 @@ SELECT id,
        event_id
 FROM maevsi.event_grouping WHERE FALSE;
 
+SELECT maevsi_test.index_existence(
+  ARRAY ['event_grouping_event_id_event_group_id_key']
+);
+
 DO $$
 BEGIN
   ASSERT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.event_grouping', 'SELECT'));

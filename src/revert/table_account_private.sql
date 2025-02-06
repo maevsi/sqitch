@@ -4,6 +4,7 @@ DROP TRIGGER maevsi_private_account_password_reset_verification_valid_until ON m
 DROP TRIGGER maevsi_private_account_email_address_verification_valid_until ON maevsi_private.account;
 DROP FUNCTION maevsi_private.account_password_reset_verification_valid_until;
 DROP FUNCTION maevsi_private.account_email_address_verification_valid_until;
+DROP INDEX maevsi_private.idx_account_private_location;
 DROP TABLE maevsi_private.account;
 
 COMMIT;
