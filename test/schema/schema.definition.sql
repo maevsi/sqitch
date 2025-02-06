@@ -281,13 +281,13 @@ COMMENT ON TYPE maevsi.social_network IS 'Social networks.';
 
 CREATE FUNCTION maevsi.account_delete(password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _current_account_id UUID;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt($1, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_delete.password, account.password_hash))) THEN
     IF (EXISTS (SELECT 1 FROM maevsi.event WHERE event.created_by = _current_account_id)) THEN
       RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
     ELSE
@@ -297,7 +297,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_delete(password text) OWNER TO postgres;
@@ -315,14 +315,14 @@ COMMENT ON FUNCTION maevsi.account_delete(password text) IS 'Allows to delete an
 
 CREATE FUNCTION maevsi.account_email_address_verification(code uuid) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _account maevsi_private.account;
 BEGIN
   SELECT *
     FROM maevsi_private.account
     INTO _account
-    WHERE account.email_address_verification = $1;
+    WHERE account.email_address_verification = account_email_address_verification.code;
 
   IF (_account IS NULL) THEN
     RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
@@ -334,9 +334,9 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET email_address_verification = NULL
-    WHERE email_address_verification = $1;
+    WHERE email_address_verification = account_email_address_verification.code;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_email_address_verification(code uuid) OWNER TO postgres;
@@ -354,23 +354,23 @@ COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Set
 
 CREATE FUNCTION maevsi.account_password_change(password_current text, password_new text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _current_account_id UUID;
 BEGIN
-  IF (char_length($2) < 8) THEN
+  IF (char_length(account_password_change.password_new) < 8) THEN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt($1, account.password_hash))) THEN
-    UPDATE maevsi_private.account SET password_hash = crypt($2, gen_salt('bf')) WHERE account.id = _current_account_id;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_password_change.password_current, account.password_hash))) THEN
+    UPDATE maevsi_private.account SET password_hash = crypt(account_password_change.password_new, gen_salt('bf')) WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_password_change(password_current text, password_new text) OWNER TO postgres;
@@ -388,18 +388,18 @@ COMMENT ON FUNCTION maevsi.account_password_change(password_current text, passwo
 
 CREATE FUNCTION maevsi.account_password_reset(code uuid, password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _account maevsi_private.account;
 BEGIN
-  IF (char_length($2) < 8) THEN
+  IF (char_length(account_password_reset.password) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   SELECT *
     FROM maevsi_private.account
     INTO _account
-    WHERE account.password_reset_verification = $1;
+    WHERE account.password_reset_verification = account_password_reset.code;
 
   IF (_account IS NULL) THEN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
@@ -411,11 +411,11 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET
-      password_hash = crypt($2, gen_salt('bf')),
+      password_hash = crypt(account_password_reset.password, gen_salt('bf')),
       password_reset_verification = NULL
-    WHERE account.password_reset_verification = $1;
+    WHERE account.password_reset_verification = account_password_reset.code;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_password_reset(code uuid, password text) OWNER TO postgres;
@@ -433,14 +433,14 @@ COMMENT ON FUNCTION maevsi.account_password_reset(code uuid, password text) IS '
 
 CREATE FUNCTION maevsi.account_password_reset_request(email_address text, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _notify_data RECORD;
 BEGIN
   WITH updated AS (
     UPDATE maevsi_private.account
       SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = $1
+      WHERE account.email_address = account_password_reset_request.email_address
       RETURNING *
   ) SELECT
     account.username,
@@ -458,12 +458,12 @@ BEGIN
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
-        'template', jsonb_build_object('language', $2)
+        'template', jsonb_build_object('language', account_password_reset_request.language)
       ))
     );
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_password_reset_request(email_address text, language text) OWNER TO postgres;
@@ -544,20 +544,20 @@ COMMENT ON FUNCTION maevsi.account_registration(username text, email_address tex
 
 CREATE FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _new_account_notify RECORD;
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
-  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
+  IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
     RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
     UPDATE maevsi_private.account
       SET email_address_verification = DEFAULT
-      WHERE account.id = $1
+      WHERE account.id = account_registration_refresh.account_id
       RETURNING *
   ) SELECT
     account.username,
@@ -572,11 +572,11 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', $2)
+      'template', jsonb_build_object('language', account_registration_refresh.language)
     ))
   );
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) OWNER TO postgres;
@@ -616,7 +616,7 @@ COMMENT ON FUNCTION maevsi.account_upload_quota_bytes() IS 'Gets the total uploa
 
 CREATE FUNCTION maevsi.achievement_unlock(code uuid, alias text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _account_id UUID;
   _achievement maevsi.achievement_type;
@@ -627,7 +627,7 @@ BEGIN
   SELECT achievement
     FROM maevsi_private.achievement_code
     INTO _achievement
-    WHERE achievement_code.id = $1 OR achievement_code.alias = $2;
+    WHERE achievement_code.id = achievement_unlock.code OR achievement_code.alias = achievement_unlock.alias;
 
   IF (_achievement IS NULL) THEN
     RAISE 'Unknown achievement!' USING ERRCODE = 'no_data_found';
@@ -650,7 +650,7 @@ BEGIN
 
   RETURN _achievement_id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.achievement_unlock(code uuid, alias text) OWNER TO postgres;
@@ -916,18 +916,18 @@ A vector used for full-text search on events.';
 
 CREATE FUNCTION maevsi.event_delete(id uuid, password text) RETURNS maevsi.event
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _current_account_id UUID;
   _event_deleted maevsi.event;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt($2, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
     DELETE
       FROM maevsi.event
       WHERE
-            "event".id = $1
+            "event".id = event_delete.id
         AND "event".created_by = _current_account_id
       RETURNING * INTO _event_deleted;
 
@@ -940,7 +940,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.event_delete(id uuid, password text) OWNER TO postgres;
@@ -958,13 +958,13 @@ COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to de
 
 CREATE FUNCTION maevsi.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
   RETURN (
     SELECT guest_count_maximum
     FROM maevsi.event
     WHERE
-      id = $1
+      id = event_guest_count_maximum.event_id
       AND ( -- Copied from `event_select` POLICY.
         (
           visibility = 'public'
@@ -984,7 +984,7 @@ BEGIN
       )
   );
 END
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.event_guest_count_maximum(event_id uuid) OWNER TO postgres;
@@ -1002,15 +1002,15 @@ COMMENT ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) IS 'Add a fu
 
 CREATE FUNCTION maevsi.event_is_existing(created_by uuid, slug text) RETURNS boolean
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".created_by = $1 AND "event".slug = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".created_by = event_is_existing.created_by AND "event".slug = event_is_existing.slug)) THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.event_is_existing(created_by uuid, slug text) OWNER TO postgres;
@@ -1062,7 +1062,7 @@ COMMENT ON FUNCTION maevsi.event_search(query text, language maevsi.language) IS
 
 CREATE FUNCTION maevsi.event_unlock(guest_id uuid) RETURNS maevsi.event_unlock_response
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _jwt_id UUID;
   _jwt maevsi.jwt;
@@ -1076,7 +1076,7 @@ BEGIN
     maevsi.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || $1) ORDER BY 1)),
+    (SELECT ARRAY(SELECT DISTINCT UNNEST(maevsi.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
     current_setting('jwt.claims.role', true)::TEXT
   )::maevsi.jwt;
 
@@ -1086,7 +1086,7 @@ BEGIN
 
   _event_id := (
     SELECT event_id FROM maevsi.guest
-    WHERE guest.id = $1
+    WHERE guest.id = event_unlock.guest_id
   );
 
   IF (_event_id IS NULL) THEN
@@ -1113,7 +1113,7 @@ BEGIN
   END IF;
 
   RETURN (_event_creator_account_username, _event.slug, _jwt)::maevsi.event_unlock_response;
-END $_$;
+END $$;
 
 
 ALTER FUNCTION maevsi.event_unlock(guest_id uuid) OWNER TO postgres;
@@ -1213,33 +1213,32 @@ CREATE FUNCTION maevsi.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     AS $$
 BEGIN
   RETURN QUERY
-    -- get all contacts for guests
-    SELECT guest.contact_id
-    FROM maevsi.guest
+    -- get all contacts of guests
+    SELECT g.contact_id
+    FROM maevsi.guest g
     WHERE
       (
-        -- that are known to the invoker
-        guest.id = ANY (maevsi.guest_claim_array())
+        -- that are known through a guest claim
+        g.id = ANY (maevsi.guest_claim_array())
       OR
         -- or for events organized by the invoker
-        guest.event_id IN (SELECT maevsi.events_organized())
-      )
-      AND
-        -- except contacts created by a blocked account or referring to a blocked account
-        guest.contact_id NOT IN (
-          SELECT contact.id
+        g.event_id IN (SELECT maevsi.events_organized())
+        and g.contact_id IN (
+          SELECT id
           FROM maevsi.contact
           WHERE
-              contact.account_id IS NULL -- TODO: evaluate if this null check is necessary
-            OR
-              contact.account_id IN (
+            created_by NOT IN (
+              SELECT id FROM maevsi_private.account_block_ids()
+            )
+            AND (
+              account_id IS NULL
+              OR
+              account_id NOT IN (
                 SELECT id FROM maevsi_private.account_block_ids()
               )
-            OR
-              contact.created_by IN (
-                SELECT id FROM maevsi_private.account_block_ids()
-              )
-        );
+            )
+        )
+      );
 END;
 $$;
 
@@ -1259,11 +1258,11 @@ COMMENT ON FUNCTION maevsi.guest_contact_ids() IS 'Returns contact ids that are 
 
 CREATE FUNCTION maevsi.guest_count(event_id uuid) RETURNS integer
     LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
-  RETURN (SELECT COUNT(1) FROM maevsi.guest WHERE guest.event_id = $1);
+  RETURN (SELECT COUNT(1) FROM maevsi.guest WHERE guest.event_id = guest_count.event_id);
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.guest_count(event_id uuid) OWNER TO postgres;
@@ -1281,7 +1280,7 @@ COMMENT ON FUNCTION maevsi.guest_count(event_id uuid) IS 'Returns the guest coun
 
 CREATE FUNCTION maevsi.invite(guest_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
@@ -1292,7 +1291,7 @@ DECLARE
   _guest RECORD;
 BEGIN
   -- Guest UUID
-  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = $1;
+  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
@@ -1349,11 +1348,11 @@ BEGIN
           'eventCreatorUsername', _event_creator_username,
           'guestId', _guest.id
         ),
-        'template', jsonb_build_object('language', $2)
+        'template', jsonb_build_object('language', invite.language)
       ))
     );
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO postgres;
@@ -1393,14 +1392,14 @@ COMMENT ON FUNCTION maevsi.invoker_account_id() IS 'Returns the session''s accou
 
 CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt maevsi.jwt;
 BEGIN
   SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role INTO _jwt
   FROM maevsi_private.jwt
-  WHERE   id = $1
+  WHERE   id = jwt_refresh.jwt_id
   AND     (token)."exp" >= _epoch_now;
 
   IF (_jwt IS NULL) THEN
@@ -1408,7 +1407,7 @@ BEGIN
   ELSE
     UPDATE maevsi_private.jwt
     SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE id = $1;
+    WHERE id = jwt_refresh.jwt_id;
 
     UPDATE maevsi_private.account
     SET last_activity = DEFAULT
@@ -1417,12 +1416,12 @@ BEGIN
     RETURN (
       SELECT token
       FROM maevsi_private.jwt
-      WHERE   id = $1
+      WHERE   id = jwt_refresh.jwt_id
       AND     (token)."exp" >= _epoch_now
     );
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.jwt_refresh(jwt_id uuid) OWNER TO postgres;
@@ -1508,15 +1507,15 @@ ALTER FUNCTION maevsi.legal_term_change() OWNER TO postgres;
 
 CREATE FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = $1)) THEN
-    UPDATE maevsi_private.notification SET is_acknowledged = $2 WHERE "notification".id = $1;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
+    UPDATE maevsi_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
   ELSE
     RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO postgres;
@@ -1534,18 +1533,18 @@ COMMENT ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boo
 
 CREATE FUNCTION maevsi.profile_picture_set(upload_id uuid) RETURNS void
     LANGUAGE plpgsql STRICT
-    AS $_$
+    AS $$
 BEGIN
   INSERT INTO maevsi.profile_picture(account_id, upload_id)
   VALUES (
     current_setting('jwt.claims.account_id')::UUID,
-    $1
+    profile_picture_set.upload_id
   )
   ON CONFLICT (account_id)
   DO UPDATE
-  SET upload_id = $1;
+  SET upload_id = profile_picture_set.upload_id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.profile_picture_set(upload_id uuid) OWNER TO postgres;
@@ -1791,7 +1790,7 @@ Timestamp of when the upload was created, defaults to the current timestamp.';
 
 CREATE FUNCTION maevsi.upload_create(size_byte bigint) RETURNS maevsi.upload
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
     _upload maevsi.upload;
 BEGIN
@@ -1799,13 +1798,13 @@ BEGIN
     SELECT SUM(upload.size_byte)
     FROM maevsi.upload
     WHERE upload.account_id = current_setting('jwt.claims.account_id')::UUID
-  ), 0) + $1 <= (
+  ), 0) + upload_create.size_byte <= (
     SELECT upload_quota_bytes
     FROM maevsi_private.account
     WHERE account.id = current_setting('jwt.claims.account_id')::UUID
   )) THEN
     INSERT INTO maevsi.upload(account_id, size_byte)
-    VALUES (current_setting('jwt.claims.account_id')::UUID, $1)
+    VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
     RETURNING upload.id INTO _upload;
 
     RETURN _upload;
@@ -1813,7 +1812,7 @@ BEGIN
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
   END IF;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.upload_create(size_byte bigint) OWNER TO postgres;
@@ -1927,26 +1926,37 @@ BEGIN
   RETURN QUERY
 
   -- get all events for guests
-  SELECT guest.event_id FROM maevsi.guest
+  SELECT g.event_id FROM maevsi.guest g
   WHERE
     (
-      -- whose guest
-      guest.contact_id IN (
+      -- whose event ...
+      g.event_id IN (
+        SELECT id
+        FROM maevsi.event
+        WHERE
+          -- is not created by ...
+          created_by NOT IN (
+            SELECT id FROM maevsi_private.account_block_ids()
+          )
+      )
+      AND
+      -- whose invitee
+      g.contact_id IN (
         SELECT id
         FROM maevsi.contact
         WHERE
             -- is the requesting user
-            account_id = maevsi.invoker_account_id() -- if the invoker account id is `NULL` this does *not* return contacts for which `account_id` is NULL (an `IS` instead of `=` comparison would)
+            account_id = maevsi.invoker_account_id()
           AND
             -- who is not invited by
             created_by NOT IN (
               SELECT id FROM maevsi_private.account_block_ids()
             )
-      ) -- TODO: it appears blocking should be accounted for after all other criteria using the event author instead
+      )
     )
     OR
       -- for which the requesting user knows the id
-      guest.id = ANY (maevsi.guest_claim_array());
+      g.id = ANY (maevsi.guest_claim_array());
 END
 $$;
 
@@ -2551,6 +2561,40 @@ END $$;
 ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
+-- Name: index_existence(text[], text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.index_existence(indexes text[], schema text DEFAULT 'maevsi'::text) RETURNS void
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _existing_count INTEGER;
+  _expected_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO _existing_count
+  FROM pg_indexes
+  WHERE schemaname = index_existence.schema
+    AND indexname = ANY(index_existence.indexes);
+
+  _expected_count := array_length(index_existence.indexes, 1);
+
+  IF _existing_count <> _expected_count THEN
+    RAISE EXCEPTION 'Index mismatch in schema "%". Expected: %, Found: %', schema, _expected_count, _existing_count;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO postgres;
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';
+
+
+--
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -2623,7 +2667,7 @@ ALTER TABLE maevsi.account_block OWNER TO postgres;
 -- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.account_block IS '@omit update,delete
+COMMENT ON TABLE maevsi.account_block IS '@omit update
 Blocking of one account by another.';
 
 
@@ -2631,7 +2675,7 @@ Blocking of one account by another.';
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account blocking''s internal id.';
+COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account block''s internal id.';
 
 
 --
@@ -2645,15 +2689,15 @@ COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of 
 -- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create,update,delete
-Timestamp of when the blocking was created.';
+COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create
+Timestamp of when the account block was created.';
 
 
 --
 -- Name: COLUMN account_block.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the blocking.';
+COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the account block.';
 
 
 --
@@ -5001,59 +5045,31 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_event_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_created_by ON maevsi.event USING btree (created_by);
-
-
---
--- Name: INDEX idx_event_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_created_by IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_address_created_by ON maevsi.address USING btree (created_by);
 
 
 --
--- Name: idx_event_group_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_group_created_by ON maevsi.event_group USING btree (created_by);
-
-
---
--- Name: INDEX idx_event_group_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_group_created_by IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
--- Name: idx_event_grouping_event_group_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_group_id ON maevsi.event_grouping USING btree (event_group_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_group_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_group_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_address_updated_by ON maevsi.address USING btree (updated_by);
 
 
 --
--- Name: idx_event_grouping_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_event_grouping_event_id ON maevsi.event_grouping USING btree (event_id);
-
-
---
--- Name: INDEX idx_event_grouping_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_event_grouping_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
@@ -5067,7 +5083,7 @@ CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 -- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi.idx_event_location IS 'Spatial index on column location in maevsi.event.';
+COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
@@ -5075,6 +5091,13 @@ COMMENT ON INDEX maevsi.idx_event_location IS 'Spatial index on column location 
 --
 
 CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
+
+
+--
+-- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 
 --
@@ -5092,31 +5115,17 @@ COMMENT ON INDEX maevsi.idx_event_upload_is_header_image_unique IS 'Ensures that
 
 
 --
--- Name: idx_guest_contact_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_guest_contact_id ON maevsi.guest USING btree (contact_id);
-
-
---
--- Name: INDEX idx_guest_contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_guest_contact_id IS 'Speeds up reverse foreign key lookups.';
+CREATE INDEX idx_guest_updated_by ON maevsi.guest USING btree (updated_by);
 
 
 --
--- Name: idx_guest_event_id; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_guest_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-CREATE INDEX idx_guest_event_id ON maevsi.guest USING btree (event_id);
-
-
---
--- Name: INDEX idx_guest_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON INDEX maevsi.idx_guest_event_id IS 'Speeds up reverse foreign key lookups.';
+COMMENT ON INDEX maevsi.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
@@ -5130,7 +5139,7 @@ CREATE INDEX idx_account_private_location ON maevsi_private.account USING gist (
 -- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
 --
 
-COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'Spatial index on column location in maevsi_private.account.';
+COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
@@ -5554,17 +5563,24 @@ ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: account_block account_block_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY account_block_delete ON maevsi.account_block FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
 -- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
+CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
 -- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING (((created_by = maevsi.invoker_account_id()) OR (blocked_account_id = maevsi.invoker_account_id())));
+CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -5777,14 +5793,8 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = maevsi.invoker_account_id())) OR (event_id IN ( SELECT maevsi_private.events_invited() AS events_invited)) OR ((( SELECT event.visibility
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) = 'public'::maevsi.event_visibility) AND (NOT (( SELECT event.created_by
-   FROM maevsi.event
-  WHERE (event.id = event_category_mapping.event_id)) IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
+CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
+   FROM maevsi.event)));
 
 
 --
@@ -5935,14 +5945,11 @@ EXCEPT
 
 CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM maevsi.contact
-  WHERE (contact.account_id = maevsi.invoker_account_id())
-EXCEPT
- SELECT c.id
-   FROM (maevsi.contact c
-     JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
-  WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
+  WHERE ((contact.account_id = maevsi.invoker_account_id()) AND (NOT (contact.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+  WHERE (((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id))))) AND (NOT (c.created_by IN ( SELECT account_block_ids.id
            FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
 
 
@@ -5959,8 +5966,9 @@ EXCEPT
      JOIN maevsi.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
   WHERE (c.account_id = maevsi.invoker_account_id()))) OR ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM maevsi.contact c
-  WHERE ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
-           FROM maevsi_private.account_block_ids() account_block_ids(id))))))))));
+  WHERE ((NOT (c.created_by IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id)))) AND ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
+           FROM maevsi_private.account_block_ids() account_block_ids(id)))))))))));
 
 
 --
@@ -6930,6 +6938,13 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) FROM PUBLIC;
 
 
 --

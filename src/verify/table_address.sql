@@ -14,4 +14,8 @@ SELECT id,
        updated_by
 FROM maevsi.address WHERE FALSE;
 
+SELECT maevsi_test.index_existence(
+  ARRAY ['idx_address_created_by', 'idx_address_updated_by']
+);
+
 ROLLBACK;

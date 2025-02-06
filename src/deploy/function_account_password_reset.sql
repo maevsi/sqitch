@@ -2,19 +2,19 @@ BEGIN;
 
 CREATE FUNCTION maevsi.account_password_reset(
   code UUID,
-  "password" TEXT
+  password TEXT
 ) RETURNS VOID AS $$
 DECLARE
   _account maevsi_private.account;
 BEGIN
-  IF (char_length($2) < 8) THEN
+  IF (char_length(account_password_reset.password) < 8) THEN
     RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   SELECT *
     FROM maevsi_private.account
     INTO _account
-    WHERE account.password_reset_verification = $1;
+    WHERE account.password_reset_verification = account_password_reset.code;
 
   IF (_account IS NULL) THEN
     RAISE 'Unknown reset code!' USING ERRCODE = 'no_data_found';
@@ -26,9 +26,9 @@ BEGIN
 
   UPDATE maevsi_private.account
     SET
-      password_hash = crypt($2, gen_salt('bf')),
+      password_hash = crypt(account_password_reset.password, gen_salt('bf')),
       password_reset_verification = NULL
-    WHERE account.password_reset_verification = $1;
+    WHERE account.password_reset_verification = account_password_reset.code;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 

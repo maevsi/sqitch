@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE FUNCTION maevsi.event_delete(
   id UUID,
-  "password" TEXT
+  password TEXT
 ) RETURNS maevsi.event AS $$
 DECLARE
   _current_account_id UUID;
@@ -10,11 +10,11 @@ DECLARE
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt($2, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
     DELETE
       FROM maevsi.event
       WHERE
-            "event".id = $1
+            "event".id = event_delete.id
         AND "event".created_by = _current_account_id
       RETURNING * INTO _event_deleted;
 

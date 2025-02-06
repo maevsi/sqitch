@@ -26,6 +26,9 @@ CREATE TABLE maevsi.event (
   UNIQUE (created_by, slug)
 );
 
+CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
+CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
+
 COMMENT ON TABLE maevsi.event IS 'An event.';
 COMMENT ON COLUMN maevsi.event.id IS E'@omit create,update\nThe event''s internal id.';
 COMMENT ON COLUMN maevsi.event.address_id IS 'Optional reference to the physical address of the event.';
@@ -45,8 +48,8 @@ COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.event.created_by IS 'The event creator''s id.';
 COMMENT ON COLUMN maevsi.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
-
-CREATE INDEX idx_event_search_vector ON maevsi.event USING GIN(search_vector);
+COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
+COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS TRIGGER AS $$
 DECLARE
@@ -74,6 +77,6 @@ CREATE TRIGGER maevsi_trigger_event_search_vector
   FOR EACH ROW
   EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
--- GRANTs, RLS and POLICYs are specified in 'table_event_policy`.
+-- GRANTs, RLS and POLICYs are specified in `table_event_policy`.
 
 COMMIT;

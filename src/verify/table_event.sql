@@ -20,4 +20,8 @@ SELECT id,
        search_vector
 FROM maevsi.event WHERE FALSE;
 
+SELECT maevsi_test.index_existence(
+  ARRAY ['event_created_by_slug_key', 'idx_event_location', 'idx_event_search_vector']
+);
+
 ROLLBACK;

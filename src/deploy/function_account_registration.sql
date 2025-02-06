@@ -3,8 +3,8 @@ BEGIN;
 CREATE FUNCTION maevsi.account_registration(
   username TEXT,
   email_address TEXT,
-  "password" TEXT,
-  "language" TEXT
+  password TEXT,
+  language TEXT
 ) RETURNS UUID AS $$
 DECLARE
   _new_account_private maevsi_private.account;

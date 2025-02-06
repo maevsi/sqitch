@@ -40,7 +40,7 @@ COMMENT ON COLUMN maevsi.contact.created_at IS E'@omit create,update\nTimestamp 
 COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON maevsi.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
 
--- GRANTs, RLS and POLICYs are specified in 'table_contact_policy`.
+-- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.
 
 CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS TRIGGER AS $$
   BEGIN

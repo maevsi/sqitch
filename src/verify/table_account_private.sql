@@ -14,6 +14,11 @@ SELECT id,
        last_activity
 FROM maevsi_private.account WHERE FALSE;
 
+SELECT maevsi_test.index_existence(
+  ARRAY ['idx_account_private_location'],
+  'maevsi_private'
+);
+
 DO $$
 BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi_private.account', 'SELECT'));

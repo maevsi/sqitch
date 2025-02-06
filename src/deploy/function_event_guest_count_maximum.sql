@@ -8,7 +8,7 @@ BEGIN
     SELECT guest_count_maximum
     FROM maevsi.event
     WHERE
-      id = $1
+      id = event_guest_count_maximum.event_id
       AND ( -- Copied from `event_select` POLICY.
         (
           visibility = 'public'

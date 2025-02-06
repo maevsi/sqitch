@@ -5,7 +5,7 @@ CREATE FUNCTION maevsi.event_is_existing(
   slug TEXT
 ) RETURNS BOOLEAN AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".created_by = $1 AND "event".slug = $2)) THEN
+  IF (EXISTS (SELECT 1 FROM maevsi.event WHERE "event".created_by = event_is_existing.created_by AND "event".slug = event_is_existing.slug)) THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
