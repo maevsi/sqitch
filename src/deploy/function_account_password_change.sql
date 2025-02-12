@@ -7,14 +7,14 @@ CREATE FUNCTION maevsi.account_password_change(
 DECLARE
   _current_account_id UUID;
 BEGIN
-  IF (char_length($2) < 8) THEN
+  IF (char_length(account_password_change.password_new) < 8) THEN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = maevsi.crypt($1, account.password_hash))) THEN
-    UPDATE maevsi_private.account SET password_hash = maevsi.crypt($2, maevsi.gen_salt('bf')) WHERE account.id = _current_account_id;
+  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_password_change.password_current, account.password_hash))) THEN
+    UPDATE maevsi_private.account SET password_hash = crypt(account_password_change.password_new, gen_salt('bf')) WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;

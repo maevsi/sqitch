@@ -1,13 +1,17 @@
 BEGIN;
 
 SELECT id,
-       created_at,
-       author_account_id,
-       "description",
+       description,
        is_archived,
-       "name",
-       slug
+       name,
+       slug,
+       created_at,
+       created_by
 FROM maevsi.event_group WHERE FALSE;
+
+SELECT maevsi_test.index_existence(
+  ARRAY ['event_group_created_by_slug_key']
+);
 
 DO $$
 BEGIN

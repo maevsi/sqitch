@@ -29,8 +29,8 @@ You can create this file as follows:
 
 1. as `schcrwlr` run `schemacrawler --server=postgresql --database=maevsi --user=postgres --password=postgres --command=schema --info-level=maximum --output-format=png --output-file=graph.png --schemas=maevsi.*`
 
-1. as `root` install curl using `apk update && apk add curl`
+1. reconnect as `root` to the same container and install curl using `apk update && apk add curl`
 
-1. still as `root` upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
+1. then upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
 
 1. click the link in the output and download the image that pops up!

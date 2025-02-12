@@ -7,11 +7,11 @@ BEGIN
   RETURN QUERY
     SELECT id FROM maevsi.event
     WHERE
-      author_account_id = maevsi.invoker_account_id();
+      created_by = maevsi.invoker_account_id();
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the author.';
+COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
 
 GRANT EXECUTE ON FUNCTION maevsi.events_organized() TO maevsi_account, maevsi_anonymous;
 

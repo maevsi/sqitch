@@ -1,12 +1,12 @@
 BEGIN;
 
 SELECT id,
-       created_at,
        account_id,
        name,
        size_byte,
        storage_key,
-       type
+       type,
+       created_at
 FROM maevsi.upload WHERE FALSE;
 
 ROLLBACK;

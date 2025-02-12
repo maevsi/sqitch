@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.authenticate;
+DROP FUNCTION maevsi.authenticate(TEXT, TEXT);
 
 COMMIT;
