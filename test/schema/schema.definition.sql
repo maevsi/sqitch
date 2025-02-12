@@ -1275,6 +1275,131 @@ COMMENT ON FUNCTION maevsi.guest_count(event_id uuid) IS 'Returns the guest coun
 
 
 --
+-- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.guest (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    contact_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    feedback maevsi.invitation_feedback,
+    feedback_paper maevsi.invitation_feedback_paper,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
+);
+
+
+ALTER TABLE maevsi.guest OWNER TO postgres;
+
+--
+-- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
+
+
+--
+-- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
+The guests''s internal id.';
+
+
+--
+-- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
+
+
+--
+-- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
+
+
+--
+-- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
+
+
+--
+-- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
+
+
+--
+-- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
+Timestamp of when the guest was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
+Timestamp of when the guest was last updated.';
+
+
+--
+-- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
+The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
+
+
+--
+-- Name: guest_create_multiple(uuid, uuid[]); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.guest_create_multiple(event_id uuid, contact_ids uuid[]) RETURNS SETOF maevsi.guest
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _contact_id UUID;
+  _id UUID;
+  _id_array UUID[] := ARRAY[]::UUID[];
+BEGIN
+
+  FOREACH _contact_id IN ARRAY guest_create_multiple.contact_ids LOOP
+
+    INSERT INTO maevsi.guest(event_id, contact_id)
+    VALUES (guest_create_multiple.event_id, _contact_id)
+    RETURNING id INTO _id;
+
+    _id_array := array_append(_id_array, _id);
+
+  END LOOP;
+
+  RETURN QUERY
+    SELECT *
+    FROM maevsi.guest
+    WHERE id = ANY (_id_array);
+
+END $$;
+
+
+ALTER FUNCTION maevsi.guest_create_multiple(event_id uuid, contact_ids uuid[]) OWNER TO postgres;
+
+--
+-- Name: FUNCTION guest_create_multiple(event_id uuid, contact_ids uuid[]); Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON FUNCTION maevsi.guest_create_multiple(event_id uuid, contact_ids uuid[]) IS 'Function for inserting multiple guest records.';
+
+
+--
 -- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
@@ -2595,6 +2720,36 @@ COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 
 
 
 --
+-- Name: set_invoker(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.set_invoker(_invoker_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.set_invoker(_invoker_id uuid) OWNER TO postgres;
+
+--
+-- Name: unset_invoker(); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.unset_invoker() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  SET LOCAL role = 'postgres';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.unset_invoker() OWNER TO postgres;
+
+--
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -3469,91 +3624,6 @@ COMMENT ON COLUMN maevsi.event_upload.is_header_image IS 'Optional boolean flag 
 
 COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
 Reference to the uploaded file.';
-
-
---
--- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
---
-
-CREATE TABLE maevsi.guest (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    contact_id uuid NOT NULL,
-    event_id uuid NOT NULL,
-    feedback maevsi.invitation_feedback,
-    feedback_paper maevsi.invitation_feedback_paper,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid
-);
-
-
-ALTER TABLE maevsi.guest OWNER TO postgres;
-
---
--- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
-
-
---
--- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
-The guests''s internal id.';
-
-
---
--- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
-
-
---
--- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
-
-
---
--- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
-
-
---
--- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
-
-
---
--- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
-Timestamp of when the guest was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
-Timestamp of when the guest was last updated.';
-
-
---
--- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
-The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
 
 
 --
@@ -6644,6 +6714,22 @@ GRANT ALL ON FUNCTION maevsi.guest_count(event_id uuid) TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
+GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
+
+
+--
+-- Name: FUNCTION guest_create_multiple(event_id uuid, contact_ids uuid[]); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.guest_create_multiple(event_id uuid, contact_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi.guest_create_multiple(event_id uuid, contact_ids uuid[]) TO maevsi_account;
+
+
+--
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6792,6 +6878,7 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6799,6 +6886,7 @@ REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _block
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6806,6 +6894,7 @@ REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _block
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) TO maevsi_account;
 
 
 --
@@ -6837,6 +6926,7 @@ GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _lat
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.account_remove(_username text) TO maevsi_account;
 
 
 --
@@ -6844,6 +6934,7 @@ REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) TO maevsi_account;
 
 
 --
@@ -6851,6 +6942,7 @@ REVOKE ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_addre
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6858,6 +6950,7 @@ REVOKE ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -6865,6 +6958,7 @@ REVOKE ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uui
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_category_create(_category text) TO maevsi_account;
 
 
 --
@@ -6872,6 +6966,7 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PU
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) TO maevsi_account;
 
 
 --
@@ -6879,6 +6974,7 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uui
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -6886,6 +6982,7 @@ REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, 
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) TO maevsi_account;
 
 
 --
@@ -6917,6 +7014,7 @@ GRANT ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitud
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -6924,6 +7022,7 @@ REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid,
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6931,6 +7030,7 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uu
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) TO maevsi_account;
 
 
 --
@@ -6938,6 +7038,7 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -6948,10 +7049,27 @@ REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) 
 
 
 --
+-- Name: FUNCTION set_invoker(_invoker_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.set_invoker(_invoker_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.set_invoker(_invoker_id uuid) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION unset_invoker(); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.unset_invoker() FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.unset_invoker() TO maevsi_account;
+
+
+--
 -- Name: FUNCTION uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) TO maevsi_account;
 
 
 --
@@ -12414,14 +12532,6 @@ GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_recommendation TO maevsi_accoun
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_upload TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
-
-
---
--- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
-GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
 
 
 --

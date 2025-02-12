@@ -31,6 +31,8 @@ DECLARE
   guestClaimArray UUID[];
   guestClaimArrayNew UUID[];
 
+  rec RECORD;
+
 BEGIN
 
   -- remove accounts (if exist)
@@ -69,8 +71,22 @@ BEGIN
   guestAC := maevsi_test.guest_create(accountA, eventA, contactAC);
   guestBA := maevsi_test.guest_create(accountB, eventB, contactBA);
   guestBC := maevsi_test.guest_create(accountB, eventB, contactBC);
-  guestCA := maevsi_test.guest_create(accountC, eventC, contactCA);
-  guestCB := maevsi_test.guest_create(accountC, eventC, contactCB);
+
+  -- add guests for eventC using function maevsi.guest_create_multiple
+
+  PERFORM maevsi_test.set_invoker(accountC);
+
+  FOR rec IN
+    SELECT * FROM maevsi.guest_create_multiple(eventC, ARRAY[contactCA, contactCB])
+  LOOP
+    IF rec.contact_id = contactCA THEN
+      guestCA := rec.id;
+    ELSIF rec.contact_id = contactCB THEN
+      guestCB := rec.id;
+    END IF;
+  END LOOP;
+
+  PERFORM maevsi_test.unset_invoker();
 
   -- run tests
 
