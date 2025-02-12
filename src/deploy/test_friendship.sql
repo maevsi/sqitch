@@ -58,8 +58,7 @@ BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  UPDATE maevsi.friendship SET
-    status = 'rejected'::maevsi.friendship_status
+  DELETE FROM maevsi.friendship
   WHERE id = _id;
 
   SET LOCAL role = 'postgres';
@@ -100,7 +99,7 @@ END $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION maevsi_test.friendship_test (
   _test_case TEXT,
   _invoker_account_id UUID,
-  _status TEXT,
+  _status TEXT, -- status IS NULL means "any status"
   _expected_result UUID[]
 ) RETURNS VOID AS $$
 DECLARE
@@ -118,7 +117,7 @@ BEGIN
   END IF;
 
   IF EXISTS (
-    SELECT id FROM maevsi.friendship WHERE status = _status::maevsi.friendship_status
+    SELECT id FROM maevsi.friendship WHERE _status IS NULL OR status = _status::maevsi.friendship_status
     EXCEPT
     SELECT * FROM unnest(_expected_result)
   ) THEN
@@ -128,7 +127,7 @@ BEGIN
   IF EXISTS (
     SELECT * FROM unnest(_expected_result)
     EXCEPT
-    SELECT id FROM maevsi.friendship WHERE status = _status::maevsi.friendship_status
+    SELECT id FROM maevsi.friendship WHERE _status IS NULL OR status = _status::maevsi.friendship_status
   ) THEN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
@@ -148,15 +147,26 @@ BEGIN
   RAISE NOTICE '%', _test_case;
 
   IF _invoker_account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'maevsi_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
   END IF;
 
   IF EXISTS (
-    SELECT id FROM maevsi.friendship_account_ids()
+    WITH friendship_account_ids AS (
+      SELECT b_account_id as account_id
+      FROM maevsi.friendship
+      WHERE a_account_id = _invoker_account_id
+        and status = 'accepted'::maevsi.friendship_status
+      UNION ALL
+      SELECT a_account_id as account_id
+      FROM maevsi.friendship
+      WHERE b_account_id = _invoker_account_id
+        and status = 'accepted'::maevsi.friendship_status
+    )
+    SELECT account_id as id
+    FROM friendship_account_ids
+    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
     EXCEPT
     SELECT * FROM unnest(_expected_result)
   ) THEN
@@ -164,14 +174,26 @@ BEGIN
   END IF;
 
   IF EXISTS (
+    WITH friendship_account_ids AS (
+      SELECT b_account_id as account_id
+      FROM maevsi.friendship
+      WHERE a_account_id = maevsi.invoker_account_id()
+        and status = 'accepted'::maevsi.friendship_status
+      UNION ALL
+      SELECT a_account_id as account_id
+      FROM maevsi.friendship
+      WHERE b_account_id = maevsi.invoker_account_id()
+        and status = 'accepted'::maevsi.friendship_status
+    )
     SELECT * FROM unnest(_expected_result)
     EXCEPT
-    SELECT id FROM maevsi.friendship_account_ids()
+    SELECT account_id as id
+    FROM friendship_account_ids
+    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
   ) THEN
     RAISE EXCEPTION 'some account is missing in the list of friends';
   END IF;
 
-  SET LOCAL role = 'postgres';
-END $$ LANGUAGE plpgsql;
+END $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 END;

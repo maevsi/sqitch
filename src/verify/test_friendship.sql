@@ -55,15 +55,6 @@ BEGIN
 
   RAISE NOTICE 'test 4';
 
-  PERFORM maevsi_test.friendship_reject(accountA, friendshipCA);
-
-  PERFORM maevsi_test.friendship_test ('4a', accountA, 'accepted', ARRAY[friendshipAB]::UUID[]);
-  PERFORM maevsi_test.friendship_test ('4b', accountC, 'rejected', ARRAY[friendshipCA]::UUID[]);
-  PERFORM maevsi_test.friendship_account_ids_test ('4c', accountA, ARRAY[accountB]::UUID[]);
-  PERFORM maevsi_test.friendship_account_ids_test ('4d', accountC, ARRAY[]::UUID[]);
-
-  RAISE NOTICE 'test 5';
-
   BEGIN
     friendshipAC := maevsi_test.friendship_request(accountA, accountC);
     RAISE 'friendship request should have failed';
@@ -71,6 +62,14 @@ BEGIN
     WHEN unique_violation THEN -- expected exception => do nothing
     WHEN OTHERS THEN RAISE;
   END;
+
+  RAISE NOTICE 'test 5';
+
+  PERFORM maevsi_test.friendship_reject(accountA, friendshipCA);
+
+  PERFORM maevsi_test.friendship_test ('4a', accountC, null, ARRAY[]::UUID[]);
+  PERFORM maevsi_test.friendship_account_ids_test ('4b', accountA, ARRAY[accountB]::UUID[]);
+  PERFORM maevsi_test.friendship_account_ids_test ('4c', accountC, ARRAY[]::UUID[]);
 
   RAISE NOTICE 'tests ok';
 

@@ -202,8 +202,7 @@ COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and 
 
 CREATE TYPE maevsi.friendship_status AS ENUM (
     'accepted',
-    'pending',
-    'rejected'
+    'pending'
 );
 
 
@@ -213,7 +212,8 @@ ALTER TYPE maevsi.friendship_status OWNER TO postgres;
 -- Name: TYPE friendship_status; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.';
+COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.
+There is not status ''rejected'' because friendship records will be deleted as soon as a friendship is rejected.';
 
 
 --
@@ -1169,42 +1169,6 @@ ALTER FUNCTION maevsi.events_organized() OWNER TO postgres;
 --
 
 COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
-
-
---
--- Name: friendship_account_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.friendship_account_ids() RETURNS TABLE(id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  RETURN QUERY
-    WITH friendship_account_ids AS (
-      SELECT b_account_id as account_id
-      FROM maevsi.friendship
-      WHERE a_account_id = maevsi.invoker_account_id()
-        and status = 'accepted'::maevsi.friendship_status
-      UNION ALL
-      SELECT a_account_id as account_id
-      FROM maevsi.friendship
-      WHERE b_account_id = maevsi.invoker_account_id()
-        and status = 'accepted'::maevsi.friendship_status
-    )
-    SELECT account_id
-    FROM friendship_account_ids
-    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b);
-END
-$$;
-
-
-ALTER FUNCTION maevsi.friendship_account_ids() OWNER TO postgres;
-
---
--- Name: FUNCTION friendship_account_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.friendship_account_ids() IS 'Returns the account ids of all the invoker''s friends.';
 
 
 --
@@ -2584,7 +2548,7 @@ ALTER FUNCTION maevsi_test.friendship_account_create(_username text, _email text
 --
 
 CREATE FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) RETURNS void
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
   rec RECORD;
@@ -2593,15 +2557,26 @@ BEGIN
   RAISE NOTICE '%', _test_case;
 
   IF _invoker_account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'maevsi_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
   END IF;
 
   IF EXISTS (
-    SELECT id FROM maevsi.friendship_account_ids()
+    WITH friendship_account_ids AS (
+      SELECT b_account_id as account_id
+      FROM maevsi.friendship
+      WHERE a_account_id = _invoker_account_id
+        and status = 'accepted'::maevsi.friendship_status
+      UNION ALL
+      SELECT a_account_id as account_id
+      FROM maevsi.friendship
+      WHERE b_account_id = _invoker_account_id
+        and status = 'accepted'::maevsi.friendship_status
+    )
+    SELECT account_id as id
+    FROM friendship_account_ids
+    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
     EXCEPT
     SELECT * FROM unnest(_expected_result)
   ) THEN
@@ -2609,14 +2584,26 @@ BEGIN
   END IF;
 
   IF EXISTS (
+    WITH friendship_account_ids AS (
+      SELECT b_account_id as account_id
+      FROM maevsi.friendship
+      WHERE a_account_id = maevsi.invoker_account_id()
+        and status = 'accepted'::maevsi.friendship_status
+      UNION ALL
+      SELECT a_account_id as account_id
+      FROM maevsi.friendship
+      WHERE b_account_id = maevsi.invoker_account_id()
+        and status = 'accepted'::maevsi.friendship_status
+    )
     SELECT * FROM unnest(_expected_result)
     EXCEPT
-    SELECT id FROM maevsi.friendship_account_ids()
+    SELECT account_id as id
+    FROM friendship_account_ids
+    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
   ) THEN
     RAISE EXCEPTION 'some account is missing in the list of friends';
   END IF;
 
-  SET LOCAL role = 'postgres';
 END $$;
 
 
@@ -2634,8 +2621,7 @@ BEGIN
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  UPDATE maevsi.friendship SET
-    status = 'rejected'::maevsi.friendship_status
+  DELETE FROM maevsi.friendship
   WHERE id = _id;
 
   SET LOCAL role = 'postgres';
@@ -2704,7 +2690,7 @@ BEGIN
   END IF;
 
   IF EXISTS (
-    SELECT id FROM maevsi.friendship WHERE status = _status::maevsi.friendship_status
+    SELECT id FROM maevsi.friendship WHERE _status IS NULL OR status = _status::maevsi.friendship_status
     EXCEPT
     SELECT * FROM unnest(_expected_result)
   ) THEN
@@ -2714,7 +2700,7 @@ BEGIN
   IF EXISTS (
     SELECT * FROM unnest(_expected_result)
     EXCEPT
-    SELECT id FROM maevsi.friendship WHERE status = _status::maevsi.friendship_status
+    SELECT id FROM maevsi.friendship WHERE _status IS NULL OR status = _status::maevsi.friendship_status
   ) THEN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
@@ -3768,7 +3754,7 @@ The friend relation''s internal id.';
 --
 
 COMMENT ON COLUMN maevsi.friendship.a_account_id IS '@omit update
-The ''left'' side of the friend relation.';
+The ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
 
 
 --
@@ -3776,7 +3762,7 @@ The ''left'' side of the friend relation.';
 --
 
 COMMENT ON COLUMN maevsi.friendship.b_account_id IS '@omit update
-The ''right'' side of the friend relation.';
+The ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
 
 
 --
@@ -6329,6 +6315,15 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 ALTER TABLE maevsi.friendship ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: friendship friendship_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_delete ON maevsi.friendship FOR DELETE USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((maevsi.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
+
+
+--
 -- Name: friendship friendship_insert; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
@@ -7055,14 +7050,6 @@ GRANT ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) TO maevsi_anonymous;
 REVOKE ALL ON FUNCTION maevsi.events_organized() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.events_organized() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.events_organized() TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION friendship_account_ids(); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.friendship_account_ids() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.friendship_account_ids() TO maevsi_account;
 
 
 --
@@ -12911,7 +12898,7 @@ GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 -- Name: TABLE friendship; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,UPDATE ON TABLE maevsi.friendship TO maevsi_account;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.friendship TO maevsi_account;
 
 
 --

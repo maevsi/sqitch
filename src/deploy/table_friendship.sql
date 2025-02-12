@@ -24,8 +24,8 @@ CREATE INDEX idx_friendship_updated_by ON maevsi.friendship USING btree (updated
 
 COMMENT ON TABLE maevsi.friendship IS 'A friend relation together with its status.';
 COMMENT ON COLUMN maevsi.friendship.id IS E'@omit create,update\nThe friend relation''s internal id.';
-COMMENT ON COLUMN maevsi.friendship.a_account_id IS E'@omit update\nThe ''left'' side of the friend relation.';
-COMMENT ON COLUMN maevsi.friendship.b_account_id IS E'@omit update\nThe ''right'' side of the friend relation.';
+COMMENT ON COLUMN maevsi.friendship.a_account_id IS E'@omit update\nThe ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
+COMMENT ON COLUMN maevsi.friendship.b_account_id IS E'@omit update\nThe ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
 COMMENT ON COLUMN maevsi.friendship.status IS E'@omit create\nThe status of the friend relation.';
 COMMENT ON COLUMN maevsi.friendship.created_at IS E'@omit create,update\nThe timestamp when the friend relation was created.';
 COMMENT ON COLUMN maevsi.friendship.created_by IS E'@omit update\nThe account that created the friend relation was created.';
