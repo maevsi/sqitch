@@ -1,7 +1,7 @@
 BEGIN;
 
-\set role_maevsi_tusd_username `cat /run/secrets/postgres_role_maevsi-tusd_username`
-SET local role.maevsi_tusd_username TO :'role_maevsi_tusd_username';
+\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
+SET local role.maevsi_username TO :'role_maevsi_username';
 
 DO $$
 BEGIN
@@ -13,10 +13,10 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.event_upload', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.event_upload', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.event_upload', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_tusd_username'), 'maevsi.event_upload', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_tusd_username'), 'maevsi.event_upload', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_tusd_username'), 'maevsi.event_upload', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_tusd_username'), 'maevsi.event_upload', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_upload', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_upload', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_upload', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_upload', 'DELETE'));
 END $$;
 
 ROLLBACK;

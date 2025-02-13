@@ -6,12 +6,12 @@ privilege_execute_revoke 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqi
 role_postgraphile 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role postgraphile.
 role_anonymous [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role anonymous.
 role_account [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role account.
-role_tusd [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role tusd.
-schema_public [role_anonymous role_account role_tusd] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add public schema.
+role_maevsi [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role maevsi.
+schema_public [role_anonymous role_account role_maevsi] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add public schema.
 schema_private 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add private schema.
 schema_test 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add test schema.
 extension_pgcrypto [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add extension pgcrypto.
-function_invoker_account_id [privilege_execute_revoke schema_public role_account role_anonymous role_tusd] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Returns the session's account id.
+function_invoker_account_id [privilege_execute_revoke schema_public role_account role_anonymous role_maevsi] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Returns the session's account id.
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
 enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public, private and unlisted.
 function_trigger_metadata_update [privilege_execute_revoke schema_public function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.
@@ -53,8 +53,8 @@ function_event_unlock [privilege_execute_revoke schema_public function_invoker_a
 function_jwt_refresh [privilege_execute_revoke schema_public type_jwt table_jwt] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that refreshes tokens.
 table_upload [schema_public table_account_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # An upload.
 function_upload_create [privilege_execute_revoke schema_public schema_private role_account table_upload table_account_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Creates an upload with the given size if quota is available.
-table_profile_picture [schema_public table_account_public table_upload role_account role_anonymous role_tusd function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Mapping of usernames to upload storage keys.
-table_upload_policy [schema_public table_upload role_account role_anonymous role_tusd function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Policies for uploads.
+table_profile_picture [schema_public table_account_public table_upload role_account role_anonymous role_maevsi function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Mapping of usernames to upload storage keys.
+table_upload_policy [schema_public table_upload role_account role_anonymous role_maevsi function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Policies for uploads.
 function_profile_picture_set [privilege_execute_revoke schema_public role_account table_profile_picture] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Sets the picture with the given storage key as the invoker's profile picture.
 function_event_delete [privilege_execute_revoke schema_public role_account table_account_private table_event extension_pgcrypto] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that allows to delete an event.
 function_account_delete [privilege_execute_revoke schema_public role_account table_account_private table_event extension_pgcrypto] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add a function that allows to delete an account.

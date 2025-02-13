@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_maevsi_tusd_username `cat /run/secrets/postgres_role_maevsi-tusd_username`
+\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
 
 CREATE TABLE maevsi.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,9 +14,9 @@ COMMENT ON COLUMN maevsi.profile_picture.id IS E'@omit create,update\nThe profil
 COMMENT ON COLUMN maevsi.profile_picture.account_id IS 'The account''s id.';
 COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
-GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_account, maevsi_anonymous, :role_maevsi_tusd_username;
+GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_account, maevsi_anonymous, :role_maevsi_username;
 GRANT INSERT, DELETE, UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
-GRANT DELETE ON TABLE maevsi.profile_picture TO :role_maevsi_tusd_username;
+GRANT DELETE ON TABLE maevsi.profile_picture TO :role_maevsi_username;
 
 ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 
@@ -41,7 +41,7 @@ CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING 
 
 -- Only allow deletes for the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (
-    (SELECT current_user) = :'role_maevsi_tusd_username'
+    (SELECT current_user) = :'role_maevsi_username'
   OR
     (
       maevsi.invoker_account_id() IS NOT NULL

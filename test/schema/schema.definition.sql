@@ -6014,7 +6014,7 @@ ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 -- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'tusd'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
+CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
 
 
 --
@@ -6068,14 +6068,14 @@ ALTER TABLE maevsi.upload ENABLE ROW LEVEL SECURITY;
 -- Name: upload upload_delete_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'tusd'::name));
+CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
 -- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'tusd'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
    FROM maevsi.profile_picture))));
 
 
@@ -6083,7 +6083,7 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT 
 -- Name: upload upload_update_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'tusd'::name));
+CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
@@ -6105,7 +6105,7 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
-GRANT USAGE ON SCHEMA maevsi TO tusd;
+GRANT USAGE ON SCHEMA maevsi TO maevsi;
 
 
 --
@@ -6658,7 +6658,7 @@ GRANT ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) TO maevsi_acco
 REVOKE ALL ON FUNCTION maevsi.invoker_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
-GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO tusd;
+GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi;
 
 
 --
@@ -6742,7 +6742,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_anonymous;
-GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO tusd;
+GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi;
 
 
 --
@@ -12453,7 +12453,7 @@ GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
-GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO tusd;
+GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi;
 
 
 --
@@ -12467,7 +12467,7 @@ GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 -- Name: TABLE achievement_code; Type: ACL; Schema: maevsi_private; Owner: postgres
 --
 
-GRANT SELECT ON TABLE maevsi_private.achievement_code TO tusd;
+GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi;
 
 
 --
