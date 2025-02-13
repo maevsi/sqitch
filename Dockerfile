@@ -37,10 +37,10 @@ RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib
   && mkdir -p /run/secrets \
   && echo "postgres"      > /run/secrets/postgres_password \
   && echo "postgraphile"  > /run/secrets/postgres_role_maevsi-postgraphile_username \
-  && echo "tusd"          > /run/secrets/postgres_role_maevsi-tusd_username \
+  && echo "maevsi"          > /run/secrets/postgres_role_maevsi_username \
   && echo "placeholder" | tee \
+    /run/secrets/postgres_role_maevsi_password \
     /run/secrets/postgres_role_maevsi-postgraphile_password \
-    /run/secrets/postgres_role_maevsi-tusd_password \
     /dev/null
 
 COPY ./src ./
