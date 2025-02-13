@@ -312,7 +312,7 @@ BEGIN
   RETURN _result;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.set_invoker (
+CREATE OR REPLACE FUNCTION maevsi_test.invoker_set (
   _invoker_id UUID
 )
 RETURNS VOID AS $$
@@ -321,7 +321,7 @@ BEGIN
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.unset_invoker ()
+CREATE OR REPLACE FUNCTION maevsi_test.invoker_unset ()
 RETURNS VOID AS $$
 BEGIN
   SET LOCAL role = 'postgres';
@@ -359,8 +359,8 @@ GRANT EXECUTE ON FUNCTION maevsi_test.event_test(TEXT, UUID, UUID[]) TO maevsi_a
 GRANT EXECUTE ON FUNCTION maevsi_test.guest_create(UUID, UUID, UUID) TO maevsi_account;
 GRANT EXECUTE ON FUNCTION maevsi_test.guest_test(TEXT, UUID, UUID[]) TO maevsi_account;
 GRANT EXECUTE ON FUNCTION maevsi_test.guest_claim_from_account_guest(UUID) TO maevsi_account;
-GRANT EXECUTE ON FUNCTION maevsi_test.set_invoker(UUID) TO maevsi_account;
-GRANT EXECUTE ON FUNCTION maevsi_test.unset_invoker() TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.invoker_set(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.invoker_unset() TO maevsi_account;
 GRANT EXECUTE ON FUNCTION maevsi_test.uuid_array_test(TEXT, UUID[], UUID[]) TO maevsi_account;
 
 COMMIT;

@@ -72,12 +72,12 @@ BEGIN
   guestBA := maevsi_test.guest_create(accountB, eventB, contactBA);
   guestBC := maevsi_test.guest_create(accountB, eventB, contactBC);
 
-  -- add guests for eventC using function maevsi.guest_create_multiple
+  -- add guests for `eventC` using function `maevsi.create_guests`
 
-  PERFORM maevsi_test.set_invoker(accountC);
+  PERFORM maevsi_test.invoker_set(accountC);
 
   FOR rec IN
-    SELECT * FROM maevsi.guest_create_multiple(eventC, ARRAY[contactCA, contactCB])
+    SELECT * FROM maevsi.create_guests(eventC, ARRAY[contactCA, contactCB])
   LOOP
     IF rec.contact_id = contactCA THEN
       guestCA := rec.id;
@@ -86,7 +86,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  PERFORM maevsi_test.unset_invoker();
+  PERFORM maevsi_test.invoker_unset();
 
   -- run tests
 

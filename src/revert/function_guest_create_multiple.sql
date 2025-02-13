@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.guest_create_multiple(UUID, UUID[]);
+DROP FUNCTION maevsi.create_guests(UUID, UUID[]);
 
 COMMIT;

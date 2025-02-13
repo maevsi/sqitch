@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.guest_create_multiple(
+CREATE FUNCTION maevsi.create_guests(
   event_id UUID,
   contact_ids UUID[]
 ) RETURNS SETOF maevsi.guest AS $$
@@ -10,10 +10,10 @@ DECLARE
   _id_array UUID[] := ARRAY[]::UUID[];
 BEGIN
 
-  FOREACH _contact_id IN ARRAY guest_create_multiple.contact_ids LOOP
+  FOREACH _contact_id IN ARRAY create_guests.contact_ids LOOP
 
     INSERT INTO maevsi.guest(event_id, contact_id)
-    VALUES (guest_create_multiple.event_id, _contact_id)
+    VALUES (create_guests.event_id, _contact_id)
     RETURNING id INTO _id;
 
     _id_array := array_append(_id_array, _id);
@@ -27,8 +27,8 @@ BEGIN
 
 END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.guest_create_multiple(UUID, UUID[]) IS 'Function for inserting multiple guest records.';
+COMMENT ON FUNCTION maevsi.create_guests(UUID, UUID[]) IS 'Function for inserting multiple guest records.';
 
-GRANT EXECUTE ON FUNCTION maevsi.guest_create_multiple(UUID, UUID[]) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi.create_guests(UUID, UUID[]) TO maevsi_account;
 
 COMMIT;
