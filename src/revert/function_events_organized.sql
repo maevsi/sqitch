@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.events_organized;
+DROP FUNCTION maevsi.events_organized();
 
 COMMIT;

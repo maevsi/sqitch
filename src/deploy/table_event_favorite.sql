@@ -18,6 +18,6 @@ COMMENT ON COLUMN maevsi.event_favorite.created_at IS E'@omit create,update\nTim
 COMMENT ON COLUMN maevsi.event_favorite.created_by IS E'@omit create,update\nReference to the account that created the event favorite.';
 COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON maevsi.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
 
--- GRANTs, RLS and POLICYs are specified in 'table_event_favorite_policy`.
+-- GRANTs, RLS and POLICYs are specified in `table_event_favorite_policy`.
 
 COMMIT;

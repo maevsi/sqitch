@@ -77,6 +77,6 @@ CREATE TRIGGER maevsi_trigger_event_search_vector
   FOR EACH ROW
   EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
--- GRANTs, RLS and POLICYs are specified in 'table_event_policy`.
+-- GRANTs, RLS and POLICYs are specified in `table_event_policy`.
 
 COMMIT;

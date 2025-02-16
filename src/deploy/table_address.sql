@@ -35,7 +35,7 @@ COMMENT ON COLUMN maevsi.address.updated_at IS E'@omit create,update\nTimestamp 
 COMMENT ON COLUMN maevsi.address.updated_by IS E'@omit create,update\nReference to the account that last updated the address.';
 COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
 COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
--- GRANTs, RLS and POLICYs are specified in 'table_address_policy`.
+-- GRANTs, RLS and POLICYs are specified in `table_address_policy`.
 
 CREATE TRIGGER maevsi_trigger_address_update
   BEFORE

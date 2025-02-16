@@ -3516,6 +3516,7 @@ COMMENT ON COLUMN maevsi.event_recommendation.predicted_score IS 'The score of t
 CREATE TABLE maevsi.event_upload (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     event_id uuid NOT NULL,
+    is_header_image boolean,
     upload_id uuid NOT NULL
 );
 
@@ -3526,7 +3527,7 @@ ALTER TABLE maevsi.event_upload OWNER TO postgres;
 -- Name: TABLE event_upload; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e.g. an image) to an event.';
+COMMENT ON TABLE maevsi.event_upload IS 'Associates uploaded files with events.';
 
 
 --
@@ -3534,7 +3535,7 @@ COMMENT ON TABLE maevsi.event_upload IS 'An assignment of an uploaded content (e
 --
 
 COMMENT ON COLUMN maevsi.event_upload.id IS '@omit create,update
-The event uploads''s internal id.';
+Primary key, uniquely identifies each event-upload association.';
 
 
 --
@@ -3542,7 +3543,14 @@ The event uploads''s internal id.';
 --
 
 COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update
-The event uploads''s internal event id.';
+Reference to the event associated with the upload.';
+
+
+--
+-- Name: COLUMN event_upload.is_header_image; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.event_upload.is_header_image IS 'Optional boolean flag indicating if the upload is the header image for the event.';
 
 
 --
@@ -3550,7 +3558,7 @@ The event uploads''s internal event id.';
 --
 
 COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
-The event upload''s internal upload id.';
+Reference to the uploaded file.';
 
 
 --
@@ -4905,6 +4913,13 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
+-- Name: CONSTRAINT event_upload_event_id_upload_id_key ON event_upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON CONSTRAINT event_upload_event_id_upload_id_key ON maevsi.event_upload IS 'Ensures that each upload is associated with a unique event, preventing duplicate uploads for the same event.';
+
+
+--
 -- Name: event_upload event_upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5203,6 +5218,20 @@ CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
 --
 
 COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
+
+
+--
+-- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE UNIQUE INDEX idx_event_upload_is_header_image_unique ON maevsi.event_upload USING btree (event_id) WHERE (is_header_image = true);
+
+
+--
+-- Name: INDEX idx_event_upload_is_header_image_unique; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_event_upload_is_header_image_unique IS 'Ensures that at most one header image exists per event.';
 
 
 --
@@ -6155,7 +6184,7 @@ ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 -- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
+CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
 
 
 --
@@ -6209,14 +6238,14 @@ ALTER TABLE maevsi.upload ENABLE ROW LEVEL SECURITY;
 -- Name: upload upload_delete_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name));
+CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
 -- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
    FROM maevsi.profile_picture))));
 
 
@@ -6224,7 +6253,7 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT 
 -- Name: upload upload_update_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name));
+CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
@@ -6246,7 +6275,7 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
-GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
+GRANT USAGE ON SCHEMA maevsi TO maevsi;
 
 
 --
@@ -6799,7 +6828,7 @@ GRANT ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) TO maevsi_acco
 REVOKE ALL ON FUNCTION maevsi.invoker_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
-GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_tusd;
+GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi;
 
 
 --
@@ -6890,7 +6919,7 @@ REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update_fcm() FROM PUBLIC;
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_anonymous;
-GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi_tusd;
+GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi;
 
 
 --
@@ -12608,7 +12637,7 @@ GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
-GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi;
 
 
 --
@@ -12622,7 +12651,7 @@ GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 -- Name: TABLE achievement_code; Type: ACL; Schema: maevsi_private; Owner: postgres
 --
 
-GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi_tusd;
+GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi;
 
 
 --
