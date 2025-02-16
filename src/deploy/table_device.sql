@@ -8,14 +8,14 @@ CREATE TABLE maevsi.device (
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by  UUID REFERENCES maevsi.account(id) NOT NULL DEFAULT maevsi.invoker_account_id(),
   updated_at  TIMESTAMP WITH TIME ZONE,
-  updated_by  UUID REFERENCES maevsi.account(id) NOT NULL,
+  updated_by  UUID REFERENCES maevsi.account(id),
 
   UNIQUE (created_by, fcm_token)
 );
 
 CREATE INDEX idx_device_updated_by ON maevsi.device USING btree (updated_by);
 
-COMMENT ON TABLE maevsi.device IS E'@omit read,update\nA device that''s assigned to an account.';
+COMMENT ON TABLE maevsi.device IS E'A device that''s assigned to an account.';
 COMMENT ON COLUMN maevsi.device.id IS E'@omit create,update\nThe internal id of the device.';
 COMMENT ON COLUMN maevsi.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications.';
 COMMENT ON COLUMN maevsi.device.created_at IS E'@omit create,update\nTimestamp when the device was created. Defaults to the current timestamp.';

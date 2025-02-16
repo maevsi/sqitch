@@ -1,18 +1,14 @@
 BEGIN;
 
-GRANT INSERT, UPDATE, DELETE ON TABLE maevsi.device TO maevsi_account;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE maevsi.device TO maevsi_account;
 
 ALTER TABLE maevsi.device ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY device_insert ON maevsi.device FOR INSERT WITH CHECK (
-  created_by = maevsi.invoker_account_id()
+CREATE POLICY device_new ON maevsi.device WITH CHECK (
+  TRUE
 );
 
-CREATE POLICY device_update ON maevsi.device FOR UPDATE USING (
-  created_by = maevsi.invoker_account_id()
-);
-
-CREATE POLICY device_delete ON maevsi.device FOR DELETE USING (
+CREATE POLICY device_existing ON maevsi.device USING (
   created_by = maevsi.invoker_account_id()
 );
 
