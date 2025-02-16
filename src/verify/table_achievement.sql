@@ -6,6 +6,9 @@ SELECT id,
        level
 FROM maevsi.achievement WHERE FALSE;
 
+\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
+SET local role.maevsi_username TO :'role_maevsi_username';
+
 DO $$
 BEGIN
   ASSERT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.achievement', 'SELECT'));
@@ -16,10 +19,10 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.achievement', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.achievement', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.achievement', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.achievement', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'DELETE'));
 END $$;
 
 ROLLBACK;
