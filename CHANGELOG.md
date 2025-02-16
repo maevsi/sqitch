@@ -1,3 +1,13 @@
+## [5.0.0-beta.12](https://github.com/maevsi/sqitch/compare/5.0.0-beta.11...5.0.0-beta.12) (2025-02-16)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** read usernames from secrets (#49)
+
+### Features
+
+* **role:** read usernames from secrets ([#49](https://github.com/maevsi/sqitch/issues/49)) ([2a413f6](https://github.com/maevsi/sqitch/commit/2a413f62150859a6f90aabe1f1ee03dc6ddf0382)), closes [#154](https://github.com/maevsi/sqitch/issues/154)
+
 ## [5.0.0-beta.11](https://github.com/maevsi/sqitch/compare/5.0.0-beta.10...5.0.0-beta.11) (2025-02-06)
 
 ### ⚠ BREAKING CHANGES
