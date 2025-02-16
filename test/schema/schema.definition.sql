@@ -3140,6 +3140,78 @@ COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that cr
 
 
 --
+-- Name: device; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.device (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fcm_token text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid DEFAULT maevsi.invoker_account_id() NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid NOT NULL,
+    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) < 300)))
+);
+
+
+ALTER TABLE maevsi.device OWNER TO postgres;
+
+--
+-- Name: TABLE device; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.device IS '@omit read,update
+A device that''s assigned to an account.';
+
+
+--
+-- Name: COLUMN device.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.id IS '@omit create,update
+The internal id of the device.';
+
+
+--
+-- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications.';
+
+
+--
+-- Name: COLUMN device.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.created_at IS '@omit create,update
+Timestamp when the device was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN device.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.created_by IS '@omit create,update
+Reference to the account that created the device.';
+
+
+--
+-- Name: COLUMN device.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.updated_at IS '@omit create,update
+Timestamp when the device was last updated.';
+
+
+--
+-- Name: COLUMN device.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.device.updated_by IS '@omit create,update
+Reference to the account that last updated the device.';
+
+
+--
 -- Name: event_category; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -4704,6 +4776,22 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
+-- Name: device device_created_by_fcm_token_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_created_by_fcm_token_key UNIQUE (created_by, fcm_token);
+
+
+--
+-- Name: device device_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: event_category_mapping event_category_mapping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5073,6 +5161,20 @@ COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize look
 
 
 --
+-- Name: idx_device_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_device_updated_by ON maevsi.device USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_device_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
 -- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
@@ -5175,6 +5277,13 @@ CREATE TRIGGER maevsi_trigger_address_update BEFORE UPDATE ON maevsi.address FOR
 --
 
 CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
+
+
+--
+-- Name: device maevsi_trigger_device_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_device_update BEFORE UPDATE ON maevsi.device FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
@@ -5300,6 +5409,22 @@ ALTER TABLE ONLY maevsi.contact
 
 ALTER TABLE ONLY maevsi.contact
     ADD CONSTRAINT contact_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: device device_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: device device_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.device
+    ADD CONSTRAINT device_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5757,6 +5882,33 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id =
 CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
    FROM maevsi.account_block
   WHERE (account_block.created_by = maevsi.invoker_account_id()))))));
+
+
+--
+-- Name: device; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.device ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: device device_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY device_delete ON maevsi.device FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: device device_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY device_insert ON maevsi.device FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: device device_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY device_update ON maevsi.device FOR UPDATE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -12360,6 +12512,13 @@ GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.contact TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
+
+
+--
+-- Name: TABLE device; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT INSERT,DELETE,UPDATE ON TABLE maevsi.device TO maevsi_account;
 
 
 --
