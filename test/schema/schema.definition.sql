@@ -1708,6 +1708,25 @@ COMMENT ON FUNCTION maevsi.trigger_metadata_update() IS 'Trigger function to aut
 
 
 --
+-- Name: trigger_metadata_update_fcm(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+--
+
+CREATE FUNCTION maevsi.trigger_metadata_update_fcm() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
+    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION maevsi.trigger_metadata_update_fcm() OWNER TO postgres;
+
+--
 -- Name: upload; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
@@ -5257,6 +5276,13 @@ CREATE TRIGGER maevsi_trigger_device_update BEFORE UPDATE ON maevsi.device FOR E
 
 
 --
+-- Name: device maevsi_trigger_device_update_fcm; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_device_update_fcm BEFORE UPDATE ON maevsi.device FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update_fcm();
+
+
+--
 -- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: postgres
 --
 
@@ -6849,6 +6875,13 @@ GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_anonymous;
 
 REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
+
+
+--
+-- Name: FUNCTION trigger_metadata_update_fcm(); Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update_fcm() FROM PUBLIC;
 
 
 --

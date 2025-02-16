@@ -33,4 +33,23 @@ CREATE TRIGGER maevsi_trigger_device_update
   FOR EACH ROW
   EXECUTE PROCEDURE maevsi.trigger_metadata_update();
 
+
+CREATE FUNCTION maevsi.trigger_metadata_update_fcm()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
+    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER maevsi_trigger_device_update_fcm
+  BEFORE
+    UPDATE
+  ON maevsi.device
+  FOR EACH ROW
+  EXECUTE FUNCTION maevsi.trigger_metadata_update_fcm();
+
 COMMIT;
