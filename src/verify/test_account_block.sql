@@ -51,6 +51,24 @@ BEGIN
   contactBB := maevsi_test.contact_select_by_account_id(accountB);
   contactCC := maevsi_test.contact_select_by_account_id(accountC);
 
+  -- A blocks B
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+
+  BEGIN
+     -- A wants to add B as a contact, should fail
+     contactAB := maevsi_test.contact_create(accountA, 'b@example.com');
+     RAISE EXCEPTION 'should not get here';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      -- expected exception, policy prevents insert due to blocking
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+
+  -- A unblocks B
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+
   contactAB := maevsi_test.contact_create(accountA, 'b@example.com');
   contactAC := maevsi_test.contact_create(accountA, 'c@example.com');
   contactBA := maevsi_test.contact_create(accountB, 'a@example.com');
@@ -67,12 +85,50 @@ BEGIN
   PERFORM maevsi_test.event_category_mapping_create(accountB, eventB, 'category');
   PERFORM maevsi_test.event_category_mapping_create(accountC, eventC, 'category');
 
+  -- A blocks B
+  PERFORM maevsi_test.account_block_create(accountA, accountB);
+
+  BEGIN
+     -- A wants to add B as a guest, should fail
+     contactAB := maevsi_test.guest_create(accountA, eventA, contactAB);
+     RAISE EXCEPTION 'should not get here';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      -- expected exception, policy prevents insert due to blocking
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+
+  -- A unblocks B
+  PERFORM maevsi_test.account_block_remove(accountA, accountB);
+
   guestAB := maevsi_test.guest_create(accountA, eventA, contactAB);
   guestAC := maevsi_test.guest_create(accountA, eventA, contactAC);
   guestBA := maevsi_test.guest_create(accountB, eventB, contactBA);
   guestBC := maevsi_test.guest_create(accountB, eventB, contactBC);
 
   -- add guests for `eventC` using function `maevsi.create_guests`
+
+  -- C blocks B
+  PERFORM maevsi_test.account_block_create(accountC, accountB);
+
+  BEGIN
+    PERFORM maevsi_test.invoker_set(accountC);
+    -- C wants to create guest A and B for the event, should fail because B is blocked
+    PERFORM maevsi.create_guests(eventC, ARRAY[contactCA, contactCB]);
+    RAISE EXCEPTION 'should not get here';
+    PERFORM maevsi_test.invoker_unset();
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      -- expected exception, policy prevents insert due to blocking
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+
+  -- C unblocks B
+  PERFORM maevsi_test.account_block_remove(accountC, accountB);
 
   PERFORM maevsi_test.invoker_set(accountC);
 

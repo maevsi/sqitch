@@ -829,7 +829,7 @@ The id of the account which last updated the guest. `NULL` if the guest was upda
 --
 
 CREATE FUNCTION maevsi.create_guests(event_id uuid, contact_ids uuid[]) RETURNS SETOF maevsi.guest
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE plpgsql STRICT
     AS $$
 DECLARE
   _contact_id UUID;

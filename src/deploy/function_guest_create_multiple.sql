@@ -25,7 +25,7 @@ BEGIN
     FROM maevsi.guest
     WHERE id = ANY (_id_array);
 
-END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+END $$ LANGUAGE PLPGSQL STRICT SECURITY INVOKER;
 
 COMMENT ON FUNCTION maevsi.create_guests(UUID, UUID[]) IS 'Function for inserting multiple guest records.';
 
