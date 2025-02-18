@@ -96,6 +96,6 @@ test_account_block [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thele
 function_event_search [privilege_execute_revoke schema_public enum_language schema_private function_language_iso_full_text_search table_event role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Full-text search on events.
 test_location [schema_public schema_private extension_postgis table_account_private table_event role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A collection of location related functions.
 enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Possible status values of a friend relation.
-table_friendship [schema_public table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
+table_friendship [schema_public enum_friendship_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
 table_friendship_policy [schema_public table_friendship role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
 test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
