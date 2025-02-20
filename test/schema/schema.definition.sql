@@ -6344,12 +6344,12 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 ALTER TABLE maevsi.friendship ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: friendship friendship_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_existing; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friendship_delete ON maevsi.friendship FOR DELETE USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
+CREATE POLICY friendship_existing ON maevsi.friendship USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
    FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((maevsi.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))))) WITH CHECK (false);
 
 
 --
@@ -6360,21 +6360,10 @@ CREATE POLICY friendship_insert ON maevsi.friendship FOR INSERT WITH CHECK ((cre
 
 
 --
--- Name: friendship friendship_select; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY friendship_select ON maevsi.friendship FOR SELECT USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((maevsi.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id)))))));
-
-
---
 -- Name: friendship friendship_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((maevsi.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))))) WITH CHECK ((updated_by = maevsi.invoker_account_id()));
+CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE WITH CHECK ((updated_by = maevsi.invoker_account_id()));
 
 
 --
