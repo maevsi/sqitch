@@ -3166,7 +3166,7 @@ CREATE TABLE maevsi.device (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     fcm_token text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid DEFAULT maevsi.invoker_account_id() NOT NULL,
+    created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
     CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) < 300)))
@@ -3209,7 +3209,7 @@ Timestamp when the device was created. Defaults to the current timestamp.';
 -- Name: COLUMN device.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.device.created_by IS '@omit create,update
+COMMENT ON COLUMN maevsi.device.created_by IS '@omit update
 Reference to the account that created the device.';
 
 
@@ -5916,17 +5916,10 @@ CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = 
 ALTER TABLE maevsi.device ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: device device_existing; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: device device; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY device_existing ON maevsi.device USING ((created_by = maevsi.invoker_account_id()));
-
-
---
--- Name: device device_new; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY device_new ON maevsi.device WITH CHECK (true);
+CREATE POLICY device ON maevsi.device USING ((created_by = maevsi.invoker_account_id())) WITH CHECK (true);
 
 
 --
