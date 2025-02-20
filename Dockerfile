@@ -35,12 +35,12 @@ RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib
   && apt-get install --no-install-recommends -y \
     sqitch=1.1.0000-1 \
   && mkdir -p /run/secrets \
-  && echo "postgres" > /run/secrets/postgres_password \
-  && echo "grafana" > /run/secrets/postgres_role_grafana_username \
+  && echo "postgres"      > /run/secrets/postgres_password \
+  && echo "postgraphile"  > /run/secrets/postgres_role_maevsi-postgraphile_username \
+  && echo "maevsi"          > /run/secrets/postgres_role_maevsi_username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_grafana_password \
+    /run/secrets/postgres_role_maevsi_password \
     /run/secrets/postgres_role_maevsi-postgraphile_password \
-    /run/secrets/postgres_role_maevsi-tusd_password \
     /dev/null
 
 COPY ./src ./
