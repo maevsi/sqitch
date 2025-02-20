@@ -7,7 +7,7 @@ CREATE TABLE maevsi.friendship (
   b_account_id        UUID NOT NULL REFERENCES maevsi.account(id),
   status              maevsi.friendship_status NOT NULL DEFAULT 'pending'::maevsi.friendship_status,
 
-  created_at          TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by          UUID NOT NULL REFERENCES maevsi.account(id),
   updated_at          TIMESTAMP WITH TIME ZONE,
   updated_by          UUID REFERENCES maevsi.account(id),

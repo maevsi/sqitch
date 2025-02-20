@@ -3729,7 +3729,7 @@ CREATE TABLE maevsi.friendship (
     a_account_id uuid NOT NULL,
     b_account_id uuid NOT NULL,
     status maevsi.friendship_status DEFAULT 'pending'::maevsi.friendship_status NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
