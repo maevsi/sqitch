@@ -1,3 +1,16 @@
+## [5.0.0-beta.13](https://github.com/maevsi/sqitch/compare/5.0.0-beta.12...5.0.0-beta.13) (2025-02-21)
+
+### Features
+
+* **device:** add ([27c156c](https://github.com/maevsi/sqitch/commit/27c156c57fceada8b543ec351aa130d4028d232b))
+* **device:** prevent token value updates ([4bd0d0f](https://github.com/maevsi/sqitch/commit/4bd0d0fdd940d08c32bd64bfef533fba40b6f974))
+* **device:** work in feedback ([9b7c451](https://github.com/maevsi/sqitch/commit/9b7c451a88b3df87b8eb6efa35fd2ed6f206f26a))
+
+### Bug Fixes
+
+* **device:** correct permissions ([bccfe40](https://github.com/maevsi/sqitch/commit/bccfe40ad30b08cbfd1810069c34f3fb0bcb93d9))
+* **device:** tune policies ([14ca9cc](https://github.com/maevsi/sqitch/commit/14ca9cc652e23d6db066f8aa1d6c58c103536f35))
+
 ## [5.0.0-beta.12](https://github.com/maevsi/sqitch/compare/5.0.0-beta.11...5.0.0-beta.12) (2025-02-16)
 
 ### ⚠ BREAKING CHANGES
