@@ -197,6 +197,26 @@ COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and 
 
 
 --
+-- Name: friendship_status; Type: TYPE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TYPE maevsi.friendship_status AS ENUM (
+    'accepted',
+    'pending'
+);
+
+
+ALTER TYPE maevsi.friendship_status OWNER TO postgres;
+
+--
+-- Name: TYPE friendship_status; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.
+There is not status ''rejected'' because friendship records will be deleted as soon as a friendship is rejected.';
+
+
+--
 -- Name: invitation_feedback; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -738,131 +758,6 @@ COMMENT ON FUNCTION maevsi.authenticate(username text, password text) IS 'Create
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
---
-
-CREATE TABLE maevsi.guest (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    contact_id uuid NOT NULL,
-    event_id uuid NOT NULL,
-    feedback maevsi.invitation_feedback,
-    feedback_paper maevsi.invitation_feedback_paper,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid
-);
-
-
-ALTER TABLE maevsi.guest OWNER TO postgres;
-
---
--- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
-
-
---
--- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
-The guests''s internal id.';
-
-
---
--- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
-
-
---
--- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
-
-
---
--- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
-
-
---
--- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
-
-
---
--- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
-Timestamp of when the guest was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
-Timestamp of when the guest was last updated.';
-
-
---
--- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
-The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
-
-
---
--- Name: create_guests(uuid, uuid[]); Type: FUNCTION; Schema: maevsi; Owner: postgres
---
-
-CREATE FUNCTION maevsi.create_guests(event_id uuid, contact_ids uuid[]) RETURNS SETOF maevsi.guest
-    LANGUAGE plpgsql STRICT
-    AS $$
-DECLARE
-  _contact_id UUID;
-  _id UUID;
-  _id_array UUID[] := ARRAY[]::UUID[];
-BEGIN
-
-  FOREACH _contact_id IN ARRAY create_guests.contact_ids LOOP
-
-    INSERT INTO maevsi.guest(event_id, contact_id)
-    VALUES (create_guests.event_id, _contact_id)
-    RETURNING id INTO _id;
-
-    _id_array := array_append(_id_array, _id);
-
-  END LOOP;
-
-  RETURN QUERY
-    SELECT *
-    FROM maevsi.guest
-    WHERE id = ANY (_id_array);
-
-END $$;
-
-
-ALTER FUNCTION maevsi.create_guests(event_id uuid, contact_ids uuid[]) OWNER TO postgres;
-
---
--- Name: FUNCTION create_guests(event_id uuid, contact_ids uuid[]); Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON FUNCTION maevsi.create_guests(event_id uuid, contact_ids uuid[]) IS 'Function for inserting multiple guest records.';
-
 
 --
 -- Name: event; Type: TABLE; Schema: maevsi; Owner: postgres
@@ -2588,6 +2483,235 @@ END $$;
 ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
+-- Name: friendship_accept(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  rec RECORD;
+  _count INTEGER;
+BEGIN
+--  RAISE NOTICE 'friendship_accept: _invoker = %, _id = %', _invoker_account_id, _id;
+
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+/*
+  FOR rec IN
+    SELECT * FROM maevsi.friendship WHERE id = _id
+  LOOP
+	RAISE NOTICE 'friendship: id = %, a_account_id = %, b_account_id = %, status = %, created_by = %, updated_by = %', rec.id, rec.a_account_id, rec.b_account_id, rec.status, rec.created_by, rec.updated_by;
+  END LOOP;
+*/
+  UPDATE maevsi.friendship
+  SET "status" = 'accepted'::maevsi.friendship_status
+  WHERE id = _id;
+
+--  GET DIAGNOSTICS _count = ROW_COUNT;
+--  RAISE NOTICE '#updated = %', _count;
+
+  SET LOCAL role = 'postgres';
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) OWNER TO postgres;
+
+--
+-- Name: friendship_account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.friendship_account_create(_username text, _email text) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+  _verification UUID;
+BEGIN
+  _id := maevsi.account_registration(_username, _email, 'password', 'en');
+
+  SELECT email_address_verification INTO _verification
+  FROM maevsi_private.account
+  WHERE id = _id;
+
+  PERFORM maevsi.account_email_address_verification(_verification);
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.friendship_account_create(_username text, _email text) OWNER TO postgres;
+
+--
+-- Name: friendship_account_ids_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  rec RECORD;
+BEGIN
+
+  RAISE NOTICE '%', _test_case;
+
+  IF _invoker_account_id IS NULL THEN
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  END IF;
+
+  IF EXISTS (
+    WITH friendship_account_ids AS (
+      SELECT b_account_id as account_id
+      FROM maevsi.friendship
+      WHERE a_account_id = _invoker_account_id
+        and status = 'accepted'::maevsi.friendship_status
+      UNION ALL
+      SELECT a_account_id as account_id
+      FROM maevsi.friendship
+      WHERE b_account_id = _invoker_account_id
+        and status = 'accepted'::maevsi.friendship_status
+    )
+    SELECT account_id as id
+    FROM friendship_account_ids
+    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
+    EXCEPT
+    SELECT * FROM unnest(_expected_result)
+  ) THEN
+    RAISE EXCEPTION 'some accounts should not appear in the list of friends';
+  END IF;
+
+  IF EXISTS (
+    WITH friendship_account_ids AS (
+      SELECT b_account_id as account_id
+      FROM maevsi.friendship
+      WHERE a_account_id = maevsi.invoker_account_id()
+        and status = 'accepted'::maevsi.friendship_status
+      UNION ALL
+      SELECT a_account_id as account_id
+      FROM maevsi.friendship
+      WHERE b_account_id = maevsi.invoker_account_id()
+        and status = 'accepted'::maevsi.friendship_status
+    )
+    SELECT * FROM unnest(_expected_result)
+    EXCEPT
+    SELECT account_id as id
+    FROM friendship_account_ids
+    WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
+  ) THEN
+    RAISE EXCEPTION 'some account is missing in the list of friends';
+  END IF;
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+
+--
+-- Name: friendship_reject(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  DELETE FROM maevsi.friendship
+  WHERE id = _id;
+
+  SET LOCAL role = 'postgres';
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) OWNER TO postgres;
+
+--
+-- Name: friendship_request(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+  _a_account_id UUID;
+  _b_account_id UUID;
+BEGIN
+
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  IF _invoker_account_id < _friend_account_id THEN
+    _a_account_id := _invoker_account_id;
+    _b_account_id := _friend_account_id;
+  ELSE
+    _a_account_id := _friend_account_id;
+    _b_account_id := _invoker_account_id;
+  END IF;
+
+  INSERT INTO maevsi.friendship(a_account_id, b_account_id, created_by)
+  VALUES (_a_account_id, _b_account_id, _invoker_account_id)
+  RETURNING id INTO _id;
+
+  SET LOCAL role = 'postgres';
+
+  RETURN _id;
+
+END $$;
+
+
+ALTER FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) OWNER TO postgres;
+
+--
+-- Name: friendship_test(text, uuid, text, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  rec RECORD;
+BEGIN
+
+  RAISE NOTICE '%', _test_case;
+
+  IF _invoker_account_id IS NULL THEN
+    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL role = 'maevsi_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  END IF;
+
+  IF EXISTS (
+    SELECT id FROM maevsi.friendship WHERE _status IS NULL OR status = _status::maevsi.friendship_status
+    EXCEPT
+    SELECT * FROM unnest(_expected_result)
+  ) THEN
+    RAISE EXCEPTION 'some accounts should not appear in the query result';
+  END IF;
+
+  IF EXISTS (
+    SELECT * FROM unnest(_expected_result)
+    EXCEPT
+    SELECT id FROM maevsi.friendship WHERE _status IS NULL OR status = _status::maevsi.friendship_status
+  ) THEN
+    RAISE EXCEPTION 'some account is missing in the query result';
+  END IF;
+
+  SET LOCAL role = 'postgres';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) OWNER TO postgres;
+
+--
 -- Name: guest_claim_from_account_guest(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -2718,36 +2842,6 @@ ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO
 
 COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';
 
-
---
--- Name: invoker_set(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.invoker_set(_invoker_id uuid) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
-END $$;
-
-
-ALTER FUNCTION maevsi_test.invoker_set(_invoker_id uuid) OWNER TO postgres;
-
---
--- Name: invoker_unset(); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.invoker_unset() RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  SET LOCAL role = 'postgres';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
-END $$;
-
-
-ALTER FUNCTION maevsi_test.invoker_unset() OWNER TO postgres;
 
 --
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -3624,6 +3718,184 @@ COMMENT ON COLUMN maevsi.event_upload.is_header_image IS 'Optional boolean flag 
 
 COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
 Reference to the uploaded file.';
+
+
+--
+-- Name: friendship; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.friendship (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    a_account_id uuid NOT NULL,
+    b_account_id uuid NOT NULL,
+    status maevsi.friendship_status DEFAULT 'pending'::maevsi.friendship_status NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid,
+    CONSTRAINT friendship_check1 CHECK ((a_account_id < b_account_id)),
+    CONSTRAINT friendship_check2 CHECK ((created_by <> updated_by)),
+    CONSTRAINT friendship_check3 CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
+    CONSTRAINT friendship_check4 CHECK (((updated_by IS NULL) OR (updated_by = a_account_id) OR (updated_by = b_account_id)))
+);
+
+
+ALTER TABLE maevsi.friendship OWNER TO postgres;
+
+--
+-- Name: TABLE friendship; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.friendship IS 'A friend relation together with its status.';
+
+
+--
+-- Name: COLUMN friendship.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.id IS '@omit create,update
+The friend relation''s internal id.';
+
+
+--
+-- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.a_account_id IS '@omit update
+The ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
+
+
+--
+-- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.b_account_id IS '@omit update
+The ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
+
+
+--
+-- Name: COLUMN friendship.status; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.status IS '@omit create
+The status of the friend relation.';
+
+
+--
+-- Name: COLUMN friendship.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.created_at IS '@omit create,update
+The timestamp when the friend relation was created.';
+
+
+--
+-- Name: COLUMN friendship.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.created_by IS '@omit update
+The account that created the friend relation was created.';
+
+
+--
+-- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.updated_at IS '@omit create,update
+The timestamp when the friend relation''s status was updated.';
+
+
+--
+-- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.friendship.updated_by IS '@omit create,update
+The account that updated the friend relation''s status.';
+
+
+--
+-- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.guest (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    contact_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    feedback maevsi.invitation_feedback,
+    feedback_paper maevsi.invitation_feedback_paper,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
+);
+
+
+ALTER TABLE maevsi.guest OWNER TO postgres;
+
+--
+-- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
+
+
+--
+-- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
+The guests''s internal id.';
+
+
+--
+-- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
+
+
+--
+-- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
+
+
+--
+-- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
+
+
+--
+-- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
+
+
+--
+-- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
+Timestamp of when the guest was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
+Timestamp of when the guest was last updated.';
+
+
+--
+-- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
+The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
 
 
 --
@@ -4892,6 +5164,22 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
+-- Name: friendship friendship_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_a_account_id_b_account_id_key UNIQUE (a_account_id, b_account_id);
+
+
+--
+-- Name: friendship friendship_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: guest guest_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -5185,6 +5473,34 @@ COMMENT ON INDEX maevsi.idx_event_upload_is_header_image_unique IS 'Ensures that
 
 
 --
+-- Name: idx_friendship_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_friendship_created_by ON maevsi.friendship USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_friendship_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
+
+
+--
+-- Name: idx_friendship_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+--
+
+CREATE INDEX idx_friendship_updated_by ON maevsi.friendship USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_friendship_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON INDEX maevsi.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
 -- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
 --
 
@@ -5252,6 +5568,13 @@ CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account
 --
 
 CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
+
+
+--
+-- Name: friendship maevsi_trigger_friendship_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+--
+
+CREATE TRIGGER maevsi_trigger_friendship_update BEFORE UPDATE ON maevsi.friendship FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
@@ -5474,6 +5797,38 @@ ALTER TABLE ONLY maevsi.event_upload
 
 ALTER TABLE ONLY maevsi.event_upload
     ADD CONSTRAINT event_upload_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES maevsi.upload(id);
+
+
+--
+-- Name: friendship friendship_a_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: friendship friendship_b_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: friendship friendship_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_created_by_fkey FOREIGN KEY (created_by) REFERENCES maevsi.account(id);
+
+
+--
+-- Name: friendship friendship_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.friendship
+    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -5983,6 +6338,35 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 
 
 --
+-- Name: friendship; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE maevsi.friendship ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: friendship friendship_existing; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_existing ON maevsi.friendship USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))) OR ((maevsi.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id))))))) WITH CHECK (false);
+
+
+--
+-- Name: friendship friendship_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_insert ON maevsi.friendship FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
+
+
+--
+-- Name: friendship friendship_update; Type: POLICY; Schema: maevsi; Owner: postgres
+--
+
+CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING ((status = 'pending'::maevsi.friendship_status)) WITH CHECK (((status = 'accepted'::maevsi.friendship_status) AND (updated_by = maevsi.invoker_account_id())));
+
+
+--
 -- Name: guest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
 --
 
@@ -6084,7 +6468,7 @@ ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 -- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
+CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
 
 
 --
@@ -6138,14 +6522,14 @@ ALTER TABLE maevsi.upload ENABLE ROW LEVEL SECURITY;
 -- Name: upload upload_delete_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name));
+CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
 -- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
    FROM maevsi.profile_picture))));
 
 
@@ -6153,7 +6537,7 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT 
 -- Name: upload upload_update_using; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi_tusd'::name));
+CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
@@ -6175,7 +6559,7 @@ CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SEL
 
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
 GRANT USAGE ON SCHEMA maevsi TO maevsi_account;
-GRANT USAGE ON SCHEMA maevsi TO maevsi_tusd;
+GRANT USAGE ON SCHEMA maevsi TO maevsi;
 
 
 --
@@ -6626,22 +7010,6 @@ GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevs
 
 
 --
--- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
-GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
-
-
---
--- Name: FUNCTION create_guests(event_id uuid, contact_ids uuid[]); Type: ACL; Schema: maevsi; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi.create_guests(event_id uuid, contact_ids uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi.create_guests(event_id uuid, contact_ids uuid[]) TO maevsi_account;
-
-
---
 -- Name: TABLE event; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -6744,7 +7112,7 @@ GRANT ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) TO maevsi_acco
 REVOKE ALL ON FUNCTION maevsi.invoker_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_account;
 GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_anonymous;
-GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi_tusd;
+GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi;
 
 
 --
@@ -6828,7 +7196,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_anonymous;
-GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi_tusd;
+GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi;
 
 
 --
@@ -6878,7 +7246,6 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6886,7 +7253,6 @@ GRANT ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocke
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6894,7 +7260,6 @@ GRANT ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocke
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) TO maevsi_account;
 
 
 --
@@ -6926,7 +7291,6 @@ GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _lat
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.account_remove(_username text) TO maevsi_account;
 
 
 --
@@ -6934,7 +7298,6 @@ GRANT ALL ON FUNCTION maevsi_test.account_remove(_username text) TO maevsi_accou
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) TO maevsi_account;
 
 
 --
@@ -6942,7 +7305,6 @@ GRANT ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_addres
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) TO maevsi_account;
 
 
 --
@@ -6950,7 +7312,6 @@ GRANT ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid)
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -6958,7 +7319,6 @@ GRANT ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.event_category_create(_category text) TO maevsi_account;
 
 
 --
@@ -6966,7 +7326,6 @@ GRANT ALL ON FUNCTION maevsi_test.event_category_create(_category text) TO maevs
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) TO maevsi_account;
 
 
 --
@@ -6974,7 +7333,6 @@ GRANT ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -6982,7 +7340,6 @@ GRANT ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) TO maevsi_account;
 
 
 --
@@ -7014,7 +7371,48 @@ GRANT ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitud
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
+
+
+--
+-- Name: FUNCTION friendship_accept(_invoker_account_id uuid, _id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION friendship_account_create(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.friendship_account_create(_username text, _email text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION friendship_reject(_invoker_account_id uuid, _id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION friendship_request(_invoker_account_id uuid, _friend_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
@@ -7022,7 +7420,6 @@ GRANT ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, 
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) TO maevsi_account;
 
 
 --
@@ -7030,7 +7427,6 @@ GRANT ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uui
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) TO maevsi_account;
 
 
 --
@@ -7038,7 +7434,6 @@ GRANT ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid,
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) TO maevsi_account;
 
 
 --
@@ -7049,27 +7444,10 @@ REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) 
 
 
 --
--- Name: FUNCTION invoker_set(_invoker_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.invoker_set(_invoker_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.invoker_set(_invoker_id uuid) TO maevsi_account;
-
-
---
--- Name: FUNCTION invoker_unset(); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.invoker_unset() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.invoker_unset() TO maevsi_account;
-
-
---
 -- Name: FUNCTION uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) TO maevsi_account;
 
 
 --
@@ -12535,6 +12913,21 @@ GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 
 --
+-- Name: TABLE friendship; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.friendship TO maevsi_account;
+
+
+--
+-- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
+GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
+
+
+--
 -- Name: TABLE guest_flat; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
@@ -12563,7 +12956,7 @@ GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.profile_picture TO maevsi_anonymous;
-GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi_tusd;
+GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi;
 
 
 --
@@ -12577,7 +12970,7 @@ GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 -- Name: TABLE achievement_code; Type: ACL; Schema: maevsi_private; Owner: postgres
 --
 
-GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi_tusd;
+GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi;
 
 
 --

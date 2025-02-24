@@ -23,8 +23,12 @@ CREATE POLICY friendship_insert ON maevsi.friendship FOR INSERT WITH CHECK (
   created_by = maevsi.invoker_account_id()
 );
 
--- Only allow update by the current user.
-CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE WITH CHECK (
+-- Only allow update by the current user and only the state transition pending -> accepted.
+CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING (
+  status = 'pending'::maevsi.friendship_status
+) WITH CHECK (
+  status = 'accepted'::maevsi.friendship_status
+  AND
   updated_by = maevsi.invoker_account_id()
 );
 
