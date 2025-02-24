@@ -13,10 +13,10 @@ CREATE TABLE maevsi.friendship (
   updated_by          UUID REFERENCES maevsi.account(id),
 
   UNIQUE (a_account_id, b_account_id),
-  CHECK (a_account_id < b_account_id),
-  CHECK (created_by <> updated_by),
-  CHECK (created_by = a_account_id or created_by = b_account_id),
-  CHECK (updated_by IS NULL or updated_by = a_account_id or updated_by = b_account_id)
+  CONSTRAINT friendship_check1 CHECK (a_account_id < b_account_id),
+  CONSTRAINT friendship_check2 CHECK (created_by <> updated_by),
+  CONSTRAINT friendship_check3 CHECK (created_by = a_account_id or created_by = b_account_id),
+  CONSTRAINT friendship_check4 CHECK (updated_by IS NULL or updated_by = a_account_id or updated_by = b_account_id)
 );
 
 CREATE INDEX idx_friendship_created_by ON maevsi.friendship USING btree (created_by);
