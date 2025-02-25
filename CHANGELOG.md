@@ -1,3 +1,26 @@
+## [5.0.0-beta.14](https://github.com/maevsi/sqitch/compare/5.0.0-beta.13...5.0.0-beta.14) (2025-02-25)
+
+### Features
+
+* **friend:** complete the friend feature ([50c7644](https://github.com/maevsi/sqitch/commit/50c76445d23ffbf73d20daecffc439cf2dbdf56e))
+* **friend:** draft ([c972eb1](https://github.com/maevsi/sqitch/commit/c972eb1dc030abffa99d90c30916bf5c55095106))
+* **friends:** add tests ([93cf92d](https://github.com/maevsi/sqitch/commit/93cf92dc5bfefe308dc949ebec1898e7f9efe3c6))
+* **friends:** add tests ([df1fa0c](https://github.com/maevsi/sqitch/commit/df1fa0cbf23a687182a17698aa87763fcd5a8c8a))
+* **friends:** add tests ([54de3f8](https://github.com/maevsi/sqitch/commit/54de3f847b7d4f70b9028515fa1b423db065ef1b))
+* **friends:** add tests ([12914f5](https://github.com/maevsi/sqitch/commit/12914f5cc88b5a201a94b243b279eee6f3529064))
+* **friends:** add tests ([8c9dbb4](https://github.com/maevsi/sqitch/commit/8c9dbb441179f7ba8a0f63a158a14047ef71528c))
+* **friends:** give names to check constraints ([eb46d17](https://github.com/maevsi/sqitch/commit/eb46d17137eb7693ebec03048fe45cf900cdec4c))
+* **friendship:** improve constraint names ([24309dc](https://github.com/maevsi/sqitch/commit/24309dcebede1323ea4a971e09d04d6e8e97c4c3))
+* **friendship:** rename `pending` enum to `requested` ([667e475](https://github.com/maevsi/sqitch/commit/667e4752567dc501273a8f92e721bb7dc925544f))
+* **friendship:** restrict update depending on friendship state ([bf599b9](https://github.com/maevsi/sqitch/commit/bf599b9957fa2ecdbb2ba6916100be4e8b76c2dd))
+* **friendship:** work in feedback ([18f894e](https://github.com/maevsi/sqitch/commit/18f894e3d4fe950f8751866d3a5247093f7629fd))
+
+### Bug Fixes
+
+* **friendship:** add missing not-null constraint ([2119a5e](https://github.com/maevsi/sqitch/commit/2119a5ea1672c7428b9c416e03a4d2230572f925))
+* **friendship:** add usage of enum type to `sqitch.plan` ([329de43](https://github.com/maevsi/sqitch/commit/329de432a174879f04ab0c3dab382634e1417971))
+* **friendship:** remove status `rejected` and function `friendship_account_ids` ([c083f6c](https://github.com/maevsi/sqitch/commit/c083f6ceda37cc4fedfa35535b03e6a25aae0083))
+
 ## [5.0.0-beta.13](https://github.com/maevsi/sqitch/compare/5.0.0-beta.12...5.0.0-beta.13) (2025-02-21)
 
 ### Features
