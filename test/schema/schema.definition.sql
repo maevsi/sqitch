@@ -3216,7 +3216,7 @@ Timestamp when the address was created. Defaults to the current timestamp.';
 -- Name: COLUMN address.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON COLUMN maevsi.address.created_by IS '@omit create,update
+COMMENT ON COLUMN maevsi.address.created_by IS '@omit update
 Reference to the account that created the address.';
 
 
