@@ -202,7 +202,7 @@ COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and 
 
 CREATE TYPE maevsi.friendship_status AS ENUM (
     'accepted',
-    'pending'
+    'requested'
 );
 
 
@@ -3795,7 +3795,7 @@ CREATE TABLE maevsi.friendship (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     a_account_id uuid NOT NULL,
     b_account_id uuid NOT NULL,
-    status maevsi.friendship_status DEFAULT 'pending'::maevsi.friendship_status NOT NULL,
+    status maevsi.friendship_status DEFAULT 'requested'::maevsi.friendship_status NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
@@ -6503,7 +6503,7 @@ CREATE POLICY friendship_insert ON maevsi.friendship FOR INSERT WITH CHECK ((cre
 -- Name: friendship friendship_update; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING ((status = 'pending'::maevsi.friendship_status)) WITH CHECK (((status = 'accepted'::maevsi.friendship_status) AND (updated_by = maevsi.invoker_account_id())));
+CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING ((status = 'requested'::maevsi.friendship_status)) WITH CHECK (((status = 'accepted'::maevsi.friendship_status) AND (updated_by = maevsi.invoker_account_id())));
 
 
 --

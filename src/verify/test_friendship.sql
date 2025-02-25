@@ -16,8 +16,8 @@ BEGIN
 
   -- friendship request from user A to B
   friendshipAB := maevsi_test.friendship_request(accountA, accountB);
-  PERFORM maevsi_test.friendship_test('The friendship is pending for user A', accountA, 'pending', ARRAY[friendshipAB]::UUID[]);
-  PERFORM maevsi_test.friendship_test('The friendship is pending for user B', accountB, 'pending', ARRAY[friendshipAB]::UUID[]);
+  PERFORM maevsi_test.friendship_test('The friendship is requested for user A', accountA, 'requested', ARRAY[friendshipAB]::UUID[]);
+  PERFORM maevsi_test.friendship_test('The friendship is requested for user B', accountB, 'requested', ARRAY[friendshipAB]::UUID[]);
   PERFORM maevsi_test.friendship_account_ids_test('User A has no friends', accountA, ARRAY[]::UUID[]);
   PERFORM maevsi_test.friendship_account_ids_test('User B has no friends', accountB, ARRAY[]::UUID[]);
 
@@ -25,15 +25,15 @@ BEGIN
   PERFORM maevsi_test.friendship_accept(accountB, friendshipAB);
   PERFORM maevsi_test.friendship_test('The friendship is accepted for user A', accountA, 'accepted', ARRAY[friendshipAB]::UUID[]);
   PERFORM maevsi_test.friendship_test('The friendship is accepted for user B', accountB, 'accepted', ARRAY[friendshipAB]::UUID[]);
-  PERFORM maevsi_test.friendship_test('There is no pending friendship for user A', accountA, 'pending', ARRAY[]::UUID[]);
-  PERFORM maevsi_test.friendship_test('There is no pending friendship for user B', accountA, 'pending', ARRAY[]::UUID[]);
+  PERFORM maevsi_test.friendship_test('There is no requested friendship for user A', accountA, 'requested', ARRAY[]::UUID[]);
+  PERFORM maevsi_test.friendship_test('There is no requested friendship for user B', accountA, 'requested', ARRAY[]::UUID[]);
   PERFORM maevsi_test.friendship_account_ids_test('User B is a friend of user A', accountA, ARRAY[accountB]::UUID[]);
   PERFORM maevsi_test.friendship_account_ids_test('User A is a friend of user B', accountB, ARRAY[accountA]::UUID[]);
 
   -- friendship request from user C to A
   friendshipCA := maevsi_test.friendship_request(accountC, accountA);
   PERFORM maevsi_test.friendship_test('There is still only one accepted friendship for user A', accountA, 'accepted', ARRAY[friendshipAB]::UUID[]);
-  PERFORM maevsi_test.friendship_test('There is a new requested friendship for user C', accountC, 'pending', ARRAY[friendshipCA]::UUID[]);
+  PERFORM maevsi_test.friendship_test('There is a new requested friendship for user C', accountC, 'requested', ARRAY[friendshipCA]::UUID[]);
   PERFORM maevsi_test.friendship_account_ids_test('User B is still a friend of user A', accountA, ARRAY[accountB]::UUID[]);
   PERFORM maevsi_test.friendship_account_ids_test('User C has no friends', accountC, ARRAY[]::UUID[]);
 
