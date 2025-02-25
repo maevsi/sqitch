@@ -3733,10 +3733,10 @@ CREATE TABLE maevsi.friendship (
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    CONSTRAINT friendship_check1 CHECK ((a_account_id < b_account_id)),
-    CONSTRAINT friendship_check2 CHECK ((created_by <> updated_by)),
-    CONSTRAINT friendship_check3 CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
-    CONSTRAINT friendship_check4 CHECK (((updated_by IS NULL) OR (updated_by = a_account_id) OR (updated_by = b_account_id)))
+    CONSTRAINT friendship_creator_participant CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
+    CONSTRAINT friendship_creator_updater_difference CHECK ((created_by <> updated_by)),
+    CONSTRAINT friendship_ordering CHECK ((a_account_id < b_account_id)),
+    CONSTRAINT friendship_updater_participant CHECK (((updated_by IS NULL) OR (updated_by = a_account_id) OR (updated_by = b_account_id)))
 );
 
 
