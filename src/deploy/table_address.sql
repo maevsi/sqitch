@@ -30,7 +30,7 @@ COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1
 COMMENT ON COLUMN maevsi.address.region IS 'Region of the address (e.g., state, province, county, department or territory). Must be between 1 and 300 characters.';
 COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
 COMMENT ON COLUMN maevsi.address.created_at IS E'@omit create,update\nTimestamp when the address was created. Defaults to the current timestamp.';
-COMMENT ON COLUMN maevsi.address.created_by IS E'@omit create,update\nReference to the account that created the address.';
+COMMENT ON COLUMN maevsi.address.created_by IS E'@omit update\nReference to the account that created the address.';
 COMMENT ON COLUMN maevsi.address.updated_at IS E'@omit create,update\nTimestamp when the address was last updated.';
 COMMENT ON COLUMN maevsi.address.updated_by IS E'@omit create,update\nReference to the account that last updated the address.';
 COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
