@@ -6243,32 +6243,11 @@ CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
 ALTER TABLE maevsi.address ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: address address_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: address address; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY address_delete ON maevsi.address FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
-
-
---
--- Name: address address_insert; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY address_insert ON maevsi.address FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
-
-
---
--- Name: address address_select; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY address_select ON maevsi.address FOR SELECT USING (((created_by = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
-   FROM maevsi_private.account_block_ids() account_block_ids(id))))));
-
-
---
--- Name: address address_update; Type: POLICY; Schema: maevsi; Owner: postgres
---
-
-CREATE POLICY address_update ON maevsi.address FOR UPDATE USING ((created_by = maevsi.invoker_account_id()));
+CREATE POLICY address ON maevsi.address USING (((created_by = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM maevsi_private.account_block_ids() account_block_ids(id)))))) WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -12993,8 +12972,8 @@ GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
 -- Name: TABLE address; Type: ACL; Schema: maevsi; Owner: postgres
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.address TO maevsi_account;
 GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.address TO maevsi_account;
 
 
 --
