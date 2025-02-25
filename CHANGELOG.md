@@ -1,3 +1,9 @@
+## [5.0.0-beta.15](https://github.com/maevsi/sqitch/compare/5.0.0-beta.14...5.0.0-beta.15) (2025-02-25)
+
+### Bug Fixes
+
+* **address:** expose creator id for insertion ([514f6bb](https://github.com/maevsi/sqitch/commit/514f6bb410303d73d042c5e4d1e31aa07e900aa2))
+
 ## [5.0.0-beta.14](https://github.com/maevsi/sqitch/compare/5.0.0-beta.13...5.0.0-beta.14) (2025-02-25)
 
 ### Features
