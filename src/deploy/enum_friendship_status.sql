@@ -6,6 +6,6 @@ CREATE TYPE maevsi.friendship_status AS ENUM (
 );
 
 COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.
-There is not status ''rejected'' because friendship records will be deleted as soon as a friendship is rejected.';
+There is no status `rejected` because friendship records will be deleted when a friendship request is rejected.';
 
 COMMIT;

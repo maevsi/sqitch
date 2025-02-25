@@ -29,4 +29,24 @@ COMMENT ON FUNCTION maevsi.account_email_address_verification(UUID) IS 'Sets the
 
 GRANT EXECUTE ON FUNCTION maevsi.account_email_address_verification(UUID) TO maevsi_account, maevsi_anonymous;
 
+
+CREATE FUNCTION maevsi_test.account_registration_verified (
+  _username TEXT,
+  _email_address TEXT
+) RETURNS UUID AS $$
+DECLARE
+  _id UUID;
+  _verification UUID;
+BEGIN
+  _id := maevsi.account_registration(_username, _email_address, 'password', 'en');
+
+  SELECT email_address_verification INTO _verification
+  FROM maevsi_private.account
+  WHERE id = _id;
+
+  PERFORM maevsi.account_email_address_verification(_verification);
+
+  RETURN _id;
+END $$ LANGUAGE plpgsql;
+
 COMMIT;

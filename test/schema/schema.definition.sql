@@ -213,7 +213,7 @@ ALTER TYPE maevsi.friendship_status OWNER TO postgres;
 --
 
 COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.
-There is not status ''rejected'' because friendship records will be deleted as soon as a friendship is rejected.';
+There is no status `rejected` because friendship records will be deleted when a friendship request is rejected.';
 
 
 --
@@ -2174,6 +2174,31 @@ COMMENT ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latit
 
 
 --
+-- Name: account_registration_verified(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+  _verification UUID;
+BEGIN
+  _id := maevsi.account_registration(_username, _email_address, 'password', 'en');
+
+  SELECT email_address_verification INTO _verification
+  FROM maevsi_private.account
+  WHERE id = _id;
+
+  PERFORM maevsi.account_email_address_verification(_verification);
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) OWNER TO postgres;
+
+--
 -- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -2512,55 +2537,18 @@ DECLARE
   rec RECORD;
   _count INTEGER;
 BEGIN
---  RAISE NOTICE 'friendship_accept: _invoker = %, _id = %', _invoker_account_id, _id;
-
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
-/*
-  FOR rec IN
-    SELECT * FROM maevsi.friendship WHERE id = _id
-  LOOP
-	RAISE NOTICE 'friendship: id = %, a_account_id = %, b_account_id = %, status = %, created_by = %, updated_by = %', rec.id, rec.a_account_id, rec.b_account_id, rec.status, rec.created_by, rec.updated_by;
-  END LOOP;
-*/
-  UPDATE maevsi.friendship
-  SET "status" = 'accepted'::maevsi.friendship_status
-  WHERE id = _id;
 
---  GET DIAGNOSTICS _count = ROW_COUNT;
---  RAISE NOTICE '#updated = %', _count;
+  UPDATE maevsi.friendship
+    SET "status" = 'accepted'::maevsi.friendship_status
+    WHERE id = _id;
 
   SET LOCAL role = 'postgres';
-
 END $$;
 
 
 ALTER FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) OWNER TO postgres;
-
---
--- Name: friendship_account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
---
-
-CREATE FUNCTION maevsi_test.friendship_account_create(_username text, _email text) RETURNS uuid
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-  _verification UUID;
-BEGIN
-  _id := maevsi.account_registration(_username, _email, 'password', 'en');
-
-  SELECT email_address_verification INTO _verification
-  FROM maevsi_private.account
-  WHERE id = _id;
-
-  PERFORM maevsi.account_email_address_verification(_verification);
-
-  RETURN _id;
-END $$;
-
-
-ALTER FUNCTION maevsi_test.friendship_account_create(_username text, _email text) OWNER TO postgres;
 
 --
 -- Name: friendship_account_ids_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
@@ -2572,9 +2560,6 @@ CREATE FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoke
 DECLARE
   rec RECORD;
 BEGIN
-
-  RAISE NOTICE '%', _test_case;
-
   IF _invoker_account_id IS NULL THEN
     SET LOCAL jwt.claims.account_id = '';
   ELSE
@@ -2582,7 +2567,7 @@ BEGIN
   END IF;
 
   IF EXISTS (
-    WITH friendship_account_ids AS (
+    WITH friendship_account_ids_test AS (
       SELECT b_account_id as account_id
       FROM maevsi.friendship
       WHERE a_account_id = _invoker_account_id
@@ -2594,7 +2579,7 @@ BEGIN
         and status = 'accepted'::maevsi.friendship_status
     )
     SELECT account_id as id
-    FROM friendship_account_ids
+    FROM friendship_account_ids_test
     WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
     EXCEPT
     SELECT * FROM unnest(_expected_result)
@@ -2603,7 +2588,7 @@ BEGIN
   END IF;
 
   IF EXISTS (
-    WITH friendship_account_ids AS (
+    WITH friendship_account_ids_test AS (
       SELECT b_account_id as account_id
       FROM maevsi.friendship
       WHERE a_account_id = maevsi.invoker_account_id()
@@ -2617,12 +2602,11 @@ BEGIN
     SELECT * FROM unnest(_expected_result)
     EXCEPT
     SELECT account_id as id
-    FROM friendship_account_ids
+    FROM friendship_account_ids_test
     WHERE account_id NOT IN (SELECT b.id FROM maevsi_private.account_block_ids() b)
   ) THEN
     RAISE EXCEPTION 'some account is missing in the list of friends';
   END IF;
-
 END $$;
 
 
@@ -2636,15 +2620,13 @@ CREATE FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid
     LANGUAGE plpgsql
     AS $$
 BEGIN
-
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
   DELETE FROM maevsi.friendship
-  WHERE id = _id;
+    WHERE id = _id;
 
   SET LOCAL role = 'postgres';
-
 END $$;
 
 
@@ -2662,7 +2644,6 @@ DECLARE
   _a_account_id UUID;
   _b_account_id UUID;
 BEGIN
-
   SET LOCAL role = 'maevsi_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
@@ -2675,13 +2656,12 @@ BEGIN
   END IF;
 
   INSERT INTO maevsi.friendship(a_account_id, b_account_id, created_by)
-  VALUES (_a_account_id, _b_account_id, _invoker_account_id)
-  RETURNING id INTO _id;
+    VALUES (_a_account_id, _b_account_id, _invoker_account_id)
+    RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
 
   RETURN _id;
-
 END $$;
 
 
@@ -2697,9 +2677,6 @@ CREATE FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id
 DECLARE
   rec RECORD;
 BEGIN
-
-  RAISE NOTICE '%', _test_case;
-
   IF _invoker_account_id IS NULL THEN
     SET LOCAL role = 'maevsi_anonymous';
     SET LOCAL jwt.claims.account_id = '';
@@ -7457,6 +7434,13 @@ GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _lat
 
 
 --
+-- Name: FUNCTION account_registration_verified(_username text, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
 --
 
@@ -7548,13 +7532,6 @@ REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid,
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) FROM PUBLIC;
-
-
---
--- Name: FUNCTION friendship_account_create(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
---
-
-REVOKE ALL ON FUNCTION maevsi_test.friendship_account_create(_username text, _email text) FROM PUBLIC;
 
 
 --
