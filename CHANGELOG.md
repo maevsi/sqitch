@@ -1,3 +1,9 @@
+## [5.0.0-beta.16](https://github.com/maevsi/sqitch/compare/5.0.0-beta.15...5.0.0-beta.16) (2025-02-26)
+
+### Features
+
+* **address:** simplify policies ([cd4787e](https://github.com/maevsi/sqitch/commit/cd4787e852730c7716b56e64c57a404cc12b3d77))
+
 ## [5.0.0-beta.15](https://github.com/maevsi/sqitch/compare/5.0.0-beta.14...5.0.0-beta.15) (2025-02-25)
 
 ### Bug Fixes
