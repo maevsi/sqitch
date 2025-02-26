@@ -1,3 +1,9 @@
+## [5.0.0-beta.17](https://github.com/maevsi/sqitch/compare/5.0.0-beta.16...5.0.0-beta.17) (2025-02-26)
+
+### Bug Fixes
+
+* schedule release ([3c6097d](https://github.com/maevsi/sqitch/commit/3c6097d050c54ddeb5dadd785855933f27500c5b))
+
 ## [5.0.0-beta.16](https://github.com/maevsi/sqitch/compare/5.0.0-beta.15...5.0.0-beta.16) (2025-02-26)
 
 ### Features
