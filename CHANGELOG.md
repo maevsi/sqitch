@@ -1,3 +1,10 @@
+## [4.13.5](https://github.com/maevsi/sqitch/compare/4.13.4...4.13.5) (2025-02-26)
+
+### Bug Fixes
+
+* schedule release ([2f3fa7a](https://github.com/maevsi/sqitch/commit/2f3fa7aa51f98195caa0a753031ea5c0d93fbaab))
+* **security:** correct secret name ([5974dc1](https://github.com/maevsi/sqitch/commit/5974dc1a95deebeb4e4a6d3f85b37b440efaaf89))
+
 ## [4.13.4](https://github.com/maevsi/sqitch/compare/4.13.3...4.13.4) (2025-02-15)
 
 ### Bug Fixes
