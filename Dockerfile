@@ -41,7 +41,7 @@ RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib
   && echo "placeholder" | tee \
     /run/secrets/postgres_role_grafana_password \
     /run/secrets/postgres_role_maevsi-postgraphile_password \
-    /run/secrets/postgres_role_maevsi-tusd_password \
+    /run/secrets/postgres_role_maevsi_password \
     /dev/null
 
 COPY ./src ./
