@@ -1,7 +1,7 @@
 BEGIN;
 
-CREATE FUNCTION maevsi_test.set_local_superuser()
-RETURNS void AS $$
+CREATE PROCEDURE maevsi_test.set_local_superuser()
+AS $$
 DECLARE
   _superuser_name TEXT;
 BEGIN
@@ -18,7 +18,7 @@ BEGIN
   END IF;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION maevsi_test.set_local_superuser() TO maevsi_anonymous, maevsi_account;
+GRANT EXECUTE ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_anonymous, maevsi_account;
 
 
 CREATE OR REPLACE FUNCTION maevsi_test.account_create (
@@ -57,7 +57,7 @@ BEGIN
 
     PERFORM maevsi.account_delete('password');
 
-    PERFORM maevsi_test.set_local_superuser();
+    CALL maevsi_test.set_local_superuser();
   END IF;
 END $$ LANGUAGE plpgsql;
 
@@ -95,7 +95,7 @@ BEGIN
     UPDATE maevsi.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -117,7 +117,7 @@ BEGIN
   VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -137,7 +137,7 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -161,7 +161,7 @@ BEGIN
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.account_block_create (
@@ -178,7 +178,7 @@ BEGIN
   VALUES (_author_account_id, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -216,7 +216,7 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_test (
@@ -241,7 +241,7 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.contact_test (
@@ -268,7 +268,7 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE FUNCTION maevsi_test.invitation_test (
@@ -293,7 +293,7 @@ BEGIN
     RAISE EXCEPTION 'some invitation is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.invitation_claim_from_account_invitation (
@@ -328,7 +328,7 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.invitations = ''[' || _text || ']''';
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _result;
 END $$ LANGUAGE plpgsql;

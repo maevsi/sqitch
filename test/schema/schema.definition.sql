@@ -1795,7 +1795,7 @@ BEGIN
   VALUES (_author_account_id, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
@@ -1866,7 +1866,7 @@ BEGIN
 
     PERFORM maevsi.account_delete('password');
 
-    PERFORM maevsi_test.set_local_superuser();
+    CALL maevsi_test.set_local_superuser();
   END IF;
 END $$;
 
@@ -1897,7 +1897,7 @@ BEGIN
     UPDATE maevsi.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
@@ -1951,7 +1951,7 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
@@ -1985,7 +1985,7 @@ BEGIN
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
@@ -2015,7 +2015,7 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
@@ -2038,7 +2038,7 @@ BEGIN
   VALUES (_author_account_id, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
@@ -2070,7 +2070,7 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
@@ -2111,7 +2111,7 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.invitations = ''[' || _text || ']''';
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _result;
 END $$;
@@ -2136,7 +2136,7 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
@@ -2168,21 +2168,21 @@ BEGIN
     RAISE EXCEPTION 'some invitation is missing in the query result';
   END IF;
 
-  PERFORM maevsi_test.set_local_superuser();
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
 ALTER FUNCTION maevsi_test.invitation_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: set_local_superuser(); Type: FUNCTION; Schema: maevsi_test; Owner: ci
+-- Name: set_local_superuser(); Type: PROCEDURE; Schema: maevsi_test; Owner: ci
 --
 
-CREATE FUNCTION maevsi_test.set_local_superuser() RETURNS void
+CREATE PROCEDURE maevsi_test.set_local_superuser()
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    _superuser_name TEXT;
+  _superuser_name TEXT;
 BEGIN
   SELECT usename INTO _superuser_name
   FROM pg_user
@@ -2198,7 +2198,7 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.set_local_superuser() OWNER TO ci;
+ALTER PROCEDURE maevsi_test.set_local_superuser() OWNER TO ci;
 
 --
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
@@ -6049,12 +6049,12 @@ REVOKE ALL ON FUNCTION maevsi_test.invitation_test(_test_case text, _account_id 
 
 
 --
--- Name: FUNCTION set_local_superuser(); Type: ACL; Schema: maevsi_test; Owner: ci
+-- Name: PROCEDURE set_local_superuser(); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION maevsi_test.set_local_superuser() FROM PUBLIC;
-GRANT ALL ON FUNCTION maevsi_test.set_local_superuser() TO maevsi_anonymous;
-GRANT ALL ON FUNCTION maevsi_test.set_local_superuser() TO maevsi_account;
+REVOKE ALL ON PROCEDURE maevsi_test.set_local_superuser() FROM PUBLIC;
+GRANT ALL ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_anonymous;
+GRANT ALL ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_account;
 
 
 --
