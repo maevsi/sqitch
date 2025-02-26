@@ -23,15 +23,14 @@ COPY ./src ./
 
 
 ###########################
-FROM quay.io/debezium/postgres:17 AS test-build
+FROM postgis/postgis:17-3.5 AS test-build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
 
 WORKDIR /srv/app
 
-RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib' \
-  && apt-get update \
+RUN apt-get update \
   && apt-get install --no-install-recommends -y \
     sqitch=1.1.0000-1 \
   && mkdir -p /run/secrets \
