@@ -1,3 +1,10 @@
+## [5.0.0-beta.18](https://github.com/maevsi/sqitch/compare/5.0.0-beta.17...5.0.0-beta.18) (2025-02-26)
+
+### Bug Fixes
+
+* schedule release ([2f3fa7a](https://github.com/maevsi/sqitch/commit/2f3fa7aa51f98195caa0a753031ea5c0d93fbaab))
+* **security:** correct secret name ([5974dc1](https://github.com/maevsi/sqitch/commit/5974dc1a95deebeb4e4a6d3f85b37b440efaaf89))
+
 ## [5.0.0-beta.17](https://github.com/maevsi/sqitch/compare/5.0.0-beta.16...5.0.0-beta.17) (2025-02-26)
 
 ### Bug Fixes
