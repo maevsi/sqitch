@@ -15,7 +15,7 @@ BEGIN
     SET "status" = 'accepted'::maevsi.friendship_status
     WHERE id = _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.friendship_reject (
@@ -29,7 +29,7 @@ BEGIN
   DELETE FROM maevsi.friendship
     WHERE id = _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.friendship_request (
@@ -56,7 +56,7 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -94,7 +94,7 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.friendship_account_ids_test (

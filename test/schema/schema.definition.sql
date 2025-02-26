@@ -16,98 +16,98 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: maevsi; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: maevsi; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA maevsi;
 
 
-ALTER SCHEMA maevsi OWNER TO postgres;
+ALTER SCHEMA maevsi OWNER TO ci;
 
 --
--- Name: SCHEMA maevsi; Type: COMMENT; Schema: -; Owner: postgres
+-- Name: SCHEMA maevsi; Type: COMMENT; Schema: -; Owner: ci
 --
 
 COMMENT ON SCHEMA maevsi IS 'Is used by PostGraphile.';
 
 
 --
--- Name: maevsi_private; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: maevsi_private; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA maevsi_private;
 
 
-ALTER SCHEMA maevsi_private OWNER TO postgres;
+ALTER SCHEMA maevsi_private OWNER TO ci;
 
 --
--- Name: SCHEMA maevsi_private; Type: COMMENT; Schema: -; Owner: postgres
+-- Name: SCHEMA maevsi_private; Type: COMMENT; Schema: -; Owner: ci
 --
 
 COMMENT ON SCHEMA maevsi_private IS 'Contains account information and is not used by PostGraphile.';
 
 
 --
--- Name: maevsi_test; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: maevsi_test; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA maevsi_test;
 
 
-ALTER SCHEMA maevsi_test OWNER TO postgres;
+ALTER SCHEMA maevsi_test OWNER TO ci;
 
 --
--- Name: SCHEMA maevsi_test; Type: COMMENT; Schema: -; Owner: postgres
+-- Name: SCHEMA maevsi_test; Type: COMMENT; Schema: -; Owner: ci
 --
 
 COMMENT ON SCHEMA maevsi_test IS 'Schema for test functions.';
 
 
 --
--- Name: sqitch; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: sqitch; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA sqitch;
 
 
-ALTER SCHEMA sqitch OWNER TO postgres;
+ALTER SCHEMA sqitch OWNER TO ci;
 
 --
--- Name: SCHEMA sqitch; Type: COMMENT; Schema: -; Owner: postgres
+-- Name: SCHEMA sqitch; Type: COMMENT; Schema: -; Owner: ci
 --
 
 COMMENT ON SCHEMA sqitch IS 'Sqitch database deployment metadata v1.1.';
 
 
 --
--- Name: tiger; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: tiger; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA tiger;
 
 
-ALTER SCHEMA tiger OWNER TO postgres;
+ALTER SCHEMA tiger OWNER TO ci;
 
 --
--- Name: tiger_data; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: tiger_data; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA tiger_data;
 
 
-ALTER SCHEMA tiger_data OWNER TO postgres;
+ALTER SCHEMA tiger_data OWNER TO ci;
 
 --
--- Name: topology; Type: SCHEMA; Schema: -; Owner: postgres
+-- Name: topology; Type: SCHEMA; Schema: -; Owner: ci
 --
 
 CREATE SCHEMA topology;
 
 
-ALTER SCHEMA topology OWNER TO postgres;
+ALTER SCHEMA topology OWNER TO ci;
 
 --
--- Name: SCHEMA topology; Type: COMMENT; Schema: -; Owner: postgres
+-- Name: SCHEMA topology; Type: COMMENT; Schema: -; Owner: ci
 --
 
 COMMENT ON SCHEMA topology IS 'PostGIS Topology schema';
@@ -184,7 +184,7 @@ COMMENT ON EXTENSION postgis_topology IS 'PostGIS topology spatial types and fun
 
 
 --
--- Name: achievement_type; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: achievement_type; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.achievement_type AS ENUM (
@@ -193,17 +193,17 @@ CREATE TYPE maevsi.achievement_type AS ENUM (
 );
 
 
-ALTER TYPE maevsi.achievement_type OWNER TO postgres;
+ALTER TYPE maevsi.achievement_type OWNER TO ci;
 
 --
--- Name: TYPE achievement_type; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE achievement_type; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.achievement_type IS 'Achievements that can be unlocked by users.';
 
 
 --
--- Name: event_size; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: event_size; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.event_size AS ENUM (
@@ -214,17 +214,17 @@ CREATE TYPE maevsi.event_size AS ENUM (
 );
 
 
-ALTER TYPE maevsi.event_size OWNER TO postgres;
+ALTER TYPE maevsi.event_size OWNER TO ci;
 
 --
--- Name: TYPE event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE event_size; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.event_size IS 'Possible event sizes: small, medium, large, huge.';
 
 
 --
--- Name: jwt; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: jwt; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.jwt AS (
@@ -237,10 +237,10 @@ CREATE TYPE maevsi.jwt AS (
 );
 
 
-ALTER TYPE maevsi.jwt OWNER TO postgres;
+ALTER TYPE maevsi.jwt OWNER TO ci;
 
 --
--- Name: event_unlock_response; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: event_unlock_response; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.event_unlock_response AS (
@@ -250,10 +250,10 @@ CREATE TYPE maevsi.event_unlock_response AS (
 );
 
 
-ALTER TYPE maevsi.event_unlock_response OWNER TO postgres;
+ALTER TYPE maevsi.event_unlock_response OWNER TO ci;
 
 --
--- Name: event_visibility; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: event_visibility; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.event_visibility AS ENUM (
@@ -263,17 +263,17 @@ CREATE TYPE maevsi.event_visibility AS ENUM (
 );
 
 
-ALTER TYPE maevsi.event_visibility OWNER TO postgres;
+ALTER TYPE maevsi.event_visibility OWNER TO ci;
 
 --
--- Name: TYPE event_visibility; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE event_visibility; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.event_visibility IS 'Possible visibilities of events and event groups: public, private and unlisted.';
 
 
 --
--- Name: friendship_status; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: friendship_status; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.friendship_status AS ENUM (
@@ -282,10 +282,10 @@ CREATE TYPE maevsi.friendship_status AS ENUM (
 );
 
 
-ALTER TYPE maevsi.friendship_status OWNER TO postgres;
+ALTER TYPE maevsi.friendship_status OWNER TO ci;
 
 --
--- Name: TYPE friendship_status; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE friendship_status; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.friendship_status IS 'Possible status values of a friend relation.
@@ -293,7 +293,7 @@ There is no status `rejected` because friendship records will be deleted when a 
 
 
 --
--- Name: invitation_feedback; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: invitation_feedback; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.invitation_feedback AS ENUM (
@@ -302,17 +302,17 @@ CREATE TYPE maevsi.invitation_feedback AS ENUM (
 );
 
 
-ALTER TYPE maevsi.invitation_feedback OWNER TO postgres;
+ALTER TYPE maevsi.invitation_feedback OWNER TO ci;
 
 --
--- Name: TYPE invitation_feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE invitation_feedback; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.invitation_feedback IS 'Possible answers to an invitation: accepted, canceled.';
 
 
 --
--- Name: invitation_feedback_paper; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: invitation_feedback_paper; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.invitation_feedback_paper AS ENUM (
@@ -322,17 +322,17 @@ CREATE TYPE maevsi.invitation_feedback_paper AS ENUM (
 );
 
 
-ALTER TYPE maevsi.invitation_feedback_paper OWNER TO postgres;
+ALTER TYPE maevsi.invitation_feedback_paper OWNER TO ci;
 
 --
--- Name: TYPE invitation_feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE invitation_feedback_paper; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
 
 
 --
--- Name: language; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: language; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.language AS ENUM (
@@ -341,17 +341,17 @@ CREATE TYPE maevsi.language AS ENUM (
 );
 
 
-ALTER TYPE maevsi.language OWNER TO postgres;
+ALTER TYPE maevsi.language OWNER TO ci;
 
 --
--- Name: TYPE language; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE language; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.language IS 'Supported ISO 639 language codes.';
 
 
 --
--- Name: social_network; Type: TYPE; Schema: maevsi; Owner: postgres
+-- Name: social_network; Type: TYPE; Schema: maevsi; Owner: ci
 --
 
 CREATE TYPE maevsi.social_network AS ENUM (
@@ -362,17 +362,17 @@ CREATE TYPE maevsi.social_network AS ENUM (
 );
 
 
-ALTER TYPE maevsi.social_network OWNER TO postgres;
+ALTER TYPE maevsi.social_network OWNER TO ci;
 
 --
--- Name: TYPE social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TYPE social_network; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TYPE maevsi.social_network IS 'Social networks.';
 
 
 --
--- Name: account_delete(text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_delete(text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_delete(password text) RETURNS void
@@ -396,17 +396,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_delete(password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_delete(password text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_delete(password text) IS 'Allows to delete an account.';
 
 
 --
--- Name: account_email_address_verification(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_email_address_verification(uuid); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_email_address_verification(code uuid) RETURNS void
@@ -435,17 +435,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_email_address_verification(code uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_email_address_verification(code uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION account_email_address_verification(code uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_email_address_verification(code uuid); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
 
 
 --
--- Name: account_password_change(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_password_change(text, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_password_change(password_current text, password_new text) RETURNS void
@@ -469,17 +469,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_password_change(password_current text, password_new text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_password_change(password_current text, password_new text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_password_change(password_current text, password_new text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_password_change(password_current text, password_new text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_password_change(password_current text, password_new text) IS 'Allows to change an account''s password.';
 
 
 --
--- Name: account_password_reset(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_password_reset(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_password_reset(code uuid, password text) RETURNS void
@@ -514,17 +514,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_password_reset(code uuid, password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_password_reset(code uuid, password text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_password_reset(code uuid, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_password_reset(code uuid, password text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.';
 
 
 --
--- Name: account_password_reset_request(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_password_reset_request(text, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_password_reset_request(email_address text, language text) RETURNS void
@@ -562,17 +562,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_password_reset_request(email_address text, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_password_reset_request(email_address text, language text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_password_reset_request(email_address text, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_password_reset_request(email_address text, language text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) IS 'Sets a new password reset verification code for an account.';
 
 
 --
--- Name: account_registration(text, text, text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_registration(text, text, text, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) RETURNS uuid
@@ -625,17 +625,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) IS 'Creates a contact and registers an account referencing it.';
 
 
 --
--- Name: account_registration_refresh(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_registration_refresh(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) RETURNS void
@@ -675,17 +675,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.';
 
 
 --
--- Name: account_upload_quota_bytes(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: account_upload_quota_bytes(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.account_upload_quota_bytes() RETURNS bigint
@@ -697,17 +697,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.account_upload_quota_bytes() OWNER TO postgres;
+ALTER FUNCTION maevsi.account_upload_quota_bytes() OWNER TO ci;
 
 --
--- Name: FUNCTION account_upload_quota_bytes(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_upload_quota_bytes(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.account_upload_quota_bytes() IS 'Gets the total upload quota in bytes for the invoking account.';
 
 
 --
--- Name: achievement_unlock(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: achievement_unlock(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.achievement_unlock(code uuid, alias text) RETURNS uuid
@@ -749,17 +749,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.achievement_unlock(code uuid, alias text) OWNER TO postgres;
+ALTER FUNCTION maevsi.achievement_unlock(code uuid, alias text) OWNER TO ci;
 
 --
--- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
 
 
 --
--- Name: authenticate(text, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: authenticate(text, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.authenticate(username text, password text) RETURNS maevsi.jwt
@@ -822,10 +822,10 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.authenticate(username text, password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.authenticate(username text, password text) OWNER TO ci;
 
 --
--- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
@@ -836,7 +836,7 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: event; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event (
@@ -868,17 +868,17 @@ CREATE TABLE maevsi.event (
 );
 
 
-ALTER TABLE maevsi.event OWNER TO postgres;
+ALTER TABLE maevsi.event OWNER TO ci;
 
 --
--- Name: TABLE event; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event IS 'An event.';
 
 
 --
--- Name: COLUMN event.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.id IS '@omit create,update
@@ -886,105 +886,105 @@ The event''s internal id.';
 
 
 --
--- Name: COLUMN event.address_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.address_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.address_id IS 'Optional reference to the physical address of the event.';
 
 
 --
--- Name: COLUMN event.description; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.description; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.description IS 'The event''s description.';
 
 
 --
--- Name: COLUMN event."end"; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event."end"; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event."end" IS 'The event''s end date and time, with timezone.';
 
 
 --
--- Name: COLUMN event.guest_count_maximum; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.guest_count_maximum; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.guest_count_maximum IS 'The event''s maximum guest count.';
 
 
 --
--- Name: COLUMN event.is_archived; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.is_archived; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.is_archived IS 'Indicates whether the event is archived.';
 
 
 --
--- Name: COLUMN event.is_in_person; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.is_in_person; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.is_in_person IS 'Indicates whether the event takes place in person.';
 
 
 --
--- Name: COLUMN event.is_remote; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.is_remote; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes place remotely.';
 
 
 --
--- Name: COLUMN event.location; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.location; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
 
 
 --
--- Name: COLUMN event.location_geography; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.location_geography; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.location_geography IS 'The event''s geographic location.';
 
 
 --
--- Name: COLUMN event.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.name; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.name IS 'The event''s name.';
 
 
 --
--- Name: COLUMN event.slug; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.slug; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.slug IS 'The event''s name, slugified.';
 
 
 --
--- Name: COLUMN event.start; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.start; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with timezone.';
 
 
 --
--- Name: COLUMN event.url; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.url; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.url IS 'The event''s unified resource locator.';
 
 
 --
--- Name: COLUMN event.visibility; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.visibility; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 
 
 --
--- Name: COLUMN event.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.created_at IS '@omit create,update
@@ -992,14 +992,14 @@ Timestamp of when the event was created, defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN event.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.created_by IS 'The event creator''s id.';
 
 
 --
--- Name: COLUMN event.search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event.search_vector; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event.search_vector IS '@omit
@@ -1007,7 +1007,7 @@ A vector used for full-text search on events.';
 
 
 --
--- Name: event_delete(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_delete(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.event_delete(id uuid, password text) RETURNS maevsi.event
@@ -1039,17 +1039,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.event_delete(id uuid, password text) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_delete(id uuid, password text) OWNER TO ci;
 
 --
--- Name: FUNCTION event_delete(id uuid, password text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_delete(id uuid, password text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.event_delete(id uuid, password text) IS 'Allows to delete an event.';
 
 
 --
--- Name: event_guest_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_guest_count_maximum(uuid); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.event_guest_count_maximum(event_id uuid) RETURNS integer
@@ -1083,17 +1083,17 @@ END
 $$;
 
 
-ALTER FUNCTION maevsi.event_guest_count_maximum(event_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_guest_count_maximum(event_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) IS 'Add a function that returns the maximum guest count of an accessible event.';
 
 
 --
--- Name: event_is_existing(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_is_existing(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.event_is_existing(created_by uuid, slug text) RETURNS boolean
@@ -1109,17 +1109,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.event_is_existing(created_by uuid, slug text) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_is_existing(created_by uuid, slug text) OWNER TO ci;
 
 --
--- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) IS 'Shows if an event exists.';
 
 
 --
--- Name: event_search(text, maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_search(text, maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.event_search(query text, language maevsi.language) RETURNS SETOF maevsi.event
@@ -1143,17 +1143,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.event_search(query text, language maevsi.language) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_search(query text, language maevsi.language) OWNER TO ci;
 
 --
--- Name: FUNCTION event_search(query text, language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_search(query text, language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.event_search(query text, language maevsi.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
 
 
 --
--- Name: event_unlock(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: event_unlock(uuid); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.event_unlock(guest_id uuid) RETURNS maevsi.event_unlock_response
@@ -1212,17 +1212,17 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi.event_unlock(guest_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.event_unlock(guest_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.';
 
 
 --
--- Name: events_organized(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: events_organized(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.events_organized() RETURNS TABLE(event_id uuid)
@@ -1238,17 +1238,17 @@ END
 $$;
 
 
-ALTER FUNCTION maevsi.events_organized() OWNER TO postgres;
+ALTER FUNCTION maevsi.events_organized() OWNER TO ci;
 
 --
--- Name: FUNCTION events_organized(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION events_organized(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
 
 
 --
--- Name: guest_claim_array(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_claim_array(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.guest_claim_array() RETURNS uuid[]
@@ -1291,17 +1291,17 @@ END
 $$;
 
 
-ALTER FUNCTION maevsi.guest_claim_array() OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_claim_array() OWNER TO ci;
 
 --
--- Name: FUNCTION guest_claim_array(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_claim_array(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.guest_claim_array() IS 'Returns the current guest claims as UUID array.';
 
 
 --
--- Name: guest_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_contact_ids(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.guest_contact_ids() RETURNS TABLE(contact_id uuid)
@@ -1339,17 +1339,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.guest_contact_ids() OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_contact_ids() OWNER TO ci;
 
 --
--- Name: FUNCTION guest_contact_ids(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_contact_ids(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
 
 
 --
--- Name: guest_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: guest_count(uuid); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.guest_count(event_id uuid) RETURNS integer
@@ -1361,17 +1361,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.guest_count(event_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.guest_count(event_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION guest_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_count(event_id uuid); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.guest_count(event_id uuid) IS 'Returns the guest count for an event.';
 
 
 --
--- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.invite(guest_id uuid, language text) RETURNS void
@@ -1451,17 +1451,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO postgres;
+ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO ci;
 
 --
--- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
 
 
 --
--- Name: invoker_account_id(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: invoker_account_id(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.invoker_account_id() RETURNS uuid
@@ -1473,17 +1473,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.invoker_account_id() OWNER TO postgres;
+ALTER FUNCTION maevsi.invoker_account_id() OWNER TO ci;
 
 --
--- Name: FUNCTION invoker_account_id(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invoker_account_id(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.invoker_account_id() IS 'Returns the session''s account id.';
 
 
 --
--- Name: jwt_refresh(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: jwt_refresh(uuid); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.jwt_refresh(jwt_id uuid) RETURNS maevsi.jwt
@@ -1520,17 +1520,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.jwt_refresh(jwt_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.jwt_refresh(jwt_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
--- Name: language_iso_full_text_search(maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: language_iso_full_text_search(maevsi.language); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) RETURNS regconfig
@@ -1572,17 +1572,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) OWNER TO postgres;
+ALTER FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) OWNER TO ci;
 
 --
--- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) IS 'Maps an ISO language code to the corresponding PostgreSQL text search configuration. This function returns the appropriate text search configuration for supported languages, such as "german" for "de" and "english" for "en". If the language code is not explicitly handled, the function defaults to the "simple" configuration, which is a basic tokenizer that does not perform stemming or handle stop words. This ensures that full-text search can work with a wide range of languages even if specific optimizations are not available for some.';
 
 
 --
--- Name: legal_term_change(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: legal_term_change(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.legal_term_change() RETURNS trigger
@@ -1595,10 +1595,10 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.legal_term_change() OWNER TO postgres;
+ALTER FUNCTION maevsi.legal_term_change() OWNER TO ci;
 
 --
--- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
@@ -1614,17 +1614,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO postgres;
+ALTER FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO ci;
 
 --
--- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.';
 
 
 --
--- Name: profile_picture_set(uuid); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: profile_picture_set(uuid); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.profile_picture_set(upload_id uuid) RETURNS void
@@ -1643,17 +1643,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.profile_picture_set(upload_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi.profile_picture_set(upload_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION profile_picture_set(upload_id uuid); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION profile_picture_set(upload_id uuid); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.profile_picture_set(upload_id uuid) IS 'Sets the picture with the given upload id as the invoker''s profile picture.';
 
 
 --
--- Name: trigger_contact_update_account_id(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_contact_update_account_id(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS trigger
@@ -1688,17 +1688,17 @@ CREATE FUNCTION maevsi.trigger_contact_update_account_id() RETURNS trigger
 $$;
 
 
-ALTER FUNCTION maevsi.trigger_contact_update_account_id() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_contact_update_account_id() OWNER TO ci;
 
 --
--- Name: FUNCTION trigger_contact_update_account_id(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_contact_update_account_id(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.trigger_contact_update_account_id() IS 'Prevents invalid updates to contacts.';
 
 
 --
--- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS trigger
@@ -1718,17 +1718,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.trigger_event_search_vector() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_event_search_vector() OWNER TO ci;
 
 --
--- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
 
 
 --
--- Name: trigger_guest_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_guest_update(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.trigger_guest_update() RETURNS trigger
@@ -1769,17 +1769,17 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi.trigger_guest_update() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_guest_update() OWNER TO ci;
 
 --
--- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 
 
 --
--- Name: trigger_metadata_update(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_metadata_update(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.trigger_metadata_update() RETURNS trigger
@@ -1794,17 +1794,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.trigger_metadata_update() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_metadata_update() OWNER TO ci;
 
 --
--- Name: FUNCTION trigger_metadata_update(); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_metadata_update(); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.trigger_metadata_update() IS 'Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.';
 
 
 --
--- Name: trigger_metadata_update_fcm(); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: trigger_metadata_update_fcm(); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.trigger_metadata_update_fcm() RETURNS trigger
@@ -1820,10 +1820,10 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.trigger_metadata_update_fcm() OWNER TO postgres;
+ALTER FUNCTION maevsi.trigger_metadata_update_fcm() OWNER TO ci;
 
 --
--- Name: upload; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: upload; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.upload (
@@ -1839,17 +1839,17 @@ CREATE TABLE maevsi.upload (
 );
 
 
-ALTER TABLE maevsi.upload OWNER TO postgres;
+ALTER TABLE maevsi.upload OWNER TO ci;
 
 --
--- Name: TABLE upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE upload; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.upload IS 'An upload.';
 
 
 --
--- Name: COLUMN upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.id IS '@omit create,update
@@ -1857,42 +1857,42 @@ The upload''s internal id.';
 
 
 --
--- Name: COLUMN upload.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.account_id IS 'The uploader''s account id.';
 
 
 --
--- Name: COLUMN upload.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.name; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.name IS 'The name of the uploaded file.';
 
 
 --
--- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.size_byte IS 'The upload''s size in bytes.';
 
 
 --
--- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.storage_key IS 'The upload''s storage key.';
 
 
 --
--- Name: COLUMN upload.type; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.type; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.type IS 'The type of the uploaded file, default is ''image''.';
 
 
 --
--- Name: COLUMN upload.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN upload.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.upload.created_at IS '@omit create,update
@@ -1900,7 +1900,7 @@ Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
 --
--- Name: upload_create(bigint); Type: FUNCTION; Schema: maevsi; Owner: postgres
+-- Name: upload_create(bigint); Type: FUNCTION; Schema: maevsi; Owner: ci
 --
 
 CREATE FUNCTION maevsi.upload_create(size_byte bigint) RETURNS maevsi.upload
@@ -1930,17 +1930,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi.upload_create(size_byte bigint) OWNER TO postgres;
+ALTER FUNCTION maevsi.upload_create(size_byte bigint) OWNER TO ci;
 
 --
--- Name: FUNCTION upload_create(size_byte bigint); Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION upload_create(size_byte bigint); Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi.upload_create(size_byte bigint) IS 'Creates an upload with the given size if quota is available.';
 
 
 --
--- Name: account_block_ids(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
+-- Name: account_block_ids(); Type: FUNCTION; Schema: maevsi_private; Owner: ci
 --
 
 CREATE FUNCTION maevsi_private.account_block_ids() RETURNS TABLE(id uuid)
@@ -1961,17 +1961,17 @@ END
 $$;
 
 
-ALTER FUNCTION maevsi_private.account_block_ids() OWNER TO postgres;
+ALTER FUNCTION maevsi_private.account_block_ids() OWNER TO ci;
 
 --
--- Name: FUNCTION account_block_ids(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION account_block_ids(); Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_private.account_block_ids() IS 'Returns all account ids being blocked by the invoker and all accounts that blocked the invoker.';
 
 
 --
--- Name: account_email_address_verification_valid_until(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
+-- Name: account_email_address_verification_valid_until(); Type: FUNCTION; Schema: maevsi_private; Owner: ci
 --
 
 CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() RETURNS trigger
@@ -1991,17 +1991,17 @@ CREATE FUNCTION maevsi_private.account_email_address_verification_valid_until() 
 $$;
 
 
-ALTER FUNCTION maevsi_private.account_email_address_verification_valid_until() OWNER TO postgres;
+ALTER FUNCTION maevsi_private.account_email_address_verification_valid_until() OWNER TO ci;
 
 --
--- Name: FUNCTION account_email_address_verification_valid_until(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION account_email_address_verification_valid_until(); Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_private.account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
 
 
 --
--- Name: account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
+-- Name: account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: maevsi_private; Owner: ci
 --
 
 CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until() RETURNS trigger
@@ -2021,17 +2021,17 @@ CREATE FUNCTION maevsi_private.account_password_reset_verification_valid_until()
 $$;
 
 
-ALTER FUNCTION maevsi_private.account_password_reset_verification_valid_until() OWNER TO postgres;
+ALTER FUNCTION maevsi_private.account_password_reset_verification_valid_until() OWNER TO ci;
 
 --
--- Name: FUNCTION account_password_reset_verification_valid_until(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION account_password_reset_verification_valid_until(); Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_private.account_password_reset_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
 
 
 --
--- Name: events_invited(); Type: FUNCTION; Schema: maevsi_private; Owner: postgres
+-- Name: events_invited(); Type: FUNCTION; Schema: maevsi_private; Owner: ci
 --
 
 CREATE FUNCTION maevsi_private.events_invited() RETURNS TABLE(event_id uuid)
@@ -2076,17 +2076,17 @@ END
 $$;
 
 
-ALTER FUNCTION maevsi_private.events_invited() OWNER TO postgres;
+ALTER FUNCTION maevsi_private.events_invited() OWNER TO ci;
 
 --
--- Name: FUNCTION events_invited(); Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION events_invited(); Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
 
 
 --
--- Name: account_block_create(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_block_create(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) RETURNS uuid
@@ -2102,16 +2102,16 @@ BEGIN
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) OWNER TO ci;
 
 --
--- Name: account_block_remove(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_block_remove(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) RETURNS void
@@ -2125,10 +2125,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO ci;
 
 --
--- Name: account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_create(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_create(_username text, _email text) RETURNS uuid
@@ -2150,10 +2150,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_create(_username text, _email text) OWNER TO ci;
 
 --
--- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) RETURNS TABLE(account_id uuid, distance double precision)
@@ -2178,17 +2178,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) OWNER TO ci;
 
 --
--- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) IS 'Returns account locations within a given radius around the location of an event.';
 
 
 --
--- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) RETURNS double precision[]
@@ -2214,17 +2214,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) IS 'Returns an array with latitude and longitude of the account''s current location data';
 
 
 --
--- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) RETURNS void
@@ -2240,17 +2240,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) OWNER TO ci;
 
 --
--- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
 
 
 --
--- Name: account_registration_verified(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_registration_verified(text, text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) RETURNS uuid
@@ -2272,10 +2272,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) OWNER TO ci;
 
 --
--- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: account_remove(text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.account_remove(_username text) RETURNS void
@@ -2295,15 +2295,15 @@ BEGIN
 
     PERFORM maevsi.account_delete('password');
 
-    SET LOCAL role = 'postgres';
+    CALL maevsi_test.set_local_superuser();
   END IF;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.account_remove(_username text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.account_remove(_username text) OWNER TO ci;
 
 --
--- Name: contact_create(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_create(uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) RETURNS uuid
@@ -2326,16 +2326,16 @@ BEGIN
     UPDATE maevsi.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) OWNER TO ci;
 
 --
--- Name: contact_select_by_account_id(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_select_by_account_id(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) RETURNS uuid
@@ -2352,10 +2352,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) OWNER TO ci;
 
 --
--- Name: contact_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: contact_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
@@ -2380,14 +2380,14 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: event_category_create(text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_create(text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_category_create(_category text) RETURNS void
@@ -2398,10 +2398,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_category_create(_category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_create(_category text) OWNER TO ci;
 
 --
--- Name: event_category_mapping_create(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_mapping_create(uuid, uuid, text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) RETURNS void
@@ -2414,14 +2414,14 @@ BEGIN
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) OWNER TO ci;
 
 --
--- Name: event_category_mapping_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_category_mapping_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
@@ -2444,14 +2444,14 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: event_create(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_create(uuid, text, text, text, text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) RETURNS uuid
@@ -2467,16 +2467,16 @@ BEGIN
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) OWNER TO ci;
 
 --
--- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_filter_radius_account(uuid, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) RETURNS TABLE(event_id uuid, distance double precision)
@@ -2501,17 +2501,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) OWNER TO ci;
 
 --
--- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) IS 'Returns event locations within a given radius around the location of an account.';
 
 
 --
--- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_location_coordinates(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) RETURNS double precision[]
@@ -2537,17 +2537,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) IS 'Returns an array with latitude and longitude of the event''s current location data.';
 
 
 --
--- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_location_update(uuid, double precision, double precision); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) RETURNS void
@@ -2563,17 +2563,17 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) OWNER TO ci;
 
 --
--- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 
 
 --
--- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: event_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
@@ -2596,14 +2596,14 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: friendship_accept(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: friendship_accept(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) RETURNS void
@@ -2620,14 +2620,14 @@ BEGIN
     SET "status" = 'accepted'::maevsi.friendship_status
     WHERE id = _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) OWNER TO ci;
 
 --
--- Name: friendship_account_ids_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: friendship_account_ids_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) RETURNS void
@@ -2686,10 +2686,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: friendship_reject(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: friendship_reject(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) RETURNS void
@@ -2702,14 +2702,14 @@ BEGIN
   DELETE FROM maevsi.friendship
     WHERE id = _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) OWNER TO ci;
 
 --
--- Name: friendship_request(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: friendship_request(uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) RETURNS uuid
@@ -2735,16 +2735,16 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) OWNER TO ci;
 
 --
--- Name: friendship_test(text, uuid, text, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: friendship_test(text, uuid, text, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) RETURNS void
@@ -2777,14 +2777,14 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: guest_claim_from_account_guest(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_claim_from_account_guest(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) RETURNS uuid[]
@@ -2818,16 +2818,16 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _result;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) OWNER TO ci;
 
 --
--- Name: guest_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_create(uuid, uuid, uuid); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) RETURNS uuid
@@ -2843,16 +2843,16 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$;
 
 
-ALTER FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) OWNER TO ci;
 
 --
--- Name: guest_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: guest_test(text, uuid, uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) RETURNS void
@@ -2875,14 +2875,14 @@ BEGIN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$;
 
 
-ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO ci;
 
 --
--- Name: index_existence(text[], text); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: index_existence(text[], text); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.index_existence(indexes text[], schema text DEFAULT 'maevsi'::text) RETURNS void
@@ -2906,17 +2906,43 @@ END;
 $$;
 
 
-ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.index_existence(indexes text[], schema text) OWNER TO ci;
 
 --
--- Name: FUNCTION index_existence(indexes text[], schema text); Type: COMMENT; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: COMMENT; Schema: maevsi_test; Owner: ci
 --
 
 COMMENT ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';
 
 
 --
--- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+-- Name: set_local_superuser(); Type: PROCEDURE; Schema: maevsi_test; Owner: ci
+--
+
+CREATE PROCEDURE maevsi_test.set_local_superuser()
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _superuser_name TEXT;
+BEGIN
+  SELECT usename INTO _superuser_name
+  FROM pg_user
+  WHERE usesuper = true
+  ORDER BY usename
+  LIMIT 1;
+
+  IF _superuser_name IS NOT NULL THEN
+    EXECUTE format('SET LOCAL role = %I', _superuser_name);
+  ELSE
+    RAISE NOTICE 'No superuser found!';
+  END IF;
+END $$;
+
+
+ALTER PROCEDURE maevsi_test.set_local_superuser() OWNER TO ci;
+
+--
+-- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: ci
 --
 
 CREATE FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) RETURNS void
@@ -2933,10 +2959,10 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) OWNER TO postgres;
+ALTER FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) OWNER TO ci;
 
 --
--- Name: account; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: account; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.account (
@@ -2946,31 +2972,31 @@ CREATE TABLE maevsi.account (
 );
 
 
-ALTER TABLE maevsi.account OWNER TO postgres;
+ALTER TABLE maevsi.account OWNER TO ci;
 
 --
--- Name: TABLE account; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE account; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.account IS 'Public account data.';
 
 
 --
--- Name: COLUMN account.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account.id IS 'The account''s internal id.';
 
 
 --
--- Name: COLUMN account.username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account.username; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
 
 
 --
--- Name: account_block; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: account_block; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.account_block (
@@ -2982,10 +3008,10 @@ CREATE TABLE maevsi.account_block (
 );
 
 
-ALTER TABLE maevsi.account_block OWNER TO postgres;
+ALTER TABLE maevsi.account_block OWNER TO ci;
 
 --
--- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_block; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.account_block IS '@omit update
@@ -2993,21 +3019,21 @@ Blocking of one account by another.';
 
 
 --
--- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_block.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_block.id IS '@omit create\nThe account block''s internal id.';
 
 
 --
--- Name: COLUMN account_block.blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_block.blocked_account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_block.blocked_account_id IS 'The account id of the user who is blocked.';
 
 
 --
--- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_block.created_at IS '@omit create
@@ -3015,14 +3041,14 @@ Timestamp of when the account block was created.';
 
 
 --
--- Name: COLUMN account_block.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_block.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_block.created_by IS 'The account id of the user who created the account block.';
 
 
 --
--- Name: account_interest; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: account_interest; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.account_interest (
@@ -3031,31 +3057,31 @@ CREATE TABLE maevsi.account_interest (
 );
 
 
-ALTER TABLE maevsi.account_interest OWNER TO postgres;
+ALTER TABLE maevsi.account_interest OWNER TO ci;
 
 --
--- Name: TABLE account_interest; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_interest; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.account_interest IS 'Event categories a user account is interested in (M:N relationship).';
 
 
 --
--- Name: COLUMN account_interest.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_interest.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_interest.account_id IS 'A user account id.';
 
 
 --
--- Name: COLUMN account_interest.category; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_interest.category; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_interest.category IS 'An event category.';
 
 
 --
--- Name: account_preference_event_size; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.account_preference_event_size (
@@ -3065,31 +3091,31 @@ CREATE TABLE maevsi.account_preference_event_size (
 );
 
 
-ALTER TABLE maevsi.account_preference_event_size OWNER TO postgres;
+ALTER TABLE maevsi.account_preference_event_size OWNER TO ci;
 
 --
--- Name: TABLE account_preference_event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_preference_event_size; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.account_preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
 
 
 --
--- Name: COLUMN account_preference_event_size.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_preference_event_size.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_preference_event_size.account_id IS 'The account''s internal id.';
 
 
 --
--- Name: COLUMN account_preference_event_size.event_size; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_preference_event_size.event_size; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_preference_event_size.event_size IS 'A preferred event sized';
 
 
 --
--- Name: COLUMN account_preference_event_size.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_preference_event_size.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_preference_event_size.created_at IS '@omit create,update
@@ -3097,7 +3123,7 @@ Timestamp of when the event size preference was created, defaults to the current
 
 
 --
--- Name: account_social_network; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: account_social_network; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.account_social_network (
@@ -3107,38 +3133,38 @@ CREATE TABLE maevsi.account_social_network (
 );
 
 
-ALTER TABLE maevsi.account_social_network OWNER TO postgres;
+ALTER TABLE maevsi.account_social_network OWNER TO ci;
 
 --
--- Name: TABLE account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_social_network; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.account_social_network IS 'Links accounts to their social media profiles. Each entry represents a specific social network and associated username for an account.';
 
 
 --
--- Name: COLUMN account_social_network.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_social_network.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_social_network.account_id IS 'The unique identifier of the account.';
 
 
 --
--- Name: COLUMN account_social_network.social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_social_network.social_network; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_social_network.social_network IS 'The social network to which the account is linked.';
 
 
 --
--- Name: COLUMN account_social_network.social_network_username; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN account_social_network.social_network_username; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.account_social_network.social_network_username IS 'The username of the account on the specified social network.';
 
 
 --
--- Name: achievement; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: achievement; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.achievement (
@@ -3150,45 +3176,45 @@ CREATE TABLE maevsi.achievement (
 );
 
 
-ALTER TABLE maevsi.achievement OWNER TO postgres;
+ALTER TABLE maevsi.achievement OWNER TO ci;
 
 --
--- Name: TABLE achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE achievement; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.achievement IS 'Achievements unlocked by users.';
 
 
 --
--- Name: COLUMN achievement.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN achievement.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.achievement.id IS 'The achievement unlock''s internal id.';
 
 
 --
--- Name: COLUMN achievement.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN achievement.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.achievement.account_id IS 'The account which unlocked the achievement.';
 
 
 --
--- Name: COLUMN achievement.achievement; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN achievement.achievement; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.achievement.achievement IS 'The unlock''s achievement.';
 
 
 --
--- Name: COLUMN achievement.level; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN achievement.level; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.';
 
 
 --
--- Name: address; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: address; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.address (
@@ -3214,17 +3240,17 @@ CREATE TABLE maevsi.address (
 );
 
 
-ALTER TABLE maevsi.address OWNER TO postgres;
+ALTER TABLE maevsi.address OWNER TO ci;
 
 --
--- Name: TABLE address; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE address; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.address IS 'Stores detailed address information, including lines, city, state, country, and metadata.';
 
 
 --
--- Name: COLUMN address.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.id IS '@omit create,update
@@ -3232,56 +3258,56 @@ Primary key, uniquely identifies each address.';
 
 
 --
--- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
 
 
 --
--- Name: COLUMN address.line_1; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.line_1; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.line_1 IS 'First line of the address (e.g., street address). Must be between 1 and 300 characters.';
 
 
 --
--- Name: COLUMN address.line_2; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.line_2; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.line_2 IS 'Second line of the address, if needed. Must be between 1 and 300 characters.';
 
 
 --
--- Name: COLUMN address.postal_code; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.postal_code; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.postal_code IS 'Postal or ZIP code for the address. Must be between 1 and 20 characters.';
 
 
 --
--- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1 and 300 characters.';
 
 
 --
--- Name: COLUMN address.region; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.region; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.region IS 'Region of the address (e.g., state, province, county, department or territory). Must be between 1 and 300 characters.';
 
 
 --
--- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
 
 
 --
--- Name: COLUMN address.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.created_at IS '@omit create,update
@@ -3289,7 +3315,7 @@ Timestamp when the address was created. Defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN address.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.created_by IS '@omit update
@@ -3297,7 +3323,7 @@ Reference to the account that created the address.';
 
 
 --
--- Name: COLUMN address.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.updated_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.updated_at IS '@omit create,update
@@ -3305,7 +3331,7 @@ Timestamp when the address was last updated.';
 
 
 --
--- Name: COLUMN address.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN address.updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.updated_by IS '@omit create,update
@@ -3313,7 +3339,7 @@ Reference to the account that last updated the address.';
 
 
 --
--- Name: contact; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: contact; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.contact (
@@ -3343,17 +3369,17 @@ CREATE TABLE maevsi.contact (
 );
 
 
-ALTER TABLE maevsi.contact OWNER TO postgres;
+ALTER TABLE maevsi.contact OWNER TO ci;
 
 --
--- Name: TABLE contact; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE contact; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 
 
 --
--- Name: COLUMN contact.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.id IS '@omit create,update
@@ -3361,28 +3387,28 @@ Primary key, uniquely identifies each contact.';
 
 
 --
--- Name: COLUMN contact.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.account_id IS 'Optional reference to an associated account.';
 
 
 --
--- Name: COLUMN contact.address_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.address_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.address_id IS 'Optional reference to the physical address of the contact.';
 
 
 --
--- Name: COLUMN contact.email_address; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.email_address; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
 
 
 --
--- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.email_address_hash IS '@omit create,update
@@ -3390,63 +3416,63 @@ Hash of the email address, generated using md5 on the lowercased trimmed version
 
 
 --
--- Name: COLUMN contact.first_name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.first_name; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 
 
 --
--- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.language IS 'Reference to the preferred language of the contact.';
 
 
 --
--- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.last_name; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
 
 
 --
--- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
 
 
 --
--- Name: COLUMN contact.note; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 
 
 --
--- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
 
 
 --
--- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.timezone; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
 
 
 --
--- Name: COLUMN contact.url; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.url; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
 
 
 --
--- Name: COLUMN contact.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.created_at IS '@omit create,update
@@ -3454,14 +3480,14 @@ Timestamp when the contact was created. Defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN contact.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN contact.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 
 
 --
--- Name: device; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: device; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.device (
@@ -3475,17 +3501,17 @@ CREATE TABLE maevsi.device (
 );
 
 
-ALTER TABLE maevsi.device OWNER TO postgres;
+ALTER TABLE maevsi.device OWNER TO ci;
 
 --
--- Name: TABLE device; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE device; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.device IS 'A device that''s assigned to an account.';
 
 
 --
--- Name: COLUMN device.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.device.id IS '@omit create,update
@@ -3493,14 +3519,14 @@ The internal id of the device.';
 
 
 --
--- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications.';
 
 
 --
--- Name: COLUMN device.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.device.created_at IS '@omit create,update
@@ -3508,7 +3534,7 @@ Timestamp when the device was created. Defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN device.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.device.created_by IS '@omit update
@@ -3516,7 +3542,7 @@ Reference to the account that created the device.';
 
 
 --
--- Name: COLUMN device.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.updated_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.device.updated_at IS '@omit create,update
@@ -3524,7 +3550,7 @@ Timestamp when the device was last updated.';
 
 
 --
--- Name: COLUMN device.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN device.updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.device.updated_by IS '@omit create,update
@@ -3532,7 +3558,7 @@ Reference to the account that last updated the device.';
 
 
 --
--- Name: event_category; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_category; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_category (
@@ -3540,24 +3566,24 @@ CREATE TABLE maevsi.event_category (
 );
 
 
-ALTER TABLE maevsi.event_category OWNER TO postgres;
+ALTER TABLE maevsi.event_category OWNER TO ci;
 
 --
--- Name: TABLE event_category; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_category; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_category IS 'Event categories.';
 
 
 --
--- Name: COLUMN event_category.category; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_category.category; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_category.category IS 'A category name.';
 
 
 --
--- Name: event_category_mapping; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_category_mapping (
@@ -3566,31 +3592,31 @@ CREATE TABLE maevsi.event_category_mapping (
 );
 
 
-ALTER TABLE maevsi.event_category_mapping OWNER TO postgres;
+ALTER TABLE maevsi.event_category_mapping OWNER TO ci;
 
 --
--- Name: TABLE event_category_mapping; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_category_mapping; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_category_mapping IS 'Mapping events to categories (M:N relationship).';
 
 
 --
--- Name: COLUMN event_category_mapping.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_category_mapping.event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_category_mapping.event_id IS 'An event id.';
 
 
 --
--- Name: COLUMN event_category_mapping.category; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_category_mapping.category; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_category_mapping.category IS 'A category name.';
 
 
 --
--- Name: event_favorite; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_favorite (
@@ -3601,17 +3627,17 @@ CREATE TABLE maevsi.event_favorite (
 );
 
 
-ALTER TABLE maevsi.event_favorite OWNER TO postgres;
+ALTER TABLE maevsi.event_favorite OWNER TO ci;
 
 --
--- Name: TABLE event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_favorite IS 'Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
 --
--- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_favorite.id IS '@omit create,update
@@ -3619,14 +3645,14 @@ Primary key, uniquely identifies each favorite entry.';
 
 
 --
--- Name: COLUMN event_favorite.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_favorite.event_id IS 'Reference to the event that is marked as a favorite.';
 
 
 --
--- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_favorite.created_at IS '@omit create,update
@@ -3634,7 +3660,7 @@ Timestamp when the favorite was created. Defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_favorite.created_by IS '@omit create,update
@@ -3642,7 +3668,7 @@ Reference to the account that created the event favorite.';
 
 
 --
--- Name: event_group; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_group; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_group (
@@ -3659,17 +3685,17 @@ CREATE TABLE maevsi.event_group (
 );
 
 
-ALTER TABLE maevsi.event_group OWNER TO postgres;
+ALTER TABLE maevsi.event_group OWNER TO ci;
 
 --
--- Name: TABLE event_group; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_group; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_group IS 'A group of events.';
 
 
 --
--- Name: COLUMN event_group.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.id IS '@omit create,update
@@ -3677,28 +3703,28 @@ The event group''s internal id.';
 
 
 --
--- Name: COLUMN event_group.description; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.description; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.description IS 'The event group''s description.';
 
 
 --
--- Name: COLUMN event_group.is_archived; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.is_archived; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.is_archived IS 'Indicates whether the event group is archived.';
 
 
 --
--- Name: COLUMN event_group.name; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.name; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.name IS 'The event group''s name.';
 
 
 --
--- Name: COLUMN event_group.slug; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.slug; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.slug IS '@omit create,update
@@ -3706,7 +3732,7 @@ The event group''s name, slugified.';
 
 
 --
--- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.created_at IS '@omit create,update
@@ -3714,14 +3740,14 @@ Timestamp of when the event group was created, defaults to the current timestamp
 
 
 --
--- Name: COLUMN event_group.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_group.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_group.created_by IS 'The event group creator''s id.';
 
 
 --
--- Name: event_grouping; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_grouping; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_grouping (
@@ -3731,17 +3757,17 @@ CREATE TABLE maevsi.event_grouping (
 );
 
 
-ALTER TABLE maevsi.event_grouping OWNER TO postgres;
+ALTER TABLE maevsi.event_grouping OWNER TO ci;
 
 --
--- Name: TABLE event_grouping; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_grouping; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_grouping IS 'A bidirectional mapping between an event and an event group.';
 
 
 --
--- Name: COLUMN event_grouping.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_grouping.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_grouping.id IS '@omit create,update
@@ -3749,21 +3775,21 @@ The event grouping''s internal id.';
 
 
 --
--- Name: COLUMN event_grouping.event_group_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_grouping.event_group_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_grouping.event_group_id IS 'The event grouping''s internal event group id.';
 
 
 --
--- Name: COLUMN event_grouping.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_grouping.event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_grouping.event_id IS 'The event grouping''s internal event id.';
 
 
 --
--- Name: event_recommendation; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_recommendation; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_recommendation (
@@ -3774,45 +3800,45 @@ CREATE TABLE maevsi.event_recommendation (
 );
 
 
-ALTER TABLE maevsi.event_recommendation OWNER TO postgres;
+ALTER TABLE maevsi.event_recommendation OWNER TO ci;
 
 --
--- Name: TABLE event_recommendation; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_recommendation; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_recommendation IS 'Events recommended to a user account (M:N relationship).';
 
 
 --
--- Name: COLUMN event_recommendation.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_recommendation.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_recommendation.account_id IS 'A user account id.';
 
 
 --
--- Name: COLUMN event_recommendation.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_recommendation.event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_recommendation.event_id IS 'The predicted score of the recommendation.';
 
 
 --
--- Name: COLUMN event_recommendation.score; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_recommendation.score; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_recommendation.score IS 'An event id.';
 
 
 --
--- Name: COLUMN event_recommendation.predicted_score; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_recommendation.predicted_score; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_recommendation.predicted_score IS 'The score of the recommendation.';
 
 
 --
--- Name: event_upload; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: event_upload; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.event_upload (
@@ -3823,17 +3849,17 @@ CREATE TABLE maevsi.event_upload (
 );
 
 
-ALTER TABLE maevsi.event_upload OWNER TO postgres;
+ALTER TABLE maevsi.event_upload OWNER TO ci;
 
 --
--- Name: TABLE event_upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_upload; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.event_upload IS 'Associates uploaded files with events.';
 
 
 --
--- Name: COLUMN event_upload.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_upload.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_upload.id IS '@omit create,update
@@ -3841,7 +3867,7 @@ Primary key, uniquely identifies each event-upload association.';
 
 
 --
--- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_upload.event_id IS '@omit update
@@ -3849,14 +3875,14 @@ Reference to the event associated with the upload.';
 
 
 --
--- Name: COLUMN event_upload.is_header_image; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_upload.is_header_image; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_upload.is_header_image IS 'Optional boolean flag indicating if the upload is the header image for the event.';
 
 
 --
--- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.event_upload.upload_id IS '@omit update
@@ -3864,7 +3890,7 @@ Reference to the uploaded file.';
 
 
 --
--- Name: friendship; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: friendship; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.friendship (
@@ -3883,17 +3909,17 @@ CREATE TABLE maevsi.friendship (
 );
 
 
-ALTER TABLE maevsi.friendship OWNER TO postgres;
+ALTER TABLE maevsi.friendship OWNER TO ci;
 
 --
--- Name: TABLE friendship; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE friendship; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.friendship IS 'A friend relation together with its status.';
 
 
 --
--- Name: COLUMN friendship.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.id IS '@omit create,update
@@ -3901,7 +3927,7 @@ The friend relation''s internal id.';
 
 
 --
--- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.a_account_id IS '@omit update
@@ -3909,7 +3935,7 @@ The ''left'' side of the friend relation. It must be lexically less than the ''r
 
 
 --
--- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.b_account_id IS '@omit update
@@ -3917,7 +3943,7 @@ The ''right'' side of the friend relation. It must be lexically greater than the
 
 
 --
--- Name: COLUMN friendship.status; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.status; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.status IS '@omit create
@@ -3925,7 +3951,7 @@ The status of the friend relation.';
 
 
 --
--- Name: COLUMN friendship.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.created_at IS '@omit create,update
@@ -3933,7 +3959,7 @@ The timestamp when the friend relation was created.';
 
 
 --
--- Name: COLUMN friendship.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.created_by IS '@omit update
@@ -3941,7 +3967,7 @@ The account that created the friend relation was created.';
 
 
 --
--- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.updated_at IS '@omit create,update
@@ -3949,7 +3975,7 @@ The timestamp when the friend relation''s status was updated.';
 
 
 --
--- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.friendship.updated_by IS '@omit create,update
@@ -3957,7 +3983,7 @@ The account that updated the friend relation''s status.';
 
 
 --
--- Name: guest; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: guest; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.guest (
@@ -3972,17 +3998,17 @@ CREATE TABLE maevsi.guest (
 );
 
 
-ALTER TABLE maevsi.guest OWNER TO postgres;
+ALTER TABLE maevsi.guest OWNER TO ci;
 
 --
--- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';
 
 
 --
--- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.id IS '@omit create,update
@@ -3990,35 +4016,35 @@ The guests''s internal id.';
 
 
 --
--- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.contact_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.contact_id IS 'The internal id of the guest''s contact.';
 
 
 --
--- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.event_id IS 'The internal id of the guest''s event.';
 
 
 --
--- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.feedback; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.feedback IS 'The guest''s general feedback status.';
 
 
 --
--- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.feedback_paper IS 'The guest''s paper feedback status.';
 
 
 --
--- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.created_at IS '@omit create,update
@@ -4026,7 +4052,7 @@ Timestamp of when the guest was created, defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.updated_at IS '@omit create,update
@@ -4034,7 +4060,7 @@ Timestamp of when the guest was last updated.';
 
 
 --
--- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.guest.updated_by IS '@omit create,update
@@ -4042,7 +4068,7 @@ The id of the account which last updated the guest. `NULL` if the guest was upda
 
 
 --
--- Name: guest_flat; Type: VIEW; Schema: maevsi; Owner: postgres
+-- Name: guest_flat; Type: VIEW; Schema: maevsi; Owner: ci
 --
 
 CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
@@ -4080,17 +4106,17 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
      JOIN maevsi.event ON ((guest.event_id = event.id)));
 
 
-ALTER VIEW maevsi.guest_flat OWNER TO postgres;
+ALTER VIEW maevsi.guest_flat OWNER TO ci;
 
 --
--- Name: VIEW guest_flat; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: VIEW guest_flat; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 
 
 --
--- Name: legal_term; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: legal_term; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.legal_term (
@@ -4105,10 +4131,10 @@ CREATE TABLE maevsi.legal_term (
 );
 
 
-ALTER TABLE maevsi.legal_term OWNER TO postgres;
+ALTER TABLE maevsi.legal_term OWNER TO ci;
 
 --
--- Name: TABLE legal_term; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE legal_term; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.legal_term IS '@omit create,update,delete
@@ -4116,42 +4142,42 @@ Legal terms like privacy policies or terms of service.';
 
 
 --
--- Name: COLUMN legal_term.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term.id IS 'Unique identifier for each legal term.';
 
 
 --
--- Name: COLUMN legal_term.language; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term.language; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';
 
 
 --
--- Name: COLUMN legal_term.term; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term.term; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term.term IS 'Text of the legal term. Markdown is expected to be used. It must be non-empty and cannot exceed 500,000 characters.';
 
 
 --
--- Name: COLUMN legal_term.version; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term.version; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term.version IS 'Semantic versioning string to track changes to the legal terms (format: `X.Y.Z`).';
 
 
 --
--- Name: COLUMN legal_term.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
 
 
 --
--- Name: legal_term_acceptance; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.legal_term_acceptance (
@@ -4162,17 +4188,17 @@ CREATE TABLE maevsi.legal_term_acceptance (
 );
 
 
-ALTER TABLE maevsi.legal_term_acceptance OWNER TO postgres;
+ALTER TABLE maevsi.legal_term_acceptance OWNER TO ci;
 
 --
--- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.legal_term_acceptance IS '@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
 
 
 --
--- Name: COLUMN legal_term_acceptance.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term_acceptance.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term_acceptance.id IS '@omit create
@@ -4180,21 +4206,21 @@ Unique identifier for this legal term acceptance record. Automatically generated
 
 
 --
--- Name: COLUMN legal_term_acceptance.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term_acceptance.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term_acceptance.account_id IS 'The user account ID that accepted the legal terms. If the account is deleted, this acceptance record will also be deleted.';
 
 
 --
--- Name: COLUMN legal_term_acceptance.legal_term_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term_acceptance.legal_term_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term_acceptance.legal_term_id IS 'The ID of the legal terms that were accepted. Deletion of these legal terms is restricted while they are still referenced in this table.';
 
 
 --
--- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.legal_term_acceptance.created_at IS '@omit create
@@ -4202,7 +4228,7 @@ Timestamp showing when the legal terms were accepted, set automatically at the t
 
 
 --
--- Name: profile_picture; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: profile_picture; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.profile_picture (
@@ -4212,17 +4238,17 @@ CREATE TABLE maevsi.profile_picture (
 );
 
 
-ALTER TABLE maevsi.profile_picture OWNER TO postgres;
+ALTER TABLE maevsi.profile_picture OWNER TO ci;
 
 --
--- Name: TABLE profile_picture; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE profile_picture; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.profile_picture IS 'Mapping of account ids to upload ids.';
 
 
 --
--- Name: COLUMN profile_picture.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN profile_picture.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.profile_picture.id IS '@omit create,update
@@ -4230,21 +4256,21 @@ The profile picture''s internal id.';
 
 
 --
--- Name: COLUMN profile_picture.account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN profile_picture.account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.profile_picture.account_id IS 'The account''s id.';
 
 
 --
--- Name: COLUMN profile_picture.upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN profile_picture.upload_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.profile_picture.upload_id IS 'The upload''s id.';
 
 
 --
--- Name: report; Type: TABLE; Schema: maevsi; Owner: postgres
+-- Name: report; Type: TABLE; Schema: maevsi; Owner: ci
 --
 
 CREATE TABLE maevsi.report (
@@ -4260,10 +4286,10 @@ CREATE TABLE maevsi.report (
 );
 
 
-ALTER TABLE maevsi.report OWNER TO postgres;
+ALTER TABLE maevsi.report OWNER TO ci;
 
 --
--- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: TABLE report; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON TABLE maevsi.report IS '@omit update,delete
@@ -4271,7 +4297,7 @@ Stores reports made by users on other users, events, or uploads for moderation p
 
 
 --
--- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.id IS '@omit create
@@ -4279,35 +4305,35 @@ Unique identifier for the report, generated randomly using UUIDs.';
 
 
 --
--- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.reason; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
 
 
 --
--- Name: COLUMN report.target_account_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.target_account_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.target_account_id IS 'The ID of the account being reported, if applicable.';
 
 
 --
--- Name: COLUMN report.target_event_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.target_event_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.target_event_id IS 'The ID of the event being reported, if applicable.';
 
 
 --
--- Name: COLUMN report.target_upload_id; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.target_upload_id; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
 
 
 --
--- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.created_at; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.created_at IS '@omit create
@@ -4315,28 +4341,28 @@ Timestamp of when the report was created, defaults to the current timestamp.';
 
 
 --
--- Name: COLUMN report.created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: COLUMN report.created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.report.created_by IS 'The ID of the user who created the report.';
 
 
 --
--- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT report_check ON report; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT report_check ON maevsi.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
 
 
 --
--- Name: CONSTRAINT report_reason_check ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT report_reason_check ON report; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT report_reason_check ON maevsi.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
 
 
 --
--- Name: account; Type: TABLE; Schema: maevsi_private; Owner: postgres
+-- Name: account; Type: TABLE; Schema: maevsi_private; Owner: ci
 --
 
 CREATE TABLE maevsi_private.account (
@@ -4356,101 +4382,101 @@ CREATE TABLE maevsi_private.account (
 );
 
 
-ALTER TABLE maevsi_private.account OWNER TO postgres;
+ALTER TABLE maevsi_private.account OWNER TO ci;
 
 --
--- Name: TABLE account; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: TABLE account; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON TABLE maevsi_private.account IS 'Private account data.';
 
 
 --
--- Name: COLUMN account.id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.id; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.id IS 'The account''s internal id.';
 
 
 --
--- Name: COLUMN account.birth_date; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.birth_date; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.birth_date IS 'The account owner''s date of birth.';
 
 
 --
--- Name: COLUMN account.email_address; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.email_address; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.email_address IS 'The account''s email address for account related information.';
 
 
 --
--- Name: COLUMN account.email_address_verification; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.email_address_verification; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';
 
 
 --
--- Name: COLUMN account.email_address_verification_valid_until; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.email_address_verification_valid_until; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
 
 
 --
--- Name: COLUMN account.location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.location; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.location IS 'The account''s geometric location.';
 
 
 --
--- Name: COLUMN account.password_hash; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.password_hash; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.password_hash IS 'The account''s password, hashed and salted.';
 
 
 --
--- Name: COLUMN account.password_reset_verification; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.password_reset_verification; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.password_reset_verification IS 'The UUID used to reset a password, or null if there is no pending reset request.';
 
 
 --
--- Name: COLUMN account.password_reset_verification_valid_until; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.password_reset_verification_valid_until; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.password_reset_verification_valid_until IS 'The timestamp until which a password reset is valid.';
 
 
 --
--- Name: COLUMN account.upload_quota_bytes; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.upload_quota_bytes; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
 
 
 --
--- Name: COLUMN account.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.created_at; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.created_at IS 'Timestamp at which the account was last active.';
 
 
 --
--- Name: COLUMN account.last_activity; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN account.last_activity; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
 
 
 --
--- Name: achievement_code; Type: TABLE; Schema: maevsi_private; Owner: postgres
+-- Name: achievement_code; Type: TABLE; Schema: maevsi_private; Owner: ci
 --
 
 CREATE TABLE maevsi_private.achievement_code (
@@ -4461,38 +4487,38 @@ CREATE TABLE maevsi_private.achievement_code (
 );
 
 
-ALTER TABLE maevsi_private.achievement_code OWNER TO postgres;
+ALTER TABLE maevsi_private.achievement_code OWNER TO ci;
 
 --
--- Name: TABLE achievement_code; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: TABLE achievement_code; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON TABLE maevsi_private.achievement_code IS 'Codes that unlock achievements.';
 
 
 --
--- Name: COLUMN achievement_code.id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN achievement_code.id; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.achievement_code.id IS 'The code that unlocks an achievement.';
 
 
 --
--- Name: COLUMN achievement_code.alias; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN achievement_code.alias; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.achievement_code.alias IS 'An alternative code, e.g. human readable, that unlocks an achievement.';
 
 
 --
--- Name: COLUMN achievement_code.achievement; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN achievement_code.achievement; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.achievement_code.achievement IS 'The achievement that is unlocked by the code.';
 
 
 --
--- Name: jwt; Type: TABLE; Schema: maevsi_private; Owner: postgres
+-- Name: jwt; Type: TABLE; Schema: maevsi_private; Owner: ci
 --
 
 CREATE TABLE maevsi_private.jwt (
@@ -4501,31 +4527,31 @@ CREATE TABLE maevsi_private.jwt (
 );
 
 
-ALTER TABLE maevsi_private.jwt OWNER TO postgres;
+ALTER TABLE maevsi_private.jwt OWNER TO ci;
 
 --
--- Name: TABLE jwt; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: TABLE jwt; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON TABLE maevsi_private.jwt IS 'A list of tokens.';
 
 
 --
--- Name: COLUMN jwt.id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN jwt.id; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.jwt.id IS 'The token''s id.';
 
 
 --
--- Name: COLUMN jwt.token; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN jwt.token; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.jwt.token IS 'The token.';
 
 
 --
--- Name: notification; Type: TABLE; Schema: maevsi_private; Owner: postgres
+-- Name: notification; Type: TABLE; Schema: maevsi_private; Owner: ci
 --
 
 CREATE TABLE maevsi_private.notification (
@@ -4538,52 +4564,52 @@ CREATE TABLE maevsi_private.notification (
 );
 
 
-ALTER TABLE maevsi_private.notification OWNER TO postgres;
+ALTER TABLE maevsi_private.notification OWNER TO ci;
 
 --
--- Name: TABLE notification; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: TABLE notification; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON TABLE maevsi_private.notification IS 'A notification.';
 
 
 --
--- Name: COLUMN notification.id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN notification.id; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.notification.id IS 'The notification''s internal id.';
 
 
 --
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN notification.channel; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.notification.channel IS 'The notification''s channel.';
 
 
 --
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
 
 
 --
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN notification.payload; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s payload.';
 
 
 --
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
 
 
 --
--- Name: changes; Type: TABLE; Schema: sqitch; Owner: postgres
+-- Name: changes; Type: TABLE; Schema: sqitch; Owner: ci
 --
 
 CREATE TABLE sqitch.changes (
@@ -4601,94 +4627,94 @@ CREATE TABLE sqitch.changes (
 );
 
 
-ALTER TABLE sqitch.changes OWNER TO postgres;
+ALTER TABLE sqitch.changes OWNER TO ci;
 
 --
--- Name: TABLE changes; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: TABLE changes; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON TABLE sqitch.changes IS 'Tracks the changes currently deployed to the database.';
 
 
 --
--- Name: COLUMN changes.change_id; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.change_id; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.change_id IS 'Change primary key.';
 
 
 --
--- Name: COLUMN changes.script_hash; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.script_hash; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.script_hash IS 'Deploy script SHA-1 hash.';
 
 
 --
--- Name: COLUMN changes.change; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.change; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.change IS 'Name of a deployed change.';
 
 
 --
--- Name: COLUMN changes.project; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.project; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.project IS 'Name of the Sqitch project to which the change belongs.';
 
 
 --
--- Name: COLUMN changes.note; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.note; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.note IS 'Description of the change.';
 
 
 --
--- Name: COLUMN changes.committed_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.committed_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.committed_at IS 'Date the change was deployed.';
 
 
 --
--- Name: COLUMN changes.committer_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.committer_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.committer_name IS 'Name of the user who deployed the change.';
 
 
 --
--- Name: COLUMN changes.committer_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.committer_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.committer_email IS 'Email address of the user who deployed the change.';
 
 
 --
--- Name: COLUMN changes.planned_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.planned_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.planned_at IS 'Date the change was added to the plan.';
 
 
 --
--- Name: COLUMN changes.planner_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.planner_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.planner_name IS 'Name of the user who planed the change.';
 
 
 --
--- Name: COLUMN changes.planner_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN changes.planner_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.changes.planner_email IS 'Email address of the user who planned the change.';
 
 
 --
--- Name: dependencies; Type: TABLE; Schema: sqitch; Owner: postgres
+-- Name: dependencies; Type: TABLE; Schema: sqitch; Owner: ci
 --
 
 CREATE TABLE sqitch.dependencies (
@@ -4700,45 +4726,45 @@ CREATE TABLE sqitch.dependencies (
 );
 
 
-ALTER TABLE sqitch.dependencies OWNER TO postgres;
+ALTER TABLE sqitch.dependencies OWNER TO ci;
 
 --
--- Name: TABLE dependencies; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: TABLE dependencies; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON TABLE sqitch.dependencies IS 'Tracks the currently satisfied dependencies.';
 
 
 --
--- Name: COLUMN dependencies.change_id; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN dependencies.change_id; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.dependencies.change_id IS 'ID of the depending change.';
 
 
 --
--- Name: COLUMN dependencies.type; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN dependencies.type; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.dependencies.type IS 'Type of dependency.';
 
 
 --
--- Name: COLUMN dependencies.dependency; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN dependencies.dependency; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.dependencies.dependency IS 'Dependency name.';
 
 
 --
--- Name: COLUMN dependencies.dependency_id; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN dependencies.dependency_id; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.dependencies.dependency_id IS 'Change ID the dependency resolves to.';
 
 
 --
--- Name: events; Type: TABLE; Schema: sqitch; Owner: postgres
+-- Name: events; Type: TABLE; Schema: sqitch; Owner: ci
 --
 
 CREATE TABLE sqitch.events (
@@ -4760,115 +4786,115 @@ CREATE TABLE sqitch.events (
 );
 
 
-ALTER TABLE sqitch.events OWNER TO postgres;
+ALTER TABLE sqitch.events OWNER TO ci;
 
 --
--- Name: TABLE events; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: TABLE events; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON TABLE sqitch.events IS 'Contains full history of all deployment events.';
 
 
 --
--- Name: COLUMN events.event; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.event; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.event IS 'Type of event.';
 
 
 --
--- Name: COLUMN events.change_id; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.change_id; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.change_id IS 'Change ID.';
 
 
 --
--- Name: COLUMN events.change; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.change; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.change IS 'Change name.';
 
 
 --
--- Name: COLUMN events.project; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.project; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.project IS 'Name of the Sqitch project to which the change belongs.';
 
 
 --
--- Name: COLUMN events.note; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.note; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.note IS 'Description of the change.';
 
 
 --
--- Name: COLUMN events.requires; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.requires; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.requires IS 'Array of the names of required changes.';
 
 
 --
--- Name: COLUMN events.conflicts; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.conflicts; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.conflicts IS 'Array of the names of conflicting changes.';
 
 
 --
--- Name: COLUMN events.tags; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.tags; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.tags IS 'Tags associated with the change.';
 
 
 --
--- Name: COLUMN events.committed_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.committed_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.committed_at IS 'Date the event was committed.';
 
 
 --
--- Name: COLUMN events.committer_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.committer_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.committer_name IS 'Name of the user who committed the event.';
 
 
 --
--- Name: COLUMN events.committer_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.committer_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.committer_email IS 'Email address of the user who committed the event.';
 
 
 --
--- Name: COLUMN events.planned_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.planned_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.planned_at IS 'Date the event was added to the plan.';
 
 
 --
--- Name: COLUMN events.planner_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.planner_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.planner_name IS 'Name of the user who planed the change.';
 
 
 --
--- Name: COLUMN events.planner_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN events.planner_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.events.planner_email IS 'Email address of the user who plan planned the change.';
 
 
 --
--- Name: projects; Type: TABLE; Schema: sqitch; Owner: postgres
+-- Name: projects; Type: TABLE; Schema: sqitch; Owner: ci
 --
 
 CREATE TABLE sqitch.projects (
@@ -4880,52 +4906,52 @@ CREATE TABLE sqitch.projects (
 );
 
 
-ALTER TABLE sqitch.projects OWNER TO postgres;
+ALTER TABLE sqitch.projects OWNER TO ci;
 
 --
--- Name: TABLE projects; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: TABLE projects; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON TABLE sqitch.projects IS 'Sqitch projects deployed to this database.';
 
 
 --
--- Name: COLUMN projects.project; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN projects.project; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.projects.project IS 'Unique Name of a project.';
 
 
 --
--- Name: COLUMN projects.uri; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN projects.uri; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.projects.uri IS 'Optional project URI';
 
 
 --
--- Name: COLUMN projects.created_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN projects.created_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.projects.created_at IS 'Date the project was added to the database.';
 
 
 --
--- Name: COLUMN projects.creator_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN projects.creator_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.projects.creator_name IS 'Name of the user who added the project.';
 
 
 --
--- Name: COLUMN projects.creator_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN projects.creator_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.projects.creator_email IS 'Email address of the user who added the project.';
 
 
 --
--- Name: releases; Type: TABLE; Schema: sqitch; Owner: postgres
+-- Name: releases; Type: TABLE; Schema: sqitch; Owner: ci
 --
 
 CREATE TABLE sqitch.releases (
@@ -4936,45 +4962,45 @@ CREATE TABLE sqitch.releases (
 );
 
 
-ALTER TABLE sqitch.releases OWNER TO postgres;
+ALTER TABLE sqitch.releases OWNER TO ci;
 
 --
--- Name: TABLE releases; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: TABLE releases; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON TABLE sqitch.releases IS 'Sqitch registry releases.';
 
 
 --
--- Name: COLUMN releases.version; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN releases.version; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.releases.version IS 'Version of the Sqitch registry.';
 
 
 --
--- Name: COLUMN releases.installed_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN releases.installed_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.releases.installed_at IS 'Date the registry release was installed.';
 
 
 --
--- Name: COLUMN releases.installer_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN releases.installer_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.releases.installer_name IS 'Name of the user who installed the registry release.';
 
 
 --
--- Name: COLUMN releases.installer_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN releases.installer_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.releases.installer_email IS 'Email address of the user who installed the registry release.';
 
 
 --
--- Name: tags; Type: TABLE; Schema: sqitch; Owner: postgres
+-- Name: tags; Type: TABLE; Schema: sqitch; Owner: ci
 --
 
 CREATE TABLE sqitch.tags (
@@ -4992,94 +5018,94 @@ CREATE TABLE sqitch.tags (
 );
 
 
-ALTER TABLE sqitch.tags OWNER TO postgres;
+ALTER TABLE sqitch.tags OWNER TO ci;
 
 --
--- Name: TABLE tags; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: TABLE tags; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON TABLE sqitch.tags IS 'Tracks the tags currently applied to the database.';
 
 
 --
--- Name: COLUMN tags.tag_id; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.tag_id; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.tag_id IS 'Tag primary key.';
 
 
 --
--- Name: COLUMN tags.tag; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.tag; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.tag IS 'Project-unique tag name.';
 
 
 --
--- Name: COLUMN tags.project; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.project; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.project IS 'Name of the Sqitch project to which the tag belongs.';
 
 
 --
--- Name: COLUMN tags.change_id; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.change_id; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.change_id IS 'ID of last change deployed before the tag was applied.';
 
 
 --
--- Name: COLUMN tags.note; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.note; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.note IS 'Description of the tag.';
 
 
 --
--- Name: COLUMN tags.committed_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.committed_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.committed_at IS 'Date the tag was applied to the database.';
 
 
 --
--- Name: COLUMN tags.committer_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.committer_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.committer_name IS 'Name of the user who applied the tag.';
 
 
 --
--- Name: COLUMN tags.committer_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.committer_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.committer_email IS 'Email address of the user who applied the tag.';
 
 
 --
--- Name: COLUMN tags.planned_at; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.planned_at; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.planned_at IS 'Date the tag was added to the plan.';
 
 
 --
--- Name: COLUMN tags.planner_name; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.planner_name; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.planner_name IS 'Name of the user who planed the tag.';
 
 
 --
--- Name: COLUMN tags.planner_email; Type: COMMENT; Schema: sqitch; Owner: postgres
+-- Name: COLUMN tags.planner_email; Type: COMMENT; Schema: sqitch; Owner: ci
 --
 
 COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who planned the tag.';
 
 
 --
--- Name: account_block account_block_created_by_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_created_by_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_block
@@ -5087,7 +5113,7 @@ ALTER TABLE ONLY maevsi.account_block
 
 
 --
--- Name: account_block account_block_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_block
@@ -5095,7 +5121,7 @@ ALTER TABLE ONLY maevsi.account_block
 
 
 --
--- Name: account_interest account_interest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_interest account_interest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_interest
@@ -5103,7 +5129,7 @@ ALTER TABLE ONLY maevsi.account_interest
 
 
 --
--- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account
@@ -5111,7 +5137,7 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
--- Name: account_preference_event_size account_preference_event_size_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size account_preference_event_size_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_preference_event_size
@@ -5119,7 +5145,7 @@ ALTER TABLE ONLY maevsi.account_preference_event_size
 
 
 --
--- Name: account_social_network account_social_network_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_social_network account_social_network_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_social_network
@@ -5127,14 +5153,14 @@ ALTER TABLE ONLY maevsi.account_social_network
 
 
 --
--- Name: CONSTRAINT account_social_network_pkey ON account_social_network; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT account_social_network_pkey ON account_social_network; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT account_social_network_pkey ON maevsi.account_social_network IS 'Ensures uniqueness by combining the account ID and social network, allowing each account to have a single entry per social network.';
 
 
 --
--- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account account_username_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account
@@ -5142,7 +5168,7 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
--- Name: achievement achievement_account_id_achievement_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_account_id_achievement_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.achievement
@@ -5150,7 +5176,7 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
--- Name: achievement achievement_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.achievement
@@ -5158,7 +5184,7 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
--- Name: address address_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: address address_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.address
@@ -5166,7 +5192,7 @@ ALTER TABLE ONLY maevsi.address
 
 
 --
--- Name: contact contact_created_by_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_created_by_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.contact
@@ -5174,14 +5200,14 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: CONSTRAINT contact_created_by_account_id_key ON contact; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT contact_created_by_account_id_key ON contact; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON maevsi.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
 
 
 --
--- Name: contact contact_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.contact
@@ -5189,7 +5215,7 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: device device_created_by_fcm_token_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: device device_created_by_fcm_token_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.device
@@ -5197,7 +5223,7 @@ ALTER TABLE ONLY maevsi.device
 
 
 --
--- Name: device device_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: device device_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.device
@@ -5205,7 +5231,7 @@ ALTER TABLE ONLY maevsi.device
 
 
 --
--- Name: event_category_mapping event_category_mapping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping event_category_mapping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_category_mapping
@@ -5213,7 +5239,7 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
--- Name: event_category event_category_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_category event_category_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_category
@@ -5221,7 +5247,7 @@ ALTER TABLE ONLY maevsi.event_category
 
 
 --
--- Name: event event_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event
@@ -5229,7 +5255,7 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
--- Name: event_favorite event_favorite_created_by_event_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_event_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_favorite
@@ -5237,14 +5263,14 @@ ALTER TABLE ONLY maevsi.event_favorite
 
 
 --
--- Name: CONSTRAINT event_favorite_created_by_event_id_key ON event_favorite; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT event_favorite_created_by_event_id_key ON event_favorite; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON maevsi.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
 
 
 --
--- Name: event_favorite event_favorite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_favorite
@@ -5252,7 +5278,7 @@ ALTER TABLE ONLY maevsi.event_favorite
 
 
 --
--- Name: event_group event_group_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_group event_group_created_by_slug_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_group
@@ -5260,7 +5286,7 @@ ALTER TABLE ONLY maevsi.event_group
 
 
 --
--- Name: event_group event_group_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_group event_group_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_group
@@ -5268,7 +5294,7 @@ ALTER TABLE ONLY maevsi.event_group
 
 
 --
--- Name: event_grouping event_grouping_event_id_event_group_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_grouping event_grouping_event_id_event_group_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_grouping
@@ -5276,7 +5302,7 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 
 --
--- Name: event_grouping event_grouping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_grouping event_grouping_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_grouping
@@ -5284,7 +5310,7 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 
 --
--- Name: event event_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event
@@ -5292,7 +5318,7 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
--- Name: event_recommendation event_recommendation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_recommendation event_recommendation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_recommendation
@@ -5300,7 +5326,7 @@ ALTER TABLE ONLY maevsi.event_recommendation
 
 
 --
--- Name: event_upload event_upload_event_id_upload_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_event_id_upload_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_upload
@@ -5308,14 +5334,14 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: CONSTRAINT event_upload_event_id_upload_id_key ON event_upload; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT event_upload_event_id_upload_id_key ON event_upload; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT event_upload_event_id_upload_id_key ON maevsi.event_upload IS 'Ensures that each upload is associated with a unique event, preventing duplicate uploads for the same event.';
 
 
 --
--- Name: event_upload event_upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_upload
@@ -5323,7 +5349,7 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: friendship friendship_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.friendship
@@ -5331,7 +5357,7 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: friendship friendship_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.friendship
@@ -5339,7 +5365,7 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: guest guest_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_event_id_contact_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.guest
@@ -5347,7 +5373,7 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: guest guest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.guest
@@ -5355,7 +5381,7 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: legal_term_acceptance legal_term_acceptance_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance legal_term_acceptance_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.legal_term_acceptance
@@ -5363,7 +5389,7 @@ ALTER TABLE ONLY maevsi.legal_term_acceptance
 
 
 --
--- Name: legal_term legal_term_language_version_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: legal_term legal_term_language_version_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.legal_term
@@ -5371,7 +5397,7 @@ ALTER TABLE ONLY maevsi.legal_term
 
 
 --
--- Name: legal_term legal_term_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: legal_term legal_term_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.legal_term
@@ -5379,7 +5405,7 @@ ALTER TABLE ONLY maevsi.legal_term
 
 
 --
--- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
@@ -5387,7 +5413,7 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: profile_picture profile_picture_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
@@ -5395,7 +5421,7 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_created_by_target_account_id_target_event_id_target__key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_created_by_target_account_id_target_event_id_target__key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.report
@@ -5403,14 +5429,14 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
--- Name: CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON report; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON report; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON maevsi.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
 
 
 --
--- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.report
@@ -5418,7 +5444,7 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
--- Name: upload upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: upload upload_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.upload
@@ -5426,7 +5452,7 @@ ALTER TABLE ONLY maevsi.upload
 
 
 --
--- Name: upload upload_storage_key_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: upload upload_storage_key_key; Type: CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.upload
@@ -5434,7 +5460,7 @@ ALTER TABLE ONLY maevsi.upload
 
 
 --
--- Name: account account_email_address_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: account account_email_address_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.account
@@ -5442,7 +5468,7 @@ ALTER TABLE ONLY maevsi_private.account
 
 
 --
--- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: account account_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.account
@@ -5450,7 +5476,7 @@ ALTER TABLE ONLY maevsi_private.account
 
 
 --
--- Name: achievement_code achievement_code_alias_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: achievement_code achievement_code_alias_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.achievement_code
@@ -5458,7 +5484,7 @@ ALTER TABLE ONLY maevsi_private.achievement_code
 
 
 --
--- Name: achievement_code achievement_code_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: achievement_code achievement_code_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.achievement_code
@@ -5466,7 +5492,7 @@ ALTER TABLE ONLY maevsi_private.achievement_code
 
 
 --
--- Name: jwt jwt_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: jwt jwt_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.jwt
@@ -5474,7 +5500,7 @@ ALTER TABLE ONLY maevsi_private.jwt
 
 
 --
--- Name: jwt jwt_token_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: jwt jwt_token_key; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.jwt
@@ -5482,7 +5508,7 @@ ALTER TABLE ONLY maevsi_private.jwt
 
 
 --
--- Name: notification notification_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
+-- Name: notification notification_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi_private.notification
@@ -5490,7 +5516,7 @@ ALTER TABLE ONLY maevsi_private.notification
 
 
 --
--- Name: changes changes_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: changes changes_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.changes
@@ -5498,7 +5524,7 @@ ALTER TABLE ONLY sqitch.changes
 
 
 --
--- Name: changes changes_project_script_hash_key; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: changes changes_project_script_hash_key; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.changes
@@ -5506,7 +5532,7 @@ ALTER TABLE ONLY sqitch.changes
 
 
 --
--- Name: dependencies dependencies_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: dependencies dependencies_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.dependencies
@@ -5514,7 +5540,7 @@ ALTER TABLE ONLY sqitch.dependencies
 
 
 --
--- Name: events events_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: events events_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.events
@@ -5522,7 +5548,7 @@ ALTER TABLE ONLY sqitch.events
 
 
 --
--- Name: projects projects_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: projects projects_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.projects
@@ -5530,7 +5556,7 @@ ALTER TABLE ONLY sqitch.projects
 
 
 --
--- Name: projects projects_uri_key; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: projects projects_uri_key; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.projects
@@ -5538,7 +5564,7 @@ ALTER TABLE ONLY sqitch.projects
 
 
 --
--- Name: releases releases_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: releases releases_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.releases
@@ -5546,7 +5572,7 @@ ALTER TABLE ONLY sqitch.releases
 
 
 --
--- Name: tags tags_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: tags tags_pkey; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.tags
@@ -5554,7 +5580,7 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: tags tags_project_tag_key; Type: CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: tags tags_project_tag_key; Type: CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.tags
@@ -5562,224 +5588,224 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: idx_address_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_created_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_address_created_by ON maevsi.address USING btree (created_by);
 
 
 --
--- Name: INDEX idx_address_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
--- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_address_updated_by ON maevsi.address USING btree (updated_by);
 
 
 --
--- Name: INDEX idx_address_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_address_updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
--- Name: idx_device_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_device_updated_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_device_updated_by ON maevsi.device USING btree (updated_by);
 
 
 --
--- Name: INDEX idx_device_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_device_updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
--- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 
 
 --
--- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
--- Name: idx_event_search_vector; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_event_search_vector; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
 
 
 --
--- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 
 --
--- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE UNIQUE INDEX idx_event_upload_is_header_image_unique ON maevsi.event_upload USING btree (event_id) WHERE (is_header_image = true);
 
 
 --
--- Name: INDEX idx_event_upload_is_header_image_unique; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_event_upload_is_header_image_unique; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_event_upload_is_header_image_unique IS 'Ensures that at most one header image exists per event.';
 
 
 --
--- Name: idx_friendship_created_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_friendship_created_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_friendship_created_by ON maevsi.friendship USING btree (created_by);
 
 
 --
--- Name: INDEX idx_friendship_created_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_friendship_created_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
--- Name: idx_friendship_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_friendship_updated_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_friendship_updated_by ON maevsi.friendship USING btree (updated_by);
 
 
 --
--- Name: INDEX idx_friendship_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_friendship_updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
--- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: postgres
+-- Name: idx_guest_updated_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
 CREATE INDEX idx_guest_updated_by ON maevsi.guest USING btree (updated_by);
 
 
 --
--- Name: INDEX idx_guest_updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
+-- Name: INDEX idx_guest_updated_by; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON INDEX maevsi.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
--- Name: idx_account_private_location; Type: INDEX; Schema: maevsi_private; Owner: postgres
+-- Name: idx_account_private_location; Type: INDEX; Schema: maevsi_private; Owner: ci
 --
 
 CREATE INDEX idx_account_private_location ON maevsi_private.account USING gist (location);
 
 
 --
--- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: maevsi_private; Owner: postgres
+-- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: maevsi_private; Owner: ci
 --
 
 COMMENT ON INDEX maevsi_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --
--- Name: guest maevsi_guest_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: guest maevsi_guest_update; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_guest_update BEFORE UPDATE ON maevsi.guest FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_guest_update();
 
 
 --
--- Name: legal_term maevsi_legal_term_delete; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: legal_term maevsi_legal_term_delete; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_legal_term_delete BEFORE DELETE ON maevsi.legal_term FOR EACH ROW EXECUTE FUNCTION maevsi.legal_term_change();
 
 
 --
--- Name: legal_term maevsi_legal_term_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: legal_term maevsi_legal_term_update; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_legal_term_update BEFORE UPDATE ON maevsi.legal_term FOR EACH ROW EXECUTE FUNCTION maevsi.legal_term_change();
 
 
 --
--- Name: address maevsi_trigger_address_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: address maevsi_trigger_address_update; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_trigger_address_update BEFORE UPDATE ON maevsi.address FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
--- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: contact maevsi_trigger_contact_update_account_id; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON maevsi.contact FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_contact_update_account_id();
 
 
 --
--- Name: device maevsi_trigger_device_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: device maevsi_trigger_device_update; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_trigger_device_update BEFORE UPDATE ON maevsi.device FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
--- Name: device maevsi_trigger_device_update_fcm; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: device maevsi_trigger_device_update_fcm; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_trigger_device_update_fcm BEFORE UPDATE ON maevsi.device FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update_fcm();
 
 
 --
--- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: event maevsi_trigger_event_search_vector; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
 
 
 --
--- Name: friendship maevsi_trigger_friendship_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
+-- Name: friendship maevsi_trigger_friendship_update; Type: TRIGGER; Schema: maevsi; Owner: ci
 --
 
 CREATE TRIGGER maevsi_trigger_friendship_update BEFORE UPDATE ON maevsi.friendship FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
--- Name: account maevsi_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
+-- Name: account maevsi_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: ci
 --
 
 CREATE TRIGGER maevsi_private_account_email_address_verification_valid_until BEFORE INSERT OR UPDATE OF email_address_verification ON maevsi_private.account FOR EACH ROW EXECUTE FUNCTION maevsi_private.account_email_address_verification_valid_until();
 
 
 --
--- Name: account maevsi_private_account_password_reset_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: postgres
+-- Name: account maevsi_private_account_password_reset_verification_valid_until; Type: TRIGGER; Schema: maevsi_private; Owner: ci
 --
 
 CREATE TRIGGER maevsi_private_account_password_reset_verification_valid_until BEFORE INSERT OR UPDATE OF password_reset_verification ON maevsi_private.account FOR EACH ROW EXECUTE FUNCTION maevsi_private.account_password_reset_verification_valid_until();
 
 
 --
--- Name: account_block account_block_blocked_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_blocked_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_block
@@ -5787,7 +5813,7 @@ ALTER TABLE ONLY maevsi.account_block
 
 
 --
--- Name: account_block account_block_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_block
@@ -5795,7 +5821,7 @@ ALTER TABLE ONLY maevsi.account_block
 
 
 --
--- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account
@@ -5803,7 +5829,7 @@ ALTER TABLE ONLY maevsi.account
 
 
 --
--- Name: account_interest account_interest_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_interest account_interest_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_interest
@@ -5811,7 +5837,7 @@ ALTER TABLE ONLY maevsi.account_interest
 
 
 --
--- Name: account_interest account_interest_category_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_interest account_interest_category_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_interest
@@ -5819,7 +5845,7 @@ ALTER TABLE ONLY maevsi.account_interest
 
 
 --
--- Name: account_preference_event_size account_preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size account_preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_preference_event_size
@@ -5827,7 +5853,7 @@ ALTER TABLE ONLY maevsi.account_preference_event_size
 
 
 --
--- Name: account_social_network account_social_network_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: account_social_network account_social_network_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.account_social_network
@@ -5835,7 +5861,7 @@ ALTER TABLE ONLY maevsi.account_social_network
 
 
 --
--- Name: achievement achievement_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.achievement
@@ -5843,7 +5869,7 @@ ALTER TABLE ONLY maevsi.achievement
 
 
 --
--- Name: address address_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: address address_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.address
@@ -5851,7 +5877,7 @@ ALTER TABLE ONLY maevsi.address
 
 
 --
--- Name: address address_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: address address_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.address
@@ -5859,7 +5885,7 @@ ALTER TABLE ONLY maevsi.address
 
 
 --
--- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.contact
@@ -5867,7 +5893,7 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: contact contact_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.contact
@@ -5875,7 +5901,7 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: contact contact_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: contact contact_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.contact
@@ -5883,7 +5909,7 @@ ALTER TABLE ONLY maevsi.contact
 
 
 --
--- Name: device device_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: device device_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.device
@@ -5891,7 +5917,7 @@ ALTER TABLE ONLY maevsi.device
 
 
 --
--- Name: device device_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: device device_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.device
@@ -5899,7 +5925,7 @@ ALTER TABLE ONLY maevsi.device
 
 
 --
--- Name: event event_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_address_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event
@@ -5907,7 +5933,7 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
--- Name: event_category_mapping event_category_mapping_category_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping event_category_mapping_category_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_category_mapping
@@ -5915,7 +5941,7 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
--- Name: event_category_mapping event_category_mapping_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping event_category_mapping_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_category_mapping
@@ -5923,7 +5949,7 @@ ALTER TABLE ONLY maevsi.event_category_mapping
 
 
 --
--- Name: event event_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event event_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event
@@ -5931,7 +5957,7 @@ ALTER TABLE ONLY maevsi.event
 
 
 --
--- Name: event_favorite event_favorite_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_favorite
@@ -5939,7 +5965,7 @@ ALTER TABLE ONLY maevsi.event_favorite
 
 
 --
--- Name: event_favorite event_favorite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_favorite
@@ -5947,7 +5973,7 @@ ALTER TABLE ONLY maevsi.event_favorite
 
 
 --
--- Name: event_group event_group_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_group event_group_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_group
@@ -5955,7 +5981,7 @@ ALTER TABLE ONLY maevsi.event_group
 
 
 --
--- Name: event_grouping event_grouping_event_group_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_grouping event_grouping_event_group_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_grouping
@@ -5963,7 +5989,7 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 
 --
--- Name: event_grouping event_grouping_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_grouping event_grouping_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_grouping
@@ -5971,7 +5997,7 @@ ALTER TABLE ONLY maevsi.event_grouping
 
 
 --
--- Name: event_recommendation event_recommendation_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_recommendation event_recommendation_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_recommendation
@@ -5979,7 +6005,7 @@ ALTER TABLE ONLY maevsi.event_recommendation
 
 
 --
--- Name: event_recommendation event_recommendation_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_recommendation event_recommendation_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_recommendation
@@ -5987,7 +6013,7 @@ ALTER TABLE ONLY maevsi.event_recommendation
 
 
 --
--- Name: event_upload event_upload_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_upload
@@ -5995,7 +6021,7 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: event_upload event_upload_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.event_upload
@@ -6003,7 +6029,7 @@ ALTER TABLE ONLY maevsi.event_upload
 
 
 --
--- Name: friendship friendship_a_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_a_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.friendship
@@ -6011,7 +6037,7 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: friendship friendship_b_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_b_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.friendship
@@ -6019,7 +6045,7 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: friendship friendship_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.friendship
@@ -6027,7 +6053,7 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: friendship friendship_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.friendship
@@ -6035,7 +6061,7 @@ ALTER TABLE ONLY maevsi.friendship
 
 
 --
--- Name: guest guest_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_contact_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.guest
@@ -6043,7 +6069,7 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: guest guest_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.guest
@@ -6051,7 +6077,7 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: guest guest_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: guest guest_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.guest
@@ -6059,7 +6085,7 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.legal_term_acceptance
@@ -6067,7 +6093,7 @@ ALTER TABLE ONLY maevsi.legal_term_acceptance
 
 
 --
--- Name: legal_term_acceptance legal_term_acceptance_legal_term_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance legal_term_acceptance_legal_term_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.legal_term_acceptance
@@ -6075,7 +6101,7 @@ ALTER TABLE ONLY maevsi.legal_term_acceptance
 
 
 --
--- Name: profile_picture profile_picture_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
@@ -6083,7 +6109,7 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: profile_picture profile_picture_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.profile_picture
@@ -6091,7 +6117,7 @@ ALTER TABLE ONLY maevsi.profile_picture
 
 
 --
--- Name: report report_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_created_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.report
@@ -6099,7 +6125,7 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
--- Name: report report_target_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_target_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.report
@@ -6107,7 +6133,7 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
--- Name: report report_target_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_target_event_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.report
@@ -6115,7 +6141,7 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
--- Name: report report_target_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: report report_target_upload_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.report
@@ -6123,7 +6149,7 @@ ALTER TABLE ONLY maevsi.report
 
 
 --
--- Name: upload upload_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
+-- Name: upload upload_account_id_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE ONLY maevsi.upload
@@ -6131,7 +6157,7 @@ ALTER TABLE ONLY maevsi.upload
 
 
 --
--- Name: changes changes_project_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: changes changes_project_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.changes
@@ -6139,7 +6165,7 @@ ALTER TABLE ONLY sqitch.changes
 
 
 --
--- Name: dependencies dependencies_change_id_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: dependencies dependencies_change_id_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.dependencies
@@ -6147,7 +6173,7 @@ ALTER TABLE ONLY sqitch.dependencies
 
 
 --
--- Name: dependencies dependencies_dependency_id_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: dependencies dependencies_dependency_id_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.dependencies
@@ -6155,7 +6181,7 @@ ALTER TABLE ONLY sqitch.dependencies
 
 
 --
--- Name: events events_project_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: events events_project_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.events
@@ -6163,7 +6189,7 @@ ALTER TABLE ONLY sqitch.events
 
 
 --
--- Name: tags tags_change_id_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: tags tags_change_id_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.tags
@@ -6171,7 +6197,7 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: tags tags_project_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: postgres
+-- Name: tags tags_project_fkey; Type: FK CONSTRAINT; Schema: sqitch; Owner: ci
 --
 
 ALTER TABLE ONLY sqitch.tags
@@ -6179,147 +6205,147 @@ ALTER TABLE ONLY sqitch.tags
 
 
 --
--- Name: account; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: account; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_block; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: account_block; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.account_block ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_block account_block_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_block_delete ON maevsi.account_block FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_block_insert ON maevsi.account_block FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_block account_block_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_block_select ON maevsi.account_block FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_interest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: account_interest; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.account_interest ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_interest account_interest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_interest account_interest_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_interest_delete ON maevsi.account_interest FOR DELETE USING ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_interest account_interest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_interest account_interest_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_interest_insert ON maevsi.account_interest FOR INSERT WITH CHECK ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_interest account_interest_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_interest account_interest_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_interest_select ON maevsi.account_interest FOR SELECT USING ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_preference_event_size; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.account_preference_event_size ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_preference_event_size account_preference_event_size_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size account_preference_event_size_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_preference_event_size_delete ON maevsi.account_preference_event_size FOR DELETE USING ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_preference_event_size account_preference_event_size_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size account_preference_event_size_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_preference_event_size_insert ON maevsi.account_preference_event_size FOR INSERT WITH CHECK ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_preference_event_size account_preference_event_size_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_preference_event_size account_preference_event_size_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_preference_event_size_select ON maevsi.account_preference_event_size FOR SELECT USING ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account account_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_select ON maevsi.account FOR SELECT USING (true);
 
 
 --
--- Name: account_social_network; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: account_social_network; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.account_social_network ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_social_network_delete ON maevsi.account_social_network FOR DELETE USING ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_social_network account_social_network_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_social_network account_social_network_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_social_network_insert ON maevsi.account_social_network FOR INSERT WITH CHECK ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: account_social_network account_social_network_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: account_social_network account_social_network_update; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY account_social_network_update ON maevsi.account_social_network FOR UPDATE USING ((account_id = maevsi.invoker_account_id()));
 
 
 --
--- Name: achievement; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: achievement; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.achievement ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: achievement achievement_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: achievement achievement_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY achievement_select ON maevsi.achievement FOR SELECT USING (true);
 
 
 --
--- Name: address; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: address; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.address ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: address address; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: address address; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY address ON maevsi.address USING (((created_by = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
@@ -6327,20 +6353,20 @@ CREATE POLICY address ON maevsi.address USING (((created_by = maevsi.invoker_acc
 
 
 --
--- Name: contact; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: contact; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.contact ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: contact contact_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY contact_delete ON maevsi.contact FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id()) AND (account_id IS DISTINCT FROM maevsi.invoker_account_id())));
 
 
 --
--- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: contact contact_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
@@ -6349,7 +6375,7 @@ CREATE POLICY contact_insert ON maevsi.contact FOR INSERT WITH CHECK (((created_
 
 
 --
--- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: contact contact_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id = maevsi.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
@@ -6358,7 +6384,7 @@ CREATE POLICY contact_select ON maevsi.contact FOR SELECT USING ((((account_id =
 
 
 --
--- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: contact contact_update; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = maevsi.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
@@ -6367,32 +6393,32 @@ CREATE POLICY contact_update ON maevsi.contact FOR UPDATE USING (((created_by = 
 
 
 --
--- Name: device; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: device; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.device ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: device device; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: device device; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY device ON maevsi.device USING ((created_by = maevsi.invoker_account_id())) WITH CHECK (true);
 
 
 --
--- Name: event; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_category_mapping; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event_category_mapping ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR DELETE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
@@ -6401,7 +6427,7 @@ CREATE POLICY event_category_mapping_delete ON maevsi.event_category_mapping FOR
 
 
 --
--- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
@@ -6410,7 +6436,7 @@ CREATE POLICY event_category_mapping_insert ON maevsi.event_category_mapping FOR
 
 
 --
--- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
@@ -6418,73 +6444,73 @@ CREATE POLICY event_category_mapping_select ON maevsi.event_category_mapping FOR
 
 
 --
--- Name: event event_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event event_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_delete ON maevsi.event FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: event_favorite; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event_favorite ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_favorite event_favorite_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_favorite_delete ON maevsi.event_favorite FOR DELETE USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: event_favorite event_favorite_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_favorite_insert ON maevsi.event_favorite FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: event_favorite event_favorite_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_favorite event_favorite_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_favorite_select ON maevsi.event_favorite FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: event_group; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_group; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event_group ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_grouping; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_grouping; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event_grouping ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event event_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event event_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_insert ON maevsi.event FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
--- Name: event_recommendation; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_recommendation; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event_recommendation ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_recommendation event_recommendation_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_recommendation event_recommendation_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_recommendation_select ON maevsi.event_recommendation FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
 
 
 --
--- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event event_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'public'::maevsi.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > maevsi.guest_count(id))) AND (NOT (created_by IN ( SELECT account_block_ids.id
@@ -6492,20 +6518,20 @@ CREATE POLICY event_select ON maevsi.event FOR SELECT USING ((((visibility = 'pu
 
 
 --
--- Name: event event_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event event_update; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_update ON maevsi.event FOR UPDATE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
--- Name: event_upload; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: event_upload; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.event_upload ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_upload event_upload_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((event_id IN ( SELECT event.id
@@ -6514,7 +6540,7 @@ CREATE POLICY event_upload_delete ON maevsi.event_upload FOR DELETE USING ((even
 
 
 --
--- Name: event_upload event_upload_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (((event_id IN ( SELECT event.id
@@ -6525,7 +6551,7 @@ CREATE POLICY event_upload_insert ON maevsi.event_upload FOR INSERT WITH CHECK (
 
 
 --
--- Name: event_upload event_upload_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: event_upload event_upload_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((event_id IN ( SELECT event.id
@@ -6533,13 +6559,13 @@ CREATE POLICY event_upload_select ON maevsi.event_upload FOR SELECT USING ((even
 
 
 --
--- Name: friendship; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: friendship; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.friendship ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: friendship friendship_existing; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_existing; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY friendship_existing ON maevsi.friendship USING ((((maevsi.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
@@ -6548,34 +6574,34 @@ CREATE POLICY friendship_existing ON maevsi.friendship USING ((((maevsi.invoker_
 
 
 --
--- Name: friendship friendship_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY friendship_insert ON maevsi.friendship FOR INSERT WITH CHECK ((created_by = maevsi.invoker_account_id()));
 
 
 --
--- Name: friendship friendship_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: friendship friendship_update; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY friendship_update ON maevsi.friendship FOR UPDATE USING ((status = 'requested'::maevsi.friendship_status)) WITH CHECK (((status = 'accepted'::maevsi.friendship_status) AND (updated_by = maevsi.invoker_account_id())));
 
 
 --
--- Name: guest; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: guest; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.guest ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: guest guest_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY guest_delete ON maevsi.guest FOR DELETE USING ((event_id IN ( SELECT maevsi.events_organized() AS events_organized)));
 
 
 --
--- Name: guest guest_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY guest_insert ON maevsi.guest FOR INSERT WITH CHECK (((event_id IN ( SELECT maevsi.events_organized() AS events_organized)) AND ((maevsi.event_guest_count_maximum(event_id) IS NULL) OR (maevsi.event_guest_count_maximum(event_id) > maevsi.guest_count(event_id))) AND (contact_id IN ( SELECT contact.id
@@ -6589,7 +6615,7 @@ EXCEPT
 
 
 --
--- Name: guest guest_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
@@ -6603,7 +6629,7 @@ CREATE POLICY guest_select ON maevsi.guest FOR SELECT USING (((id = ANY (maevsi.
 
 
 --
--- Name: guest guest_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: guest guest_update; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY guest_update ON maevsi.guest FOR UPDATE USING (((id = ANY (maevsi.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
@@ -6621,107 +6647,107 @@ EXCEPT
 
 
 --
--- Name: legal_term; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: legal_term; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.legal_term ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: legal_term_acceptance; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: legal_term_acceptance legal_term_acceptance_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance legal_term_acceptance_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY legal_term_acceptance_insert ON maevsi.legal_term_acceptance FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
 
 
 --
--- Name: legal_term_acceptance legal_term_acceptance_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: legal_term_acceptance legal_term_acceptance_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY legal_term_acceptance_select ON maevsi.legal_term_acceptance FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
 
 
 --
--- Name: legal_term legal_term_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: legal_term legal_term_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY legal_term_select ON maevsi.legal_term FOR SELECT USING (true);
 
 
 --
--- Name: profile_picture; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: profile_picture; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.profile_picture ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY profile_picture_delete ON maevsi.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id()))));
 
 
 --
--- Name: profile_picture profile_picture_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY profile_picture_insert ON maevsi.profile_picture FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
 
 
 --
--- Name: profile_picture profile_picture_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY profile_picture_select ON maevsi.profile_picture FOR SELECT USING (true);
 
 
 --
--- Name: profile_picture profile_picture_update; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: profile_picture profile_picture_update; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY profile_picture_update ON maevsi.profile_picture FOR UPDATE USING (((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())));
 
 
 --
--- Name: report; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: report; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.report ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: report report_insert; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY report_insert ON maevsi.report FOR INSERT WITH CHECK (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
--- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: report report_select; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY report_select ON maevsi.report FOR SELECT USING (((maevsi.invoker_account_id() IS NOT NULL) AND (created_by = maevsi.invoker_account_id())));
 
 
 --
--- Name: upload; Type: ROW SECURITY; Schema: maevsi; Owner: postgres
+-- Name: upload; Type: ROW SECURITY; Schema: maevsi; Owner: ci
 --
 
 ALTER TABLE maevsi.upload ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: upload upload_delete_using; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: upload upload_delete_using; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY upload_delete_using ON maevsi.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
--- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: upload upload_select_using; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name) OR ((maevsi.invoker_account_id() IS NOT NULL) AND (account_id = maevsi.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
@@ -6729,27 +6755,27 @@ CREATE POLICY upload_select_using ON maevsi.upload FOR SELECT USING (((( SELECT 
 
 
 --
--- Name: upload upload_update_using; Type: POLICY; Schema: maevsi; Owner: postgres
+-- Name: upload upload_update_using; Type: POLICY; Schema: maevsi; Owner: ci
 --
 
 CREATE POLICY upload_update_using ON maevsi.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'maevsi'::name));
 
 
 --
--- Name: achievement_code; Type: ROW SECURITY; Schema: maevsi_private; Owner: postgres
+-- Name: achievement_code; Type: ROW SECURITY; Schema: maevsi_private; Owner: ci
 --
 
 ALTER TABLE maevsi_private.achievement_code ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: achievement_code achievement_code_select; Type: POLICY; Schema: maevsi_private; Owner: postgres
+-- Name: achievement_code achievement_code_select; Type: POLICY; Schema: maevsi_private; Owner: ci
 --
 
 CREATE POLICY achievement_code_select ON maevsi_private.achievement_code FOR SELECT USING (true);
 
 
 --
--- Name: SCHEMA maevsi; Type: ACL; Schema: -; Owner: postgres
+-- Name: SCHEMA maevsi; Type: ACL; Schema: -; Owner: ci
 --
 
 GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous;
@@ -6758,7 +6784,7 @@ GRANT USAGE ON SCHEMA maevsi TO maevsi;
 
 
 --
--- Name: SCHEMA maevsi_test; Type: ACL; Schema: -; Owner: postgres
+-- Name: SCHEMA maevsi_test; Type: ACL; Schema: -; Owner: ci
 --
 
 GRANT USAGE ON SCHEMA maevsi_test TO maevsi_anonymous;
@@ -6766,7 +6792,7 @@ GRANT USAGE ON SCHEMA maevsi_test TO maevsi_account;
 
 
 --
--- Name: FUNCTION account_delete(password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_delete(password text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_delete(password text) FROM PUBLIC;
@@ -6774,7 +6800,7 @@ GRANT ALL ON FUNCTION maevsi.account_delete(password text) TO maevsi_account;
 
 
 --
--- Name: FUNCTION account_email_address_verification(code uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_email_address_verification(code uuid); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_email_address_verification(code uuid) FROM PUBLIC;
@@ -6783,7 +6809,7 @@ GRANT ALL ON FUNCTION maevsi.account_email_address_verification(code uuid) TO ma
 
 
 --
--- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_password_change(password_current text, password_new text) FROM PUBLIC;
@@ -6791,7 +6817,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_change(password_current text, pass
 
 
 --
--- Name: FUNCTION account_password_reset(code uuid, password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_password_reset(code uuid, password text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) FROM PUBLIC;
@@ -6800,7 +6826,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_reset(code uuid, password text) TO
 
 
 --
--- Name: FUNCTION account_password_reset_request(email_address text, language text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_password_reset_request(email_address text, language text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, language text) FROM PUBLIC;
@@ -6809,7 +6835,7 @@ GRANT ALL ON FUNCTION maevsi.account_password_reset_request(email_address text, 
 
 
 --
--- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_registration(username text, email_address text, password text, language text) FROM PUBLIC;
@@ -6818,7 +6844,7 @@ GRANT ALL ON FUNCTION maevsi.account_registration(username text, email_address t
 
 
 --
--- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, language text) FROM PUBLIC;
@@ -6826,7 +6852,7 @@ GRANT ALL ON FUNCTION maevsi.account_registration_refresh(account_id uuid, langu
 
 
 --
--- Name: FUNCTION account_upload_quota_bytes(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION account_upload_quota_bytes(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.account_upload_quota_bytes() FROM PUBLIC;
@@ -6834,7 +6860,7 @@ GRANT ALL ON FUNCTION maevsi.account_upload_quota_bytes() TO maevsi_account;
 
 
 --
--- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) FROM PUBLIC;
@@ -6842,7 +6868,7 @@ GRANT ALL ON FUNCTION maevsi.achievement_unlock(code uuid, alias text) TO maevsi
 
 
 --
--- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.authenticate(username text, password text) FROM PUBLIC;
@@ -6851,7 +6877,7 @@ GRANT ALL ON FUNCTION maevsi.authenticate(username text, password text) TO maevs
 
 
 --
--- Name: TABLE event; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.event TO maevsi_account;
@@ -6859,7 +6885,7 @@ GRANT SELECT ON TABLE maevsi.event TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION event_delete(id uuid, password text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_delete(id uuid, password text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.event_delete(id uuid, password text) FROM PUBLIC;
@@ -6867,7 +6893,7 @@ GRANT ALL ON FUNCTION maevsi.event_delete(id uuid, password text) TO maevsi_acco
 
 
 --
--- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_guest_count_maximum(event_id uuid); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) FROM PUBLIC;
@@ -6876,7 +6902,7 @@ GRANT ALL ON FUNCTION maevsi.event_guest_count_maximum(event_id uuid) TO maevsi_
 
 
 --
--- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) FROM PUBLIC;
@@ -6885,7 +6911,7 @@ GRANT ALL ON FUNCTION maevsi.event_is_existing(created_by uuid, slug text) TO ma
 
 
 --
--- Name: FUNCTION event_search(query text, language maevsi.language); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_search(query text, language maevsi.language); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) FROM PUBLIC;
@@ -6894,7 +6920,7 @@ GRANT ALL ON FUNCTION maevsi.event_search(query text, language maevsi.language) 
 
 
 --
--- Name: FUNCTION event_unlock(guest_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION event_unlock(guest_id uuid); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) FROM PUBLIC;
@@ -6903,7 +6929,7 @@ GRANT ALL ON FUNCTION maevsi.event_unlock(guest_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION events_organized(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION events_organized(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.events_organized() FROM PUBLIC;
@@ -6912,7 +6938,7 @@ GRANT ALL ON FUNCTION maevsi.events_organized() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.guest_claim_array() FROM PUBLIC;
@@ -6921,7 +6947,7 @@ GRANT ALL ON FUNCTION maevsi.guest_claim_array() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION guest_contact_ids(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_contact_ids(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.guest_contact_ids() FROM PUBLIC;
@@ -6930,7 +6956,7 @@ GRANT ALL ON FUNCTION maevsi.guest_contact_ids() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION guest_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION guest_count(event_id uuid); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.guest_count(event_id uuid) FROM PUBLIC;
@@ -6939,7 +6965,7 @@ GRANT ALL ON FUNCTION maevsi.guest_count(event_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION invite(guest_id uuid, language text); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invite(guest_id uuid, language text); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) FROM PUBLIC;
@@ -6947,7 +6973,7 @@ GRANT ALL ON FUNCTION maevsi.invite(guest_id uuid, language text) TO maevsi_acco
 
 
 --
--- Name: FUNCTION invoker_account_id(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION invoker_account_id(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.invoker_account_id() FROM PUBLIC;
@@ -6957,7 +6983,7 @@ GRANT ALL ON FUNCTION maevsi.invoker_account_id() TO maevsi;
 
 
 --
--- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) FROM PUBLIC;
@@ -6966,7 +6992,7 @@ GRANT ALL ON FUNCTION maevsi.jwt_refresh(jwt_id uuid) TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION language_iso_full_text_search(language maevsi.language); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.language) FROM PUBLIC;
@@ -6975,14 +7001,14 @@ GRANT ALL ON FUNCTION maevsi.language_iso_full_text_search(language maevsi.langu
 
 
 --
--- Name: FUNCTION legal_term_change(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION legal_term_change(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.legal_term_change() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
@@ -6990,7 +7016,7 @@ GRANT ALL ON FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged b
 
 
 --
--- Name: FUNCTION profile_picture_set(upload_id uuid); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION profile_picture_set(upload_id uuid); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) FROM PUBLIC;
@@ -6998,7 +7024,7 @@ GRANT ALL ON FUNCTION maevsi.profile_picture_set(upload_id uuid) TO maevsi_accou
 
 
 --
--- Name: FUNCTION trigger_contact_update_account_id(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_contact_update_account_id(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.trigger_contact_update_account_id() FROM PUBLIC;
@@ -7006,7 +7032,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_contact_update_account_id() TO maevsi_accou
 
 
 --
--- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.trigger_event_search_vector() FROM PUBLIC;
@@ -7015,7 +7041,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_event_search_vector() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION trigger_guest_update(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_guest_update(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.trigger_guest_update() FROM PUBLIC;
@@ -7024,7 +7050,7 @@ GRANT ALL ON FUNCTION maevsi.trigger_guest_update() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION trigger_metadata_update(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_metadata_update(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update() FROM PUBLIC;
@@ -7032,14 +7058,14 @@ GRANT ALL ON FUNCTION maevsi.trigger_metadata_update() TO maevsi_account;
 
 
 --
--- Name: FUNCTION trigger_metadata_update_fcm(); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION trigger_metadata_update_fcm(); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.trigger_metadata_update_fcm() FROM PUBLIC;
 
 
 --
--- Name: TABLE upload; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE upload; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.upload TO maevsi_account;
@@ -7048,7 +7074,7 @@ GRANT SELECT,DELETE,UPDATE ON TABLE maevsi.upload TO maevsi;
 
 
 --
--- Name: FUNCTION upload_create(size_byte bigint); Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: FUNCTION upload_create(size_byte bigint); Type: ACL; Schema: maevsi; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi.upload_create(size_byte bigint) FROM PUBLIC;
@@ -7056,7 +7082,7 @@ GRANT ALL ON FUNCTION maevsi.upload_create(size_byte bigint) TO maevsi_account;
 
 
 --
--- Name: FUNCTION account_block_ids(); Type: ACL; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION account_block_ids(); Type: ACL; Schema: maevsi_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_private.account_block_ids() FROM PUBLIC;
@@ -7065,7 +7091,7 @@ GRANT ALL ON FUNCTION maevsi_private.account_block_ids() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION account_email_address_verification_valid_until(); Type: ACL; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION account_email_address_verification_valid_until(); Type: ACL; Schema: maevsi_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_private.account_email_address_verification_valid_until() FROM PUBLIC;
@@ -7073,7 +7099,7 @@ GRANT ALL ON FUNCTION maevsi_private.account_email_address_verification_valid_un
 
 
 --
--- Name: FUNCTION account_password_reset_verification_valid_until(); Type: ACL; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION account_password_reset_verification_valid_until(); Type: ACL; Schema: maevsi_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_private.account_password_reset_verification_valid_until() FROM PUBLIC;
@@ -7081,7 +7107,7 @@ GRANT ALL ON FUNCTION maevsi_private.account_password_reset_verification_valid_u
 
 
 --
--- Name: FUNCTION events_invited(); Type: ACL; Schema: maevsi_private; Owner: postgres
+-- Name: FUNCTION events_invited(); Type: ACL; Schema: maevsi_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_private.events_invited() FROM PUBLIC;
@@ -7090,28 +7116,28 @@ GRANT ALL ON FUNCTION maevsi_private.events_invited() TO maevsi_anonymous;
 
 
 --
--- Name: FUNCTION account_block_create(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_create(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_block_create(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION account_block_remove(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_block_remove(_created_by uuid, _blocked_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_create(_username text, _email text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distance_max double precision) FROM PUBLIC;
@@ -7119,7 +7145,7 @@ GRANT ALL ON FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _d
 
 
 --
--- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_location_coordinates(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid) FROM PUBLIC;
@@ -7127,7 +7153,7 @@ GRANT ALL ON FUNCTION maevsi_test.account_location_coordinates(_account_id uuid)
 
 
 --
--- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_location_update(_account_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
@@ -7135,70 +7161,70 @@ GRANT ALL ON FUNCTION maevsi_test.account_location_update(_account_id uuid, _lat
 
 
 --
--- Name: FUNCTION account_registration_verified(_username text, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_registration_verified(_username text, _email_address text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_registration_verified(_username text, _email_address text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION account_remove(_username text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.account_remove(_username text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION contact_create(_created_by uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_create(_created_by uuid, _email_address text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_create(_created_by uuid, _email_address text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION contact_select_by_account_id(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_select_by_account_id(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_select_by_account_id(_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION contact_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION contact_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.contact_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_category_create(_category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_create(_category text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_create(_category text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_category_mapping_create(_created_by uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_mapping_create(_created_by uuid, _event_id uuid, _category text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_create(_created_by uuid, _event_id uuid, _category text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_category_mapping_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_create(_created_by uuid, _name text, _slug text, _start text, _visibility text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_filter_radius_account(_account_id uuid, _distance_max double precision); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, _distance_max double precision) FROM PUBLIC;
@@ -7206,7 +7232,7 @@ GRANT ALL ON FUNCTION maevsi_test.event_filter_radius_account(_account_id uuid, 
 
 
 --
--- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_location_coordinates(_event_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) FROM PUBLIC;
@@ -7214,7 +7240,7 @@ GRANT ALL ON FUNCTION maevsi_test.event_location_coordinates(_event_id uuid) TO 
 
 
 --
--- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_location_update(_event_id uuid, _latitude double precision, _longitude double precision); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude double precision, _longitude double precision) FROM PUBLIC;
@@ -7222,336 +7248,345 @@ GRANT ALL ON FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitud
 
 
 --
--- Name: FUNCTION event_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION event_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.event_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION friendship_accept(_invoker_account_id uuid, _id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION friendship_accept(_invoker_account_id uuid, _id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.friendship_accept(_invoker_account_id uuid, _id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.friendship_account_ids_test(_test_case text, _invoker_account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION friendship_reject(_invoker_account_id uuid, _id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION friendship_reject(_invoker_account_id uuid, _id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.friendship_reject(_invoker_account_id uuid, _id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION friendship_request(_invoker_account_id uuid, _friend_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION friendship_request(_invoker_account_id uuid, _friend_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.friendship_request(_invoker_account_id uuid, _friend_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.friendship_test(_test_case text, _invoker_account_id uuid, _status text, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION guest_claim_from_account_guest(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_claim_from_account_guest(_account_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_claim_from_account_guest(_account_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION guest_create(_created_by uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_create(_created_by uuid, _event_id uuid, _contact_id uuid); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid, _contact_id uuid) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION guest_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION guest_test(_test_case text, _account_id uuid, _expected_result uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION index_existence(indexes text[], schema text); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: FUNCTION index_existence(indexes text[], schema text); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.index_existence(indexes text[], schema text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]); Type: ACL; Schema: maevsi_test; Owner: postgres
+-- Name: PROCEDURE set_local_superuser(); Type: ACL; Schema: maevsi_test; Owner: ci
+--
+
+REVOKE ALL ON PROCEDURE maevsi_test.set_local_superuser() FROM PUBLIC;
+GRANT ALL ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_anonymous;
+GRANT ALL ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_account;
+
+
+--
+-- Name: FUNCTION uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]); Type: ACL; Schema: maevsi_test; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.uuid_array_test(_test_case text, _array uuid[], _expected_array uuid[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.armor(bytea) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION armor(bytea, text[], text[]); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION armor(bytea, text[], text[]); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.armor(bytea, text[], text[]) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION crypt(text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION crypt(text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.crypt(text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION dearmor(text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION dearmor(text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.dearmor(text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.decrypt(bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION decrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION decrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.decrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION digest(bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION digest(bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.digest(bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION digest(text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION digest(text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.digest(text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION encrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.encrypt(bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION encrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION encrypt_iv(bytea, bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.encrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.gen_random_bytes(integer) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION gen_random_uuid(); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION gen_random_uuid(); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.gen_random_uuid() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION gen_salt(text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION gen_salt(text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.gen_salt(text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION gen_salt(text, integer); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION gen_salt(text, integer); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.gen_salt(text, integer) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION hmac(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION hmac(bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.hmac(bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION hmac(text, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION hmac(text, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.hmac(text, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_armor_headers(text, OUT key text, OUT value text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_armor_headers(text, OUT key text, OUT value text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_armor_headers(text, OUT key text, OUT value text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_key_id(bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_key_id(bytea); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_key_id(bytea) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_decrypt(bytea, bytea); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_decrypt(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_decrypt(bytea, bytea, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_decrypt_bytea(bytea, bytea, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_decrypt_bytea(bytea, bytea, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_encrypt(text, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_encrypt(text, bytea); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_encrypt(text, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_encrypt(text, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_encrypt(text, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_pub_encrypt_bytea(bytea, bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_pub_encrypt_bytea(bytea, bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_decrypt(bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_decrypt(bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_decrypt(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_decrypt(bytea, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_decrypt(bytea, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_decrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_decrypt_bytea(bytea, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_encrypt(text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_encrypt(text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_encrypt(text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_encrypt(text, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_encrypt(text, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_encrypt(text, text, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) FROM PUBLIC;
 
 
 --
--- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: postgres
+-- Name: FUNCTION pgp_sym_encrypt_bytea(bytea, text, text); Type: ACL; Schema: public; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBLIC;
 
 
 --
--- Name: TABLE account; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE account; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.account TO maevsi_account;
@@ -7559,7 +7594,7 @@ GRANT SELECT ON TABLE maevsi.account TO maevsi_anonymous;
 
 
 --
--- Name: TABLE account_block; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_block; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT ON TABLE maevsi.account_block TO maevsi_account;
@@ -7567,21 +7602,21 @@ GRANT SELECT ON TABLE maevsi.account_block TO maevsi_anonymous;
 
 
 --
--- Name: TABLE account_interest; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_interest; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_interest TO maevsi_account;
 
 
 --
--- Name: TABLE account_preference_event_size; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_preference_event_size; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.account_preference_event_size TO maevsi_account;
 
 
 --
--- Name: TABLE account_social_network; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE account_social_network; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.account_social_network TO maevsi_anonymous;
@@ -7589,7 +7624,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.account_social_network TO maev
 
 
 --
--- Name: TABLE achievement; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE achievement; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.achievement TO maevsi_account;
@@ -7597,7 +7632,7 @@ GRANT SELECT ON TABLE maevsi.achievement TO maevsi_anonymous;
 
 
 --
--- Name: TABLE address; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE address; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
@@ -7605,7 +7640,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.address TO maevsi_account;
 
 
 --
--- Name: TABLE contact; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE contact; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.contact TO maevsi_account;
@@ -7613,14 +7648,14 @@ GRANT SELECT ON TABLE maevsi.contact TO maevsi_anonymous;
 
 
 --
--- Name: TABLE device; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE device; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.device TO maevsi_account;
 
 
 --
--- Name: TABLE event_category; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_category; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.event_category TO maevsi_anonymous;
@@ -7628,7 +7663,7 @@ GRANT SELECT ON TABLE maevsi.event_category TO maevsi_account;
 
 
 --
--- Name: TABLE event_category_mapping; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_category_mapping; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.event_category_mapping TO maevsi_anonymous;
@@ -7636,14 +7671,14 @@ GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_category_mapping TO maevsi_acco
 
 
 --
--- Name: TABLE event_favorite; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_favorite; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_favorite TO maevsi_account;
 
 
 --
--- Name: TABLE event_group; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_group; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.event_group TO maevsi_account;
@@ -7651,7 +7686,7 @@ GRANT SELECT ON TABLE maevsi.event_group TO maevsi_anonymous;
 
 
 --
--- Name: TABLE event_grouping; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_grouping; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.event_grouping TO maevsi_account;
@@ -7659,14 +7694,14 @@ GRANT SELECT ON TABLE maevsi.event_grouping TO maevsi_anonymous;
 
 
 --
--- Name: TABLE event_recommendation; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_recommendation; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_recommendation TO maevsi_account;
 
 
 --
--- Name: TABLE event_upload; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE event_upload; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE maevsi.event_upload TO maevsi_account;
@@ -7674,14 +7709,14 @@ GRANT SELECT ON TABLE maevsi.event_upload TO maevsi_anonymous;
 
 
 --
--- Name: TABLE friendship; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE friendship; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.friendship TO maevsi_account;
 
 
 --
--- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.guest TO maevsi_account;
@@ -7689,7 +7724,7 @@ GRANT SELECT,UPDATE ON TABLE maevsi.guest TO maevsi_anonymous;
 
 
 --
--- Name: TABLE guest_flat; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE guest_flat; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_account;
@@ -7697,7 +7732,7 @@ GRANT SELECT ON TABLE maevsi.guest_flat TO maevsi_anonymous;
 
 
 --
--- Name: TABLE legal_term; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE legal_term; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_account;
@@ -7705,14 +7740,14 @@ GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_anonymous;
 
 
 --
--- Name: TABLE legal_term_acceptance; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE legal_term_acceptance; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT ON TABLE maevsi.legal_term_acceptance TO maevsi_account;
 
 
 --
--- Name: TABLE profile_picture; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE profile_picture; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE maevsi.profile_picture TO maevsi_account;
@@ -7721,24 +7756,24 @@ GRANT SELECT,DELETE ON TABLE maevsi.profile_picture TO maevsi;
 
 
 --
--- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: postgres
+-- Name: TABLE report; Type: ACL; Schema: maevsi; Owner: ci
 --
 
 GRANT SELECT,INSERT ON TABLE maevsi.report TO maevsi_account;
 
 
 --
--- Name: TABLE achievement_code; Type: ACL; Schema: maevsi_private; Owner: postgres
+-- Name: TABLE achievement_code; Type: ACL; Schema: maevsi_private; Owner: ci
 --
 
 GRANT SELECT ON TABLE maevsi_private.achievement_code TO maevsi;
 
 
 --
--- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: -; Owner: postgres
+-- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: -; Owner: ci
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE ALL ON FUNCTIONS FROM PUBLIC;
+ALTER DEFAULT PRIVILEGES FOR ROLE ci REVOKE ALL ON FUNCTIONS FROM PUBLIC;
 
 
 --

@@ -189,6 +189,12 @@
 * **schema:** remove table prefix so schema can be build ([cc5be2d](https://github.com/maevsi/sqitch/commit/cc5be2d7f0db3a251337325ec0b3aa822d0f8482))
 
 ## [5.0.0-beta.2](https://github.com/maevsi/sqitch/compare/5.0.0-beta.1...5.0.0-beta.2) (2024-12-12)
+## [4.13.4](https://github.com/maevsi/sqitch/compare/4.13.3...4.13.4) (2025-02-15)
+
+### Bug Fixes
+
+* schedule release ([3c6097d](https://github.com/maevsi/sqitch/commit/3c6097d050c54ddeb5dadd785855933f27500c5b))
+
 ## [4.13.3](https://github.com/maevsi/sqitch/compare/4.13.2...4.13.3) (2025-01-26)
 
 ### Bug Fixes

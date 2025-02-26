@@ -1,5 +1,26 @@
 BEGIN;
 
+CREATE PROCEDURE maevsi_test.set_local_superuser()
+AS $$
+DECLARE
+  _superuser_name TEXT;
+BEGIN
+  SELECT usename INTO _superuser_name
+  FROM pg_user
+  WHERE usesuper = true
+  ORDER BY usename
+  LIMIT 1;
+
+  IF _superuser_name IS NOT NULL THEN
+    EXECUTE format('SET LOCAL role = %I', _superuser_name);
+  ELSE
+    RAISE NOTICE 'No superuser found!';
+  END IF;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_anonymous, maevsi_account;
+
+
 CREATE FUNCTION maevsi_test.account_create (
   _username TEXT,
   _email TEXT
@@ -36,7 +57,7 @@ BEGIN
 
     PERFORM maevsi.account_delete('password');
 
-    SET LOCAL role = 'postgres';
+    CALL maevsi_test.set_local_superuser();
   END IF;
 END $$ LANGUAGE plpgsql;
 
@@ -74,7 +95,7 @@ BEGIN
     UPDATE maevsi.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -96,7 +117,7 @@ BEGIN
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -116,7 +137,7 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -140,7 +161,7 @@ BEGIN
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.account_block_create (
@@ -157,7 +178,7 @@ BEGIN
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -195,7 +216,7 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.event_category_mapping_test (
@@ -220,7 +241,7 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.contact_test (
@@ -247,7 +268,7 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.guest_test (
@@ -272,7 +293,7 @@ BEGIN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.guest_claim_from_account_guest (
@@ -307,7 +328,7 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _result;
 END $$ LANGUAGE plpgsql;

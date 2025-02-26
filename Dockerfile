@@ -27,6 +27,7 @@ FROM postgis/postgis:17-3.5 AS test-build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+ENV POSTGRES_USER=ci
 
 WORKDIR /srv/app
 
@@ -47,11 +48,11 @@ COPY ./test/index-missing.sql ./test/
 
 RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && docker-entrypoint.sh postgres & \
-  while ! pg_isready -h localhost -U postgres -p 5432; do sleep 1; done \
-  && sqitch deploy -t db:pg://postgres:postgres@/maevsi \
-  && psql -h localhost -U postgres -d maevsi -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
-  && pg_dump -s -h localhost -U postgres -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql \
-  && sqitch revert -t db:pg://postgres:postgres@/maevsi
+  while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
+  && sqitch deploy -t db:pg://ci:postgres@/maevsi \
+  && psql -h localhost -U ci -d maevsi -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
+  && pg_dump -s -h localhost -U ci -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql \
+  && sqitch revert -t db:pg://ci:postgres@/maevsi
 
 
 ##############################

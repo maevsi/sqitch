@@ -16,5 +16,6 @@ DROP FUNCTION maevsi_test.guest_create(UUID, UUID, UUID);
 DROP FUNCTION maevsi_test.guest_test(TEXT, UUID, UUID[]);
 DROP FUNCTION maevsi_test.guest_claim_from_account_guest(UUID);
 DROP FUNCTION maevsi_test.uuid_array_test(TEXT, UUID[], UUID[]);
+DROP PROCEDURE maevsi_test.set_local_superuser();
 
 COMMIT;
