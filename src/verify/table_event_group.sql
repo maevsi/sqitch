@@ -1,13 +1,20 @@
 BEGIN;
 
 SELECT id,
-       created_at,
-       author_account_id,
-       "description",
+       description,
        is_archived,
-       "name",
-       slug
+       name,
+       slug,
+       created_at,
+       created_by
 FROM maevsi.event_group WHERE FALSE;
+
+SELECT maevsi_test.index_existence(
+  ARRAY ['event_group_created_by_slug_key']
+);
+
+\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
+SET local role.maevsi_username TO :'role_maevsi_username';
 
 DO $$
 BEGIN
@@ -19,10 +26,10 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.event_group', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.event_group', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.event_group', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.event_group', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.event_group', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.event_group', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_tusd', 'maevsi.event_group', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_group', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_group', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_group', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.event_group', 'DELETE'));
 END $$;
 
 ROLLBACK;

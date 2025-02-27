@@ -58,16 +58,6 @@ Head over to [maevsi/maevsi](https://github.com/maevsi/maevsi) to see how to sta
 <!-- Please make sure that the queries and mutations listed on the page align with the expected functionality of the project. -->
 
 
-## Edge cases in development
-
-### `schema.definition.sql` differs in the CI pipeline
-
-See [DBZ-8656](https://issues.redhat.com/browse/DBZ-8656).
-
-Run `sudo docker pull quay.io/debezium/postgres:17` and, if a new image is pulled, regenerate the schema definition.
-It should then match the definition generated in the CI pipeline.
-
-
 ## Code of Conduct
 
 We expect all contributors to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md). Please read it before starting any contribution. We aim to foster a welcoming and inclusive community, and we appreciate your respect for fellow contributors.

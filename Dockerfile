@@ -23,7 +23,7 @@ COPY ./src ./
 
 
 ###########################
-FROM quay.io/debezium/postgres:17 AS test-build
+FROM postgis/postgis:17-3.5 AS test-build
 
 ENV POSTGRES_DB=maevsi
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
@@ -31,25 +31,26 @@ ENV POSTGRES_USER=ci
 
 WORKDIR /srv/app
 
-RUN add-apt-repository -r 'deb http://ftp.debian.org/debian testing main contrib' \
-  && apt-get update \
+RUN apt-get update \
   && apt-get install --no-install-recommends -y \
-    sqitch=1.3.1-1 \
+    sqitch=1.1.0000-1 \
   && mkdir -p /run/secrets \
-  && echo "postgres" > /run/secrets/postgres_password \
-  && echo "grafana" > /run/secrets/postgres_role_grafana_username \
+  && echo "postgres"      > /run/secrets/postgres_password \
+  && echo "postgraphile"  > /run/secrets/postgres_role_maevsi-postgraphile_username \
+  && echo "maevsi"          > /run/secrets/postgres_role_maevsi_username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_grafana_password \
-    /run/secrets/postgres_role_maevsi-postgraphile_password \
     /run/secrets/postgres_role_maevsi_password \
+    /run/secrets/postgres_role_maevsi-postgraphile_password \
     /dev/null
 
 COPY ./src ./
+COPY ./test/index-missing.sql ./test/
 
 RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
   && docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
   && sqitch deploy -t db:pg://ci:postgres@/maevsi \
+  && psql -h localhost -U ci -d maevsi -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
   && pg_dump -s -h localhost -U ci -p 5432 maevsi | sed -e '/^-- Dumped/d' > schema.sql \
   && sqitch revert -t db:pg://ci:postgres@/maevsi
 

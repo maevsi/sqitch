@@ -14,7 +14,7 @@ BEGIN
   SELECT achievement
     FROM maevsi_private.achievement_code
     INTO _achievement
-    WHERE achievement_code.id = $1 OR achievement_code.alias = $2;
+    WHERE achievement_code.id = achievement_unlock.code OR achievement_code.alias = achievement_unlock.alias;
 
   IF (_achievement IS NULL) THEN
     RAISE 'Unknown achievement!' USING ERRCODE = 'no_data_found';
