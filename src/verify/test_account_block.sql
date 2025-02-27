@@ -117,8 +117,8 @@ BEGIN
     PERFORM maevsi_test.invoker_set(accountC);
     -- C wants to create guest A and B for the event, should fail because B is blocked
     PERFORM maevsi.create_guests(eventC, ARRAY[contactCA, contactCB]);
-    RAISE EXCEPTION 'should not get here';
     PERFORM maevsi_test.invoker_unset();
+    RAISE EXCEPTION 'should not get here';
   EXCEPTION
     WHEN insufficient_privilege THEN
       -- expected exception, policy prevents insert due to blocking
