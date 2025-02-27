@@ -1,3 +1,9 @@
+## [5.0.0-beta.19](https://github.com/maevsi/sqitch/compare/5.0.0-beta.18...5.0.0-beta.19) (2025-02-27)
+
+### Features
+
+* **address:** add location ([55fc3e5](https://github.com/maevsi/sqitch/commit/55fc3e526e9a47eee9e17d3e4fd86b90eec0baba))
+
 ## [5.0.0-beta.18](https://github.com/maevsi/sqitch/compare/5.0.0-beta.17...5.0.0-beta.18) (2025-02-26)
 
 ### Bug Fixes
