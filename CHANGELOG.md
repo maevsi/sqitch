@@ -1,3 +1,9 @@
+## [5.0.1](https://github.com/maevsi/sqitch/compare/5.0.0...5.0.1) (2025-02-27)
+
+### Bug Fixes
+
+* **address:** correct nullability ([09fe569](https://github.com/maevsi/sqitch/commit/09fe569b9463860f65dc6e5a586a2fb2305945f8))
+
 ## [5.0.0](https://github.com/maevsi/sqitch/compare/4.13.5...5.0.0) (2025-02-27)
 
 ### ⚠ BREAKING CHANGES
