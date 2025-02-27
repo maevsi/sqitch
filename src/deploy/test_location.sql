@@ -12,18 +12,23 @@ RETURNS TABLE (
 BEGIN
   RETURN QUERY
     WITH event AS (
-      SELECT location_geography
+      SELECT address_id
       FROM maevsi.event
       WHERE id = _event_id
+    ),
+    event_address AS (
+      SELECT location
+      FROM maevsi.address
+      WHERE id = (SELECT address_id FROM event)
     )
     SELECT
       a.id AS account_id,
-      ST_Distance(e.location_geography, a.location) AS distance
+      ST_Distance(e.location, a.location) AS distance
     FROM
-      event e,
+      event_address e,
       maevsi_private.account a
     WHERE
-      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
+      ST_DWithin(e.location, a.location, _distance_max * 1000);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
@@ -49,12 +54,14 @@ BEGIN
     )
     SELECT
       e.id AS event_id,
-      ST_Distance(a.location, e.location_geography) AS distance
+      ST_Distance(a.location, addr.location) AS distance
     FROM
       account a,
       maevsi.event e
+    JOIN
+      maevsi.address addr ON e.address_id = addr.id
     WHERE
-      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
+      ST_DWithin(a.location, addr.location, _distance_max * 1000);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
@@ -90,11 +97,16 @@ CREATE FUNCTION maevsi_test.event_location_update(
 )
 RETURNS VOID AS $$
 BEGIN
-  UPDATE maevsi.event
+  WITH event AS (
+    SELECT address_id
+    FROM maevsi.event
+    WHERE id = _event_id
+  )
+  UPDATE maevsi.address
   SET
-    location_geography = ST_Point(_longitude, _latitude, 4326)
+    location = ST_Point(_longitude, _latitude, 4326)
   WHERE
-    id = _event_id;
+    id = (SELECT address_id FROM event);
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
@@ -140,15 +152,17 @@ DECLARE
   _longitude DOUBLE PRECISION;
 BEGIN
   SELECT
-    ST_Y(location_geography::geometry),
-    ST_X(location_geography::geometry)
+    ST_Y(a.location::geometry),
+    ST_X(a.location::geometry)
   INTO
     _latitude,
     _longitude
   FROM
-    maevsi.event
+    maevsi.event e
+  JOIN
+    maevsi.address a ON e.address_id = a.id
   WHERE
-    id = _event_id;
+    e.id = _event_id;
 
   RETURN ARRAY[_latitude, _longitude];
 END;

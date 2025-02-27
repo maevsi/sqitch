@@ -11,8 +11,6 @@ CREATE TABLE maevsi.event (
   is_in_person             BOOLEAN,
   is_remote                BOOLEAN,
   language                 maevsi.language,
-  location                 TEXT CHECK (char_length("location") > 0 AND char_length("location") < 300),
-  location_geography       GEOGRAPHY(Point, 4326),
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                     TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -26,7 +24,6 @@ CREATE TABLE maevsi.event (
   UNIQUE (created_by, slug)
 );
 
-CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
 CREATE INDEX idx_event_search_vector ON maevsi.event USING gin (search_vector);
 
 COMMENT ON TABLE maevsi.event IS 'An event.';
@@ -38,8 +35,6 @@ COMMENT ON COLUMN maevsi.event.guest_count_maximum IS 'The event''s maximum gues
 COMMENT ON COLUMN maevsi.event.is_archived IS 'Indicates whether the event is archived.';
 COMMENT ON COLUMN maevsi.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes place remotely.';
-COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
-COMMENT ON COLUMN maevsi.event.location_geography IS 'The event''s geographic location.';
 COMMENT ON COLUMN maevsi.event.name IS 'The event''s name.';
 COMMENT ON COLUMN maevsi.event.slug IS 'The event''s name, slugified.';
 COMMENT ON COLUMN maevsi.event.start IS 'The event''s start date and time, with timezone.';
@@ -48,7 +43,6 @@ COMMENT ON COLUMN maevsi.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN maevsi.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN maevsi.event.created_by IS 'The event creator''s id.';
 COMMENT ON COLUMN maevsi.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
-COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 COMMENT ON INDEX maevsi.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 CREATE FUNCTION maevsi.trigger_event_search_vector() RETURNS TRIGGER AS $$

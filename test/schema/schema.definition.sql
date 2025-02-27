@@ -849,8 +849,6 @@ CREATE TABLE maevsi.event (
     is_in_person boolean,
     is_remote boolean,
     language maevsi.language,
-    location text,
-    location_geography public.geography(Point,4326),
     name text NOT NULL,
     slug text NOT NULL,
     start timestamp with time zone NOT NULL,
@@ -861,7 +859,6 @@ CREATE TABLE maevsi.event (
     search_vector tsvector,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
-    CONSTRAINT event_location_check CHECK (((char_length(location) > 0) AND (char_length(location) < 300))),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text))),
     CONSTRAINT event_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
@@ -932,20 +929,6 @@ COMMENT ON COLUMN maevsi.event.is_in_person IS 'Indicates whether the event take
 --
 
 COMMENT ON COLUMN maevsi.event.is_remote IS 'Indicates whether the event takes place remotely.';
-
-
---
--- Name: COLUMN event.location; Type: COMMENT; Schema: maevsi; Owner: ci
---
-
-COMMENT ON COLUMN maevsi.event.location IS 'The event''s location as it can be shown on a map.';
-
-
---
--- Name: COLUMN event.location_geography; Type: COMMENT; Schema: maevsi; Owner: ci
---
-
-COMMENT ON COLUMN maevsi.event.location_geography IS 'The event''s geographic location.';
 
 
 --
@@ -2162,18 +2145,23 @@ CREATE FUNCTION maevsi_test.account_filter_radius_event(_event_id uuid, _distanc
 BEGIN
   RETURN QUERY
     WITH event AS (
-      SELECT location_geography
+      SELECT address_id
       FROM maevsi.event
       WHERE id = _event_id
+    ),
+    event_address AS (
+      SELECT location
+      FROM maevsi.address
+      WHERE id = (SELECT address_id FROM event)
     )
     SELECT
       a.id AS account_id,
-      ST_Distance(e.location_geography, a.location) AS distance
+      ST_Distance(e.location, a.location) AS distance
     FROM
-      event e,
+      event_address e,
       maevsi_private.account a
     WHERE
-      ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
+      ST_DWithin(e.location, a.location, _distance_max * 1000);
 END;
 $$;
 
@@ -2491,12 +2479,14 @@ BEGIN
     )
     SELECT
       e.id AS event_id,
-      ST_Distance(a.location, e.location_geography) AS distance
+      ST_Distance(a.location, addr.location) AS distance
     FROM
       account a,
       maevsi.event e
+    JOIN
+      maevsi.address addr ON e.address_id = addr.id
     WHERE
-      ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
+      ST_DWithin(a.location, addr.location, _distance_max * 1000);
 END;
 $$;
 
@@ -2522,15 +2512,17 @@ DECLARE
   _longitude DOUBLE PRECISION;
 BEGIN
   SELECT
-    ST_Y(location_geography::geometry),
-    ST_X(location_geography::geometry)
+    ST_Y(a.location::geometry),
+    ST_X(a.location::geometry)
   INTO
     _latitude,
     _longitude
   FROM
-    maevsi.event
+    maevsi.event e
+  JOIN
+    maevsi.address a ON e.address_id = a.id
   WHERE
-    id = _event_id;
+    e.id = _event_id;
 
   RETURN ARRAY[_latitude, _longitude];
 END;
@@ -2554,11 +2546,16 @@ CREATE FUNCTION maevsi_test.event_location_update(_event_id uuid, _latitude doub
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  UPDATE maevsi.event
+  WITH event AS (
+    SELECT address_id
+    FROM maevsi.event
+    WHERE id = _event_id
+  )
+  UPDATE maevsi.address
   SET
-    location_geography = ST_Point(_longitude, _latitude, 4326)
+    location = ST_Point(_longitude, _latitude, 4326)
   WHERE
-    id = _event_id;
+    id = (SELECT address_id FROM event);
 END;
 $$;
 
@@ -3219,13 +3216,14 @@ COMMENT ON COLUMN maevsi.achievement.level IS 'The achievement unlock''s level.'
 
 CREATE TABLE maevsi.address (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
+    city text NOT NULL,
+    country text NOT NULL,
     line_1 text NOT NULL,
     line_2 text,
+    location public.geography(Point,4326),
+    name text NOT NULL,
     postal_code text NOT NULL,
-    city text NOT NULL,
     region text NOT NULL,
-    country text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
@@ -3258,10 +3256,17 @@ Primary key, uniquely identifies each address.';
 
 
 --
--- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: ci
+-- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
-COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
+COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1 and 300 characters.';
+
+
+--
+-- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: ci
+--
+
+COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
 
 
 --
@@ -3279,6 +3284,20 @@ COMMENT ON COLUMN maevsi.address.line_2 IS 'Second line of the address, if neede
 
 
 --
+-- Name: COLUMN address.location; Type: COMMENT; Schema: maevsi; Owner: ci
+--
+
+COMMENT ON COLUMN maevsi.address.location IS 'The geographic location of the address.';
+
+
+--
+-- Name: COLUMN address.name; Type: COMMENT; Schema: maevsi; Owner: ci
+--
+
+COMMENT ON COLUMN maevsi.address.name IS 'Person or company name. Must be between 1 and 300 characters.';
+
+
+--
 -- Name: COLUMN address.postal_code; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
@@ -3286,24 +3305,10 @@ COMMENT ON COLUMN maevsi.address.postal_code IS 'Postal or ZIP code for the addr
 
 
 --
--- Name: COLUMN address.city; Type: COMMENT; Schema: maevsi; Owner: ci
---
-
-COMMENT ON COLUMN maevsi.address.city IS 'City of the address. Must be between 1 and 300 characters.';
-
-
---
 -- Name: COLUMN address.region; Type: COMMENT; Schema: maevsi; Owner: ci
 --
 
 COMMENT ON COLUMN maevsi.address.region IS 'Region of the address (e.g., state, province, county, department or territory). Must be between 1 and 300 characters.';
-
-
---
--- Name: COLUMN address.country; Type: COMMENT; Schema: maevsi; Owner: ci
---
-
-COMMENT ON COLUMN maevsi.address.country IS 'Country of the address. Must be between 1 and 300 characters.';
 
 
 --
@@ -4088,6 +4093,7 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
     contact.url AS contact_url,
     contact.created_by AS contact_created_by,
     event.id AS event_id,
+    event.address_id AS event_address_id,
     event.description AS event_description,
     event.start AS event_start,
     event."end" AS event_end,
@@ -4095,7 +4101,6 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker='true') AS
     event.is_archived AS event_is_archived,
     event.is_in_person AS event_is_in_person,
     event.is_remote AS event_is_remote,
-    event.location AS event_location,
     event.name AS event_name,
     event.slug AS event_slug,
     event.url AS event_url,
@@ -5602,6 +5607,20 @@ COMMENT ON INDEX maevsi.idx_address_created_by IS 'B-Tree index to optimize look
 
 
 --
+-- Name: idx_address_location; Type: INDEX; Schema: maevsi; Owner: ci
+--
+
+CREATE INDEX idx_address_location ON maevsi.address USING gist (location);
+
+
+--
+-- Name: INDEX idx_address_location; Type: COMMENT; Schema: maevsi; Owner: ci
+--
+
+COMMENT ON INDEX maevsi.idx_address_location IS 'GIST index on the location for efficient spatial queries.';
+
+
+--
 -- Name: idx_address_updated_by; Type: INDEX; Schema: maevsi; Owner: ci
 --
 
@@ -5627,20 +5646,6 @@ CREATE INDEX idx_device_updated_by ON maevsi.device USING btree (updated_by);
 --
 
 COMMENT ON INDEX maevsi.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
-
-
---
--- Name: idx_event_location; Type: INDEX; Schema: maevsi; Owner: ci
---
-
-CREATE INDEX idx_event_location ON maevsi.event USING gist (location_geography);
-
-
---
--- Name: INDEX idx_event_location; Type: COMMENT; Schema: maevsi; Owner: ci
---
-
-COMMENT ON INDEX maevsi.idx_event_location IS 'GIST index on the location for efficient spatial queries.';
 
 
 --

@@ -19,6 +19,7 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
     contact.created_by          AS contact_created_by,
 
     event.id                    AS event_id,
+    event.address_id            AS event_address_id,
     event.description           AS event_description,
     event.start                 AS event_start,
     event.end                   AS event_end,
@@ -26,7 +27,6 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
     event.is_archived           AS event_is_archived,
     event.is_in_person          AS event_is_in_person,
     event.is_remote             AS event_is_remote,
-    event.location              AS event_location,
     event.name                  AS event_name,
     event.slug                  AS event_slug,
     event.url                   AS event_url,
