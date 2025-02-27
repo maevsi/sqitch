@@ -1,3 +1,9 @@
+## [5.0.2](https://github.com/maevsi/sqitch/compare/5.0.1...5.0.2) (2025-02-27)
+
+### Bug Fixes
+
+* **invite:** exclude search vector from event columns ([e6cbb95](https://github.com/maevsi/sqitch/commit/e6cbb95aff603b40e374cf9350f32f9767ec96f1))
+
 ## [5.0.1](https://github.com/maevsi/sqitch/compare/5.0.0...5.0.1) (2025-02-27)
 
 ### Bug Fixes
