@@ -3,19 +3,19 @@ BEGIN;
 CREATE TABLE maevsi.address (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  city        TEXT NOT NULL CHECK (char_length(city) > 0 AND char_length(city) <= 300),
-  country     TEXT NOT NULL CHECK (char_length(country) > 0 AND char_length(country) <= 300),
-  line_1      TEXT NOT NULL CHECK (char_length(line_1) > 0 AND char_length(line_1) <= 300),
+  city        TEXT CHECK (char_length(city) > 0 AND char_length(city) <= 300),
+  country     TEXT CHECK (char_length(country) > 0 AND char_length(country) <= 300),
+  line_1      TEXT CHECK (char_length(line_1) > 0 AND char_length(line_1) <= 300),
   line_2      TEXT CHECK (char_length(line_2) > 0 AND char_length(line_2) <= 300),
   location    GEOGRAPHY(Point, 4326),
   name        TEXT NOT NULL CHECK (char_length(name) > 0 AND char_length(name) <= 300),
-  postal_code TEXT NOT NULL CHECK (char_length(postal_code) > 0 AND char_length(postal_code) <= 20),
-  region      TEXT NOT NULL CHECK (char_length(region) > 0 AND char_length(region) <= 300),
+  postal_code TEXT CHECK (char_length(postal_code) > 0 AND char_length(postal_code) <= 20),
+  region      TEXT CHECK (char_length(region) > 0 AND char_length(region) <= 300),
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by  UUID REFERENCES maevsi.account(id) NOT NULL,
   updated_at  TIMESTAMP WITH TIME ZONE,
-  updated_by  UUID REFERENCES maevsi.account(id) NOT NULL
+  updated_by  UUID REFERENCES maevsi.account(id)
 );
 
 CREATE INDEX idx_address_location ON maevsi.address USING gist (location);
