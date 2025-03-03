@@ -132,6 +132,8 @@ BEGIN
 
   PERFORM maevsi_test.invoker_set(accountC);
 
+  -- TODO: try to extract to other test file (https://github.com/maevsi/sqitch/issues/142)
+
   FOR rec IN
     SELECT * FROM maevsi.create_guests(eventC, ARRAY[contactCA, contactCB])
   LOOP
