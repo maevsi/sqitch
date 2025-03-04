@@ -46,6 +46,12 @@ This script will regenerate the necessary schema files and update other artifact
 
 Read [@dargmuesli's guide](https://gist.github.com/dargmuesli/430b7d902a22df02d88d1969a22a81b5#file-semantic-versioning-md) on how to correctly format pull request, issue and commit titles and how this necessity speeds up our development.
 
+### 6. Create a pull request
+
+<!-- TODO: move up to organization level -->
+
+The creator of a pull request is tasked with ensuring no merge conflicts with the target branch.
+
 
 ## Advanced topics
 
