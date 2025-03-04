@@ -55,9 +55,8 @@ BEGIN
   PERFORM maevsi_test.account_block_create(accountA, accountB);
 
   BEGIN
-     -- A wants to add B as a contact, should fail
      contactAB := maevsi_test.contact_create(accountA, 'b@example.com');
-     RAISE EXCEPTION 'should not get here';
+     RAISE EXCEPTION 'User should not be able to add a blocked user as a contact';
   EXCEPTION
     WHEN insufficient_privilege THEN
       -- expected exception, policy prevents insert due to blocking
@@ -89,9 +88,8 @@ BEGIN
   PERFORM maevsi_test.account_block_create(accountA, accountB);
 
   BEGIN
-     -- A wants to add B as a guest, should fail
      contactAB := maevsi_test.guest_create(accountA, eventA, contactAB);
-     RAISE EXCEPTION 'should not get here';
+     RAISE EXCEPTION 'User should not be able to add a blocked user as a guest';
   EXCEPTION
     WHEN insufficient_privilege THEN
       -- expected exception, policy prevents insert due to blocking
@@ -115,10 +113,9 @@ BEGIN
 
   BEGIN
     PERFORM maevsi_test.invoker_set(accountC);
-    -- C wants to create guest A and B for the event, should fail because B is blocked
     PERFORM maevsi.create_guests(eventC, ARRAY[contactCA, contactCB]);
     PERFORM maevsi_test.invoker_unset();
-    RAISE EXCEPTION 'should not get here';
+    RAISE EXCEPTION 'User should not be able to add users as guests if one of the users is blocked';
   EXCEPTION
     WHEN insufficient_privilege THEN
       -- expected exception, policy prevents insert due to blocking
