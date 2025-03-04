@@ -25,7 +25,23 @@ BEGIN
   END IF;
 
   -- Event
-  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _guest.event_id;
+  SELECT
+    id,
+    address_id,
+    description,
+    "end",
+    guest_count_maximum,
+    is_archived,
+    is_in_person,
+    is_remote,
+    name,
+    slug,
+    start,
+    url,
+    visibility,
+    created_at,
+    created_by
+  FROM maevsi.event INTO _event WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';

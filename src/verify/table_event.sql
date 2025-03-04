@@ -8,8 +8,6 @@ SELECT id,
        is_archived,
        is_in_person,
        is_remote,
-       location,
-       location_geography,
        name,
        slug,
        start,
@@ -21,7 +19,7 @@ SELECT id,
 FROM maevsi.event WHERE FALSE;
 
 SELECT maevsi_test.index_existence(
-  ARRAY ['event_created_by_slug_key', 'idx_event_location', 'idx_event_search_vector']
+  ARRAY ['event_created_by_slug_key', 'idx_event_search_vector']
 );
 
 ROLLBACK;

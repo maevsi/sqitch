@@ -1,6 +1,27 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_create (
+CREATE PROCEDURE maevsi_test.set_local_superuser()
+AS $$
+DECLARE
+  _superuser_name TEXT;
+BEGIN
+  SELECT usename INTO _superuser_name
+  FROM pg_user
+  WHERE usesuper = true
+  ORDER BY usename
+  LIMIT 1;
+
+  IF _superuser_name IS NOT NULL THEN
+    EXECUTE format('SET LOCAL role = %I', _superuser_name);
+  ELSE
+    RAISE NOTICE 'No superuser found!';
+  END IF;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON PROCEDURE maevsi_test.set_local_superuser() TO maevsi_anonymous, maevsi_account;
+
+
+CREATE FUNCTION maevsi_test.account_create (
   _username TEXT,
   _email TEXT
 ) RETURNS UUID AS $$
@@ -19,7 +40,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_remove (
+CREATE FUNCTION maevsi_test.account_remove (
   _username TEXT
 ) RETURNS VOID AS $$
 DECLARE
@@ -36,11 +57,11 @@ BEGIN
 
     PERFORM maevsi.account_delete('password');
 
-    SET LOCAL role = 'postgres';
+    CALL maevsi_test.set_local_superuser();
   END IF;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.contact_select_by_account_id (
+CREATE FUNCTION maevsi_test.contact_select_by_account_id (
   _account_id UUID
 ) RETURNS UUID AS $$
 DECLARE
@@ -53,7 +74,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.contact_create (
+CREATE FUNCTION maevsi_test.contact_create (
   _created_by UUID,
   _email_address TEXT
 ) RETURNS UUID AS $$
@@ -74,12 +95,12 @@ BEGIN
     UPDATE maevsi.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_create (
+CREATE FUNCTION maevsi_test.event_create (
   _created_by UUID,
   _name TEXT,
   _slug TEXT,
@@ -96,12 +117,12 @@ BEGIN
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.guest_create (
+CREATE FUNCTION maevsi_test.guest_create (
   _created_by UUID,
   _event_id UUID,
   _contact_id UUID
@@ -116,19 +137,19 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_category_create (
+CREATE FUNCTION maevsi_test.event_category_create (
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
   INSERT INTO maevsi.event_category(category) VALUES (_category);
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_create (
+CREATE FUNCTION maevsi_test.event_category_mapping_create (
   _created_by UUID,
   _event_id UUID,
   _category TEXT
@@ -140,10 +161,10 @@ BEGIN
   INSERT INTO maevsi.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_block_create (
+CREATE FUNCTION maevsi_test.account_block_create (
   _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS UUID AS $$
@@ -157,12 +178,12 @@ BEGIN
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_block_remove (
+CREATE FUNCTION maevsi_test.account_block_remove (
   _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS VOID AS $$
@@ -173,7 +194,7 @@ BEGIN
   WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_test (
+CREATE FUNCTION maevsi_test.event_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -195,10 +216,10 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_test (
+CREATE FUNCTION maevsi_test.event_category_mapping_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -220,10 +241,10 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.contact_test (
+CREATE FUNCTION maevsi_test.contact_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -247,10 +268,10 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.guest_test (
+CREATE FUNCTION maevsi_test.guest_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -272,7 +293,7 @@ BEGIN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION maevsi_test.guest_claim_from_account_guest (
@@ -307,12 +328,12 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
 
   RETURN _result;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.invoker_set (
+CREATE FUNCTION maevsi_test.invoker_set (
   _invoker_id UUID
 )
 RETURNS VOID AS $$
@@ -321,14 +342,14 @@ BEGIN
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.invoker_unset ()
+CREATE FUNCTION maevsi_test.invoker_unset ()
 RETURNS VOID AS $$
 BEGIN
-  SET LOCAL role = 'postgres';
+  CALL maevsi_test.set_local_superuser();
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.uuid_array_test (
+CREATE FUNCTION maevsi_test.uuid_array_test (
   _test_case TEXT,
   _array UUID[],
   _expected_array UUID[]
