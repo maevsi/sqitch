@@ -91,6 +91,7 @@ table_event_recommendation [schema_public table_account_public table_event] 1970
 table_event_recommendation_policy [schema_public table_event_recommendation role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
 table_event_favorite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favorite events.
 table_event_favorite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favorite.
+function_guest_create_multiple [schema_public table_guest role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Function for inserting multiple guest records.
 test_account_block [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.
 function_event_search [privilege_execute_revoke schema_public enum_language schema_private function_language_iso_full_text_search table_event role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Full-text search on events.
 test_location [schema_public schema_private table_account_private table_event role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A collection of location related functions.

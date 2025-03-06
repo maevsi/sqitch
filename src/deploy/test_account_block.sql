@@ -333,6 +333,22 @@ BEGIN
   RETURN _result;
 END $$ LANGUAGE plpgsql;
 
+CREATE FUNCTION maevsi_test.invoker_set (
+  _invoker_id UUID
+)
+RETURNS VOID AS $$
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
+END $$ LANGUAGE plpgsql;
+
+CREATE FUNCTION maevsi_test.invoker_unset ()
+RETURNS VOID AS $$
+BEGIN
+  CALL maevsi_test.set_local_superuser();
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
+END $$ LANGUAGE plpgsql;
+
 CREATE FUNCTION maevsi_test.uuid_array_test (
   _test_case TEXT,
   _array UUID[],
@@ -348,5 +364,24 @@ BEGIN
     RAISE EXCEPTION 'some expected uuid is missing in the array';
   END IF;
 END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION maevsi_test.account_block_create(UUID, UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.account_block_remove(UUID, UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.account_create(TEXT, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.account_remove(TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.contact_create(UUID, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.contact_select_by_account_id(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.contact_test(TEXT, UUID, UUID[]) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_category_create(TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_category_mapping_create(UUID, UUID, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_category_mapping_test(TEXT, UUID, UUID[]) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_create(UUID, TEXT, TEXT, TEXT, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.event_test(TEXT, UUID, UUID[]) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.guest_create(UUID, UUID, UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.guest_test(TEXT, UUID, UUID[]) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.guest_claim_from_account_guest(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.invoker_set(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.invoker_unset() TO maevsi_account;
+GRANT EXECUTE ON FUNCTION maevsi_test.uuid_array_test(TEXT, UUID[], UUID[]) TO maevsi_account;
 
 COMMIT;
