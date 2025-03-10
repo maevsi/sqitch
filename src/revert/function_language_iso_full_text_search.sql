@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.language_iso_full_text_search(maevsi.language);
+DROP FUNCTION vibetype.language_iso_full_text_search(vibetype.language);
 
 COMMIT;

@@ -4,7 +4,7 @@ index 0000000..be43bc8
 --- /dev/null
 +++ b/src/deploy/data_test.sql
 @@ -0,0 +1,191 @@
-+-- Deploy maevsi:data_test to pg
++-- Deploy vibetype:data_test to pg
 +BEGIN;
 +
 +DO $$
@@ -17,22 +17,22 @@ index 0000000..be43bc8
 +_contact_id_peter UUID;
 +
 +BEGIN
-+SELECT maevsi.account_registration(
++SELECT vibetype.account_registration(
 +    'jonas',
 +    'mail+sqitch-1@maev.si',
 +    'testtest',
 +    'en'
 +  ) INTO _account_id_jonas;
 +
-+PERFORM maevsi.account_email_address_verification(
++PERFORM vibetype.account_email_address_verification(
 +  (
 +    SELECT email_address_verification
-+    FROM maevsi_private.account
++    FROM vibetype_private.account
 +    WHERE id = _account_id_jonas
 +  )
 +);
 +
-+SELECT maevsi.account_registration(
++SELECT vibetype.account_registration(
 +    'peter',
 +    'mail+sqitch-2@maev.si',
 +    'testtest',
@@ -40,16 +40,16 @@ index 0000000..be43bc8
 +  ) INTO _account_id_peter;
 +
 +SELECT id
-+FROM maevsi.contact
++FROM vibetype.contact
 +WHERE account_id = _account_id_jonas
 +  AND created_by = _account_id_jonas INTO _contact_id_jonas;
 +
 +SELECT id
-+FROM maevsi.contact
++FROM vibetype.contact
 +WHERE account_id = _account_id_peter
 +  AND created_by = _account_id_peter INTO _contact_id_peter;
 +
-+INSERT INTO maevsi.contact (
++INSERT INTO vibetype.contact (
 +    "id",
 +    -- "address",
 +    "email_address",
@@ -66,7 +66,7 @@ index 0000000..be43bc8
 +    _account_id_jonas
 +  );
 +
-+INSERT INTO maevsi.event (
++INSERT INTO vibetype.event (
 +    "id",
 +    "name",
 +    "slug",
@@ -89,7 +89,7 @@ index 0000000..be43bc8
 +    '2020-11-23 09:00:00.000000+00'
 +  );
 +
-+INSERT INTO maevsi.event (
++INSERT INTO vibetype.event (
 +    "id",
 +    "name",
 +    "slug",
@@ -108,7 +108,7 @@ index 0000000..be43bc8
 +    '2020-11-27 05:56:23.090009+00'
 +  );
 +
-+INSERT INTO maevsi.event (
++INSERT INTO vibetype.event (
 +    "id",
 +    "name",
 +    "slug",
@@ -127,7 +127,7 @@ index 0000000..be43bc8
 +    '2020-11-27 05:56:23.090009+00'
 +  );
 +
-+INSERT INTO maevsi.event (
++INSERT INTO vibetype.event (
 +    "id",
 +    "name",
 +    "slug",
@@ -148,7 +148,7 @@ index 0000000..be43bc8
 +    '2019-11-27 03:54:29.090009+00'
 +  );
 +
-+INSERT INTO maevsi.guest (
++INSERT INTO vibetype.guest (
 +    "id",
 +    "event_id",
 +    "contact_id",
@@ -163,7 +163,7 @@ index 0000000..be43bc8
 +    'paper'
 +  );
 +
-+INSERT INTO maevsi.guest (
++INSERT INTO vibetype.guest (
 +    "id",
 +    "event_id",
 +    "contact_id",
@@ -178,14 +178,14 @@ index 0000000..be43bc8
 +    'digital'
 +  );
 +
-+INSERT INTO maevsi.guest ("id", "event_id", "contact_id")
++INSERT INTO vibetype.guest ("id", "event_id", "contact_id")
 +VALUES (
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a7c',
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a6b',
 +    _contact_id_jonas
 +  );
 +
-+INSERT INTO maevsi.guest ("id", "event_id", "contact_id")
++INSERT INTO vibetype.guest ("id", "event_id", "contact_id")
 +VALUES (
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a7d',
 +    '59462df6-10a9-11ea-bf8e-0f50c4d91a6a',
@@ -201,16 +201,16 @@ index 0000000..50ae98c
 --- /dev/null
 +++ b/src/revert/data_test.sql
 @@ -0,0 +1,12 @@
-+-- Revert maevsi:data_test from pg
++-- Revert vibetype:data_test from pg
 +
 +BEGIN;
 +
-+DELETE FROM maevsi.profile_picture;
-+DELETE FROM maevsi.upload;
-+DELETE FROM maevsi.invitation;
-+DELETE FROM maevsi.event;
-+DELETE FROM maevsi.contact;
-+DELETE FROM maevsi_private.account;
++DELETE FROM vibetype.profile_picture;
++DELETE FROM vibetype.upload;
++DELETE FROM vibetype.invitation;
++DELETE FROM vibetype.event;
++DELETE FROM vibetype.contact;
++DELETE FROM vibetype_private.account;
 +
 +COMMIT;
 diff --git a/src/sqitch.plan b/src/sqitch.plan
@@ -228,7 +228,7 @@ index 0000000..274d00b
 --- /dev/null
 +++ b/src/verify/data_test.sql
 @@ -0,0 +1,7 @@
-+-- Verify maevsi:data_test on pg
++-- Verify vibetype:data_test on pg
 +
 +BEGIN;
 +

@@ -1,11 +1,11 @@
 BEGIN;
 
-\set role_maevsi_postgraphile_username `cat /run/secrets/postgres_role_maevsi-postgraphile_username`
-SET local role.maevsi_postgraphile_username TO :'role_maevsi_postgraphile_username';
+\set role_vibetype_postgraphile_username `cat /run/secrets/postgres_role_postgraphile_username`
+SET local role.vibetype_postgraphile_username TO :'role_vibetype_postgraphile_username';
 
 DO $$
 BEGIN
-  ASSERT (SELECT pg_catalog.pg_has_role(current_setting('role.maevsi_postgraphile_username'), 'maevsi_anonymous', 'USAGE'));
+  ASSERT (SELECT pg_catalog.pg_has_role(current_setting('role.vibetype_postgraphile_username'), 'vibetype_anonymous', 'USAGE'));
   -- Other accounts might not exist yet for a NOT-check.
 END $$;
 

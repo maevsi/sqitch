@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.event_size;
+DROP TYPE vibetype.event_size;
 
 COMMIT;

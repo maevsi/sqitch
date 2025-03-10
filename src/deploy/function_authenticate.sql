@@ -1,36 +1,36 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.authenticate(
+CREATE FUNCTION vibetype.authenticate(
   username TEXT,
   password TEXT
-) RETURNS maevsi.jwt AS $$
+) RETURNS vibetype.jwt AS $$
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('maevsi.jwt_expiry_duration', true), '1 day')::INTERVAL));
-  _jwt maevsi.jwt;
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt vibetype.jwt;
   _username TEXT;
 BEGIN
   IF (authenticate.username = '' AND authenticate.password = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, maevsi.guest_claim_array(), 'maevsi_anonymous')::maevsi.jwt;
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
   ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
     -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
     IF (strpos(authenticate.username, '@') = 0) THEN
-      SELECT id FROM maevsi.account WHERE account.username = authenticate.username INTO _account_id;
+      SELECT id FROM vibetype.account WHERE account.username = authenticate.username INTO _account_id;
     ELSE
-      SELECT id FROM maevsi_private.account WHERE account.email_address = authenticate.username INTO _account_id;
+      SELECT id FROM vibetype_private.account WHERE account.email_address = authenticate.username INTO _account_id;
     END IF;
 
     IF (_account_id IS NULL) THEN
       RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
     END IF;
 
-    SELECT account.username INTO _username FROM maevsi.account WHERE id = _account_id;
+    SELECT account.username INTO _username FROM vibetype.account WHERE id = _account_id;
 
     IF ((
         SELECT account.email_address_verification
-        FROM maevsi_private.account
+        FROM vibetype_private.account
         WHERE
               account.id = _account_id
           AND account.password_hash = crypt(authenticate.password, account.password_hash)
@@ -39,14 +39,14 @@ BEGIN
     END IF;
 
     WITH updated AS (
-      UPDATE maevsi_private.account
+      UPDATE vibetype_private.account
       SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
       WHERE
             account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = crypt(authenticate.password, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'maevsi_account'
+    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
       FROM updated
       INTO _jwt;
 
@@ -55,13 +55,13 @@ BEGIN
     END IF;
   END IF;
 
-  INSERT INTO maevsi_private.jwt(id, token) VALUES (_jwt_id, _jwt);
+  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
   RETURN _jwt;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.authenticate(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.authenticate(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
 
-GRANT EXECUTE ON FUNCTION maevsi.authenticate(TEXT, TEXT) TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.authenticate(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

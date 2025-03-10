@@ -1,12 +1,12 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.event_guest_count_maximum(
+CREATE FUNCTION vibetype.event_guest_count_maximum(
   event_id UUID
 ) RETURNS INTEGER AS $$
 BEGIN
   RETURN (
     SELECT guest_count_maximum
-    FROM maevsi.event
+    FROM vibetype.event
     WHERE
       id = event_guest_count_maximum.event_id
       AND ( -- Copied from `event_select` POLICY.
@@ -16,22 +16,22 @@ BEGIN
           (
             guest_count_maximum IS NULL
             OR
-            guest_count_maximum > (maevsi.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
+            guest_count_maximum > (vibetype.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
           )
         )
         OR (
-          maevsi.invoker_account_id() IS NOT NULL
+          vibetype.invoker_account_id() IS NOT NULL
           AND
-          created_by = maevsi.invoker_account_id()
+          created_by = vibetype.invoker_account_id()
         )
-        OR id IN (SELECT maevsi_private.events_invited())
+        OR id IN (SELECT vibetype_private.events_invited())
       )
   );
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_guest_count_maximum(UUID) IS 'Add a function that returns the maximum guest count of an accessible event.';
+COMMENT ON FUNCTION vibetype.event_guest_count_maximum(UUID) IS 'Add a function that returns the maximum guest count of an accessible event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_guest_count_maximum(UUID) TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.event_guest_count_maximum(UUID) TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

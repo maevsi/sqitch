@@ -1,10 +1,10 @@
 BEGIN;
 
-CREATE TABLE maevsi.event_category(
+CREATE TABLE vibetype.event_category(
   category TEXT PRIMARY KEY
 );
 
-COMMENT ON TABLE maevsi.event_category IS 'Event categories.';
-COMMENT ON COLUMN maevsi.event_category.category IS 'A category name.';
+COMMENT ON TABLE vibetype.event_category IS 'Event categories.';
+COMMENT ON COLUMN vibetype.event_category.category IS 'A category name.';
 
 END;

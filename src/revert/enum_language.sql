@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.language;
+DROP TYPE vibetype.language;
 
 COMMIT;

@@ -1,21 +1,21 @@
 BEGIN;
 
-CREATE TABLE maevsi.account (
-  id        UUID PRIMARY KEY REFERENCES maevsi_private.account(id) ON DELETE CASCADE,
+CREATE TABLE vibetype.account (
+  id        UUID PRIMARY KEY REFERENCES vibetype_private.account(id) ON DELETE CASCADE,
 
   username  TEXT NOT NULL CHECK (char_length(username) < 100 AND username ~ '^[-A-Za-z0-9]+$') UNIQUE
 );
 
-COMMENT ON TABLE maevsi.account IS 'Public account data.';
-COMMENT ON COLUMN maevsi.account.id IS 'The account''s internal id.';
-COMMENT ON COLUMN maevsi.account.username IS 'The account''s username.';
+COMMENT ON TABLE vibetype.account IS 'Public account data.';
+COMMENT ON COLUMN vibetype.account.id IS 'The account''s internal id.';
+COMMENT ON COLUMN vibetype.account.username IS 'The account''s username.';
 
-GRANT SELECT ON TABLE maevsi.account TO maevsi_account, maevsi_anonymous;
+GRANT SELECT ON TABLE vibetype.account TO vibetype_account, vibetype_anonymous;
 
-ALTER TABLE maevsi.account ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibetype.account ENABLE ROW LEVEL SECURITY;
 
 -- Make all accounts accessible by everyone.
-CREATE POLICY account_select ON maevsi.account FOR SELECT USING (
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING (
   TRUE
 );
 

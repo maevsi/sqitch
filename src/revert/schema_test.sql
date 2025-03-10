@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP SCHEMA maevsi_test;
+DROP SCHEMA vibetype_test;
 
 COMMIT;
