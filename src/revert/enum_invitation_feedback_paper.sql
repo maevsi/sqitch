@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.invitation_feedback_paper;
+DROP TYPE vibetype.invitation_feedback_paper;
 
 COMMIT;

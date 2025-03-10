@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.guest_contact_ids();
+DROP FUNCTION vibetype.guest_contact_ids();
 
 COMMIT;

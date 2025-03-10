@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.account_password_reset(UUID, TEXT);
+DROP FUNCTION vibetype.account_password_reset(UUID, TEXT);
 
 COMMIT;

@@ -1,11 +1,11 @@
 BEGIN;
 
-\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
+\set role_vibetype_username `cat /run/secrets/postgres_role_vibetype_username`
 
-CREATE SCHEMA maevsi;
+CREATE SCHEMA vibetype;
 
-COMMENT ON SCHEMA maevsi IS 'Is used by PostGraphile.';
+COMMENT ON SCHEMA vibetype IS 'Is used by PostGraphile.';
 
-GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous, maevsi_account, :role_maevsi_username;
+GRANT USAGE ON SCHEMA vibetype TO vibetype_anonymous, vibetype_account, :role_vibetype_username;
 
 COMMIT;

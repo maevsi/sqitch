@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi_test.index_existence(TEXT[], TEXT);
+DROP FUNCTION vibetype_test.index_existence(TEXT[], TEXT);
 
 COMMIT;

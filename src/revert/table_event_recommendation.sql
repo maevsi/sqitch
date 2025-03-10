@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.event_recommendation;
+DROP TABLE vibetype.event_recommendation;
 
 COMMIT;

@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.event_category_mapping;
+DROP TABLE vibetype.event_category_mapping;
 
 COMMIT;

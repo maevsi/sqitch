@@ -4,25 +4,25 @@ SELECT id,
        account_id,
        achievement,
        level
-FROM maevsi.achievement WHERE FALSE;
+FROM vibetype.achievement WHERE FALSE;
 
-\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
-SET local role.maevsi_username TO :'role_maevsi_username';
+\set role_vibetype_username `cat /run/secrets/postgres_role_vibetype_username`
+SET local role.vibetype_username TO :'role_vibetype_username';
 
 DO $$
 BEGIN
-  ASSERT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.achievement', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.achievement', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.achievement', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi.achievement', 'DELETE'));
-  ASSERT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi.achievement', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi.achievement', 'DELETE'));
+  ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.achievement', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.achievement', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.achievement', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.achievement', 'DELETE'));
+  ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.achievement', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.achievement', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.achievement', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.achievement', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.achievement', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.achievement', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.achievement', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.achievement', 'DELETE'));
 END $$;
 
 ROLLBACK;

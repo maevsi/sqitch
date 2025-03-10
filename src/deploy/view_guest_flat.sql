@@ -1,5 +1,5 @@
 BEGIN;
-CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
+CREATE VIEW vibetype.guest_flat WITH (security_invoker) AS
   SELECT
     guest.id                    AS guest_id,
     guest.contact_id            AS guest_contact_id,
@@ -32,12 +32,12 @@ CREATE VIEW maevsi.guest_flat WITH (security_invoker) AS
     event.url                   AS event_url,
     event.visibility            AS event_visibility,
     event.created_by            AS event_created_by
-  FROM maevsi.guest
-    JOIN maevsi.contact ON guest.contact_id = contact.id
-    JOIN maevsi.event   ON guest.event_id   = event.id;
+  FROM vibetype.guest
+    JOIN vibetype.contact ON guest.contact_id = contact.id
+    JOIN vibetype.event   ON guest.event_id   = event.id;
 
-COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
+COMMENT ON VIEW vibetype.guest_flat IS 'View returning flattened guests.';
 
-GRANT SELECT ON maevsi.guest_flat TO maevsi_account, maevsi_anonymous;
+GRANT SELECT ON vibetype.guest_flat TO vibetype_account, vibetype_anonymous;
 
 END;

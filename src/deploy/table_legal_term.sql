@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE maevsi.legal_term (
+CREATE TABLE vibetype.legal_term (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   language    VARCHAR(5) NOT NULL DEFAULT 'en' CHECK (language ~ '^[a-z]{2}(_[A-Z]{2})?$'),
@@ -27,14 +27,14 @@ CREATE TABLE maevsi.legal_term (
   --   - law (like "GDPR")
 );
 
-COMMENT ON TABLE maevsi.legal_term IS E'@omit create,update,delete\nLegal terms like privacy policies or terms of service.';
-COMMENT ON COLUMN maevsi.legal_term.id IS 'Unique identifier for each legal term.';
-COMMENT ON COLUMN maevsi.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';
-COMMENT ON COLUMN maevsi.legal_term.term IS 'Text of the legal term. Markdown is expected to be used. It must be non-empty and cannot exceed 500,000 characters.';
-COMMENT ON COLUMN maevsi.legal_term.version IS 'Semantic versioning string to track changes to the legal terms (format: `X.Y.Z`).';
-COMMENT ON COLUMN maevsi.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
+COMMENT ON TABLE vibetype.legal_term IS E'@omit create,update,delete\nLegal terms like privacy policies or terms of service.';
+COMMENT ON COLUMN vibetype.legal_term.id IS 'Unique identifier for each legal term.';
+COMMENT ON COLUMN vibetype.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';
+COMMENT ON COLUMN vibetype.legal_term.term IS 'Text of the legal term. Markdown is expected to be used. It must be non-empty and cannot exceed 500,000 characters.';
+COMMENT ON COLUMN vibetype.legal_term.version IS 'Semantic versioning string to track changes to the legal terms (format: `X.Y.Z`).';
+COMMENT ON COLUMN vibetype.legal_term.created_at IS 'Timestamp when the term was created. Set to the current time by default.';
 
-CREATE FUNCTION maevsi.legal_term_change() RETURNS trigger
+CREATE FUNCTION vibetype.legal_term_change() RETURNS trigger
   LANGUAGE plpgsql
   AS $$
 BEGIN
@@ -43,22 +43,22 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER maevsi_legal_term_update
-BEFORE UPDATE ON maevsi.legal_term
+CREATE TRIGGER vibetype_legal_term_update
+BEFORE UPDATE ON vibetype.legal_term
 FOR EACH ROW
-EXECUTE FUNCTION maevsi.legal_term_change();
+EXECUTE FUNCTION vibetype.legal_term_change();
 
-CREATE TRIGGER maevsi_legal_term_delete
-BEFORE DELETE ON maevsi.legal_term
+CREATE TRIGGER vibetype_legal_term_delete
+BEFORE DELETE ON vibetype.legal_term
 FOR EACH ROW
-EXECUTE FUNCTION maevsi.legal_term_change();
+EXECUTE FUNCTION vibetype.legal_term_change();
 
-GRANT SELECT ON TABLE maevsi.legal_term TO maevsi_account, maevsi_anonymous;
+GRANT SELECT ON TABLE vibetype.legal_term TO vibetype_account, vibetype_anonymous;
 
-ALTER TABLE maevsi.legal_term ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibetype.legal_term ENABLE ROW LEVEL SECURITY;
 
 -- Make all legal terms accessible by anyone.
-CREATE POLICY legal_term_select ON maevsi.legal_term FOR SELECT USING (
+CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (
   TRUE
 );
 

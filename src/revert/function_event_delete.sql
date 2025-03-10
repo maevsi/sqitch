@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.event_delete(UUID, TEXT);
+DROP FUNCTION vibetype.event_delete(UUID, TEXT);
 
 COMMIT;

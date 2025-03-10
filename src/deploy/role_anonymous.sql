@@ -1,10 +1,10 @@
 BEGIN;
 
-\set role_maevsi_postgraphile_username `cat /run/secrets/postgres_role_maevsi-postgraphile_username`
+\set role_postgraphile_username `cat /run/secrets/postgres_role_postgraphile_username`
 
-DROP ROLE IF EXISTS maevsi_anonymous;
-CREATE ROLE maevsi_anonymous;
+DROP ROLE IF EXISTS vibetype_anonymous;
+CREATE ROLE vibetype_anonymous;
 
-GRANT maevsi_anonymous to :role_maevsi_postgraphile_username;
+GRANT vibetype_anonymous to :role_postgraphile_username;
 
 COMMIT;

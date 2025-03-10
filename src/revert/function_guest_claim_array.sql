@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.guest_claim_array();
+DROP FUNCTION vibetype.guest_claim_array();
 
 COMMIT;

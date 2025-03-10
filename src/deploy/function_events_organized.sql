@@ -1,18 +1,18 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.events_organized()
+CREATE FUNCTION vibetype.events_organized()
 RETURNS TABLE (event_id UUID) AS $$
 BEGIN
 
   RETURN QUERY
-    SELECT id FROM maevsi.event
+    SELECT id FROM vibetype.event
     WHERE
-      created_by = maevsi.invoker_account_id();
+      created_by = vibetype.invoker_account_id();
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
+COMMENT ON FUNCTION vibetype.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
 
-GRANT EXECUTE ON FUNCTION maevsi.events_organized() TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.events_organized() TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

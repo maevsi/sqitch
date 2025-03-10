@@ -1,9 +1,9 @@
 BEGIN;
 
-CREATE SCHEMA maevsi_test;
+CREATE SCHEMA vibetype_test;
 
-COMMENT ON SCHEMA maevsi_test IS 'Schema for test functions.';
+COMMENT ON SCHEMA vibetype_test IS 'Schema for test functions.';
 
-GRANT USAGE ON SCHEMA maevsi_test TO maevsi_anonymous, maevsi_account;
+GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 COMMIT;

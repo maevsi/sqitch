@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP INDEX maevsi.idx_guest_updated_by;
-DROP TABLE maevsi.guest;
+DROP INDEX vibetype.idx_guest_updated_by;
+DROP TABLE vibetype.guest;
 
 COMMIT;

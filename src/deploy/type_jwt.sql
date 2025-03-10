@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TYPE maevsi.jwt AS (
+CREATE TYPE vibetype.jwt AS (
   id UUID,
   account_id UUID,
   account_username TEXT,

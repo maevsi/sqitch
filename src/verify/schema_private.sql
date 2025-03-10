@@ -2,8 +2,8 @@ BEGIN;
 
 DO $$
 BEGIN
-  ASSERT NOT (SELECT pg_catalog.has_schema_privilege('maevsi_account', 'maevsi_private', 'USAGE'));
-  ASSERT NOT (SELECT pg_catalog.has_schema_privilege('maevsi_anonymous', 'maevsi_private', 'USAGE'));
+  ASSERT NOT (SELECT pg_catalog.has_schema_privilege('vibetype_account', 'vibetype_private', 'USAGE'));
+  ASSERT NOT (SELECT pg_catalog.has_schema_privilege('vibetype_anonymous', 'vibetype_private', 'USAGE'));
 END $$;
 
 ROLLBACK;

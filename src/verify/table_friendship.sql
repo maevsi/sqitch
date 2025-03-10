@@ -9,10 +9,10 @@ SELECT
   created_by,
   updated_at,
   updated_by
-FROM maevsi.friendship
+FROM vibetype.friendship
 WHERE FALSE;
 
-SELECT maevsi_test.index_existence(
+SELECT vibetype_test.index_existence(
   ARRAY ['idx_friendship_created_by', 'idx_friendship_updated_by']
 );
 

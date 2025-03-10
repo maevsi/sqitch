@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.profile_picture;
+DROP TABLE vibetype.profile_picture;
 
 COMMIT;

@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP POLICY achievement_select ON maevsi.achievement;
-DROP TABLE maevsi.achievement;
+DROP POLICY achievement_select ON vibetype.achievement;
+DROP TABLE vibetype.achievement;
 
 COMMIT;

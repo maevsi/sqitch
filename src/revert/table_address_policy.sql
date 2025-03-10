@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP POLICY address ON maevsi.address;
+DROP POLICY address ON vibetype.address;
 
 COMMIT;

@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP ROLE maevsi_anonymous;
+DROP ROLE vibetype_anonymous;
 
 COMMIT;

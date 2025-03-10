@@ -1,10 +1,10 @@
 BEGIN;
 
 -- TODO: remove type
-CREATE TYPE maevsi.event_unlock_response AS (
+CREATE TYPE vibetype.event_unlock_response AS (
   creator_username TEXT,
   event_slug TEXT,
-  jwt maevsi.jwt
+  jwt vibetype.jwt
 );
 
 COMMIT;

@@ -1,18 +1,18 @@
 BEGIN;
 
-GRANT SELECT ON TABLE maevsi.address TO maevsi_anonymous;
-GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE maevsi.address TO maevsi_account;
+GRANT SELECT ON TABLE vibetype.address TO vibetype_anonymous;
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.address TO vibetype_account;
 
-ALTER TABLE maevsi.address ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY address ON maevsi.address USING (
-  created_by = maevsi.invoker_account_id()
+CREATE POLICY address ON vibetype.address USING (
+  created_by = vibetype.invoker_account_id()
   AND
   created_by NOT IN (
-    SELECT id FROM maevsi_private.account_block_ids()
+    SELECT id FROM vibetype_private.account_block_ids()
   )
 ) WITH CHECK (
-  created_by = maevsi.invoker_account_id()
+  created_by = vibetype.invoker_account_id()
 );
 
 COMMIT;

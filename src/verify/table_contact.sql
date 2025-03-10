@@ -15,6 +15,6 @@ SELECT id,
        url,
        created_at,
        created_by
-FROM maevsi.contact WHERE FALSE;
+FROM vibetype.contact WHERE FALSE;
 
 ROLLBACK;

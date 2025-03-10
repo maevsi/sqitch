@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP ROLE maevsi_account;
+DROP ROLE vibetype_account;
 
 COMMIT;

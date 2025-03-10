@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP POLICY device ON maevsi.device;
+DROP POLICY device ON vibetype.device;
 
 COMMIT;

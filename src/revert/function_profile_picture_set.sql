@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.profile_picture_set(UUID);
+DROP FUNCTION vibetype.profile_picture_set(UUID);
 
 COMMIT;

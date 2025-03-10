@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.invite(UUID, TEXT);
+DROP FUNCTION vibetype.invite(UUID, TEXT);
 
 COMMIT;

@@ -3,12 +3,12 @@ BEGIN;
 SAVEPOINT privileges;
 DO $$
 BEGIN
-  IF NOT (SELECT pg_catalog.has_function_privilege('maevsi_account', 'maevsi.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
-    RAISE EXCEPTION 'Test privileges failed: maevsi_account does not have EXECUTE privilege';
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
+    RAISE EXCEPTION 'Test privileges failed: vibetype_account does not have EXECUTE privilege';
   END IF;
 
-  IF NOT (SELECT pg_catalog.has_function_privilege('maevsi_anonymous', 'maevsi.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
-    RAISE EXCEPTION 'Test privileges failed: maevsi_anonymous does not have EXECUTE privilege';
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
+    RAISE EXCEPTION 'Test privileges failed: vibetype_anonymous does not have EXECUTE privilege';
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT privileges;
@@ -17,14 +17,14 @@ SAVEPOINT username_success;
 DO $$
 DECLARE
   _account_id UUID;
-  _jwt maevsi.jwt;
+  _jwt vibetype.jwt;
 BEGIN
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM vibetype.account_email_address_verification(
+    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
 
-  _jwt := maevsi.authenticate('username', 'password');
+  _jwt := vibetype.authenticate('username', 'password');
 
   IF _jwt IS NULL THEN
     RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
@@ -40,15 +40,15 @@ SAVEPOINT username_incorrect;
 DO $$
 DECLARE
   _account_id UUID;
-  _jwt maevsi.jwt;
+  _jwt vibetype.jwt;
 BEGIN
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM vibetype.account_email_address_verification(
+    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
 
   BEGIN
-    _jwt := maevsi.authenticate('username_incorrect', 'password');
+    _jwt := vibetype.authenticate('username_incorrect', 'password');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;
@@ -59,15 +59,15 @@ SAVEPOINT username_password_incorrect;
 DO $$
 DECLARE
   _account_id UUID;
-  _jwt maevsi.jwt;
+  _jwt vibetype.jwt;
 BEGIN
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM vibetype.account_email_address_verification(
+    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
 
   BEGIN
-    _jwt := maevsi.authenticate('username', 'password_incorrect');
+    _jwt := vibetype.authenticate('username', 'password_incorrect');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;
@@ -82,14 +82,14 @@ SAVEPOINT email_success;
 DO $$
 DECLARE
   _account_id UUID;
-  _jwt maevsi.jwt;
+  _jwt vibetype.jwt;
 BEGIN
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM vibetype.account_email_address_verification(
+    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
 
-  _jwt := maevsi.authenticate('email@example.com', 'password');
+  _jwt := vibetype.authenticate('email@example.com', 'password');
 
   IF _jwt IS NULL THEN
     RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
@@ -105,15 +105,15 @@ SAVEPOINT email_incorrect;
 DO $$
 DECLARE
   _account_id UUID;
-  _jwt maevsi.jwt;
+  _jwt vibetype.jwt;
 BEGIN
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM vibetype.account_email_address_verification(
+    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
 
   BEGIN
-    _jwt := maevsi.authenticate('email_incorrect@example.com', 'password');
+    _jwt := vibetype.authenticate('email_incorrect@example.com', 'password');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;
@@ -128,15 +128,15 @@ SAVEPOINT email_password_incorrect;
 DO $$
 DECLARE
   _account_id UUID;
-  _jwt maevsi.jwt;
+  _jwt vibetype.jwt;
 BEGIN
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
+  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  PERFORM vibetype.account_email_address_verification(
+    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
 
   BEGIN
-    _jwt := maevsi.authenticate('email@example.com', 'password_incorrect');
+    _jwt := vibetype.authenticate('email@example.com', 'password_incorrect');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;

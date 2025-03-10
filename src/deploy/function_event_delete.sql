@@ -1,18 +1,18 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.event_delete(
+CREATE FUNCTION vibetype.event_delete(
   id UUID,
   password TEXT
-) RETURNS maevsi.event AS $$
+) RETURNS vibetype.event AS $$
 DECLARE
   _current_account_id UUID;
-  _event_deleted maevsi.event;
+  _event_deleted vibetype.event;
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
     DELETE
-      FROM maevsi.event
+      FROM vibetype.event
       WHERE
             "event".id = event_delete.id
         AND "event".created_by = _current_account_id
@@ -29,8 +29,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.event_delete(UUID, TEXT) IS 'Allows to delete an event.';
+COMMENT ON FUNCTION vibetype.event_delete(UUID, TEXT) IS 'Allows to delete an event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.event_delete(UUID, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype.event_delete(UUID, TEXT) TO vibetype_account;
 
 COMMIT;

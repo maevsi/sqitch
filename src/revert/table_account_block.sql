@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.account_block;
+DROP TABLE vibetype.account_block;
 
 COMMIT;

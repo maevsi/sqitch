@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.social_network;
+DROP TYPE vibetype.social_network;
 
 COMMIT;

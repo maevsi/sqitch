@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.event_unlock_response;
+DROP TYPE vibetype.event_unlock_response;
 
 COMMIT;

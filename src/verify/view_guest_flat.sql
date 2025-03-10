@@ -30,6 +30,6 @@ SELECT
   event_url,
   event_visibility,
   event_created_by
-FROM maevsi.guest_flat WHERE FALSE;
+FROM vibetype.guest_flat WHERE FALSE;
 
 ROLLBACK;

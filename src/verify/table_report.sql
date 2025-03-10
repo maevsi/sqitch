@@ -7,6 +7,6 @@ SELECT id,
        target_upload_id,
        created_at,
        created_by
-FROM maevsi.report WHERE FALSE;
+FROM vibetype.report WHERE FALSE;
 
 ROLLBACK;

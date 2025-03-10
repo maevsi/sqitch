@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION maevsi_test.index_existence(
+CREATE FUNCTION vibetype_test.index_existence(
   indexes TEXT[],
-  schema TEXT DEFAULT 'maevsi'
+  schema TEXT DEFAULT 'vibetype'
 ) RETURNS VOID AS $$
 DECLARE
   _existing_count INTEGER;
@@ -21,6 +21,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.index_existence(TEXT[], TEXT) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';;
+COMMENT ON FUNCTION vibetype_test.index_existence(TEXT[], TEXT) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';;
 
 COMMIT;

@@ -2,7 +2,7 @@ BEGIN;
 
 DO $$
 BEGIN
-  ASSERT (SELECT pg_catalog.has_type_privilege('maevsi.language', 'USAGE'));
+  ASSERT (SELECT pg_catalog.has_type_privilege('vibetype.language', 'USAGE'));
 END $$;
 
 ROLLBACK;

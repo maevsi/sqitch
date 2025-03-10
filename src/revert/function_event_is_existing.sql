@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.event_is_existing(UUID, TEXT);
+DROP FUNCTION vibetype.event_is_existing(UUID, TEXT);
 
 COMMIT;
