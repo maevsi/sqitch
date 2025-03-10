@@ -1,3 +1,13 @@
+## [6.0.0-beta.1](https://github.com/maevsi/sqitch/compare/5.1.0-beta.1...6.0.0-beta.1) (2025-03-10)
+
+### ⚠ BREAKING CHANGES
+
+* rename maevsi to vibetype
+
+### Features
+
+* rename maevsi to vibetype ([5f8ed4a](https://github.com/maevsi/sqitch/commit/5f8ed4ad0ee8d5ab875a41b66397e15d8af4ba14))
+
 ## [5.1.0-beta.1](https://github.com/maevsi/sqitch/compare/5.0.2...5.1.0-beta.1) (2025-03-06)
 
 ### Features
