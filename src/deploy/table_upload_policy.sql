@@ -9,7 +9,7 @@ GRANT DELETE ON TABLE vibetype.upload TO :role_vibetype_username;
 ALTER TABLE vibetype.upload ENABLE ROW LEVEL SECURITY;
 
 -- Display
--- - all uploads for `vibetype` or -- DOTO: check why needed
+-- - all uploads for the server or
 -- - the uploads that are linked to the requesting account or
 -- - the uploads which are used as profile picture.
 CREATE POLICY upload_select_using ON vibetype.upload FOR SELECT USING (
@@ -24,12 +24,12 @@ CREATE POLICY upload_select_using ON vibetype.upload FOR SELECT USING (
     id IN (SELECT upload_id FROM vibetype.profile_picture)
 );
 
--- Only allow `vibetype` to update rows.
+-- Only allow the server to update rows.
 CREATE POLICY upload_update_using ON vibetype.upload FOR UPDATE USING (
   (SELECT current_user) = :'role_vibetype_username'
 );
 
--- Only allow `vibetype` to delete rows.
+-- Only allow the server to delete rows.
 CREATE POLICY upload_delete_using ON vibetype.upload FOR DELETE USING (
   (SELECT current_user) = :'role_vibetype_username'
 );
