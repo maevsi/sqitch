@@ -16,9 +16,9 @@ SELECT id,
        created_at,
        created_by,
        search_vector
-FROM maevsi.event WHERE FALSE;
+FROM vibetype.event WHERE FALSE;
 
-SELECT maevsi_test.index_existence(
+SELECT vibetype_test.index_existence(
   ARRAY ['event_created_by_slug_key', 'idx_event_search_vector']
 );
 

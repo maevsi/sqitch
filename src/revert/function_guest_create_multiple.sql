@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.create_guests(UUID, UUID[]);
+DROP FUNCTION vibetype.create_guests(UUID, UUID[]);
 
 COMMIT;

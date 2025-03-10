@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.event_visibility;
+DROP TYPE vibetype.event_visibility;
 
 COMMIT;

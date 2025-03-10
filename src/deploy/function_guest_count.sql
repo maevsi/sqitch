@@ -1,14 +1,14 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.guest_count(event_id UUID)
+CREATE FUNCTION vibetype.guest_count(event_id UUID)
 RETURNS INTEGER AS $$
 BEGIN
-  RETURN (SELECT COUNT(1) FROM maevsi.guest WHERE guest.event_id = guest_count.event_id);
+  RETURN (SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.guest_count(UUID) IS 'Returns the guest count for an event.';
+COMMENT ON FUNCTION vibetype.guest_count(UUID) IS 'Returns the guest count for an event.';
 
-GRANT EXECUTE ON FUNCTION maevsi.guest_count(UUID) TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.guest_count(UUID) TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

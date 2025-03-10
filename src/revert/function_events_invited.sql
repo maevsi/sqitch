@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi_private.events_invited();
+DROP FUNCTION vibetype_private.events_invited();
 
 COMMIT;

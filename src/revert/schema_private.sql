@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP SCHEMA maevsi_private;
+DROP SCHEMA vibetype_private;
 
 COMMIT;
