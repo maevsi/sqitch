@@ -2,7 +2,7 @@
 
 [<img src="https://sqitch.org/img/sqitch-logo.svg" alt="Sqitch" width="1000"/>](https://sqitch.org/)
 
-[Sqitch](https://sqitch.org/) is vibetype's database migration tool.
+[Sqitch](https://sqitch.org/) is Vibetype's database migration tool.
 
 The `src` directory in this repository contains a `sqitch` executable that you can use to interact with the migrations residing in the directory's subdirectories.
 For example, run `./sqitch deploy` to fill the database with structure like tables, types and policies.
@@ -13,7 +13,7 @@ The `test` directory contains the `data.patch` file that can be applied by runni
 
 ## Database Diagram
 
-This diagram shows the structure of vibetype's database.
+This diagram shows the structure of Vibetype's database.
 
 ![Graph](./docs/graph.png)
 
