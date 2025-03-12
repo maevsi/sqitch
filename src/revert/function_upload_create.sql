@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.upload_create(BIGINT);
+DROP FUNCTION vibetype.upload_create(BIGINT);
 
 COMMIT;

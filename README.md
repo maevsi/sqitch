@@ -2,7 +2,7 @@
 
 [<img src="https://sqitch.org/img/sqitch-logo.svg" alt="Sqitch" width="1000"/>](https://sqitch.org/)
 
-[Sqitch](https://sqitch.org/) is maevsi's database migration tool.
+[Sqitch](https://sqitch.org/) is Vibetype's database migration tool.
 
 The `src` directory in this repository contains a `sqitch` executable that you can use to interact with the migrations residing in the directory's subdirectories.
 For example, run `./sqitch deploy` to fill the database with structure like tables, types and policies.
@@ -13,21 +13,21 @@ The `test` directory contains the `data.patch` file that can be applied by runni
 
 ## Database Diagram
 
-This diagram shows the structure of maevsi's database.
+This diagram shows the structure of Vibetype's database.
 
 ![Graph](./docs/graph.png)
 
 You can create this file as follows:
 
-1. configure [maevsi_stack](https://github.com/maevsi/maevsi_stack) by adding a portforward of `5432:5432` to the `postgres` service
+1. configure [maevsi/stack](https://github.com/maevsi/stack) by adding a portforward of `5432:5432` to the `postgres` service
 
-1. start `maevsi_stack`
+1. start `maevsi/stack`
 
 1. run `docker run -v /run/postgresql/:/run/postgresql/ --network=host --name schemacrawler --rm -i -t --user=0:0 --entrypoint=/bin/bash schemacrawler/schemacrawler`
 
 1. connect as user `schcrwlr` to the now running `schemacrawler` container, e.g. using Portainer
 
-1. as `schcrwlr` run `schemacrawler --server=postgresql --database=maevsi --user=postgres --password=postgres --command=schema --info-level=maximum --output-format=png --output-file=graph.png --schemas=maevsi.*`
+1. as `schcrwlr` run `schemacrawler --server=postgresql --database=vibetype --user=postgres --password=postgres --command=schema --info-level=maximum --output-format=png --output-file=graph.png --schemas=vibetype.*`
 
 1. reconnect as `root` to the same container and install curl using `apk update && apk add curl`
 

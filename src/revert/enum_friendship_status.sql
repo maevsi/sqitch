@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.friendship_status;
+DROP TYPE vibetype.friendship_status;
 
 COMMIT;

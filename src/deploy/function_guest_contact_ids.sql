@@ -1,31 +1,31 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.guest_contact_ids()
+CREATE FUNCTION vibetype.guest_contact_ids()
 RETURNS TABLE (contact_id UUID) AS $$
 BEGIN
   RETURN QUERY
     -- get all contacts of guests
     SELECT g.contact_id
-    FROM maevsi.guest g
+    FROM vibetype.guest g
     WHERE
       (
         -- that are known through a guest claim
-        g.id = ANY (maevsi.guest_claim_array())
+        g.id = ANY (vibetype.guest_claim_array())
       OR
         -- or for events organized by the invoker
-        g.event_id IN (SELECT maevsi.events_organized())
+        g.event_id IN (SELECT vibetype.events_organized())
         and g.contact_id IN (
           SELECT id
-          FROM maevsi.contact
+          FROM vibetype.contact
           WHERE
             created_by NOT IN (
-              SELECT id FROM maevsi_private.account_block_ids()
+              SELECT id FROM vibetype_private.account_block_ids()
             )
             AND (
               account_id IS NULL
               OR
               account_id NOT IN (
-                SELECT id FROM maevsi_private.account_block_ids()
+                SELECT id FROM vibetype_private.account_block_ids()
               )
             )
         )
@@ -33,8 +33,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
+COMMENT ON FUNCTION vibetype.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
 
-GRANT EXECUTE ON FUNCTION maevsi.guest_contact_ids() TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.guest_contact_ids() TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

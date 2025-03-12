@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.jwt_refresh(UUID);
+DROP FUNCTION vibetype.jwt_refresh(UUID);
 
 COMMIT;

@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.event_search(TEXT, maevsi.language);
+DROP FUNCTION vibetype.event_search(TEXT, vibetype.language);
 
 COMMIT;

@@ -2,25 +2,25 @@ BEGIN;
 
 SELECT id,
        token
-FROM maevsi_private.jwt WHERE FALSE;
+FROM vibetype_private.jwt WHERE FALSE;
 
-\set role_maevsi_username `cat /run/secrets/postgres_role_maevsi_username`
-SET local role.maevsi_username TO :'role_maevsi_username';
+\set role_vibetype_username `cat /run/secrets/postgres_role_vibetype_username`
+SET local role.vibetype_username TO :'role_vibetype_username';
 
 DO $$
 BEGIN
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi_private.jwt', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi_private.jwt', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi_private.jwt', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_account', 'maevsi_private.jwt', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi_private.jwt', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi_private.jwt', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi_private.jwt', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege('maevsi_anonymous', 'maevsi_private.jwt', 'DELETE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi_private.jwt', 'SELECT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi_private.jwt', 'INSERT'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi_private.jwt', 'UPDATE'));
-  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.maevsi_username'), 'maevsi_private.jwt', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.jwt', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.jwt', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.jwt', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.jwt', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype_private.jwt', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype_private.jwt', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype_private.jwt', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype_private.jwt', 'DELETE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.jwt', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.jwt', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.jwt', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.jwt', 'DELETE'));
 END $$;
 
 ROLLBACK;

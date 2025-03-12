@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.jwt;
+DROP TYPE vibetype.jwt;
 
 COMMIT;

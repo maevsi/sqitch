@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP SCHEMA maevsi;
+DROP SCHEMA vibetype;
 
 COMMIT;

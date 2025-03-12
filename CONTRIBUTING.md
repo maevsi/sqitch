@@ -57,9 +57,9 @@ The creator of a pull request is tasked with ensuring no merge conflicts with th
 
 ### Use the Schema Explorer
 
-<!-- TODO: add a way to check the schema explorer without having to start the full maevsi_stack -->
+<!-- TODO: add a way to check the schema explorer without having to start the full maevsi/stack -->
 
-Head over to [maevsi/maevsi](https://github.com/maevsi/maevsi) to see how to start the full project. Then, you should be able to access the GraphiQL interface at [https://postgraphile.localhost/graphiql](https://postgraphile.localhost/graphiql). This is where you can check that all intended queries and mutations are working as expected.
+Head over to [maevsi/vibetype](https://github.com/maevsi/vibetype) to see how to start the full project. Then, you should be able to access the GraphiQL interface at [https://postgraphile.localhost/graphiql](https://postgraphile.localhost/graphiql). This is where you can check that all intended queries and mutations are working as expected.
 
 <!-- Please make sure that the queries and mutations listed on the page align with the expected functionality of the project. -->
 

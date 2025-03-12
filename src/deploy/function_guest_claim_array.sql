@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.guest_claim_array()
+CREATE FUNCTION vibetype.guest_claim_array()
 RETURNS UUID[] AS $$
 DECLARE
   _guest_ids UUID[];
@@ -11,22 +11,22 @@ BEGIN
   IF _guest_ids IS NOT NULL THEN
     _guest_ids_unblocked := ARRAY (
       SELECT g.id
-      FROM maevsi.guest g
-        JOIN maevsi.event e ON g.event_id = e.id
-        JOIN maevsi.contact c ON g.contact_id = c.id
+      FROM vibetype.guest g
+        JOIN vibetype.event e ON g.event_id = e.id
+        JOIN vibetype.contact c ON g.contact_id = c.id
       WHERE g.id = ANY(_guest_ids)
         AND e.created_by NOT IN (
-            SELECT id FROM maevsi_private.account_block_ids()
+            SELECT id FROM vibetype_private.account_block_ids()
           )
         AND (
           c.created_by NOT IN (
-            SELECT id FROM maevsi_private.account_block_ids()
+            SELECT id FROM vibetype_private.account_block_ids()
           )
           AND (
             c.account_id IS NULL
             OR
             c.account_id NOT IN (
-              SELECT id FROM maevsi_private.account_block_ids()
+              SELECT id FROM vibetype_private.account_block_ids()
             )
           )
         )
@@ -38,8 +38,8 @@ BEGIN
 END
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.guest_claim_array() IS 'Returns the current guest claims as UUID array.';
+COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest claims as UUID array.';
 
-GRANT EXECUTE ON FUNCTION maevsi.guest_claim_array() TO maevsi_account, maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.guest_claim_array() TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

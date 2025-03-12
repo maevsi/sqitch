@@ -5,6 +5,6 @@ SELECT id,
        is_acknowledged,
        payload,
        created_at
-FROM maevsi_private.notification WHERE FALSE;
+FROM vibetype_private.notification WHERE FALSE;
 
 ROLLBACK;

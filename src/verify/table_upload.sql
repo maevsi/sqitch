@@ -7,6 +7,6 @@ SELECT id,
        storage_key,
        type,
        created_at
-FROM maevsi.upload WHERE FALSE;
+FROM vibetype.upload WHERE FALSE;
 
 ROLLBACK;
