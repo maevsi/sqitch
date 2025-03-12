@@ -1,3 +1,22 @@
+## [6.0.0](https://github.com/maevsi/sqitch/compare/5.0.2...6.0.0) (2025-03-12)
+
+### ⚠ BREAKING CHANGES
+
+* rename maevsi to vibetype
+
+### Features
+
+* **guest:** add possibility for multiple creation ([e1a95c8](https://github.com/maevsi/sqitch/commit/e1a95c831861d5a8af09ce5f5c262cea0385c6ac))
+* **guest:** add TODO comment ([ac165e6](https://github.com/maevsi/sqitch/commit/ac165e6e7e2bfc867c6a67bca0159b2366b3321d))
+* **guest:** work in feedback ([255ff9c](https://github.com/maevsi/sqitch/commit/255ff9c24d0aa4846e40cb92e92800d7c4f21bf9))
+* rename maevsi to vibetype ([5f8ed4a](https://github.com/maevsi/sqitch/commit/5f8ed4ad0ee8d5ab875a41b66397e15d8af4ba14))
+
+### Bug Fixes
+
+* **account:** improve error messages for blocking ([7d40c82](https://github.com/maevsi/sqitch/commit/7d40c8232eeffec726e62b6e46cce9fd5f08c9b9))
+* **friendship:** add test cases ([265cd7a](https://github.com/maevsi/sqitch/commit/265cd7a9ecbfdee9c0c21cecd53b15940ef154ae))
+* **guest:** fix in `test_account_block` ([364a937](https://github.com/maevsi/sqitch/commit/364a93758129148b2635226c68a0e5410f66d842))
+
 ## [6.0.0-beta.1](https://github.com/maevsi/sqitch/compare/5.1.0-beta.1...6.0.0-beta.1) (2025-03-10)
 
 ### ⚠ BREAKING CHANGES
