@@ -9,7 +9,8 @@ For example, run `./sqitch deploy` to fill the database with structure like tabl
 
 In case you want to be able to simple call `sqitch deploy` without `./` instead, add an `alias sqitch="./sqitch"` to your shell configuration (`~/.bashrc`, `~/.zshrc`, ...).
 
-The `test` directory contains the `data.patch` file that can be applied by running `git apply --3way data.patch` to add basic test data to your working directory.
+A basic test data migration can be added to your working directory by running `git apply --3way test/data.patch` and deployed as explained above.
+Changes to the test data can be persisted using `git add -AN && git diff > test/data.patch`.
 
 ## Database Diagram
 

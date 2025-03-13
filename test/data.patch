@@ -1,6 +1,6 @@
 diff --git a/src/deploy/data_test.sql b/src/deploy/data_test.sql
 new file mode 100644
-index 0000000..be43bc8
+index 0000000..88e6683
 --- /dev/null
 +++ b/src/deploy/data_test.sql
 @@ -0,0 +1,191 @@
@@ -134,7 +134,7 @@ index 0000000..be43bc8
 +    "visibility",
 +    "created_by",
 +    "description",
-+    "location",
++    -- "location",
 +    "start"
 +  )
 +VALUES (
@@ -144,7 +144,7 @@ index 0000000..be43bc8
 +    'private',
 +    _account_id_jonas,
 +    'Offices parties lasting outward nothing age few resolve. Impression to discretion understood to we interested he excellence. Him remarkably use projection collecting. Going about eat forty world has round miles. Attention affection at my preferred offending shameless me if agreeable. Life lain held calm and true neat she. Much feet each so went no from. Truth began maids linen an mr to after.',
-+    'Schutz- und Grillhütte Frommershausen, 34246 Vellmar',
++    -- 'Schutz- und Grillhütte Frommershausen, 34246 Vellmar',
 +    '2019-11-27 03:54:29.090009+00'
 +  );
 +
@@ -197,7 +197,7 @@ index 0000000..be43bc8
 +COMMIT;
 diff --git a/src/revert/data_test.sql b/src/revert/data_test.sql
 new file mode 100644
-index 0000000..50ae98c
+index 0000000..b95c347
 --- /dev/null
 +++ b/src/revert/data_test.sql
 @@ -0,0 +1,12 @@
@@ -207,24 +207,24 @@ index 0000000..50ae98c
 +
 +DELETE FROM vibetype.profile_picture;
 +DELETE FROM vibetype.upload;
-+DELETE FROM vibetype.invitation;
++DELETE FROM vibetype.guest;
 +DELETE FROM vibetype.event;
 +DELETE FROM vibetype.contact;
 +DELETE FROM vibetype_private.account;
 +
 +COMMIT;
 diff --git a/src/sqitch.plan b/src/sqitch.plan
-index b5e25a3..3d3050f 100644
+index 78a81cf..edcd54c 100644
 --- a/src/sqitch.plan
 +++ b/src/sqitch.plan
-@@ -100,3 +100,4 @@ enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven
+@@ -101,3 +101,4 @@ enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven
  table_friendship [schema_public enum_friendship_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
  table_friendship_policy [schema_public table_friendship role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
  test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
 +data_test 1970-01-01T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Add test data.
 diff --git a/src/verify/data_test.sql b/src/verify/data_test.sql
 new file mode 100644
-index 0000000..274d00b
+index 0000000..4d16257
 --- /dev/null
 +++ b/src/verify/data_test.sql
 @@ -0,0 +1,7 @@
