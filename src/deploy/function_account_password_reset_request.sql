@@ -24,7 +24,7 @@ BEGIN
   IF (_notify_data IS NULL) THEN
     -- noop
   ELSE
-    INSERT INTO maevsi_private.notification (channel, payload) VALUES (
+    INSERT INTO maevsi.notification (channel, payload) VALUES (
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,

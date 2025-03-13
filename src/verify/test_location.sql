@@ -8,19 +8,10 @@ DECLARE
   _id UUID;
 BEGIN
   -- Register account
-  _account_id := maevsi.account_registration('username', 'email@example.com', 'password', 'en');
-  PERFORM maevsi.account_email_address_verification(
-    (SELECT email_address_verification FROM maevsi_private.account WHERE id = _account_id)
-  );
-
-  -- Set account-specific context
-  SET LOCAL role = 'maevsi_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  _account_id := maevsi_test.account_create('username', 'email@example.com');
 
   -- Create event
-  INSERT INTO maevsi.event(created_by, name, slug, start, visibility)
-  VALUES (_account_id, 'event', 'event', CURRENT_TIMESTAMP, 'public'::maevsi.event_visibility)
-  RETURNING id INTO _event_id;
+  _event_id := maevsi_test.event_create(_account_id, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
 
   -- Update and validate account location
   PERFORM maevsi_test.account_location_update(_account_id, 51.304, 9.476); -- Somewhere in Kassel
@@ -29,6 +20,9 @@ BEGIN
   IF NOT (round(_coordinates[1]::numeric, 3) = 51.304 AND round(_coordinates[2]::numeric, 3) = 9.476) THEN
     RAISE EXCEPTION 'Wrong account coordinates';
   END IF;
+
+  -- Set account-specific context
+  PERFORM maevsi_test.invoker_set(_account_id);
 
   -- Update and validate event location
   PERFORM maevsi_test.event_location_update(_event_id, 50.113, 8.650); -- Somewhere in Frankfurt

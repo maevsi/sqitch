@@ -10,7 +10,7 @@ BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
   IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
-    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
@@ -23,9 +23,8 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated, maevsi.account
-    WHERE updated.id = account.id
-    INTO _new_account_notify;
+    INTO _new_account_notify
+    FROM updated JOIN maevsi.account ON updated.id = account.id;
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',

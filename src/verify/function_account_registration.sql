@@ -78,7 +78,7 @@ BEGIN
   PERFORM maevsi.account_registration('username-8b973f', 'email@example.com', 'password', 'en');
 
   IF NOT EXISTS (
-    SELECT 1 FROM maevsi_private.notification
+    SELECT 1 FROM maevsi.notification
     WHERE channel = 'account_registration'
       AND payload::jsonb -> 'account' ->> 'username' = 'username-8b973f'
   ) THEN

@@ -236,27 +236,6 @@ COMMENT ON TYPE maevsi.invitation_feedback_paper IS 'Possible choices on how to 
 
 
 --
--- Name: invitation_status; Type: TYPE; Schema: maevsi; Owner: postgres
---
-
-CREATE TYPE maevsi.invitation_status AS ENUM (
-    'accepted',
-    'bounced',
-    'rejected',
-    'sent'
-);
-
-
-ALTER TYPE maevsi.invitation_status OWNER TO postgres;
-
---
--- Name: TYPE invitation_status; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON TYPE maevsi.invitation_status IS 'Represents the status of an invitation.';
-
-
---
 -- Name: language; Type: TYPE; Schema: maevsi; Owner: postgres
 --
 
@@ -475,7 +454,7 @@ BEGIN
   IF (_notify_data IS NULL) THEN
     -- noop
   ELSE
-    INSERT INTO maevsi_private.notification (channel, payload) VALUES (
+    INSERT INTO maevsi.notification (channel, payload) VALUES (
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
@@ -537,7 +516,7 @@ BEGIN
 
   INSERT INTO maevsi.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO maevsi_private.notification (channel, payload) VALUES (
+  INSERT INTO maevsi.notification (channel, payload) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
@@ -572,7 +551,7 @@ BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
   IF (NOT EXISTS (SELECT 1 FROM maevsi_private.account WHERE account.id = $1)) THEN
-    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
@@ -585,9 +564,8 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated, maevsi.account
-    WHERE updated.id = account.id
-    INTO _new_account_notify;
+    INTO _new_account_notify
+    FROM updated JOIN maevsi.account ON updated.id = account.id;
 
   INSERT INTO maevsi_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -1300,20 +1278,22 @@ COMMENT ON FUNCTION maevsi.guest_count(event_id uuid) IS 'Returns the guest coun
 -- Name: invite(uuid, text); Type: FUNCTION; Schema: maevsi; Owner: postgres
 --
 
-CREATE FUNCTION maevsi.invite(guest_id uuid, language text) RETURNS void
+CREATE FUNCTION maevsi.invite(guest_id uuid, language text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_creator_profile_picture_upload_id UUID;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
+  _id UUID;
 BEGIN
   -- Guest UUID
-  SELECT * FROM maevsi.guest INTO _guest WHERE guest.id = $1;
+  SELECT * INTO _guest
+  FROM maevsi.guest
+  WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
@@ -1324,14 +1304,16 @@ BEGIN
   END IF;
 
   -- Event
-  SELECT * FROM maevsi.event INTO _event WHERE "event".id = _guest.event_id;
+  SELECT * INTO _event FROM maevsi.event WHERE id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM maevsi.contact INTO _contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address INTO _contact
+  FROM maevsi.contact
+  WHERE id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1345,7 +1327,9 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM maevsi_private.account INTO _email_address WHERE account.id = _contact.account_id;
+    SELECT email_address INTO _email_address
+    FROM maevsi_private.account
+    WHERE id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -1353,14 +1337,19 @@ BEGIN
   END IF;
 
   -- Event creator username
-  SELECT username FROM maevsi.account INTO _event_creator_username WHERE account.id = _event.created_by;
+  SELECT username INTO _event_creator_username
+  FROM maevsi.account
+  WHERE id = _event.created_by;
 
   -- Event creator profile picture storage key
-  SELECT upload_id FROM maevsi.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key FROM maevsi.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
+  SELECT u.storage_key INTO _event_creator_profile_picture_upload_storage_key
+  FROM maevsi.profile_picture p
+    JOIN maevsi.upload u ON p.upload_id = u.id
+  WHERE p.account_id = _event.created_by;
 
-  INSERT INTO maevsi_private.notification (channel, payload)
+  INSERT INTO maevsi.invitation (guest_id, channel, payload, created_by)
     VALUES (
+      invite.guest_id,
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
@@ -1370,11 +1359,15 @@ BEGIN
           'eventCreatorUsername', _event_creator_username,
           'guestId', _guest.id
         ),
-        'template', jsonb_build_object('language', $2)
-      ))
-    );
+        'template', jsonb_build_object('language', invite.language)
+      )),
+      maevsi.invoker_account_id()
+    )
+    RETURNING id INTO _id;
+
+    RETURN _id;
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO postgres;
@@ -1383,7 +1376,7 @@ ALTER FUNCTION maevsi.invite(guest_id uuid, language text) OWNER TO postgres;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
-COMMENT ON FUNCTION maevsi.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION maevsi.invite(guest_id uuid, language text) IS 'Adds an invitation and a notification.';
 
 
 --
@@ -1529,15 +1522,22 @@ ALTER FUNCTION maevsi.legal_term_change() OWNER TO postgres;
 
 CREATE FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $_$
+    AS $$
+DECLARE
+  update_count INTEGER;
 BEGIN
-  IF (EXISTS (SELECT 1 FROM maevsi_private.notification WHERE "notification".id = $1)) THEN
-    UPDATE maevsi_private.notification SET is_acknowledged = $2 WHERE "notification".id = $1;
-  ELSE
+
+  UPDATE maevsi_private.notification SET
+    is_acknowledged = notification_acknowledge.is_acknowledged
+  WHERE id = notification_acknowledge.id;
+
+  GET DIAGNOSTICS update_count = ROW_COUNT;
+  IF update_count = 0 THEN
     RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
+
 END;
-$_$;
+$$;
 
 
 ALTER FUNCTION maevsi.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO postgres;
@@ -2572,6 +2572,36 @@ END $$;
 ALTER FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) OWNER TO postgres;
 
 --
+-- Name: invoker_set(uuid); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.invoker_set(_invoker_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  SET LOCAL role = 'maevsi_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.invoker_set(_invoker_id uuid) OWNER TO postgres;
+
+--
+-- Name: invoker_unset(); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
+--
+
+CREATE FUNCTION maevsi_test.invoker_unset() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  CALL maevsi_test.set_local_superuser();
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
+END $$;
+
+
+ALTER FUNCTION maevsi_test.invoker_unset() OWNER TO postgres;
+
+--
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: maevsi_test; Owner: postgres
 --
 
@@ -3574,18 +3604,72 @@ COMMENT ON VIEW maevsi.guest_flat IS 'View returning flattened guests.';
 
 
 --
+-- Name: notification; Type: TABLE; Schema: maevsi; Owner: postgres
+--
+
+CREATE TABLE maevsi.notification (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    channel text NOT NULL,
+    is_acknowledged boolean,
+    payload text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
+);
+
+
+ALTER TABLE maevsi.notification OWNER TO postgres;
+
+--
+-- Name: TABLE notification; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON TABLE maevsi.notification IS 'A notification.';
+
+
+--
+-- Name: COLUMN notification.id; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.notification.id IS 'The notification''s internal id.';
+
+
+--
+-- Name: COLUMN notification.channel; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.notification.channel IS 'The notification''s channel.';
+
+
+--
+-- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+
+
+--
+-- Name: COLUMN notification.payload; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.notification.payload IS 'The notification''s payload.';
+
+
+--
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
+--
+
+COMMENT ON COLUMN maevsi.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
 -- Name: invitation; Type: TABLE; Schema: maevsi; Owner: postgres
 --
 
 CREATE TABLE maevsi.invitation (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
     guest_id uuid NOT NULL,
-    status maevsi.invitation_status NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid NOT NULL
-);
+    created_by uuid NOT NULL
+)
+INHERITS (maevsi.notification);
 
 
 ALTER TABLE maevsi.invitation OWNER TO postgres;
@@ -3598,33 +3682,10 @@ COMMENT ON TABLE maevsi.invitation IS '@omit update,delete\nStores invitations a
 
 
 --
--- Name: COLUMN invitation.id; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.id IS '@omit create
-The unique identifier for the invitation.';
-
-
---
 -- Name: COLUMN invitation.guest_id; Type: COMMENT; Schema: maevsi; Owner: postgres
 --
 
 COMMENT ON COLUMN maevsi.invitation.guest_id IS 'The ID of the guest associated with this invitation.';
-
-
---
--- Name: COLUMN invitation.status; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.status IS 'The current status of the invitation.';
-
-
---
--- Name: COLUMN invitation.created_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.created_at IS '@omit create
-Timestamp when the invitation was created. Defaults to the current timestamp.';
 
 
 --
@@ -3633,22 +3694,6 @@ Timestamp when the invitation was created. Defaults to the current timestamp.';
 
 COMMENT ON COLUMN maevsi.invitation.created_by IS '@omit create
 Reference to the account that created the invitation.';
-
-
---
--- Name: COLUMN invitation.updated_at; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.updated_at IS '@omit create
-Timestamp when the invitation was last updated.';
-
-
---
--- Name: COLUMN invitation.updated_by; Type: COMMENT; Schema: maevsi; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi.invitation.updated_by IS '@omit create
-Reference to the account that last updated the invitation.';
 
 
 --
@@ -4084,64 +4129,6 @@ COMMENT ON COLUMN maevsi_private.jwt.id IS 'The token''s id.';
 --
 
 COMMENT ON COLUMN maevsi_private.jwt.token IS 'The token.';
-
-
---
--- Name: notification; Type: TABLE; Schema: maevsi_private; Owner: postgres
---
-
-CREATE TABLE maevsi_private.notification (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    channel text NOT NULL,
-    is_acknowledged boolean,
-    payload text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
-);
-
-
-ALTER TABLE maevsi_private.notification OWNER TO postgres;
-
---
--- Name: TABLE notification; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON TABLE maevsi_private.notification IS 'A notification.';
-
-
---
--- Name: COLUMN notification.id; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification.id IS 'The notification''s internal id.';
-
-
---
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification.channel IS 'The notification''s channel.';
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
-
-
---
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: maevsi_private; Owner: postgres
---
-
-COMMENT ON COLUMN maevsi_private.notification.created_at IS 'The timestamp of the notification''s creation.';
 
 
 --
@@ -4641,6 +4628,20 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 
 --
+-- Name: invitation id; Type: DEFAULT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation ALTER COLUMN id SET DEFAULT gen_random_uuid();
+
+
+--
+-- Name: invitation created_at; Type: DEFAULT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.invitation ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+
+
+--
 -- Name: account_block account_block_created_by_blocked_account_id_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4878,22 +4879,6 @@ ALTER TABLE ONLY maevsi.guest
 
 
 --
--- Name: invitation invitation_guest_id_status_created_at_key; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_guest_id_status_created_at_key UNIQUE (guest_id, status, created_at);
-
-
---
--- Name: invitation invitation_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_pkey PRIMARY KEY (id);
-
-
---
 -- Name: legal_term_acceptance legal_term_acceptance_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
 --
 
@@ -4915,6 +4900,14 @@ ALTER TABLE ONLY maevsi.legal_term
 
 ALTER TABLE ONLY maevsi.legal_term
     ADD CONSTRAINT legal_term_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: notification notification_pkey; Type: CONSTRAINT; Schema: maevsi; Owner: postgres
+--
+
+ALTER TABLE ONLY maevsi.notification
+    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
 
 
 --
@@ -5018,14 +5011,6 @@ ALTER TABLE ONLY maevsi_private.jwt
 
 ALTER TABLE ONLY maevsi_private.jwt
     ADD CONSTRAINT jwt_token_key UNIQUE (token);
-
-
---
--- Name: notification notification_pkey; Type: CONSTRAINT; Schema: maevsi_private; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi_private.notification
-    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
 
 
 --
@@ -5259,13 +5244,6 @@ CREATE TRIGGER maevsi_trigger_contact_update_account_id BEFORE UPDATE OF account
 --
 
 CREATE TRIGGER maevsi_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON maevsi.event FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_event_search_vector();
-
-
---
--- Name: invitation maevsi_trigger_invitation_update; Type: TRIGGER; Schema: maevsi; Owner: postgres
---
-
-CREATE TRIGGER maevsi_trigger_invitation_update BEFORE UPDATE ON maevsi.invitation FOR EACH ROW EXECUTE FUNCTION maevsi.trigger_metadata_update();
 
 
 --
@@ -5528,14 +5506,6 @@ ALTER TABLE ONLY maevsi.invitation
 
 ALTER TABLE ONLY maevsi.invitation
     ADD CONSTRAINT invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES maevsi.guest(id);
-
-
---
--- Name: invitation invitation_updated_by_fkey; Type: FK CONSTRAINT; Schema: maevsi; Owner: postgres
---
-
-ALTER TABLE ONLY maevsi.invitation
-    ADD CONSTRAINT invitation_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES maevsi.account(id);
 
 
 --
@@ -6100,10 +6070,7 @@ CREATE POLICY invitation_insert ON maevsi.invitation FOR INSERT WITH CHECK (((cr
 -- Name: invitation invitation_select; Type: POLICY; Schema: maevsi; Owner: postgres
 --
 
-CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING ((maevsi.invoker_account_id() = ( SELECT e.created_by
-   FROM (maevsi.guest g
-     JOIN maevsi.event e ON ((g.event_id = e.id)))
-  WHERE (g.id = invitation.guest_id))));
+CREATE POLICY invitation_select ON maevsi.invitation FOR SELECT USING ((created_by = maevsi.invoker_account_id()));
 
 
 --
@@ -7073,6 +7040,20 @@ REVOKE ALL ON FUNCTION maevsi_test.guest_create(_created_by uuid, _event_id uuid
 --
 
 REVOKE ALL ON FUNCTION maevsi_test.guest_test(_test_case text, _account_id uuid, _expected_result uuid[]) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION invoker_set(_invoker_id uuid); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invoker_set(_invoker_id uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION invoker_unset(); Type: ACL; Schema: maevsi_test; Owner: postgres
+--
+
+REVOKE ALL ON FUNCTION maevsi_test.invoker_unset() FROM PUBLIC;
 
 
 --

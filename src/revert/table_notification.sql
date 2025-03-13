@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi_private.notification;
+DROP TABLE maevsi.notification;
 
 COMMIT;
