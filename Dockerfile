@@ -40,7 +40,7 @@ RUN apt-get update \
   && echo "vibetype"          > /run/secrets/postgres_role_vibetype_username \
   && echo "placeholder" | tee \
     /run/secrets/postgres_role_vibetype_password \
-    /run/secrets/postgres_role_vibetype-postgraphile_password \
+    /run/secrets/postgres_role_postgraphile_password \
     /dev/null
 
 COPY ./src ./

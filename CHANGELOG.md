@@ -1,3 +1,13 @@
+## [7.0.0-beta.1](https://github.com/maevsi/sqitch/compare/6.0.0...7.0.0-beta.1) (2025-03-12)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** rename postgraphile secret variable
+
+### Code Refactoring
+
+* **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
+
 ## [6.0.0](https://github.com/maevsi/sqitch/compare/5.0.2...6.0.0) (2025-03-12)
 
 ### ⚠ BREAKING CHANGES
