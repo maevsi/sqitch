@@ -383,7 +383,7 @@ DECLARE
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_delete.password, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     IF (EXISTS (SELECT 1 FROM vibetype.event WHERE event.created_by = _current_account_id)) THEN
       RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
     ELSE
@@ -460,8 +460,8 @@ BEGIN
 
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_password_change.password_current, account.password_hash))) THEN
-    UPDATE vibetype_private.account SET password_hash = crypt(account_password_change.password_new, gen_salt('bf')) WHERE account.id = _current_account_id;
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
+    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -507,7 +507,7 @@ BEGIN
 
   UPDATE vibetype_private.account
     SET
-      password_hash = crypt(account_password_reset.password, gen_salt('bf')),
+      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf')),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
 END;
@@ -596,7 +596,7 @@ BEGIN
   END IF;
 
   INSERT INTO vibetype_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, crypt(account_registration.password, gen_salt('bf')), CURRENT_TIMESTAMP)
+    (account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -794,7 +794,7 @@ BEGIN
         FROM vibetype_private.account
         WHERE
               account.id = _account_id
-          AND account.password_hash = crypt(authenticate.password, account.password_hash)
+          AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
@@ -805,7 +805,7 @@ BEGIN
       WHERE
             account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = crypt(authenticate.password, account.password_hash)
+        AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
       RETURNING *
     ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
       FROM updated
@@ -1123,7 +1123,7 @@ DECLARE
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(event_delete.password, account.password_hash))) THEN
     DELETE
       FROM vibetype.event
       WHERE
