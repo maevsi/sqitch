@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_vibetype_username `cat /run/secrets/postgres_role_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
 
 CREATE TABLE vibetype.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -14,9 +14,9 @@ COMMENT ON COLUMN vibetype.profile_picture.id IS E'@omit create,update\nThe prof
 COMMENT ON COLUMN vibetype.profile_picture.account_id IS 'The account''s id.';
 COMMENT ON COLUMN vibetype.profile_picture.upload_id IS 'The upload''s id.';
 
-GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_account, vibetype_anonymous, :role_vibetype_username;
+GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_account, vibetype_anonymous, :role_service_vibetype_username;
 GRANT INSERT, DELETE, UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
-GRANT DELETE ON TABLE vibetype.profile_picture TO :role_vibetype_username;
+GRANT DELETE ON TABLE vibetype.profile_picture TO :role_service_vibetype_username;
 
 ALTER TABLE vibetype.profile_picture ENABLE ROW LEVEL SECURITY;
 
@@ -41,7 +41,7 @@ CREATE POLICY profile_picture_update ON vibetype.profile_picture FOR UPDATE USIN
 
 -- Only allow deletes for the item with the account id that matches the invoker's account id.
 CREATE POLICY profile_picture_delete ON vibetype.profile_picture FOR DELETE USING (
-    (SELECT current_user) = :'role_vibetype_username'
+    (SELECT current_user) = :'role_service_vibetype_username'
   OR
     (
       vibetype.invoker_account_id() IS NOT NULL

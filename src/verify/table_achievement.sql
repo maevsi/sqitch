@@ -6,8 +6,8 @@ SELECT id,
        level
 FROM vibetype.achievement WHERE FALSE;
 
-\set role_vibetype_username `cat /run/secrets/postgres_role_vibetype_username`
-SET local role.vibetype_username TO :'role_vibetype_username';
+\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+SET local role.vibetype_username TO :'role_service_vibetype_username';
 
 DO $$
 BEGIN
