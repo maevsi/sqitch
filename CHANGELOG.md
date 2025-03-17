@@ -1,3 +1,13 @@
+## [7.0.0-beta.3](https://github.com/maevsi/sqitch/compare/7.0.0-beta.2...7.0.0-beta.3) (2025-03-17)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** rename for services
+
+### Code Refactoring
+
+* **role:** rename for services ([c83b9d1](https://github.com/maevsi/sqitch/commit/c83b9d140a8a0b56f2490f9ce9f7ebdac8398fcd))
+
 ## [7.0.0-beta.2](https://github.com/maevsi/sqitch/compare/7.0.0-beta.1...7.0.0-beta.2) (2025-03-17)
 
 ### ⚠ BREAKING CHANGES
