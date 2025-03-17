@@ -46,8 +46,7 @@ RUN apt-get update \
 COPY ./src ./
 COPY ./test/index-missing.sql ./test/
 
-RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
-  && docker-entrypoint.sh postgres & \
+RUN docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
   && sqitch deploy -t db:pg://ci:postgres@/ci_database \
   && psql -h localhost -U ci -d ci_database -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
