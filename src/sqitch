@@ -69,8 +69,8 @@ fi
 docker run --rm --network host \
     --mount "type=bind,src=$(pwd),dst=/repo" \
     --mount "type=bind,src=$HOME,dst=$homedst" \
-    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_vibetype_password.secret,dst=/run/secrets/postgres_role_vibetype_password" \
-    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_vibetype_username.secret,dst=/run/secrets/postgres_role_vibetype_username" \
-    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_postgraphile_password.secret,dst=/run/secrets/postgres_role_postgraphile_password" \
-    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_postgraphile_username.secret,dst=/run/secrets/postgres_role_postgraphile_username" \
+    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_service_vibetype_password.secret,dst=/run/secrets/postgres_role_service_vibetype_password" \
+    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_service_vibetype_username.secret,dst=/run/secrets/postgres_role_service_vibetype_username" \
+    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_service_postgraphile_password.secret,dst=/run/secrets/postgres_role_service_postgraphile_password" \
+    --mount "type=bind,src=$PWD/../../vibetype_stack/src/development/secrets/postgres/role_service_postgraphile_username.secret,dst=/run/secrets/postgres_role_service_postgraphile_username" \
     "${passopt[@]}" "$SQITCH_IMAGE" "$@"
