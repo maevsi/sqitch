@@ -1,3 +1,13 @@
+## [7.0.0-beta.2](https://github.com/maevsi/sqitch/compare/7.0.0-beta.1...7.0.0-beta.2) (2025-03-17)
+
+### ⚠ BREAKING CHANGES
+
+* **environment:** dissolve target variable file
+
+### Code Refactoring
+
+* **environment:** dissolve target variable file ([9f4ae82](https://github.com/maevsi/sqitch/commit/9f4ae82019b34c0dea7ff815401937edebe4c435))
+
 ## [7.0.0-beta.1](https://github.com/maevsi/sqitch/compare/6.0.0...7.0.0-beta.1) (2025-03-12)
 
 ### ⚠ BREAKING CHANGES
