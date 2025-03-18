@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.achievement_unlock;
+DROP FUNCTION vibetype.achievement_unlock;
 
 COMMIT;

@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.notification_acknowledge(
+CREATE FUNCTION vibetype.notification_acknowledge(
   id UUID,
   is_acknowledged BOOLEAN
 ) RETURNS VOID AS $$
@@ -8,7 +8,7 @@ DECLARE
   update_count INTEGER;
 BEGIN
 
-  UPDATE maevsi_private.notification SET
+  UPDATE vibetype_private.notification SET
     is_acknowledged = notification_acknowledge.is_acknowledged
   WHERE id = notification_acknowledge.id;
 
@@ -20,8 +20,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) IS 'Allows to set the acknowledgement state of a notification.';
+COMMENT ON FUNCTION vibetype.notification_acknowledge(UUID, BOOLEAN) IS 'Allows to set the acknowledgement state of a notification.';
 
-GRANT EXECUTE ON FUNCTION maevsi.notification_acknowledge(UUID, BOOLEAN) TO maevsi_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.notification_acknowledge(UUID, BOOLEAN) TO vibetype_anonymous;
 
 COMMIT;

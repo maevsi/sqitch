@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.notification_acknowledge;
+DROP FUNCTION vibetype.notification_acknowledge;
 
 COMMIT;

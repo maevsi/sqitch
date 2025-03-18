@@ -1,7 +1,7 @@
 BEGIN;
 
-DROP TRIGGER maevsi_trigger_address_update ON maevsi.address;
+DROP TRIGGER vibetype_trigger_address_update ON vibetype.address;
 
-DROP TABLE maevsi.address;
+DROP TABLE vibetype.address;
 
 COMMIT;

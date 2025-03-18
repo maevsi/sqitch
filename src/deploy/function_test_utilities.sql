@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_create (
+CREATE OR REPLACE FUNCTION vibetype_test.account_create (
   _username TEXT,
   _email TEXT
 ) RETURNS UUID AS $$
@@ -8,52 +8,52 @@ DECLARE
   _id UUID;
   _verification UUID;
 BEGIN
-  _id := maevsi.account_registration(_username, _email, 'password', 'en');
+  _id := vibetype.account_registration(_username, _email, 'password', 'en');
 
   SELECT email_address_verification INTO _verification
-  FROM maevsi_private.account
+  FROM vibetype_private.account
   WHERE id = _id;
 
-  PERFORM maevsi.account_email_address_verification(_verification);
+  PERFORM vibetype.account_email_address_verification(_verification);
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_remove (
+CREATE OR REPLACE FUNCTION vibetype_test.account_remove (
   _username TEXT
 ) RETURNS VOID AS $$
 DECLARE
   _id UUID;
 BEGIN
-  SELECT id INTO _id FROM maevsi.account WHERE username = _username;
+  SELECT id INTO _id FROM vibetype.account WHERE username = _username;
 
   IF _id IS NOT NULL THEN
 
-    SET LOCAL role = 'maevsi_account';
+    SET LOCAL role = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
-    DELETE FROM maevsi.event WHERE created_by = _id;
+    DELETE FROM vibetype.event WHERE created_by = _id;
 
-    PERFORM maevsi.account_delete('password');
+    PERFORM vibetype.account_delete('password');
 
     SET LOCAL role = 'postgres';
   END IF;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.contact_select_by_account_id (
+CREATE OR REPLACE FUNCTION vibetype_test.contact_select_by_account_id (
   _account_id UUID
 ) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
   SELECT id INTO _id
-  FROM maevsi.contact
+  FROM vibetype.contact
   WHERE created_by = _account_id AND account_id = _account_id;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.contact_create (
+CREATE OR REPLACE FUNCTION vibetype_test.contact_create (
   _created_by UUID,
   _email_address TEXT
 ) RETURNS UUID AS $$
@@ -61,17 +61,17 @@ DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-  SELECT id FROM maevsi_private.account WHERE email_address = _email_address INTO _account_id;
+  SELECT id FROM vibetype_private.account WHERE email_address = _email_address INTO _account_id;
 
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.contact(created_by, email_address)
+  INSERT INTO vibetype.contact(created_by, email_address)
   VALUES (_created_by, _email_address)
   RETURNING id INTO _id;
 
   IF (_account_id IS NOT NULL) THEN
-    UPDATE maevsi.contact SET account_id = _account_id WHERE id = _id;
+    UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
   SET LOCAL role = 'postgres';
@@ -79,7 +79,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_create (
+CREATE OR REPLACE FUNCTION vibetype_test.event_create (
   _created_by UUID,
   _name TEXT,
   _slug TEXT,
@@ -89,11 +89,11 @@ CREATE OR REPLACE FUNCTION maevsi_test.event_create (
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.event(created_by, name, slug, start, visibility)
-  VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::maevsi.event_visibility)
+  INSERT INTO vibetype.event(created_by, name, slug, start, visibility)
+  VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
   RETURNING id INTO _id;
 
   SET LOCAL role = 'postgres';
@@ -101,7 +101,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.guest_create (
+CREATE OR REPLACE FUNCTION vibetype_test.guest_create (
   _created_by UUID,
   _event_id UUID,
   _contact_id UUID
@@ -109,10 +109,10 @@ CREATE OR REPLACE FUNCTION maevsi_test.guest_create (
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.guest(contact_id, event_id)
+  INSERT INTO vibetype.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
@@ -121,39 +121,39 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_category_create (
+CREATE OR REPLACE FUNCTION vibetype_test.event_category_create (
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO maevsi.event_category(category) VALUES (_category);
+  INSERT INTO vibetype.event_category(category) VALUES (_category);
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_create (
+CREATE OR REPLACE FUNCTION vibetype_test.event_category_mapping_create (
   _created_by UUID,
   _event_id UUID,
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.event_category_mapping(event_id, category)
+  INSERT INTO vibetype.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_block_create (
+CREATE OR REPLACE FUNCTION vibetype_test.account_block_create (
   _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS UUID AS $$
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO maevsi.account_block(created_by, blocked_account_id)
+  INSERT INTO vibetype.account_block(created_by, blocked_account_id)
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
@@ -162,68 +162,68 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.account_block_remove (
+CREATE OR REPLACE FUNCTION vibetype_test.account_block_remove (
   _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS VOID AS $$
 DECLARE
   _id UUID;
 BEGIN
-  DELETE FROM maevsi.account_block
+  DELETE FROM vibetype.account_block
   WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_test (
+CREATE OR REPLACE FUNCTION vibetype_test.event_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL role = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'maevsi_account';
+    SET LOCAL role = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+  IF EXISTS (SELECT id FROM vibetype.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
     RAISE EXCEPTION 'some event should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.event) THEN
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM vibetype.event) THEN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.event_category_mapping_test (
+CREATE OR REPLACE FUNCTION vibetype_test.event_category_mapping_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL role = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'maevsi_account';
+    SET LOCAL role = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT event_id FROM maevsi.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+  IF EXISTS (SELECT event_id FROM vibetype.event_category_mapping EXCEPT SELECT * FROM unnest(_expected_result)) THEN
     RAISE EXCEPTION 'some event_category_mappings should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM maevsi.event_category_mapping) THEN
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT event_id FROM vibetype.event_category_mapping) THEN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.contact_test (
+CREATE OR REPLACE FUNCTION vibetype_test.contact_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
@@ -232,59 +232,59 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL role = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'maevsi_account';
+    SET LOCAL role = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+  IF EXISTS (SELECT id FROM vibetype.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
     RAISE EXCEPTION 'some contact should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.contact) THEN
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM vibetype.contact) THEN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.guest_test (
+CREATE OR REPLACE FUNCTION vibetype_test.guest_test (
   _test_case TEXT,
   _account_id UUID,
   _expected_result UUID[]
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'maevsi_anonymous';
+    SET LOCAL role = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'maevsi_account';
+    SET LOCAL role = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
-  IF EXISTS (SELECT id FROM maevsi.guest EXCEPT SELECT * FROM unnest(_expected_result)) THEN
+  IF EXISTS (SELECT id FROM vibetype.guest EXCEPT SELECT * FROM unnest(_expected_result)) THEN
     RAISE EXCEPTION 'some guest should not appear in the query result';
   END IF;
 
-  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM maevsi.guest) THEN
+  IF EXISTS (SELECT * FROM unnest(_expected_result) EXCEPT SELECT id FROM vibetype.guest) THEN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
   SET LOCAL role = 'postgres';
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION maevsi_test.guest_claim_from_account_guest (
+CREATE FUNCTION vibetype_test.guest_claim_from_account_guest (
   _account_id UUID
 )
 RETURNS UUID[] AS $$
 DECLARE
-  _guest maevsi.guest;
+  _guest vibetype.guest;
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
   -- reads all guests where _account_id is invited,
@@ -293,7 +293,7 @@ BEGIN
 
   FOR _guest IN
     SELECT g.id
-    FROM maevsi.guest g JOIN maevsi.contact c
+    FROM vibetype.guest g JOIN vibetype.contact c
       ON g.contact_id = c.id
     WHERE c.account_id = _account_id
   LOOP
@@ -312,23 +312,23 @@ BEGIN
   RETURN _result;
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION maevsi_test.invoker_set (
+CREATE FUNCTION vibetype_test.invoker_set (
   _invoker_id UUID
 )
 RETURNS VOID AS $$
 BEGIN
-  SET LOCAL role = 'maevsi_account';
+  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION maevsi_test.invoker_unset ()
+CREATE FUNCTION vibetype_test.invoker_unset ()
 RETURNS VOID AS $$
 BEGIN
-  CALL maevsi_test.set_local_superuser();
+  CALL vibetype_test.set_local_superuser();
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
 END $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION maevsi_test.uuid_array_test (
+CREATE OR REPLACE FUNCTION vibetype_test.uuid_array_test (
   _test_case TEXT,
   _array UUID[],
   _expected_array UUID[]

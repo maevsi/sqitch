@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE maevsi.achievement_type;
+DROP TYPE vibetype.achievement_type;
 
 COMMIT;

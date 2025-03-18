@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TABLE maevsi.notification (
+CREATE TABLE vibetype.notification (
   id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   channel            TEXT NOT NULL,
@@ -10,11 +10,11 @@ CREATE TABLE maevsi.notification (
   created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE maevsi.notification IS 'A notification.';
-COMMENT ON COLUMN maevsi.notification.id IS 'The notification''s internal id.';
-COMMENT ON COLUMN maevsi.notification.channel IS 'The notification''s channel.';
-COMMENT ON COLUMN maevsi.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
-COMMENT ON COLUMN maevsi.notification.payload IS 'The notification''s payload.';
-COMMENT ON COLUMN maevsi.notification.created_at IS 'The timestamp of the notification''s creation.';
+COMMENT ON TABLE vibetype.notification IS 'A notification.';
+COMMENT ON COLUMN vibetype.notification.id IS 'The notification''s internal id.';
+COMMENT ON COLUMN vibetype.notification.channel IS 'The notification''s channel.';
+COMMENT ON COLUMN vibetype.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.';
+COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
 
 COMMIT;

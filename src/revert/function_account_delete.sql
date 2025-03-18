@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.account_delete;
+DROP FUNCTION vibetype.account_delete;
 
 COMMIT;

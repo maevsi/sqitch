@@ -1,9 +1,9 @@
 BEGIN;
 
-CREATE SCHEMA maevsi;
+CREATE SCHEMA vibetype;
 
-COMMENT ON SCHEMA maevsi IS 'Is used by PostGraphile.';
+COMMENT ON SCHEMA vibetype IS 'Is used by PostGraphile.';
 
-GRANT USAGE ON SCHEMA maevsi TO maevsi_anonymous, maevsi_account, maevsi_tusd;
+GRANT USAGE ON SCHEMA vibetype TO vibetype_anonymous, vibetype_account, vibetype_tusd;
 
 COMMIT;

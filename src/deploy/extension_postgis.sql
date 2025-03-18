@@ -13,6 +13,6 @@ GRANT EXECUTE ON FUNCTION
   st_coorddim(geometry),
   st_geomfromgeojson(text),
   st_srid(geography)
-TO maevsi_anonymous, maevsi_account;
+TO vibetype_anonymous, vibetype_account;
 
 COMMIT;

@@ -18,6 +18,6 @@ SELECT id,
        created_at,
        created_by,
        search_vector
-FROM maevsi.event WHERE FALSE;
+FROM vibetype.event WHERE FALSE;
 
 ROLLBACK;

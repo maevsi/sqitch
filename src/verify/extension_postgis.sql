@@ -16,7 +16,7 @@ DECLARE
     'st_geomfromgeojson(TEXT)',
     'st_srid(GEOGRAPHY)'
   ];
-  roles TEXT[] := ARRAY['maevsi_account', 'maevsi_anonymous'];
+  roles TEXT[] := ARRAY['vibetype_account', 'vibetype_anonymous'];
   function TEXT;
   role TEXT;
 BEGIN

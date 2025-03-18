@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.event_unlock;
+DROP FUNCTION vibetype.event_unlock;
 
 COMMIT;

@@ -1,18 +1,18 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.achievement_unlock(
+CREATE FUNCTION vibetype.achievement_unlock(
   code UUID,
   alias TEXT
 ) RETURNS UUID AS $$
 DECLARE
   _account_id UUID;
-  _achievement maevsi.achievement_type;
+  _achievement vibetype.achievement_type;
   _achievement_id UUID;
 BEGIN
-  _account_id := maevsi.invoker_account_id();
+  _account_id := vibetype.invoker_account_id();
 
   SELECT achievement
-    FROM maevsi_private.achievement_code
+    FROM vibetype_private.achievement_code
     INTO _achievement
     WHERE achievement_code.id = $1 OR achievement_code.alias = $2;
 
@@ -25,12 +25,12 @@ BEGIN
   END IF;
 
   _achievement_id := (
-    SELECT id FROM maevsi.achievement
+    SELECT id FROM vibetype.achievement
     WHERE achievement.account_id = _account_id AND achievement.achievement = _achievement
   );
 
   IF (_achievement_id IS NULL) THEN
-    INSERT INTO maevsi.achievement(account_id, achievement)
+    INSERT INTO vibetype.achievement(account_id, achievement)
       VALUES (_account_id,  _achievement)
       RETURNING achievement.id INTO _achievement_id;
   END IF;
@@ -39,8 +39,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.achievement_unlock(UUID, TEXT) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
+COMMENT ON FUNCTION vibetype.achievement_unlock(UUID, TEXT) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
 
-GRANT EXECUTE ON FUNCTION maevsi.achievement_unlock(UUID, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype.achievement_unlock(UUID, TEXT) TO vibetype_account;
 
 COMMIT;

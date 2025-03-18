@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.upload;
+DROP TABLE vibetype.upload;
 
 COMMIT;

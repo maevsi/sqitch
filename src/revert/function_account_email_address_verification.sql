@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.account_email_address_verification;
+DROP FUNCTION vibetype.account_email_address_verification;
 
 COMMIT;

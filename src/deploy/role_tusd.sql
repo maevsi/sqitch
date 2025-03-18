@@ -1,10 +1,10 @@
 BEGIN;
 
-\set role_maevsi_tusd_password `cat /run/secrets/postgres_role_maevsi-tusd_password`
+\set role_vibetype_tusd_password `cat /run/secrets/postgres_role_vibetype-tusd_password`
 
-DROP ROLE IF EXISTS maevsi_tusd;
-CREATE ROLE maevsi_tusd LOGIN PASSWORD :'role_maevsi_tusd_password';
+DROP ROLE IF EXISTS vibetype_tusd;
+CREATE ROLE vibetype_tusd LOGIN PASSWORD :'role_vibetype_tusd_password';
 
-GRANT maevsi_tusd to maevsi_postgraphile;
+GRANT vibetype_tusd to vibetype_postgraphile;
 
 COMMIT;

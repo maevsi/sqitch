@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP VIEW maevsi.guest_flat;
+DROP VIEW vibetype.guest_flat;
 
 COMMIT;

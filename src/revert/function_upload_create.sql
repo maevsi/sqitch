@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.upload_create;
+DROP FUNCTION vibetype.upload_create;
 
 COMMIT;

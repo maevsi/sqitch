@@ -1,9 +1,9 @@
 BEGIN;
 
-DROP TRIGGER maevsi_trigger_contact_update_account_id ON maevsi.contact;
+DROP TRIGGER vibetype_trigger_contact_update_account_id ON vibetype.contact;
 
-DROP FUNCTION maevsi.trigger_contact_update_account_id;
+DROP FUNCTION vibetype.trigger_contact_update_account_id;
 
-DROP TABLE maevsi.contact;
+DROP TABLE vibetype.contact;
 
 COMMIT;

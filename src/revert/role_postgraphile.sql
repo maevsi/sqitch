@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP OWNED BY maevsi_postgraphile;
-DROP ROLE maevsi_postgraphile;
+DROP OWNED BY vibetype_postgraphile;
+DROP ROLE vibetype_postgraphile;
 
 COMMIT;

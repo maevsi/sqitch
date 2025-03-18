@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.invite;
+DROP FUNCTION vibetype.invite;
 
 COMMIT;

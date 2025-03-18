@@ -8,25 +8,25 @@ DECLARE
   _id UUID;
 BEGIN
   -- Register account
-  _account_id := maevsi_test.account_create('username', 'email@example.com');
+  _account_id := vibetype_test.account_create('username', 'email@example.com');
 
   -- Create event
-  _event_id := maevsi_test.event_create(_account_id, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  _event_id := vibetype_test.event_create(_account_id, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
 
   -- Update and validate account location
-  PERFORM maevsi_test.account_location_update(_account_id, 51.304, 9.476); -- Somewhere in Kassel
-  _coordinates := maevsi_test.account_location_coordinates(_account_id);
+  PERFORM vibetype_test.account_location_update(_account_id, 51.304, 9.476); -- Somewhere in Kassel
+  _coordinates := vibetype_test.account_location_coordinates(_account_id);
 
   IF NOT (round(_coordinates[1]::numeric, 3) = 51.304 AND round(_coordinates[2]::numeric, 3) = 9.476) THEN
     RAISE EXCEPTION 'Wrong account coordinates';
   END IF;
 
   -- Set account-specific context
-  PERFORM maevsi_test.invoker_set(_account_id);
+  PERFORM vibetype_test.invoker_set(_account_id);
 
   -- Update and validate event location
-  PERFORM maevsi_test.event_location_update(_event_id, 50.113, 8.650); -- Somewhere in Frankfurt
-  _coordinates := maevsi_test.event_location_coordinates(_event_id);
+  PERFORM vibetype_test.event_location_update(_event_id, 50.113, 8.650); -- Somewhere in Frankfurt
+  _coordinates := vibetype_test.event_location_coordinates(_event_id);
 
   IF NOT (round(_coordinates[1]::numeric, 3) = 50.113 AND round(_coordinates[2]::numeric, 3) = 8.650) THEN
     RAISE EXCEPTION 'Wrong event coordinates';
@@ -34,14 +34,14 @@ BEGIN
 
   -- Test event filtering by radius from account
   SELECT event_id INTO _id
-  FROM maevsi_test.event_filter_radius_account(_account_id, 100);
+  FROM vibetype_test.event_filter_radius_account(_account_id, 100);
 
   IF _id IS NOT NULL THEN
     RAISE EXCEPTION 'Function `event_filter_radius_account` with radius 100 km should have returned an empty result';
   END IF;
 
   SELECT event_id INTO _id
-  FROM maevsi_test.event_filter_radius_account(_account_id, 250);
+  FROM vibetype_test.event_filter_radius_account(_account_id, 250);
 
   IF _id != _event_id THEN
     RAISE EXCEPTION 'Function `event_filter_radius_account` with radius 250 km should have returned `_event_id`';
@@ -49,14 +49,14 @@ BEGIN
 
   -- Test account filtering by radius from event
   SELECT account_id INTO _id
-  FROM maevsi_test.account_filter_radius_event(_event_id, 100);
+  FROM vibetype_test.account_filter_radius_event(_event_id, 100);
 
   IF _id IS NOT NULL THEN
     RAISE EXCEPTION 'Function `account_filter_radius_event` with radius 100 km should have returned an empty result';
   END IF;
 
   SELECT account_id INTO _id
-  FROM maevsi_test.account_filter_radius_event(_event_id, 250);
+  FROM vibetype_test.account_filter_radius_event(_event_id, 250);
 
   IF _id != _account_id THEN
     RAISE EXCEPTION 'Function `account_filter_radius_event` with radius 250 km should have returned `_account_id`';

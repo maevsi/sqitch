@@ -7,6 +7,6 @@ SELECT id,
        created_at,
        updated_at,
        updated_by
-FROM maevsi.guest WHERE FALSE;
+FROM vibetype.guest WHERE FALSE;
 
 ROLLBACK;

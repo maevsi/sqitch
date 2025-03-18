@@ -9,7 +9,7 @@ REVOKE EXECUTE ON FUNCTION
   geometrytype(geography),
   geometry(text),
   geography(geometry)
-FROM maevsi_anonymous, maevsi_account;
+FROM vibetype_anonymous, vibetype_account;
 
 DROP EXTENSION postgis;
 

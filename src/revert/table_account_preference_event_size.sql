@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.account_preference_event_size;
+DROP TABLE vibetype.account_preference_event_size;
 
 COMMIT;

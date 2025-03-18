@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP INDEX maevsi.idx_event_grouping_event_id;
+DROP INDEX vibetype.idx_event_grouping_event_id;
 
 COMMIT;

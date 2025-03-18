@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.notification;
+DROP TABLE vibetype.notification;
 
 COMMIT;

@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.account_registration;
+DROP FUNCTION vibetype.account_registration;
 
 COMMIT;

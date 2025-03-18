@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.event_delete;
+DROP FUNCTION vibetype.event_delete;
 
 COMMIT;

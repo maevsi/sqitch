@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.event_search;
+DROP FUNCTION vibetype.event_search;
 
 COMMIT;

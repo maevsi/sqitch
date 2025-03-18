@@ -1,12 +1,12 @@
 BEGIN;
 
-DROP TRIGGER maevsi_guest_update ON maevsi.guest;
+DROP TRIGGER vibetype_guest_update ON vibetype.guest;
 
-DROP FUNCTION maevsi.trigger_guest_update;
+DROP FUNCTION vibetype.trigger_guest_update;
 
-DROP POLICY guest_select ON maevsi.guest;
-DROP POLICY guest_insert ON maevsi.guest;
-DROP POLICY guest_update ON maevsi.guest;
-DROP POLICY guest_delete ON maevsi.guest;
+DROP POLICY guest_select ON vibetype.guest;
+DROP POLICY guest_insert ON vibetype.guest;
+DROP POLICY guest_update ON vibetype.guest;
+DROP POLICY guest_delete ON vibetype.guest;
 
 COMMIT;

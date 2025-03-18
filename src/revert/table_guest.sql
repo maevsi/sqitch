@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi.guest;
+DROP TABLE vibetype.guest;
 
 COMMIT;

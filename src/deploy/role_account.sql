@@ -1,8 +1,8 @@
 BEGIN;
 
-DROP ROLE IF EXISTS maevsi_account;
-CREATE ROLE maevsi_account;
+DROP ROLE IF EXISTS vibetype_account;
+CREATE ROLE vibetype_account;
 
-GRANT maevsi_account to maevsi_postgraphile;
+GRANT vibetype_account to vibetype_postgraphile;
 
 COMMIT;

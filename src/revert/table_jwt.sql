@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE maevsi_private.jwt;
+DROP TABLE vibetype_private.jwt;
 
 COMMIT;

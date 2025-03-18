@@ -1,7 +1,7 @@
 BEGIN;
 
-CREATE SCHEMA maevsi_private;
+CREATE SCHEMA vibetype_private;
 
-COMMENT ON SCHEMA maevsi_private IS 'Contains account information and is not used by PostGraphile.';
+COMMENT ON SCHEMA vibetype_private IS 'Contains account information and is not used by PostGraphile.';
 
 COMMIT;

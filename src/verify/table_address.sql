@@ -12,6 +12,6 @@ SELECT id,
        created_by,
        updated_at,
        updated_by
-FROM maevsi.address WHERE FALSE;
+FROM vibetype.address WHERE FALSE;
 
 ROLLBACK;

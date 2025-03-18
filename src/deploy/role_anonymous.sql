@@ -1,8 +1,8 @@
 BEGIN;
 
-DROP ROLE IF EXISTS maevsi_anonymous;
-CREATE ROLE maevsi_anonymous;
+DROP ROLE IF EXISTS vibetype_anonymous;
+CREATE ROLE vibetype_anonymous;
 
-GRANT maevsi_anonymous to maevsi_postgraphile;
+GRANT vibetype_anonymous to vibetype_postgraphile;
 
 COMMIT;

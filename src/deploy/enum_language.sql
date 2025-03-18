@@ -1,10 +1,10 @@
 BEGIN;
 
-CREATE TYPE maevsi.language AS ENUM (
+CREATE TYPE vibetype.language AS ENUM (
   'de',
   'en'
 );
 
-COMMENT ON TYPE maevsi.language IS 'Supported ISO 639 language codes.';
+COMMENT ON TYPE vibetype.language IS 'Supported ISO 639 language codes.';
 
 COMMIT;

@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION maevsi.invite(
+CREATE FUNCTION vibetype.invite(
   guest_id UUID,
   "language" TEXT
 ) RETURNS UUID AS $$
@@ -15,19 +15,19 @@ DECLARE
 BEGIN
   -- Guest UUID
   SELECT * INTO _guest
-  FROM maevsi.guest
+  FROM vibetype.guest
   WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
     OR
-    _guest.event_id NOT IN (SELECT maevsi.events_organized()) -- Initial validation, every query below is expected to be secure.
+    _guest.event_id NOT IN (SELECT vibetype.events_organized()) -- Initial validation, every query below is expected to be secure.
   ) THEN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Event
-  SELECT * INTO _event FROM maevsi.event WHERE id = _guest.event_id;
+  SELECT * INTO _event FROM vibetype.event WHERE id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
@@ -35,7 +35,7 @@ BEGIN
 
   -- Contact
   SELECT account_id, email_address INTO _contact
-  FROM maevsi.contact
+  FROM vibetype.contact
   WHERE id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
@@ -51,7 +51,7 @@ BEGIN
   ELSE
     -- Account
     SELECT email_address INTO _email_address
-    FROM maevsi_private.account
+    FROM vibetype_private.account
     WHERE id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
@@ -61,16 +61,16 @@ BEGIN
 
   -- Event creator username
   SELECT username INTO _event_creator_username
-  FROM maevsi.account
+  FROM vibetype.account
   WHERE id = _event.created_by;
 
   -- Event creator profile picture storage key
   SELECT u.storage_key INTO _event_creator_profile_picture_upload_storage_key
-  FROM maevsi.profile_picture p
-    JOIN maevsi.upload u ON p.upload_id = u.id
+  FROM vibetype.profile_picture p
+    JOIN vibetype.upload u ON p.upload_id = u.id
   WHERE p.account_id = _event.created_by;
 
-  INSERT INTO maevsi.invitation (guest_id, channel, payload, created_by)
+  INSERT INTO vibetype.invitation (guest_id, channel, payload, created_by)
     VALUES (
       invite.guest_id,
       'event_invitation',
@@ -84,7 +84,7 @@ BEGIN
         ),
         'template', jsonb_build_object('language', invite.language)
       )),
-      maevsi.invoker_account_id()
+      vibetype.invoker_account_id()
     )
     RETURNING id INTO _id;
 
@@ -92,8 +92,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi.invite(UUID, TEXT) IS 'Adds an invitation and a notification.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an invitation and a notification.';
 
-GRANT EXECUTE ON FUNCTION maevsi.invite(UUID, TEXT) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 
 COMMIT;

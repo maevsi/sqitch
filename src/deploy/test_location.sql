@@ -1,7 +1,7 @@
 BEGIN;
 
 
-CREATE FUNCTION maevsi_test.account_filter_radius_event(
+CREATE FUNCTION vibetype_test.account_filter_radius_event(
   _event_id UUID,
   _distance_max DOUBLE PRECISION
 )
@@ -13,7 +13,7 @@ BEGIN
   RETURN QUERY
     WITH event AS (
       SELECT location_geography
-      FROM maevsi.event
+      FROM vibetype.event
       WHERE id = _event_id
     )
     SELECT
@@ -21,18 +21,18 @@ BEGIN
       ST_Distance(e.location_geography, a.location) AS distance
     FROM
       event e,
-      maevsi_private.account a
+      vibetype_private.account a
     WHERE
       ST_DWithin(e.location_geography, a.location, _distance_max * 1000);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.account_filter_radius_event(UUID, DOUBLE PRECISION) IS 'Returns account locations within a given radius around the location of an event.';
+COMMENT ON FUNCTION vibetype_test.account_filter_radius_event(UUID, DOUBLE PRECISION) IS 'Returns account locations within a given radius around the location of an event.';
 
-GRANT EXECUTE ON FUNCTION maevsi_test.account_filter_radius_event(UUID, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.account_filter_radius_event(UUID, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION maevsi_test.event_filter_radius_account(
+CREATE FUNCTION vibetype_test.event_filter_radius_account(
   _account_id UUID,
   _distance_max DOUBLE PRECISION
 )
@@ -44,7 +44,7 @@ BEGIN
   RETURN QUERY
     WITH account AS (
       SELECT location
-      FROM maevsi_private.account
+      FROM vibetype_private.account
       WHERE id = _account_id
     )
     SELECT
@@ -52,25 +52,25 @@ BEGIN
       ST_Distance(a.location, e.location_geography) AS distance
     FROM
       account a,
-      maevsi.event e
+      vibetype.event e
     WHERE
       ST_DWithin(a.location, e.location_geography, _distance_max * 1000);
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.event_filter_radius_account(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
+COMMENT ON FUNCTION vibetype_test.event_filter_radius_account(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
 
-GRANT EXECUTE ON FUNCTION maevsi_test.event_filter_radius_account(UUID, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.event_filter_radius_account(UUID, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION maevsi_test.account_location_update(
+CREATE FUNCTION vibetype_test.account_location_update(
   _account_id UUID,
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
 )
 RETURNS VOID AS $$
 BEGIN
-  UPDATE maevsi_private.account
+  UPDATE vibetype_private.account
   SET
     location = ST_Point(_longitude, _latitude, 4326)
   WHERE
@@ -78,19 +78,19 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION vibetype_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
 
-GRANT EXECUTE ON FUNCTION maevsi_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION maevsi_test.event_location_update(
+CREATE FUNCTION vibetype_test.event_location_update(
   _event_id UUID,
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
 )
 RETURNS VOID AS $$
 BEGIN
-  UPDATE maevsi.event
+  UPDATE vibetype.event
   SET
     location_geography = ST_Point(_longitude, _latitude, 4326)
   WHERE
@@ -98,12 +98,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION vibetype_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 
-GRANT EXECUTE ON FUNCTION maevsi_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION maevsi_test.account_location_coordinates(
+CREATE FUNCTION vibetype_test.account_location_coordinates(
   _account_id UUID
 )
 RETURNS DOUBLE PRECISION[] AS $$
@@ -118,7 +118,7 @@ BEGIN
     _latitude,
     _longitude
   FROM
-    maevsi_private.account
+    vibetype_private.account
   WHERE
     id = _account_id;
 
@@ -126,12 +126,12 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.account_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the account''s current location data';
+COMMENT ON FUNCTION vibetype_test.account_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the account''s current location data';
 
-GRANT EXECUTE ON FUNCTION maevsi_test.account_location_coordinates(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.account_location_coordinates(UUID) TO vibetype_account;
 
 
-CREATE FUNCTION maevsi_test.event_location_coordinates(
+CREATE FUNCTION vibetype_test.event_location_coordinates(
   _event_id UUID
 )
 RETURNS DOUBLE PRECISION[] AS $$
@@ -146,7 +146,7 @@ BEGIN
     _latitude,
     _longitude
   FROM
-    maevsi.event
+    vibetype.event
   WHERE
     id = _event_id;
 
@@ -154,9 +154,9 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION maevsi_test.event_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
+COMMENT ON FUNCTION vibetype_test.event_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
 
-GRANT EXECUTE ON FUNCTION maevsi_test.event_location_coordinates(UUID) TO maevsi_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.event_location_coordinates(UUID) TO vibetype_account;
 
 
 COMMIT;

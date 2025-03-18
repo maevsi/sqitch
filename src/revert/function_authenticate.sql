@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION maevsi.authenticate;
+DROP FUNCTION vibetype.authenticate;
 
 COMMIT;

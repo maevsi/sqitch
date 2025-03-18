@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP OWNED BY maevsi_tusd;
-DROP ROLE maevsi_tusd;
+DROP OWNED BY vibetype_tusd;
+DROP ROLE vibetype_tusd;
 
 COMMIT;
