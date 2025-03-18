@@ -1,3 +1,9 @@
+## [7.0.0-beta.4](https://github.com/maevsi/sqitch/compare/7.0.0-beta.3...7.0.0-beta.4) (2025-03-18)
+
+### Bug Fixes
+
+* **account:** accept legal term on registration ([b55aa95](https://github.com/maevsi/sqitch/commit/b55aa951401f2d296008328bb0b81b5693fe7f1e))
+
 ## [7.0.0-beta.3](https://github.com/maevsi/sqitch/compare/7.0.0-beta.2...7.0.0-beta.3) (2025-03-17)
 
 ### ⚠ BREAKING CHANGES
