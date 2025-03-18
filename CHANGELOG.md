@@ -1,3 +1,33 @@
+## [7.0.0-beta.3](https://github.com/maevsi/sqitch/compare/7.0.0-beta.2...7.0.0-beta.3) (2025-03-17)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** rename for services
+
+### Code Refactoring
+
+* **role:** rename for services ([c83b9d1](https://github.com/maevsi/sqitch/commit/c83b9d140a8a0b56f2490f9ce9f7ebdac8398fcd))
+
+## [7.0.0-beta.2](https://github.com/maevsi/sqitch/compare/7.0.0-beta.1...7.0.0-beta.2) (2025-03-17)
+
+### ⚠ BREAKING CHANGES
+
+* **environment:** dissolve target variable file
+
+### Code Refactoring
+
+* **environment:** dissolve target variable file ([9f4ae82](https://github.com/maevsi/sqitch/commit/9f4ae82019b34c0dea7ff815401937edebe4c435))
+
+## [7.0.0-beta.1](https://github.com/maevsi/sqitch/compare/6.0.0...7.0.0-beta.1) (2025-03-12)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** rename postgraphile secret variable
+
+### Code Refactoring
+
+* **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
+
 ## [6.0.0](https://github.com/maevsi/sqitch/compare/5.0.2...6.0.0) (2025-03-12)
 
 ### ⚠ BREAKING CHANGES

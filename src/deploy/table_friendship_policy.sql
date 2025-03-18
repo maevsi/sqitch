@@ -5,7 +5,7 @@ GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.friendship TO vibetype_ac
 ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 
 -- Only allow interactions with friendships in which the current user is involved.
-CREATE POLICY friendship_existing ON vibetype.friendship USING (
+CREATE POLICY friendship_existing ON vibetype.friendship FOR ALL USING (
   (
     vibetype.invoker_account_id() = a_account_id
     AND b_account_id NOT IN (SELECT id FROM vibetype_private.account_block_ids())
