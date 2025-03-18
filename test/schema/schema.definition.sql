@@ -572,10 +572,10 @@ COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, 
 
 
 --
--- Name: account_registration(text, text, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: account_registration(text, text, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) RETURNS uuid
+CREATE FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -610,6 +610,9 @@ BEGIN
     _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
+  INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
+    (_new_account_private.id, account_registration.legal_term_id);
+
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO vibetype_private.notification (channel, payload) VALUES (
@@ -625,13 +628,13 @@ END;
 $$;
 
 
-ALTER FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(email_address text, language text, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) IS 'Creates a contact and registers an account referencing it.';
+COMMENT ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) IS 'Creates a contact and registers an account referencing it.';
 
 
 --
@@ -2248,31 +2251,6 @@ END $$;
 ALTER FUNCTION vibetype_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO ci;
 
 --
--- Name: account_create(text, text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
---
-
-CREATE FUNCTION vibetype_test.account_create(_username text, _email text) RETURNS uuid
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-  _verification UUID;
-BEGIN
-  _id := vibetype.account_registration(_username, _email, 'password', 'en');
-
-  SELECT email_address_verification INTO _verification
-  FROM vibetype_private.account
-  WHERE id = _id;
-
-  PERFORM vibetype.account_email_address_verification(_verification);
-
-  RETURN _id;
-END $$;
-
-
-ALTER FUNCTION vibetype_test.account_create(_username text, _email text) OWNER TO ci;
-
---
 -- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: vibetype_test; Owner: ci
 --
 
@@ -2382,18 +2360,20 @@ CREATE FUNCTION vibetype_test.account_registration_verified(_username text, _ema
     LANGUAGE plpgsql
     AS $$
 DECLARE
-  _id UUID;
+  _account_id UUID;
+  _legal_term_id UUID;
   _verification UUID;
 BEGIN
-  _id := vibetype.account_registration(_username, _email_address, 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
 
   SELECT email_address_verification INTO _verification
   FROM vibetype_private.account
-  WHERE id = _id;
+  WHERE id = _account_id;
 
   PERFORM vibetype.account_email_address_verification(_verification);
 
-  RETURN _id;
+  RETURN _account_id;
 END $$;
 
 
@@ -3078,6 +3058,30 @@ END $$;
 
 
 ALTER FUNCTION vibetype_test.invoker_unset() OWNER TO ci;
+
+--
+-- Name: legal_term_singleton(); Type: FUNCTION; Schema: vibetype_test; Owner: ci
+--
+
+CREATE FUNCTION vibetype_test.legal_term_singleton() RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+  _verification UUID;
+BEGIN
+  SELECT id INTO _id FROM vibetype.legal_term LIMIT 1;
+
+  IF (_id IS NULL) THEN
+    INSERT INTO vibetype.legal_term (term, version) VALUES ('Be excellent to each other', '0.0.0')
+      RETURNING id INTO _id;
+  END IF;
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION vibetype_test.legal_term_singleton() OWNER TO ci;
 
 --
 -- Name: set_local_superuser(); Type: PROCEDURE; Schema: vibetype_test; Owner: ci
@@ -7174,12 +7178,12 @@ GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text
 
 
 --
--- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(email_address text, language text, legal_term_id uuid, password text, username text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) TO vibetype_anonymous;
-GRANT ALL ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_account;
 
 
 --
@@ -7487,14 +7491,6 @@ GRANT ALL ON FUNCTION vibetype_test.account_block_remove(_created_by uuid, _bloc
 
 
 --
--- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: vibetype_test; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_test.account_create(_username text, _email text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_test.account_create(_username text, _email text) TO vibetype_account;
-
-
---
 -- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: vibetype_test; Owner: ci
 --
 
@@ -7701,6 +7697,13 @@ GRANT ALL ON FUNCTION vibetype_test.invoker_set(_invoker_id uuid) TO vibetype_ac
 
 REVOKE ALL ON FUNCTION vibetype_test.invoker_unset() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_test.invoker_unset() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION legal_term_singleton(); Type: ACL; Schema: vibetype_test; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_test.legal_term_singleton() FROM PUBLIC;
 
 
 --

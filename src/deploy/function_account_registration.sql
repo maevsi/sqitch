@@ -1,10 +1,11 @@
 BEGIN;
 
 CREATE FUNCTION vibetype.account_registration(
-  username TEXT,
   email_address TEXT,
+  language TEXT,
+  legal_term_id UUID,
   password TEXT,
-  language TEXT
+  username TEXT
 ) RETURNS UUID AS $$
 DECLARE
   _new_account_private vibetype_private.account;
@@ -38,6 +39,9 @@ BEGIN
     _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
 
+  INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
+    (_new_account_private.id, account_registration.legal_term_id);
+
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
   INSERT INTO vibetype_private.notification (channel, payload) VALUES (
@@ -52,8 +56,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.account_registration(TEXT, TEXT, TEXT, TEXT) IS 'Creates a contact and registers an account referencing it.';
+COMMENT ON FUNCTION vibetype.account_registration(TEXT, TEXT, UUID, TEXT, TEXT) IS 'Creates a contact and registers an account referencing it.';
 
-GRANT EXECUTE ON FUNCTION vibetype.account_registration(TEXT, TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype.account_registration(TEXT, TEXT, UUID, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 
 COMMIT;
