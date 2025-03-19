@@ -91,8 +91,9 @@ table_event_recommendation [schema_public table_account_public table_event] 1970
 table_event_recommendation_policy [schema_public table_event_recommendation role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_recommendation.
 table_event_favorite [schema_public table_account_public table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for the user accounts' favorite events.
 table_event_favorite_policy [schema_public table_account_public table_event role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table event_favorite.
+function_test_utilities [schema_test schema_public schema_private role_account table_account_private table_account_public function_account_delete function_account_registration function_account_email_address_verification table_contact table_event table_event_category table_event_category_mapping table_guest table_account_block ] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A collection of utility functions to be used across al tests.
 function_guest_create_multiple [schema_public table_guest role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Function for inserting multiple guest records.
-test_account_block [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.
+test_account_block [schema_test function_test_utilities] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for account blocking.
 function_event_search [privilege_execute_revoke schema_public enum_language schema_private function_language_iso_full_text_search table_event role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Full-text search on events.
 test_location [schema_public schema_private table_account_private table_event role_anonymous role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A collection of location related functions.
 table_device [schema_public table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # A device that's assigned to an account.
@@ -101,3 +102,6 @@ enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven
 table_friendship [schema_public enum_friendship_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
 table_friendship_policy [schema_public table_friendship role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
 test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
+table_invitation [schema_public table_guest table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
+table_invitation_policy [schema_public table_invitation role_account function_invoker_account_id table_guest table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Stores invitations and their statuses.
+test_invitation [schema_test function_test_utilities] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Invitation related tests.
