@@ -9,7 +9,7 @@ CREATE TABLE vibetype.event_group (
   slug                  TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
 
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by            UUID NOT NULL REFERENCES vibetype.account(id),
+  created_by            UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
   UNIQUE (created_by, slug)
 );

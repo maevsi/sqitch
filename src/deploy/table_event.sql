@@ -18,7 +18,7 @@ CREATE TABLE vibetype.event (
   visibility               vibetype.event_visibility NOT NULL,
 
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by               UUID NOT NULL REFERENCES vibetype.account(id),
+  created_by               UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   search_vector            TSVECTOR,
 
   UNIQUE (created_by, slug)
