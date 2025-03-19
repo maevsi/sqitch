@@ -1,4 +1,3 @@
-ROLLBACK;
 BEGIN;
 
 DO $$
@@ -44,17 +43,17 @@ BEGIN
 
   FOR rec IN
 
-    SELECT n.nspname schema_name,c.relname table_name
-    FROM pg_catalog.pg_class c
-    -- audit log triggers works only for tables having an id column
-    JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid AND a.attname = 'id'
-    JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-    WHERE c.relkind = 'r' AND n.nspname in ('vibetype', 'vibetype_private')
-      -- negative list, make sure that at least audit_log table is not audited
-      and (n.nspname, c.relname) not in (
-        ('vibetype_private', 'audit_log'),
-        ('vibetype_private', 'jwt')
-      )
+    SELECT schemaname, tablename
+    FROM pg_tables
+    WHERE schemaname IN ('vibetype', 'vibetype_private')
+
+      EXCEPT
+
+    SELECT 'vibetype_private', 'audit_log' -- no audit log trigger for this table
+
+      EXCEPT
+
+    SELECT 'vibetype_private', 'jwt' -- no audit log trigger for this table
 
       EXCEPT
 
@@ -62,8 +61,19 @@ BEGIN
     FROM vibetype_private.audit_log_trigger
 
   LOOP
-    _count := _count + 1;
-    RAISE NOTICE 'Table % misses an audit log trigger', rec.schema_name || '.' || rec.table_name;
+
+    IF EXISTS (
+      -- if current table has an id column there should have been an audti log trigger
+      SELECT 1
+      FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid
+      WHERE c.relname = rec.tablename AND c.relkind = 'r'
+        AND n.nspname = rec.schemaname AND a.attname = 'id'
+    ) THEN
+      _count := _count + 1;
+      RAISE NOTICE 'Table % misses an audit log trigger', rec.schema_name || '.' || rec.table_name;
+    END IF;
   END LOOP;
 
   IF _count != 0 THEN

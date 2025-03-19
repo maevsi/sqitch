@@ -4,11 +4,7 @@ BEGIN;
 -- Several utility functions for managing audit log triggers
 -- =========================================================
 
-
--- generic audit trigger function
--- implementation inspired by https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit-log-fd9d9d5e412c
-
-CREATE OR REPLACE FUNCTION vibetype_private.audit_trigger()
+CREATE FUNCTION vibetype_private.trigger_audit_log()
 RETURNS TRIGGER AS $$
 DECLARE
   new_data jsonb;
@@ -73,12 +69,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype_private.audit_trigger() IS 'Trigger function creating records in table vibetype_private.audit_log.';
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log() IS 'Generic audit trigger function creating records in table vibetype_private.audit_log.
+inspired by https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit-log-fd9d9d5e412c';
 
 
 -- create all audit log triggers for all tables
 
-CREATE OR REPLACE FUNCTION vibetype_private.create_audit_log_triggers()
+CREATE FUNCTION vibetype_private.create_audit_log_triggers()
 RETURNS void AS $$
 DECLARE
   -- PostgreSql Documentation, section 37.1:
@@ -93,9 +90,9 @@ BEGIN
       -- audit log triggers works only for tables having an id column
       JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid AND a.attname = 'id'
       JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-    WHERE c.relkind = 'r' AND n.nspname in ('vibetype', 'vibetype_private')
+    WHERE c.relkind = 'r' AND n.nspname IN ('vibetype', 'vibetype_private')
       -- negative list, make sure that at least audit_log table is not audited
-      and (n.nspname, c.relname) not in (
+      AND (n.nspname, c.relname) NOT IN (
         ('vibetype_private', 'audit_log'),
         ('vibetype_private', 'jwt')
       )
@@ -104,7 +101,7 @@ BEGIN
      EXECUTE 'CREATE TRIGGER ' || trigger_name ||
       ' BEFORE INSERT OR UPDATE OR DELETE ON ' ||
       rec.nspname || '.' || rec.relname ||
-      ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.audit_trigger()';
+      ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
 
   END LOOP;
 
@@ -114,9 +111,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 COMMENT ON FUNCTION vibetype_private.create_audit_log_triggers() IS 'Function creating all audit log triggers for all tables that should be audited.';
 
 
--- create audit log triggers for a single table
-
-CREATE OR REPLACE FUNCTION vibetype_private.create_audit_log_trigger_for_table (
+CREATE FUNCTION vibetype_private.create_audit_log_trigger_for_table (
   schema_name TEXT,
   table_name TEXT
 ) RETURNS void AS $$
@@ -143,7 +138,7 @@ BEGIN
     EXECUTE 'CREATE TRIGGER ' || trigger_name ||
     ' BEFORE INSERT OR UPDATE OR DELETE ON ' ||
     create_audit_log_trigger_for_table.schema_name || '.' || create_audit_log_trigger_for_table.table_name ||
-    ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.audit_trigger()';
+    ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
 
   ELSE
     RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
@@ -157,9 +152,7 @@ COMMENT ON FUNCTION vibetype_private.create_audit_log_trigger_for_table(TEXT,TEX
   IS 'Function creating an audit log trigger for a single table.';
 
 
--- drop all audit log triggers
-
-CREATE OR REPLACE FUNCTION vibetype_private.drop_audit_log_triggers()
+CREATE FUNCTION vibetype_private.drop_audit_log_triggers()
 RETURNS void AS $$
 DECLARE
   rec RECORD;
@@ -180,9 +173,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 COMMENT ON FUNCTION vibetype_private.drop_audit_log_triggers()
   IS 'Function dropping all audit log triggers for all tables that are currently audited.';
 
--- drop audit log triggers for a single table
 
-CREATE OR REPLACE FUNCTION vibetype_private.drop_audit_log_trigger_for_table (
+CREATE FUNCTION vibetype_private.drop_audit_log_trigger_for_table (
   schema_name TEXT,
   table_name TEXT
 ) RETURNS void AS $$
@@ -217,9 +209,7 @@ COMMENT ON FUNCTION vibetype_private.drop_audit_log_trigger_for_table(TEXT,TEXT)
   IS 'Function dropping all audit log triggers for a single table.';
 
 
--- enable all audit log triggers
-
-CREATE OR REPLACE FUNCTION vibetype_private.enable_audit_log_triggers()
+CREATE FUNCTION vibetype_private.enable_audit_log_triggers()
 RETURNS void AS $$
 DECLARE
   rec RECORD;
@@ -242,9 +232,7 @@ COMMENT ON FUNCTION vibetype_private.enable_audit_log_triggers()
   IS 'Function enabling all audit log triggers that are currently disabled.';
 
 
--- enable audit log trigger for a single table
-
-CREATE OR REPLACE FUNCTION vibetype_private.enable_audit_log_trigger_for_table (
+CREATE FUNCTION vibetype_private.enable_audit_log_trigger_for_table (
   schema_name TEXT,
   table_name TEXT
 ) RETURNS void AS $$
@@ -282,9 +270,7 @@ COMMENT ON FUNCTION vibetype_private.enable_audit_log_trigger_for_table(TEXT,TEX
   IS 'Function enabling audit log triggers for a single table.';
 
 
--- disable all audit log triggers
-
-CREATE OR REPLACE FUNCTION vibetype_private.disable_audit_log_triggers()
+CREATE FUNCTION vibetype_private.disable_audit_log_triggers()
 RETURNS void AS $$
 DECLARE
   rec RECORD;
@@ -307,9 +293,7 @@ COMMENT ON FUNCTION vibetype_private.disable_audit_log_triggers()
   IS 'Function disabling all audit log triggers that are currently enabled.';
 
 
--- disable audit log trigger for a single table
-
-CREATE OR REPLACE FUNCTION vibetype_private.disable_audit_log_trigger_for_table (
+CREATE FUNCTION vibetype_private.disable_audit_log_trigger_for_table (
   schema_name TEXT,
   table_name TEXT
 ) RETURNS void AS $$
@@ -347,9 +331,7 @@ COMMENT ON FUNCTION vibetype_private.disable_audit_log_trigger_for_table(TEXT,TE
   IS 'Function disabling an audit log triggers that are currently enabled.';
 
 
--- adjust sequence associated with primary key of table audit_log
-
-CREATE OR REPLACE FUNCTION vibetype_private.adjust_audit_log_id_seq ()
+CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq ()
 RETURNS void AS $$
 DECLARE
   max_val INTEGER;
