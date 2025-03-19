@@ -78,7 +78,7 @@ BEGIN
   PERFORM vibetype.account_registration('username-8b973f', 'email@example.com', 'password', 'en');
 
   IF NOT EXISTS (
-    SELECT 1 FROM vibetype_private.notification
+    SELECT 1 FROM vibetype.notification
     WHERE channel = 'account_registration'
       AND payload::jsonb -> 'account' ->> 'username' = 'username-8b973f'
   ) THEN

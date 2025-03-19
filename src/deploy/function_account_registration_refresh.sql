@@ -23,11 +23,10 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
+    FROM updated JOIN vibetype.account ON updated.id = account.id
     INTO _new_account_notify;
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),

@@ -40,7 +40,7 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
