@@ -5,8 +5,10 @@ BEGIN;
 CREATE TABLE vibetype.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  account_id    UUID NOT NULL REFERENCES vibetype.account(id) UNIQUE,
-  upload_id     UUID NOT NULL REFERENCES vibetype.upload(id)
+  account_id    UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
+  upload_id     UUID NOT NULL REFERENCES vibetype.upload(id) ON DELETE CASCADE,
+
+  CONSTRAINT profile_picture_unique UNIQUE (account_id)
 );
 
 COMMENT ON TABLE vibetype.profile_picture IS 'Mapping of account ids to upload ids.';

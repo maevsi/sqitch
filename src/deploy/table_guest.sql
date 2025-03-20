@@ -3,14 +3,14 @@ BEGIN;
 CREATE TABLE vibetype.guest (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  contact_id        UUID NOT NULL REFERENCES vibetype.contact(id),
-  event_id          UUID NOT NULL REFERENCES vibetype.event(id),
+  contact_id        UUID NOT NULL REFERENCES vibetype.contact(id) ON DELETE CASCADE,
+  event_id          UUID NOT NULL REFERENCES vibetype.event(id) ON DELETE CASCADE,
   feedback          vibetype.invitation_feedback,
   feedback_paper    vibetype.invitation_feedback_paper,
 
   created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at        TIMESTAMP WITH TIME ZONE,
-  updated_by        UUID REFERENCES vibetype.account(id),
+  updated_by        UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
 
   UNIQUE (event_id, contact_id)
 );

@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE vibetype.account_preference_event_size (
-  account_id  UUID REFERENCES vibetype.account(id),
+  account_id  UUID REFERENCES vibetype.account(id) ON DELETE CASCADE,
   event_size  vibetype.event_size,
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

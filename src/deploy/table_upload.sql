@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.upload (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  account_id     UUID NOT NULL REFERENCES vibetype.account(id),
+  account_id     UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   name           TEXT CHECK (char_length("name") > 0 AND char_length("name") < 300),
   size_byte      BIGINT NOT NULL CHECK (size_byte > 0),
   storage_key    TEXT UNIQUE,
