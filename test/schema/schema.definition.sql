@@ -4336,6 +4336,72 @@ Reference to the account that created the event favorite.';
 
 
 --
+-- Name: event_format; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.event_format (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text
+);
+
+
+ALTER TABLE vibetype.event_format OWNER TO ci;
+
+--
+-- Name: TABLE event_format; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.event_format IS 'Event formats.';
+
+
+--
+-- Name: COLUMN event_format.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_format.id IS 'The id of the event format.';
+
+
+--
+-- Name: COLUMN event_format.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_format.name IS 'The name of the event format.';
+
+
+--
+-- Name: event_format_mapping; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.event_format_mapping (
+    event_id uuid NOT NULL,
+    format_id uuid NOT NULL
+);
+
+
+ALTER TABLE vibetype.event_format_mapping OWNER TO ci;
+
+--
+-- Name: TABLE event_format_mapping; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.event_format_mapping IS 'Mapping events to formats (M:N relationship).';
+
+
+--
+-- Name: COLUMN event_format_mapping.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_format_mapping.event_id IS 'An event id.';
+
+
+--
+-- Name: COLUMN event_format_mapping.format_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_format_mapping.format_id IS 'A format id.';
+
+
+--
 -- Name: event_group; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -5437,6 +5503,22 @@ ALTER TABLE ONLY vibetype.event_favorite
 
 
 --
+-- Name: event_format_mapping event_format_mapping_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_format_mapping
+    ADD CONSTRAINT event_format_mapping_pkey PRIMARY KEY (event_id, format_id);
+
+
+--
+-- Name: event_format event_format_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_format
+    ADD CONSTRAINT event_format_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: event_group event_group_created_by_slug_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6108,6 +6190,22 @@ ALTER TABLE ONLY vibetype.event_favorite
 
 
 --
+-- Name: event_format_mapping event_format_mapping_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_format_mapping
+    ADD CONSTRAINT event_format_mapping_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_format_mapping event_format_mapping_format_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_format_mapping
+    ADD CONSTRAINT event_format_mapping_format_id_fkey FOREIGN KEY (format_id) REFERENCES vibetype.event_format(id) ON DELETE CASCADE;
+
+
+--
 -- Name: event_group event_group_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6562,6 +6660,38 @@ CREATE POLICY event_favorite_insert ON vibetype.event_favorite FOR INSERT WITH C
 --
 
 CREATE POLICY event_favorite_select ON vibetype.event_favorite FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: event_format_mapping; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.event_format_mapping ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_format_mapping event_format_mapping_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_format_mapping_delete ON vibetype.event_format_mapping FOR DELETE USING ((( SELECT event.created_by
+   FROM vibetype.event
+  WHERE (event.id = event_format_mapping.event_id)) = vibetype.invoker_account_id()));
+
+
+--
+-- Name: event_format_mapping event_format_mapping_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_format_mapping_insert ON vibetype.event_format_mapping FOR INSERT WITH CHECK ((( SELECT event.created_by
+   FROM vibetype.event
+  WHERE (event.id = event_format_mapping.event_id)) = vibetype.invoker_account_id()));
+
+
+--
+-- Name: event_format_mapping event_format_mapping_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
+   FROM vibetype.event)));
 
 
 --
@@ -7810,6 +7940,22 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_category_mapping TO vibetype_
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
+
+
+--
+-- Name: TABLE event_format; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.event_format TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;
+
+
+--
+-- Name: TABLE event_format_mapping; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.event_format_mapping TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_account;
 
 
 --
