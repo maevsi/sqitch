@@ -60,7 +60,7 @@ BEGIN
 
     PERFORM vibetype.account_delete('password');
 
-    SET LOCAL role = 'ci';
+    SET LOCAL ROLE NONE;
   END IF;
 END $$ LANGUAGE plpgsql;
 
@@ -104,7 +104,7 @@ BEGIN
     UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -129,7 +129,7 @@ BEGIN
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -152,7 +152,7 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -182,7 +182,7 @@ BEGIN
   INSERT INTO vibetype.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_category_mapping_create(UUID, UUID, TEXT) TO vibetype_account;
@@ -202,7 +202,7 @@ BEGIN
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -246,7 +246,7 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_test(TEXT, UUID, UUID[]) TO vibetype_account;
@@ -274,7 +274,7 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_category_mapping_test(TEXT, UUID, UUID[]) TO vibetype_account;
@@ -304,7 +304,7 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_test(TEXT, UUID, UUID[]) TO vibetype_account;
@@ -332,7 +332,7 @@ BEGIN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.guest_test(TEXT, UUID, UUID[]) TO vibetype_account;
@@ -370,7 +370,7 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _result;
 END $$ LANGUAGE plpgsql;

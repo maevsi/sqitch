@@ -2225,7 +2225,7 @@ BEGIN
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -2423,7 +2423,7 @@ BEGIN
 
     PERFORM vibetype.account_delete('password');
 
-    SET LOCAL role = 'ci';
+    SET LOCAL ROLE NONE;
   END IF;
 END $$;
 
@@ -2454,7 +2454,7 @@ BEGIN
     UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -2508,7 +2508,7 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2542,7 +2542,7 @@ BEGIN
   INSERT INTO vibetype.event_category_mapping(event_id, category)
   VALUES (_event_id, _category);
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2572,7 +2572,7 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2595,7 +2595,7 @@ BEGIN
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -2733,7 +2733,7 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2955,7 +2955,7 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _result;
 END $$;
@@ -2980,7 +2980,7 @@ BEGIN
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -3012,7 +3012,7 @@ BEGIN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
-  SET LOCAL role = 'ci';
+  SET LOCAL ROLE NONE;
 END $$;
 
 
