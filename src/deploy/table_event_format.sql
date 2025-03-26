@@ -2,7 +2,9 @@ BEGIN;
 
 CREATE TABLE vibetype.event_format(
   id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name  TEXT
+  name  TEXT,
+
+  CONSTRAINT unique_event_format_name UNIQUE(name)
 );
 
 COMMENT ON TABLE vibetype.event_format IS 'Event formats.';
