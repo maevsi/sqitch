@@ -3,10 +3,10 @@ BEGIN;
 CREATE TABLE vibetype.event_favorite (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  event_id    UUID REFERENCES vibetype.event(id),
+  event_id    UUID REFERENCES vibetype.event(id) ON DELETE CASCADE,
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by  UUID REFERENCES vibetype.account(id) NOT NULL,
+  created_by  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
   UNIQUE (created_by, event_id)
 );

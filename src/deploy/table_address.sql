@@ -13,9 +13,9 @@ CREATE TABLE vibetype.address (
   region      TEXT CHECK (char_length(region) > 0 AND char_length(region) <= 300),
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by  UUID REFERENCES vibetype.account(id) NOT NULL,
+  created_by  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   updated_at  TIMESTAMP WITH TIME ZONE,
-  updated_by  UUID REFERENCES vibetype.account(id)
+  updated_by  UUID REFERENCES vibetype.account(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_address_location ON vibetype.address USING gist (location);

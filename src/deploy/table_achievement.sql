@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.achievement (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  account_id  UUID NOT NULL REFERENCES vibetype.account(id),
+  account_id  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   achievement vibetype.achievement_type NOT NULL,
   level       INTEGER NOT NULL CHECK (level > 0) DEFAULT 1,
 

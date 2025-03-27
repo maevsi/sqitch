@@ -6,9 +6,9 @@ CREATE TABLE vibetype.device (
   fcm_token   TEXT CHECK (char_length("fcm_token") > 0 AND char_length("fcm_token") < 300),
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by  UUID REFERENCES vibetype.account(id) NOT NULL,
+  created_by  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   updated_at  TIMESTAMP WITH TIME ZONE,
-  updated_by  UUID REFERENCES vibetype.account(id),
+  updated_by  UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
 
   UNIQUE (created_by, fcm_token)
 );

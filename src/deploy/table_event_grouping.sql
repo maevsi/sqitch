@@ -3,8 +3,8 @@ BEGIN;
 CREATE TABLE vibetype.event_grouping (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  event_group_id    UUID NOT NULL REFERENCES vibetype.event_group(id),
-  event_id          UUID NOT NULL REFERENCES vibetype.event(id),
+  event_group_id    UUID NOT NULL REFERENCES vibetype.event_group(id) ON DELETE CASCADE,
+  event_id          UUID NOT NULL REFERENCES vibetype.event(id) ON DELETE CASCADE,
 
   UNIQUE (event_id, event_group_id)
 );

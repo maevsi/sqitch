@@ -4,12 +4,12 @@ CREATE TABLE vibetype.report (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   reason              TEXT NOT NULL CHECK (char_length("reason") > 0 AND char_length("reason") < 2000),
-  target_account_id   UUID REFERENCES vibetype.account(id),
-  target_event_id     UUID REFERENCES vibetype.event(id),
-  target_upload_id    UUID REFERENCES vibetype.upload(id),
+  target_account_id   UUID REFERENCES vibetype.account(id) ON DELETE CASCADE,
+  target_event_id     UUID REFERENCES vibetype.event(id) ON DELETE CASCADE,
+  target_upload_id    UUID REFERENCES vibetype.upload(id) ON DELETE CASCADE,
 
   created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by          UUID NOT NULL REFERENCES vibetype.account(id),
+  created_by          UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
   CHECK (num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1),
   UNIQUE (created_by, target_account_id, target_event_id, target_upload_id)
