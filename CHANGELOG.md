@@ -1,3 +1,9 @@
+## [7.0.0-beta.5](https://github.com/maevsi/sqitch/compare/7.0.0-beta.4...7.0.0-beta.5) (2025-03-27)
+
+### Features
+
+* **event:** add format mapping ([#178](https://github.com/maevsi/sqitch/issues/178)) ([b3ddef8](https://github.com/maevsi/sqitch/commit/b3ddef8f0f291cd443245563e8996c8e64ef5559))
+
 ## [7.0.0-beta.4](https://github.com/maevsi/sqitch/compare/7.0.0-beta.3...7.0.0-beta.4) (2025-03-18)
 
 ### Bug Fixes
