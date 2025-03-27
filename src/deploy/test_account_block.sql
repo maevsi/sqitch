@@ -127,7 +127,7 @@ CREATE FUNCTION vibetype_test.event_category_create (
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO vibetype.event_category(category) VALUES (_category);
+  INSERT INTO vibetype.event_category(name) VALUES (_category);
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION vibetype_test.event_category_mapping_create (
@@ -139,8 +139,8 @@ BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO vibetype.event_category_mapping(event_id, category)
-  VALUES (_event_id, _category);
+  INSERT INTO vibetype.event_category_mapping(event_id, category_id)
+  VALUES (_event_id, (SELECT id FROM vibetype.event_category WHERE name = _category));
 
   CALL vibetype_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;

@@ -2499,7 +2499,7 @@ CREATE FUNCTION vibetype_test.event_category_create(_category text) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  INSERT INTO vibetype.event_category(category) VALUES (_category);
+  INSERT INTO vibetype.event_category(name) VALUES (_category);
 END $$;
 
 
@@ -2516,8 +2516,8 @@ BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO vibetype.event_category_mapping(event_id, category)
-  VALUES (_event_id, _category);
+  INSERT INTO vibetype.event_category_mapping(event_id, category_id)
+  VALUES (_event_id, (SELECT id FROM vibetype.event_category WHERE name = _category));
 
   CALL vibetype_test.set_local_superuser();
 END $$;
@@ -3717,7 +3717,7 @@ COMMENT ON COLUMN vibetype.account_block.created_by IS 'The account id of the us
 
 CREATE TABLE vibetype.account_preference_event_category (
     account_id uuid NOT NULL,
-    category text NOT NULL
+    category_id uuid NOT NULL
 );
 
 
@@ -3738,10 +3738,10 @@ COMMENT ON COLUMN vibetype.account_preference_event_category.account_id IS 'A us
 
 
 --
--- Name: COLUMN account_preference_event_category.category; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN account_preference_event_category.category_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account_preference_event_category.category IS 'An event category.';
+COMMENT ON COLUMN vibetype.account_preference_event_category.category_id IS 'An event category id.';
 
 
 --
@@ -4275,7 +4275,8 @@ Reference to the account that last updated the device.';
 --
 
 CREATE TABLE vibetype.event_category (
-    category text NOT NULL
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL
 );
 
 
@@ -4289,10 +4290,17 @@ COMMENT ON TABLE vibetype.event_category IS 'Event categories.';
 
 
 --
--- Name: COLUMN event_category.category; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN event_category.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_category.category IS 'A category name.';
+COMMENT ON COLUMN vibetype.event_category.id IS 'The id of the event category.';
+
+
+--
+-- Name: COLUMN event_category.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_category.name IS 'A category name.';
 
 
 --
@@ -4301,7 +4309,7 @@ COMMENT ON COLUMN vibetype.event_category.category IS 'A category name.';
 
 CREATE TABLE vibetype.event_category_mapping (
     event_id uuid NOT NULL,
-    category text NOT NULL
+    category_id uuid NOT NULL
 );
 
 
@@ -4322,10 +4330,10 @@ COMMENT ON COLUMN vibetype.event_category_mapping.event_id IS 'An event id.';
 
 
 --
--- Name: COLUMN event_category_mapping.category; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN event_category_mapping.category_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_category_mapping.category IS 'A category name.';
+COMMENT ON COLUMN vibetype.event_category_mapping.category_id IS 'A category id.';
 
 
 --
@@ -4386,7 +4394,7 @@ Reference to the account that created the event favorite.';
 
 CREATE TABLE vibetype.event_format (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text
+    name text NOT NULL
 );
 
 
@@ -5403,7 +5411,7 @@ ALTER TABLE ONLY vibetype.account
 --
 
 ALTER TABLE ONLY vibetype.account_preference_event_category
-    ADD CONSTRAINT account_preference_event_category_pkey PRIMARY KEY (account_id, category);
+    ADD CONSTRAINT account_preference_event_category_pkey PRIMARY KEY (account_id, category_id);
 
 
 --
@@ -5513,7 +5521,7 @@ ALTER TABLE ONLY vibetype.device
 --
 
 ALTER TABLE ONLY vibetype.event_category_mapping
-    ADD CONSTRAINT event_category_mapping_pkey PRIMARY KEY (event_id, category);
+    ADD CONSTRAINT event_category_mapping_pkey PRIMARY KEY (event_id, category_id);
 
 
 --
@@ -5521,7 +5529,7 @@ ALTER TABLE ONLY vibetype.event_category_mapping
 --
 
 ALTER TABLE ONLY vibetype.event_category
-    ADD CONSTRAINT event_category_pkey PRIMARY KEY (category);
+    ADD CONSTRAINT event_category_pkey PRIMARY KEY (id);
 
 
 --
@@ -5735,6 +5743,14 @@ COMMENT ON CONSTRAINT report_created_by_target_account_id_target_event_id_target
 
 ALTER TABLE ONLY vibetype.report
     ADD CONSTRAINT report_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_category unique_event_category_name; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_category
+    ADD CONSTRAINT unique_event_category_name UNIQUE (name);
 
 
 --
@@ -6115,11 +6131,11 @@ ALTER TABLE ONLY vibetype.account_preference_event_category
 
 
 --
--- Name: account_preference_event_category account_preference_event_category_category_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category account_preference_event_category_category_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.account_preference_event_category
-    ADD CONSTRAINT account_preference_event_category_category_fkey FOREIGN KEY (category) REFERENCES vibetype.event_category(category) ON DELETE CASCADE;
+    ADD CONSTRAINT account_preference_event_category_category_id_fkey FOREIGN KEY (category_id) REFERENCES vibetype.event_category(id) ON DELETE CASCADE;
 
 
 --
@@ -6227,11 +6243,11 @@ ALTER TABLE ONLY vibetype.event
 
 
 --
--- Name: event_category_mapping event_category_mapping_category_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: event_category_mapping event_category_mapping_category_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.event_category_mapping
-    ADD CONSTRAINT event_category_mapping_category_fkey FOREIGN KEY (category) REFERENCES vibetype.event_category(category) ON DELETE CASCADE;
+    ADD CONSTRAINT event_category_mapping_category_id_fkey FOREIGN KEY (category_id) REFERENCES vibetype.event_category(id) ON DELETE CASCADE;
 
 
 --
