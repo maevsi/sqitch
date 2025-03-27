@@ -83,8 +83,8 @@ table_event_upload_policy [schema_public table_event_upload role_account role_an
 view_guest_flat [schema_public table_guest table_contact table_event role_account role_anonymous] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # View returning flattened guests.
 table_event_category [schema_public] 1970-01-01T00:00:00Z sven <sven.thelemann@t-online.de> # Event categories.
 table_event_category_policy [schema_public table_event_category role_anonymous role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table event_category.
-table_account_interest [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Event categories a user account is interested in (M:N relationship).
-table_account_interest_policy [schema_public table_account_interest role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table account_interest.
+table_account_preference_event_category [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Event categories a user account is interested in (M:N relationship).
+table_account_preference_event_category_policy [schema_public table_account_preference_event_category role_account] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table account_preference_event_category.
 table_event_category_mapping [schema_public table_event table_event_category] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Mapping events to categories (M:N relationship).
 table_event_category_mapping_policy [schema_public table_event_category_mapping role_anonymous role_account table_event function_account_block_ids]1970-01-01T00:00:00Z marlon <marlon@t14s> # Row level security policies for table table_event_category_mapping.
 table_event_recommendation [schema_public table_account_public table_event] 1970-01-01T00:00:00Z marlon <marlon@t14s> # Events recommended to a user account (M:N relationship).
@@ -103,3 +103,5 @@ table_friendship_policy [schema_public table_friendship role_account] 1970-01-01
 test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
 table_event_format [schema_public role_anonymous role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Table for storing event formats.
 table_event_format_mapping [schema_public table_event table_event_format role_anonymous role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Table for storing event to category (M:N) relationships.
+table_account_preference_event_format [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Event formats a user account is interested in (M:N relationship).
+table_account_preference_event_format_policy [schema_public table_account_preference_event_format role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Row level security policies for table account_preference_event_format.
