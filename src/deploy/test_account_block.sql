@@ -21,25 +21,6 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_anonymous, vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.account_create (
-  _username TEXT,
-  _email TEXT
-) RETURNS UUID AS $$
-DECLARE
-  _id UUID;
-  _verification UUID;
-BEGIN
-  _id := vibetype.account_registration(_username, _email, 'password', 'en');
-
-  SELECT email_address_verification INTO _verification
-  FROM vibetype_private.account
-  WHERE id = _id;
-
-  PERFORM vibetype.account_email_address_verification(_verification);
-
-  RETURN _id;
-END $$ LANGUAGE plpgsql;
-
 CREATE FUNCTION vibetype_test.account_remove (
   _username TEXT
 ) RETURNS VOID AS $$
@@ -367,7 +348,6 @@ END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_create(UUID, UUID) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_remove(UUID, UUID) TO vibetype_account;
-GRANT EXECUTE ON FUNCTION vibetype_test.account_create(TEXT, TEXT) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_remove(TEXT) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_create(UUID, TEXT) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_select_by_account_id(UUID) TO vibetype_account;

@@ -1,3 +1,45 @@
+## [7.0.0-beta.5](https://github.com/maevsi/sqitch/compare/7.0.0-beta.4...7.0.0-beta.5) (2025-03-27)
+
+### Features
+
+* **event:** add format mapping ([#178](https://github.com/maevsi/sqitch/issues/178)) ([b3ddef8](https://github.com/maevsi/sqitch/commit/b3ddef8f0f291cd443245563e8996c8e64ef5559))
+
+## [7.0.0-beta.4](https://github.com/maevsi/sqitch/compare/7.0.0-beta.3...7.0.0-beta.4) (2025-03-18)
+
+### Bug Fixes
+
+* **account:** accept legal term on registration ([b55aa95](https://github.com/maevsi/sqitch/commit/b55aa951401f2d296008328bb0b81b5693fe7f1e))
+
+## [7.0.0-beta.3](https://github.com/maevsi/sqitch/compare/7.0.0-beta.2...7.0.0-beta.3) (2025-03-17)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** rename for services
+
+### Code Refactoring
+
+* **role:** rename for services ([c83b9d1](https://github.com/maevsi/sqitch/commit/c83b9d140a8a0b56f2490f9ce9f7ebdac8398fcd))
+
+## [7.0.0-beta.2](https://github.com/maevsi/sqitch/compare/7.0.0-beta.1...7.0.0-beta.2) (2025-03-17)
+
+### ⚠ BREAKING CHANGES
+
+* **environment:** dissolve target variable file
+
+### Code Refactoring
+
+* **environment:** dissolve target variable file ([9f4ae82](https://github.com/maevsi/sqitch/commit/9f4ae82019b34c0dea7ff815401937edebe4c435))
+
+## [7.0.0-beta.1](https://github.com/maevsi/sqitch/compare/6.0.0...7.0.0-beta.1) (2025-03-12)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** rename postgraphile secret variable
+
+### Code Refactoring
+
+* **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
+
 ## [6.1.0](https://github.com/maevsi/sqitch/compare/6.0.0...6.1.0) (2025-03-25)
 
 ### Features

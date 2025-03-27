@@ -26,7 +26,7 @@ BEGIN
 
   UPDATE vibetype_private.account
     SET
-      password_hash = crypt(account_password_reset.password, gen_salt('bf')),
+      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf')),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
 END;
