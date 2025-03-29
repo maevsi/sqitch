@@ -2158,17 +2158,18 @@ CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
-  max_val INTEGER;
+  _value_max INTEGER;
 BEGIN
-  SELECT MAX(id) INTO max_val
-  FROM vibetype_private.audit_log;
+  SELECT MAX(id) INTO _value_max
+    FROM vibetype_private.audit_log;
 
   PERFORM setval(
     'vibetype_private.audit_log_id_seq',
-    CASE WHEN max_val IS NOT NULL THEN max_val + 1 ELSE 1 END,
+    CASE WHEN _value_max IS NOT NULL THEN _value_max + 1 ELSE 1 END,
     false
   );
-END; $$;
+END;
+$$;
 
 
 ALTER FUNCTION vibetype_private.adjust_audit_log_id_seq() OWNER TO ci;
@@ -2178,343 +2179,6 @@ ALTER FUNCTION vibetype_private.adjust_audit_log_id_seq() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function resetting the current value of the sequence vibetype_private.audit_log_id_seq according to the content of table audit_log.';
-
-
---
--- Name: create_audit_log_trigger_for_table(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.create_audit_log_trigger_for_table(schema_name text, table_name text) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  trigger_name TEXT := 'zzz_audit_log_trigger';
-BEGIN
-
-  IF EXISTS(
-    SELECT 1
-    FROM pg_catalog.pg_class c
-      -- audit log triggers works only for tables having an id column
-      JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid AND a.attname = 'id'
-      JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-    WHERE c.relkind = 'r'
-      AND n.nspname = create_audit_log_trigger_for_table.schema_name
-      AND c.relname = create_audit_log_trigger_for_table.table_name
-      -- negative list, make sure that at least audit_log table is not audited
-      AND (n.nspname, c.relname) not in (
-        ('vibetype_private', 'audit_log'),
-        ('vibetype_private', 'jwt')
-      )
-  ) THEN
-
-    EXECUTE 'CREATE TRIGGER ' || trigger_name ||
-    ' BEFORE INSERT OR UPDATE OR DELETE ON ' ||
-    create_audit_log_trigger_for_table.schema_name || '.' || create_audit_log_trigger_for_table.table_name ||
-    ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
-
-  ELSE
-    RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
-      create_audit_log_trigger_for_table.schema_name, create_audit_log_trigger_for_table.table_name;
-  END IF;
-
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.create_audit_log_trigger_for_table(schema_name text, table_name text) OWNER TO ci;
-
---
--- Name: FUNCTION create_audit_log_trigger_for_table(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.create_audit_log_trigger_for_table(schema_name text, table_name text) IS 'Function creating an audit log trigger for a single table.';
-
-
---
--- Name: create_audit_log_triggers(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.create_audit_log_triggers() RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  -- PostgreSql Documentation, section 37.1:
-  -- If more than one trigger is defined for the same event on the same relation, the triggers will be fired in alphabetical order by trigger name.
-  trigger_name TEXT := 'zzz_audit_log_trigger';
-  rec RECORD;
-BEGIN
-
-  FOR rec IN
-    SELECT n.nspname ,c.relname
-    FROM pg_catalog.pg_class c
-      -- audit log triggers works only for tables having an id column
-      JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid AND a.attname = 'id'
-      JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-    WHERE c.relkind = 'r' AND n.nspname IN ('vibetype', 'vibetype_private')
-      -- negative list, make sure that at least audit_log table is not audited
-      AND (n.nspname, c.relname) NOT IN (
-        ('vibetype_private', 'audit_log'),
-        ('vibetype_private', 'jwt')
-      )
-  LOOP
-
-     EXECUTE 'CREATE TRIGGER ' || trigger_name ||
-      ' BEFORE INSERT OR UPDATE OR DELETE ON ' ||
-      rec.nspname || '.' || rec.relname ||
-      ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
-
-  END LOOP;
-
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.create_audit_log_triggers() OWNER TO ci;
-
---
--- Name: FUNCTION create_audit_log_triggers(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.create_audit_log_triggers() IS 'Function creating all audit log triggers for all tables that should be audited.';
-
-
---
--- Name: disable_audit_log_trigger_for_table(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.disable_audit_log_trigger_for_table(schema_name text, table_name text) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  rec RECORD;
-  i INTEGER := 0;
-BEGIN
-
-  FOR rec IN
-    SELECT t.trigger_name, t.schema_name, t.table_name, t.trigger_enabled
-    FROM vibetype_private.audit_log_trigger t
-    WHERE t.schema_name = disable_audit_log_trigger_for_table.schema_name
-      and t.table_name = disable_audit_log_trigger_for_table.table_name
-  LOOP
-
-    i := i + 1;
-
-    IF rec.trigger_enabled != 'D' THEN
-
-      EXECUTE 'ALTER TABLE ' || rec.schema_name || '.' || rec.table_name ||
-        ' DISABLE TRIGGER ' || rec.trigger_name;
-    END IF;
-
-  END LOOP;
-
-  IF i = 0 THEN
-    RAISE NOTICE 'WARNING: Table %.% has no audit log trigger',
-      enable_audit_log_trigger_for_table.schema_name, enable_audit_log_trigger_for_table.table_name;
-  END IF;
-
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.disable_audit_log_trigger_for_table(schema_name text, table_name text) OWNER TO ci;
-
---
--- Name: FUNCTION disable_audit_log_trigger_for_table(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.disable_audit_log_trigger_for_table(schema_name text, table_name text) IS 'Function disabling an audit log triggers that are currently enabled.';
-
-
---
--- Name: disable_audit_log_triggers(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.disable_audit_log_triggers() RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  rec RECORD;
-BEGIN
-
-  FOR rec IN
-    SELECT trigger_name, schema_name, table_name
-    FROM vibetype_private.audit_log_trigger
-    WHERE trigger_enabled != 'D'
-  LOOP
-
-    EXECUTE 'ALTER TABLE ' || rec.schema_name || '.' || rec.table_name ||
-      ' DISABLE TRIGGER ' || rec.trigger_name;
-
-  END LOOP;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.disable_audit_log_triggers() OWNER TO ci;
-
---
--- Name: FUNCTION disable_audit_log_triggers(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.disable_audit_log_triggers() IS 'Function disabling all audit log triggers that are currently enabled.';
-
-
---
--- Name: drop_audit_log_trigger_for_table(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.drop_audit_log_trigger_for_table(schema_name text, table_name text) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  rec RECORD;
-  i INTEGER := 0;
-BEGIN
-
-  FOR rec IN
-    SELECT t.trigger_name, t.schema_name, t.table_name
-    FROM vibetype_private.audit_log_trigger t
-    WHERE t.schema_name = drop_audit_log_trigger_for_table.schema_name
-      AND t.table_name = drop_audit_log_trigger_for_table.table_name
-  LOOP
-
-    i := i + 1;
-
-    EXECUTE 'DROP TRIGGER ' || rec.trigger_name || ' ON ' ||
-      rec.schema_name || '.' || rec.table_name;
-
-  END LOOP;
-
-  IF i = 0 THEN
-    RAISE NOTICE 'WARNING: Table %.% had no audit log trigger',
-      drop_audit_log_trigger_for_table.schema_name, drop_audit_log_trigger_for_table.table_name;
-  END IF;
-
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.drop_audit_log_trigger_for_table(schema_name text, table_name text) OWNER TO ci;
-
---
--- Name: FUNCTION drop_audit_log_trigger_for_table(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.drop_audit_log_trigger_for_table(schema_name text, table_name text) IS 'Function dropping all audit log triggers for a single table.';
-
-
---
--- Name: drop_audit_log_triggers(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.drop_audit_log_triggers() RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  rec RECORD;
-BEGIN
-
-  FOR rec IN
-    SELECT trigger_name, schema_name, table_name
-    FROM vibetype_private.audit_log_trigger
-  LOOP
-
-    EXECUTE 'DROP TRIGGER ' || rec.trigger_name || ' ON ' ||
-      rec.schema_name || '.' || rec.table_name;
-
-  END LOOP;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.drop_audit_log_triggers() OWNER TO ci;
-
---
--- Name: FUNCTION drop_audit_log_triggers(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.drop_audit_log_triggers() IS 'Function dropping all audit log triggers for all tables that are currently audited.';
-
-
---
--- Name: enable_audit_log_trigger_for_table(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.enable_audit_log_trigger_for_table(schema_name text, table_name text) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  rec RECORD;
-  i INTEGER := 0;
-BEGIN
-
-  FOR rec IN
-    SELECT t.trigger_name, t.schema_name, t.table_name, t.trigger_enabled
-    FROM vibetype_private.audit_log_trigger t
-    WHERE t.schema_name = enable_audit_log_trigger_for_table.schema_name
-      and t.table_name = enable_audit_log_trigger_for_table.table_name
-  LOOP
-
-    i := i + 1;
-
-    IF rec.trigger_enabled = 'D' THEN
-
-      EXECUTE 'ALTER TABLE ' || rec.schema_name || '.' || rec.table_name ||
-        ' ENABLE TRIGGER ' || rec.trigger_name;
-    END IF;
-
-  END LOOP;
-
-  IF i = 0 THEN
-    RAISE NOTICE 'WARNING: Table %.% has no audit log trigger',
-      enable_audit_log_trigger_for_table.schema_name, enable_audit_log_trigger_for_table.table_name;
-  END IF;
-
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.enable_audit_log_trigger_for_table(schema_name text, table_name text) OWNER TO ci;
-
---
--- Name: FUNCTION enable_audit_log_trigger_for_table(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.enable_audit_log_trigger_for_table(schema_name text, table_name text) IS 'Function enabling audit log triggers for a single table.';
-
-
---
--- Name: enable_audit_log_triggers(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.enable_audit_log_triggers() RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  rec RECORD;
-BEGIN
-
-  FOR rec IN
-    SELECT trigger_name, schema_name, table_name
-    FROM vibetype_private.audit_log_trigger
-    WHERE trigger_enabled = 'D'
-  LOOP
-
-    EXECUTE 'ALTER TABLE ' || rec.schema_name || '.' || rec.table_name ||
-      ' ENABLE TRIGGER ' || rec.trigger_name;
-
-  END LOOP;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.enable_audit_log_triggers() OWNER TO ci;
-
---
--- Name: FUNCTION enable_audit_log_triggers(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.enable_audit_log_triggers() IS 'Function enabling all audit log triggers that are currently disabled.';
 
 
 --
@@ -2580,62 +2244,62 @@ CREATE FUNCTION vibetype_private.trigger_audit_log() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
-  new_data jsonb;
-  old_data jsonb;
-  key text;
-  new_values jsonb;
-  old_values jsonb;
-  account_id UUID;
-  user_name text;
+  _account_id UUID;
+  _data_new JSONB;
+  _data_old JSONB;
+  _key TEXT;
+  _user_name TEXT;
+  _values_new JSONB;
+  _values_old JSONB;
 BEGIN
-  account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  _account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
 
-  IF account_id IS NULL THEN
-    user_name := current_user;
+  IF _account_id IS NULL THEN
+    _user_name := current_user;
   ELSE
-    SELECT username INTO user_name
-    FROM vibetype.account
-    WHERE id = account_id;
+    SELECT username INTO _user_name
+      FROM vibetype.account
+      WHERE id = _account_id;
   END IF;
 
-  new_values := '{}';
-  old_values := '{}';
+  _values_new := '{}';
+  _values_old := '{}';
 
   IF TG_OP = 'INSERT' THEN
-    new_data := to_jsonb(NEW);
-    new_values := new_data;
+    _data_new := to_jsonb(NEW);
+    _values_new := _data_new;
 
   ELSIF TG_OP = 'UPDATE' THEN
-    new_data := to_jsonb(NEW);
-    old_data := to_jsonb(OLD);
+    _data_new := to_jsonb(NEW);
+    _data_old := to_jsonb(OLD);
 
-    FOR key IN SELECT jsonb_object_keys(new_data) INTERSECT SELECT jsonb_object_keys(old_data)
+    FOR _key IN SELECT jsonb_object_keys(_data_new) INTERSECT SELECT jsonb_object_keys(_data_old)
     LOOP
-      IF new_data ->> key != old_data ->> key THEN
-        new_values := new_values || jsonb_build_object(key, new_data ->> key);
-        old_values := old_values || jsonb_build_object(key, old_data ->> key);
+      IF _data_new ->> _key != _data_old ->> _key THEN
+        _values_new := _values_new || jsonb_build_object(_key, _data_new ->> _key);
+        _values_old := _values_old || jsonb_build_object(_key, _data_old ->> _key);
       END IF;
     END LOOP;
 
   ELSIF TG_OP = 'DELETE' THEN
-    old_data := to_jsonb(OLD);
-    old_values := old_data;
+    _data_old := to_jsonb(OLD);
+    _values_old := _data_old;
 
-    FOR key IN SELECT jsonb_object_keys(old_data)
+    FOR _key IN SELECT jsonb_object_keys(_data_old)
     LOOP
-      old_values := old_values || jsonb_build_object(key, old_data ->> key);
+      _values_old := _values_old || jsonb_build_object(_key, _data_old ->> _key);
     END LOOP;
 
   END IF;
 
   IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, changed_by, old_values, new_values)
-    VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, NEW.id, TG_OP, user_name, old_values, new_values);
+    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, values_new)
+      VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, NEW.id, TG_OP, _user_name, _values_old, _values_new);
 
     RETURN NEW;
   ELSE
-    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, changed_by, old_values, new_values)
-    VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, OLD.id, TG_OP, user_name, old_values, new_values);
+    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, _alues_new)
+      VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, OLD.id, TG_OP, _user_name, _values_old, _values_new);
 
     RETURN OLD;
   END IF;
@@ -2651,6 +2315,302 @@ ALTER FUNCTION vibetype_private.trigger_audit_log() OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log() IS 'Generic audit trigger function creating records in table vibetype_private.audit_log.
 inspired by https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit-log-fd9d9d5e412c';
+
+
+--
+-- Name: trigger_audit_log_create(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _trigger_name TEXT := 'z_indexed_audit_log_trigger';
+BEGIN
+  IF EXISTS(
+    SELECT 1
+      FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid AND a.attname = 'id' -- audit log triggers works only for tables having an id column
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+      WHERE c.relkind = 'r'
+        AND n.nspname = trigger_audit_log_create.schema_name
+        AND c.relname = trigger_audit_log_create.table_name
+        -- negative list, make sure that at least audit_log table is not audited
+        AND (n.nspname, c.relname) not in (
+          ('vibetype_private', 'audit_log'),
+          ('vibetype_private', 'jwt')
+        )
+  ) THEN
+    EXECUTE 'CREATE TRIGGER ' || _trigger_name ||
+      ' BEFORE INSERT OR UPDATE OR DELETE ON ' ||
+      trigger_audit_log_create.schema_name || '.' || trigger_audit_log_create.table_name ||
+      ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
+  ELSE
+    RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
+      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_create(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) IS 'Function creating an audit log trigger for a single table.';
+
+
+--
+-- Name: trigger_audit_log_create_multiple(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_create_multiple() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+  _trigger_name TEXT := 'z_indexed_audit_log_trigger'; -- PostgreSql Documentation, section 37.1: If more than one trigger is defined for the same event on the same relation, the triggers will be fired in alphabetical order by trigger name.
+BEGIN
+  FOR _record IN
+    SELECT n.nspname ,c.relname
+      FROM pg_catalog.pg_class c
+        -- audit log triggers works only for tables having an id column
+        JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid AND a.attname = 'id'
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+      WHERE c.relkind = 'r' AND n.nspname IN ('vibetype', 'vibetype_private')
+        -- negative list, make sure that at least audit_log table is not audited
+        AND (n.nspname, c.relname) NOT IN (
+          ('vibetype_private', 'audit_log'),
+          ('vibetype_private', 'jwt')
+        )
+  LOOP
+     EXECUTE 'CREATE TRIGGER ' || _trigger_name ||
+        ' BEFORE INSERT OR UPDATE OR DELETE ON ' ||
+        _record.nspname || '.' || _record.relname ||
+        ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_create_multiple() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_create_multiple(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create_multiple() IS 'Function creating all audit log triggers for all tables that should be audited.';
+
+
+--
+-- Name: trigger_audit_log_disable(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_disable(schema_name text, table_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+  _i INTEGER := 0;
+BEGIN
+  FOR _record IN
+    SELECT t.trigger_name, t.schema_name, t.table_name, t.trigger_enabled
+      FROM vibetype_private.audit_log_trigger t
+      WHERE t.schema_name = trigger_audit_log_disable.schema_name
+        AND t.table_name = trigger_audit_log_disable.table_name
+  LOOP
+    _i := _i + 1;
+
+    IF _record.trigger_enabled != 'D' THEN
+      EXECUTE 'ALTER TABLE ' || _record.schema_name || '.' || _record.table_name || ' DISABLE TRIGGER ' || _record.trigger_name;
+    END IF;
+  END LOOP;
+
+  IF _i = 0 THEN
+    RAISE NOTICE 'WARNING: Table %.% has no audit log trigger', trigger_audit_log_enable.schema_name, trigger_audit_log_enable.table_name;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_disable(schema_name text, table_name text) OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_disable(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable(schema_name text, table_name text) IS 'Function disabling an audit log triggers that are currently enabled.';
+
+
+--
+-- Name: trigger_audit_log_disable_multiple(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_disable_multiple() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+BEGIN
+  FOR _record IN
+    SELECT trigger_name, schema_name, table_name
+      FROM vibetype_private.audit_log_trigger
+      WHERE trigger_enabled != 'D'
+  LOOP
+    EXECUTE 'ALTER TABLE ' || _record.schema_name || '.' || _record.table_name || ' DISABLE TRIGGER ' || _record.trigger_name;
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_disable_multiple() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_disable_multiple(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable_multiple() IS 'Function disabling all audit log triggers that are currently enabled.';
+
+
+--
+-- Name: trigger_audit_log_drop(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_drop(schema_name text, table_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+  _i INTEGER := 0;
+BEGIN
+  FOR _record IN
+    SELECT t.trigger_name, t.schema_name, t.table_name
+      FROM vibetype_private.audit_log_trigger t
+      WHERE t.schema_name = trigger_audit_log_drop.schema_name
+        AND t.table_name = trigger_audit_log_drop.table_name
+  LOOP
+    _i := _i + 1;
+
+    EXECUTE 'DROP TRIGGER ' || _record.trigger_name || ' ON ' ||
+      _record.schema_name || '.' || _record.table_name;
+  END LOOP;
+
+  IF _i = 0 THEN
+    RAISE NOTICE 'WARNING: Table %.% had no audit log trigger',
+      trigger_audit_log_drop.schema_name, trigger_audit_log_drop.table_name;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_drop(schema_name text, table_name text) OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_drop(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_drop(schema_name text, table_name text) IS 'Function dropping all audit log triggers for a single table.';
+
+
+--
+-- Name: trigger_audit_log_drop_multiple(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_drop_multiple() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+BEGIN
+  FOR _record IN
+    SELECT trigger_name, schema_name, table_name
+      FROM vibetype_private.audit_log_trigger
+  LOOP
+    EXECUTE 'DROP TRIGGER ' || _record.trigger_name || ' ON ' || _record.schema_name || '.' || _record.table_name;
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_drop_multiple() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_drop_multiple(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_drop_multiple() IS 'Function dropping all audit log triggers for all tables that are currently audited.';
+
+
+--
+-- Name: trigger_audit_log_enable(text, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_enable(schema_name text, table_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+  _i INTEGER := 0;
+BEGIN
+  FOR _record IN
+    SELECT t.trigger_name, t.schema_name, t.table_name, t.trigger_enabled
+      FROM vibetype_private.audit_log_trigger t
+      WHERE t.schema_name = trigger_audit_log_enable.schema_name
+        AND t.table_name = trigger_audit_log_enable.table_name
+  LOOP
+    _i := _i + 1;
+
+    IF _record.trigger_enabled = 'D' THEN
+      EXECUTE 'ALTER TABLE ' || _record.schema_name || '.' || _record.table_name || ' ENABLE TRIGGER ' || _record.trigger_name;
+    END IF;
+  END LOOP;
+
+  IF _i = 0 THEN
+    RAISE NOTICE 'WARNING: Table %.% has no audit log trigger', trigger_audit_log_enable.schema_name, trigger_audit_log_enable.table_name;
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_enable(schema_name text, table_name text) OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_enable(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name text, table_name text) IS 'Function enabling audit log triggers for a single table.';
+
+
+--
+-- Name: trigger_audit_log_enable_multiple(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_audit_log_enable_multiple() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _record RECORD;
+BEGIN
+  FOR _record IN
+    SELECT trigger_name, schema_name, table_name
+      FROM vibetype_private.audit_log_trigger
+      WHERE trigger_enabled = 'D'
+  LOOP
+    EXECUTE 'ALTER TABLE ' || _record.schema_name || '.' || _record.table_name || ' ENABLE TRIGGER ' || _record.trigger_name;
+  END LOOP;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_audit_log_enable_multiple() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_audit_log_enable_multiple(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Function enabling all audit log triggers that are currently disabled.';
 
 
 --
@@ -5554,14 +5514,14 @@ COMMENT ON COLUMN vibetype_private.achievement_code.achievement IS 'The achievem
 
 CREATE TABLE vibetype_private.audit_log (
     id integer NOT NULL,
-    schema_name text,
-    table_name text,
-    record_id text,
-    operation_type text,
-    changed_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    changed_by text,
-    old_values jsonb,
-    new_values jsonb
+    operation_type text NOT NULL,
+    record_id text NOT NULL,
+    schema_name text NOT NULL,
+    table_name text NOT NULL,
+    values_new jsonb,
+    values_old jsonb,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by text NOT NULL
 );
 
 
@@ -5571,8 +5531,7 @@ ALTER TABLE vibetype_private.audit_log OWNER TO ci;
 -- Name: TABLE audit_log; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TABLE vibetype_private.audit_log IS '@omit create,update,delete
-Table for storing audit log records created by trigger function vibetype_private.audit_trigger.';
+COMMENT ON TABLE vibetype_private.audit_log IS 'Table for storing audit log records.';
 
 
 --
@@ -5580,6 +5539,20 @@ Table for storing audit log records created by trigger function vibetype_private
 --
 
 COMMENT ON COLUMN vibetype_private.audit_log.id IS 'The audit log record''s internal id.';
+
+
+--
+-- Name: COLUMN audit_log.operation_type; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.audit_log.operation_type IS 'The operation which triggered the audit log record. Can be `INSERT`, `UPDATE`, or `DELETE`.';
+
+
+--
+-- Name: COLUMN audit_log.record_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.audit_log.record_id IS 'The primary key of the table record which triggered the audit log record.';
 
 
 --
@@ -5593,49 +5566,35 @@ COMMENT ON COLUMN vibetype_private.audit_log.schema_name IS 'The schema of the t
 -- Name: COLUMN audit_log.table_name; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.audit_log.table_name IS 'An operation on this table triggered this audit log record.';
+COMMENT ON COLUMN vibetype_private.audit_log.table_name IS 'The operation on a table that triggered the audit log record.';
 
 
 --
--- Name: COLUMN audit_log.record_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN audit_log.values_new; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.audit_log.record_id IS 'The id (primary key) of the table which triggered this audit log record.';
-
-
---
--- Name: COLUMN audit_log.operation_type; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.audit_log.operation_type IS 'The Operation (INSERT, UPDATE, or DELETE) which triggered this audit log record.';
+COMMENT ON COLUMN vibetype_private.audit_log.values_new IS 'The original values of the table record after the operation, `NULL` if operation is `DELETE`.';
 
 
 --
--- Name: COLUMN audit_log.changed_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN audit_log.values_old; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.audit_log.changed_at IS 'The timestamp when this audit log record was created.';
-
-
---
--- Name: COLUMN audit_log.changed_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.audit_log.changed_by IS 'The user that executed the operation on the table referred to by this audit log record.';
+COMMENT ON COLUMN vibetype_private.audit_log.values_old IS 'The original values of the table record before the operation, `NULL` if operation is `INSERT`.';
 
 
 --
--- Name: COLUMN audit_log.old_values; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN audit_log.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.audit_log.old_values IS 'The original values of the table record before the operation, NULL if operation is INSERT.';
+COMMENT ON COLUMN vibetype_private.audit_log.created_at IS 'The timestamp of when the audit log record was created.';
 
 
 --
--- Name: COLUMN audit_log.new_values; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN audit_log.created_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.audit_log.new_values IS 'The original values of the table record after the operation, NULL if operation is DELETE.';
+COMMENT ON COLUMN vibetype_private.audit_log.created_by IS 'The user that executed the operation on the table referred to by this audit log record.';
 
 
 --
@@ -5674,7 +5633,7 @@ CREATE VIEW vibetype_private.audit_log_trigger AS
      JOIN pg_class c ON ((t.tgrelid = c.oid)))
      JOIN pg_namespace n ON ((c.relnamespace = n.oid)))
      JOIN pg_proc p ON ((t.tgfoid = p.oid)))
-  WHERE ((t.tgname = 'zzz_audit_log_trigger'::name) AND (n.nspname = ANY (ARRAY['vibetype'::name, 'vibetype_private'::name])));
+  WHERE ((t.tgname = 'z_indexed_audit_log_trigger'::name) AND (n.nspname = ANY (ARRAY['vibetype'::name, 'vibetype_private'::name])));
 
 
 ALTER VIEW vibetype_private.audit_log_trigger OWNER TO ci;
@@ -5683,14 +5642,14 @@ ALTER VIEW vibetype_private.audit_log_trigger OWNER TO ci;
 -- Name: VIEW audit_log_trigger; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON VIEW vibetype_private.audit_log_trigger IS 'View showing all triggers named `zzz_audit_log_trigger` on tables in the `vibetype` or `vibetype_private` schema.';
+COMMENT ON VIEW vibetype_private.audit_log_trigger IS 'View showing all triggers named `z_indexed_audit_log_trigger` on tables in the `vibetype` or `vibetype_private` schema.';
 
 
 --
 -- Name: COLUMN audit_log_trigger.trigger_name; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_name IS 'The name of the trigger, should be `zzz_audit_log_trigger`';
+COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_name IS 'The name of the trigger, should be `z_indexed_audit_log_trigger`';
 
 
 --
@@ -8105,62 +8064,6 @@ REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION create_audit_log_trigger_for_table(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.create_audit_log_trigger_for_table(schema_name text, table_name text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION create_audit_log_triggers(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.create_audit_log_triggers() FROM PUBLIC;
-
-
---
--- Name: FUNCTION disable_audit_log_trigger_for_table(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.disable_audit_log_trigger_for_table(schema_name text, table_name text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION disable_audit_log_triggers(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.disable_audit_log_triggers() FROM PUBLIC;
-
-
---
--- Name: FUNCTION drop_audit_log_trigger_for_table(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.drop_audit_log_trigger_for_table(schema_name text, table_name text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION drop_audit_log_triggers(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.drop_audit_log_triggers() FROM PUBLIC;
-
-
---
--- Name: FUNCTION enable_audit_log_trigger_for_table(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.enable_audit_log_trigger_for_table(schema_name text, table_name text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION enable_audit_log_triggers(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.enable_audit_log_triggers() FROM PUBLIC;
-
-
---
 -- Name: FUNCTION events_invited(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -8174,6 +8077,62 @@ GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_anonymous;
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_create(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_create_multiple(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_create_multiple() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_disable(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_disable(schema_name text, table_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_disable_multiple(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_disable_multiple() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_drop(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_drop(schema_name text, table_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_drop_multiple(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_drop_multiple() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_enable(schema_name text, table_name text); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name text, table_name text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_audit_log_enable_multiple(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM PUBLIC;
 
 
 --

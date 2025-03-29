@@ -2,19 +2,16 @@ BEGIN;
 
 DO $$
 DECLARE
-  rec Record;
+  _record Record;
   _count INTEGER;
 BEGIN
-
   ---------------------------------------------------------
   -- drop all audit log triggers
 
-  RAISE NOTICE 'test: drop all audit log triggers';
+  PERFORM vibetype_private.trigger_audit_log_drop_multiple();
 
-  PERFORM vibetype_private.drop_audit_log_triggers();
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger;
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger;
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'There are still audit log triggers';
@@ -23,15 +20,13 @@ BEGIN
   ---------------------------------------------------------
   -- create all audit log triggers
 
-  RAISE NOTICE 'test: create all audit log triggers';
-
-  PERFORM vibetype_private.create_audit_log_triggers();
+  PERFORM vibetype_private.trigger_audit_log_create_multiple();
 
   -- check that no audit log triggers were created for vibetype_private.audit_log and vibetype_private.jwt
 
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE schema_name = 'vibetype_private' and table_name in ('audit_log', 'jwt');
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger
+    WHERE schema_name = 'vibetype_private' AND table_name in ('audit_log', 'jwt');
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'There must not be audit log triggers for vibetype_private.audit_log and vibetype_private.jwt';
@@ -41,38 +36,30 @@ BEGIN
 
   _count := 0;
 
-  FOR rec IN
-
+  FOR _record IN
     SELECT schemaname, tablename
-    FROM pg_tables
-    WHERE schemaname IN ('vibetype', 'vibetype_private')
+      FROM pg_tables
+      WHERE schemaname IN ('vibetype', 'vibetype_private')
 
-      EXCEPT
-
-    SELECT 'vibetype_private', 'audit_log' -- no audit log trigger for this table
-
-      EXCEPT
-
-    SELECT 'vibetype_private', 'jwt' -- no audit log trigger for this table
-
-      EXCEPT
-
-    SELECT schema_name, table_name
-    FROM vibetype_private.audit_log_trigger
-
+    EXCEPT
+      SELECT 'vibetype_private', 'audit_log' -- no audit log trigger for this table
+    EXCEPT
+      SELECT 'vibetype_private', 'jwt' -- no audit log trigger for this table
+    EXCEPT
+      SELECT schema_name, table_name
+        FROM vibetype_private.audit_log_trigger
   LOOP
-
     IF EXISTS (
       -- if current table has an id column there should have been an audti log trigger
       SELECT 1
-      FROM pg_catalog.pg_class c
-        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-        JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid
-      WHERE c.relname = rec.tablename AND c.relkind = 'r'
-        AND n.nspname = rec.schemaname AND a.attname = 'id'
+        FROM pg_catalog.pg_class c
+          JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+          JOIN pg_catalog.pg_attribute a ON c.oid = a.attrelid
+        WHERE c.relname = _record.tablename AND c.relkind = 'r'
+          AND n.nspname = _record.schemaname AND a.attname = 'id'
     ) THEN
       _count := _count + 1;
-      RAISE NOTICE 'Table % misses an audit log trigger', rec.schema_name || '.' || rec.table_name;
+      RAISE NOTICE 'Table % misses an audit log trigger', _record.schema_name || '.' || _record.table_name;
     END IF;
   END LOOP;
 
@@ -83,13 +70,11 @@ BEGIN
   ---------------------------------------------------------
   -- disable all audit log triggers
 
-  RAISE NOTICE 'test: disable all audit log triggers';
+  PERFORM vibetype_private.trigger_audit_log_disable_multiple();
 
-  PERFORM vibetype_private.disable_audit_log_triggers();
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE trigger_enabled != 'D';
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger
+    WHERE trigger_enabled != 'D';
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'There is still an enabled audit log trigger.';
@@ -98,13 +83,11 @@ BEGIN
   ---------------------------------------------------------
   -- enable all audit log triggers
 
-  RAISE NOTICE 'test: enable all audit log triggers';
+  PERFORM vibetype_private.trigger_audit_log_enable_multiple();
 
-  PERFORM vibetype_private.enable_audit_log_triggers();
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE trigger_enabled = 'D';
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger
+    WHERE trigger_enabled = 'D';
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'There is still a disabled audit log trigger.';
@@ -113,23 +96,12 @@ BEGIN
   ---------------------------------------------------------
   -- disable the audit log trigger for a single table
 
-  RAISE NOTICE 'test: disable the audit log trigger for a single table';
+  PERFORM vibetype_private.trigger_audit_log_disable ('vibetype', 'event');
 
-  PERFORM vibetype_private.disable_audit_log_trigger_for_table ('vibetype', 'event');
-
-  FOR rec in
-    SELECT *
+  SELECT COUNT(*) INTO _count
     FROM vibetype_private.audit_log_trigger
     WHERE trigger_enabled != 'D'
-      AND schema_name = 'vibetype' AND table_name = 'event'
-  LOOP
-    RAISE NOTICE 'row %', row_to_json(rec);
-  END LOOP;
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE trigger_enabled != 'D'
-    AND schema_name = 'vibetype' AND table_name = 'event';
+      AND schema_name = 'vibetype' AND table_name = 'event';
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'The audit log trigger on table vibetype.event is still enabled.';
@@ -138,14 +110,12 @@ BEGIN
   ---------------------------------------------------------
   -- enable the audit log trigger for a single table
 
-  RAISE NOTICE 'test: enable the audit log trigger for a single table';
+  PERFORM vibetype_private.trigger_audit_log_enable ('vibetype', 'event');
 
-  PERFORM vibetype_private.enable_audit_log_trigger_for_table ('vibetype', 'event');
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE trigger_enabled = 'D'
-    AND schema_name = 'vibetype' AND table_name = 'event';
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger
+    WHERE trigger_enabled = 'D'
+      AND schema_name = 'vibetype' AND table_name = 'event';
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'The audit log trigger on table vibetype.event is still disabled.';
@@ -154,12 +124,10 @@ BEGIN
   ---------------------------------------------------------
   -- drop all audit log triggers
 
-  RAISE NOTICE 'test: drop all audit log triggers';
+  PERFORM vibetype_private.trigger_audit_log_drop_multiple();
 
-  PERFORM vibetype_private.drop_audit_log_triggers();
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger;
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger;
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'There are still audit log triggers.';
@@ -168,13 +136,11 @@ BEGIN
   ---------------------------------------------------------
   -- create an audit log trigger for a single table
 
-  RAISE NOTICE 'test: create an audit log trigger for a single table';
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype', 'event');
 
-  PERFORM vibetype_private.create_audit_log_trigger_for_table('vibetype', 'event');
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE schema_name = 'vibetype' and table_name = 'event';
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger
+    WHERE schema_name = 'vibetype' AND table_name = 'event';
 
   IF _count != 1 THEN
     RAISE EXCEPTION 'The audit log trigger for table vibetype.event has not been created.';
@@ -183,20 +149,16 @@ BEGIN
   ---------------------------------------------------------
   -- drop the audit log trigger on a single table
 
-  RAISE NOTICE 'test: drop the audit log trigger on a single table';
+  PERFORM vibetype_private.trigger_audit_log_drop('vibetype', 'event');
 
-  PERFORM vibetype_private.drop_audit_log_trigger_for_table('vibetype', 'event');
-
-  SELECT count(*) INTO _count
-  FROM vibetype_private.audit_log_trigger
-  WHERE schema_name = 'vibetype' and table_name = 'event';
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log_trigger
+    WHERE schema_name = 'vibetype' AND table_name = 'event';
 
   IF _count != 0 THEN
     RAISE EXCEPTION 'The audit log trigger for table vibetype.event was not dropped.';
   END IF;
-
-  RAISE NOTICE 'tests completed successfully.';
-
-END; $$ LANGUAGE plpgsql;
+END;
+$$ LANGUAGE plpgsql;
 
 ROLLBACK;
