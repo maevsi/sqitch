@@ -1,3 +1,9 @@
+## [7.0.0-beta.6](https://github.com/maevsi/sqitch/compare/7.0.0-beta.5...7.0.0-beta.6) (2025-03-29)
+
+### Bug Fixes
+
+* **plan:** add dependency on account verification for friendship test ([fcbbb8c](https://github.com/maevsi/sqitch/commit/fcbbb8c1c564c593b65ea1bd2f874112ae4ee912))
+
 ## [7.0.0-beta.5](https://github.com/maevsi/sqitch/compare/7.0.0-beta.4...7.0.0-beta.5) (2025-03-27)
 
 ### Features
