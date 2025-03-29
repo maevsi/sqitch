@@ -10,7 +10,7 @@ CREATE TABLE vibetype.friendship (
   created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by          UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   updated_at          TIMESTAMP WITH TIME ZONE,
-  updated_by          UUID REFERENCES vibetype.account(id) ON DELETE CASCADE,
+  updated_by          UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
 
   UNIQUE (a_account_id, b_account_id),
   CONSTRAINT friendship_creator_participant CHECK (created_by = a_account_id or created_by = b_account_id),

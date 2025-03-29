@@ -4,7 +4,7 @@ CREATE TABLE vibetype.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   account_id            UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
-  address_id            UUID REFERENCES vibetype.address(id)  ON DELETE SET NULL,
+  address_id            UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   email_address         TEXT CHECK (char_length(email_address) < 255), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),

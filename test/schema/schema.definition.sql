@@ -6192,7 +6192,7 @@ ALTER TABLE ONLY vibetype.friendship
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
