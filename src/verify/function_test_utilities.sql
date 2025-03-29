@@ -2,8 +2,6 @@ BEGIN;
 
 DO $$
 BEGIN
-  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_test.set_local_superuser()', 'EXECUTE'));
-  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype_test.set_local_superuser()', 'EXECUTE'));
   ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_test.account_create(TEXT, TEXT)', 'EXECUTE'));
   ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_test.account_remove(TEXT)', 'EXECUTE'));
   ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_test.contact_select_by_account_id(UUID)', 'EXECUTE'));

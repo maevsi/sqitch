@@ -1,6 +1,5 @@
 BEGIN;
 
-DROP PROCEDURE vibetype_test.set_local_superuser();
 DROP FUNCTION vibetype_test.account_block_create(UUID, UUID);
 DROP FUNCTION vibetype_test.account_block_remove(UUID, UUID);
 DROP FUNCTION vibetype_test.account_create(TEXT, TEXT);

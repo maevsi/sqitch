@@ -2757,7 +2757,7 @@ BEGIN
     SET "status" = 'accepted'::vibetype.friendship_status
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2839,7 +2839,7 @@ BEGIN
   DELETE FROM vibetype.friendship
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2872,7 +2872,7 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -2914,7 +2914,7 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -3075,38 +3075,12 @@ CREATE FUNCTION vibetype_test.invoker_unset() RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
 END $$;
 
 
 ALTER FUNCTION vibetype_test.invoker_unset() OWNER TO ci;
-
---
--- Name: set_local_superuser(); Type: PROCEDURE; Schema: vibetype_test; Owner: ci
---
-
-CREATE PROCEDURE vibetype_test.set_local_superuser()
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _superuser_name TEXT;
-BEGIN
-  SELECT usename INTO _superuser_name
-  FROM pg_user
-  WHERE usesuper = true
-  ORDER BY usename
-  LIMIT 1;
-
-  IF _superuser_name IS NOT NULL THEN
-    EXECUTE format('SET LOCAL role = %I', _superuser_name);
-  ELSE
-    RAISE NOTICE 'No superuser found!';
-  END IF;
-END $$;
-
-
-ALTER PROCEDURE vibetype_test.set_local_superuser() OWNER TO ci;
 
 --
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: vibetype_test; Owner: ci
@@ -7799,15 +7773,6 @@ GRANT ALL ON FUNCTION vibetype_test.invoker_set(_invoker_id uuid) TO vibetype_ac
 
 REVOKE ALL ON FUNCTION vibetype_test.invoker_unset() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_test.invoker_unset() TO vibetype_account;
-
-
---
--- Name: PROCEDURE set_local_superuser(); Type: ACL; Schema: vibetype_test; Owner: ci
---
-
-REVOKE ALL ON PROCEDURE vibetype_test.set_local_superuser() FROM PUBLIC;
-GRANT ALL ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_anonymous;
-GRANT ALL ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_account;
 
 
 --

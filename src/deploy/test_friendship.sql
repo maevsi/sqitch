@@ -15,7 +15,7 @@ BEGIN
     SET "status" = 'accepted'::vibetype.friendship_status
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION vibetype_test.friendship_reject (
@@ -29,7 +29,7 @@ BEGIN
   DELETE FROM vibetype.friendship
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION vibetype_test.friendship_request (
@@ -56,7 +56,7 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -94,7 +94,7 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION vibetype_test.friendship_account_ids_test (

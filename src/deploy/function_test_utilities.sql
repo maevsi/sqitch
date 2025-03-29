@@ -1,26 +1,5 @@
 BEGIN;
 
-CREATE PROCEDURE vibetype_test.set_local_superuser()
-AS $$
-DECLARE
-  _superuser_name TEXT;
-BEGIN
-  SELECT usename INTO _superuser_name
-  FROM pg_user
-  WHERE usesuper = true
-  ORDER BY usename
-  LIMIT 1;
-
-  IF _superuser_name IS NOT NULL THEN
-    EXECUTE format('SET LOCAL role = %I', _superuser_name);
-  ELSE
-    RAISE NOTICE 'No superuser found!';
-  END IF;
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_anonymous, vibetype_account;
-
-
 CREATE FUNCTION vibetype_test.account_create (
   _username TEXT,
   _email TEXT
@@ -393,7 +372,7 @@ GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set(UUID) TO vibetype_account;
 CREATE FUNCTION vibetype_test.invoker_unset ()
 RETURNS VOID AS $$
 BEGIN
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
 END $$ LANGUAGE plpgsql;
 
