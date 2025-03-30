@@ -1,10 +1,12 @@
 BEGIN;
 
 CREATE TABLE vibetype.account_preference_event_category (
-    account_id UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
-    category_id UUID NOT NULL REFERENCES vibetype.event_category(id) ON DELETE CASCADE,
+  account_id  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
+  category_id UUID NOT NULL REFERENCES vibetype.event_category(id) ON DELETE CASCADE,
 
-    PRIMARY KEY (account_id, category_id)
+  created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (account_id, category_id)
 );
 
 COMMENT ON TABLE vibetype.account_preference_event_category IS 'Event categories a user account is interested in (M:N relationship).';

@@ -3717,7 +3717,8 @@ COMMENT ON COLUMN vibetype.account_block.created_by IS 'The account id of the us
 
 CREATE TABLE vibetype.account_preference_event_category (
     account_id uuid NOT NULL,
-    category_id uuid NOT NULL
+    category_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -5572,6 +5573,14 @@ ALTER TABLE ONLY vibetype.event_format_mapping
 
 
 --
+-- Name: event_format event_format_name_unique; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_format
+    ADD CONSTRAINT event_format_name_unique UNIQUE (name);
+
+
+--
 -- Name: event_format event_format_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5751,14 +5760,6 @@ ALTER TABLE ONLY vibetype.report
 
 ALTER TABLE ONLY vibetype.event_category
     ADD CONSTRAINT unique_event_category_name UNIQUE (name);
-
-
---
--- Name: event_format unique_event_format_name; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_format
-    ADD CONSTRAINT unique_event_format_name UNIQUE (name);
 
 
 --
