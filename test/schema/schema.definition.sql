@@ -1546,7 +1546,7 @@ BEGIN
     JOIN vibetype.upload u ON p.upload_id = u.id
   WHERE p.account_id = _event.created_by;
 
-  INSERT INTO vibetype.invitation (guest_id, channel, payload, created_by)
+  INSERT INTO vibetype.notification_invitation (guest_id, channel, payload, created_by)
     VALUES (
       invite.guest_id,
       'event_invitation',
@@ -4676,99 +4676,6 @@ COMMENT ON VIEW vibetype.guest_flat IS 'View returning flattened guests.';
 
 
 --
--- Name: notification; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.notification (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    channel text NOT NULL,
-    is_acknowledged boolean,
-    payload text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
-);
-
-
-ALTER TABLE vibetype.notification OWNER TO ci;
-
---
--- Name: TABLE notification; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.notification IS 'A notification.';
-
-
---
--- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification.id IS 'The notification''s internal id.';
-
-
---
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification.channel IS 'The notification''s channel.';
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
-
-
---
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
-
-
---
--- Name: invitation; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.invitation (
-    guest_id uuid NOT NULL,
-    created_by uuid NOT NULL
-)
-INHERITS (vibetype.notification);
-
-
-ALTER TABLE vibetype.invitation OWNER TO ci;
-
---
--- Name: TABLE invitation; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.invitation IS '@omit update,delete\nStores invitations and their statuses.';
-
-
---
--- Name: COLUMN invitation.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.invitation.guest_id IS 'The ID of the guest associated with this invitation.';
-
-
---
--- Name: COLUMN invitation.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.invitation.created_by IS '@omit create
-Reference to the account that created the invitation.';
-
-
---
 -- Name: legal_term; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -4878,6 +4785,99 @@ COMMENT ON COLUMN vibetype.legal_term_acceptance.legal_term_id IS 'The ID of the
 
 COMMENT ON COLUMN vibetype.legal_term_acceptance.created_at IS '@omit create
 Timestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
+
+
+--
+-- Name: notification; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.notification (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    channel text NOT NULL,
+    is_acknowledged boolean,
+    payload text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
+);
+
+
+ALTER TABLE vibetype.notification OWNER TO ci;
+
+--
+-- Name: TABLE notification; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.notification IS 'A notification.';
+
+
+--
+-- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.id IS 'The notification''s internal id.';
+
+
+--
+-- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.channel IS 'The notification''s channel.';
+
+
+--
+-- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+
+
+--
+-- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.';
+
+
+--
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
+-- Name: notification_invitation; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.notification_invitation (
+    guest_id uuid NOT NULL,
+    created_by uuid NOT NULL
+)
+INHERITS (vibetype.notification);
+
+
+ALTER TABLE vibetype.notification_invitation OWNER TO ci;
+
+--
+-- Name: TABLE notification_invitation; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.notification_invitation IS '@omit update,delete\nStores invitations and their statuses.';
+
+
+--
+-- Name: COLUMN notification_invitation.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification_invitation.guest_id IS 'The ID of the guest associated with this invitation.';
+
+
+--
+-- Name: COLUMN notification_invitation.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification_invitation.created_by IS '@omit create
+Reference to the account that created the invitation.';
 
 
 --
@@ -5204,17 +5204,17 @@ COMMENT ON COLUMN vibetype_private.jwt.token IS 'The token.';
 
 
 --
--- Name: invitation id; Type: DEFAULT; Schema: vibetype; Owner: ci
+-- Name: notification_invitation id; Type: DEFAULT; Schema: vibetype; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype.invitation ALTER COLUMN id SET DEFAULT gen_random_uuid();
+ALTER TABLE ONLY vibetype.notification_invitation ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
 
 --
--- Name: invitation created_at; Type: DEFAULT; Schema: vibetype; Owner: ci
+-- Name: notification_invitation created_at; Type: DEFAULT; Schema: vibetype; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype.invitation ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE ONLY vibetype.notification_invitation ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
 
 
 --
@@ -5830,7 +5830,7 @@ COMMENT ON INDEX vibetype.idx_guest_updated_by IS 'B-Tree index to optimize look
 -- Name: idx_invitation_guest_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_invitation_guest_id ON vibetype.invitation USING btree (guest_id);
+CREATE INDEX idx_invitation_guest_id ON vibetype.notification_invitation USING btree (guest_id);
 
 
 --
@@ -6253,22 +6253,6 @@ ALTER TABLE ONLY vibetype.guest
 
 
 --
--- Name: invitation invitation_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.invitation
-    ADD CONSTRAINT invitation_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
-
-
---
--- Name: invitation invitation_guest_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.invitation
-    ADD CONSTRAINT invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES vibetype.guest(id);
-
-
---
 -- Name: legal_term_acceptance legal_term_acceptance_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6282,6 +6266,22 @@ ALTER TABLE ONLY vibetype.legal_term_acceptance
 
 ALTER TABLE ONLY vibetype.legal_term_acceptance
     ADD CONSTRAINT legal_term_acceptance_legal_term_id_fkey FOREIGN KEY (legal_term_id) REFERENCES vibetype.legal_term(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: notification_invitation notification_invitation_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification_invitation
+    ADD CONSTRAINT notification_invitation_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+
+
+--
+-- Name: notification_invitation notification_invitation_guest_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification_invitation
+    ADD CONSTRAINT notification_invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES vibetype.guest(id);
 
 
 --
@@ -6783,29 +6783,6 @@ EXCEPT
 
 
 --
--- Name: invitation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE vibetype.invitation ENABLE ROW LEVEL SECURITY;
-
---
--- Name: invitation invitation_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY invitation_insert ON vibetype.invitation FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (vibetype.invoker_account_id() = ( SELECT e.created_by
-   FROM (vibetype.guest g
-     JOIN vibetype.event e ON ((g.event_id = e.id)))
-  WHERE (g.id = invitation.guest_id)))));
-
-
---
--- Name: invitation invitation_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY invitation_select ON vibetype.invitation FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
-
-
---
 -- Name: legal_term; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -6836,6 +6813,29 @@ CREATE POLICY legal_term_acceptance_select ON vibetype.legal_term_acceptance FOR
 --
 
 CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (true);
+
+
+--
+-- Name: notification_invitation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.notification_invitation ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: notification_invitation notification_invitation_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_invitation_insert ON vibetype.notification_invitation FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (vibetype.invoker_account_id() = ( SELECT e.created_by
+   FROM (vibetype.guest g
+     JOIN vibetype.event e ON ((g.event_id = e.id)))
+  WHERE (g.id = notification_invitation.guest_id)))));
+
+
+--
+-- Name: notification_invitation notification_invitation_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_invitation_select ON vibetype.notification_invitation FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -7922,13 +7922,6 @@ GRANT SELECT ON TABLE vibetype.guest_flat TO vibetype_anonymous;
 
 
 --
--- Name: TABLE invitation; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT,INSERT ON TABLE vibetype.invitation TO vibetype_account;
-
-
---
 -- Name: TABLE legal_term; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7941,6 +7934,13 @@ GRANT SELECT ON TABLE vibetype.legal_term TO vibetype_anonymous;
 --
 
 GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
+
+
+--
+-- Name: TABLE notification_invitation; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT ON TABLE vibetype.notification_invitation TO vibetype_account;
 
 
 --

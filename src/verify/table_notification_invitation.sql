@@ -7,10 +7,10 @@ SELECT
   is_acknowledged,
   payload,
   created_at,
-  -- columns specific for vibetype.invitation
+  -- columns specific for vibetype.notification_invitation
   guest_id,
   created_by
-FROM vibetype.invitation
+FROM vibetype.notification_invitation
 WHERE FALSE;
 
 ROLLBACK;

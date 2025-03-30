@@ -26,7 +26,7 @@ BEGIN
   invitationId := vibetype.invite(guestAB, 'de');
 
   SELECT guest_id, created_by, channel INTO rec
-  FROM vibetype.invitation
+  FROM vibetype.notification_invitation
   WHERE id = invitationId;
 
   IF rec.guest_id != guestAB or rec.created_by != accountA or rec.channel != 'event_invitation' THEN

@@ -70,7 +70,7 @@ BEGIN
     JOIN vibetype.upload u ON p.upload_id = u.id
   WHERE p.account_id = _event.created_by;
 
-  INSERT INTO vibetype.invitation (guest_id, channel, payload, created_by)
+  INSERT INTO vibetype.notification_invitation (guest_id, channel, payload, created_by)
     VALUES (
       invite.guest_id,
       'event_invitation',

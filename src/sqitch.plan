@@ -102,6 +102,6 @@ enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven
 table_friendship [schema_public enum_friendship_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
 table_friendship_policy [schema_public table_friendship role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
 test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
-table_invitation [schema_public table_guest table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
-table_invitation_policy [schema_public table_invitation role_account function_invoker_account_id table_guest table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Stores invitations and their statuses.
+table_notification_invitation [schema_public table_guest table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
+table_notification_invitation_policy [schema_public table_notification_invitation role_account function_invoker_account_id table_guest table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Stores invitations and their statuses.
 test_invitation [schema_test function_test_utilities] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Invitation related tests.
