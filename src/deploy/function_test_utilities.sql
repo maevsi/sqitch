@@ -17,7 +17,7 @@ BEGIN
   PERFORM vibetype.account_email_address_verification(_verification);
 
   RETURN _id;
-END $$ LANGUAGE plpgsql;
+END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_create(TEXT, TEXT) TO vibetype_account;
 
@@ -70,10 +70,13 @@ DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-  SELECT id FROM vibetype_private.account WHERE email_address = _email_address INTO _account_id;
 
-  SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
+
+  SELECT id
+  INTO _account_id
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
 
   INSERT INTO vibetype.contact(created_by, email_address)
   VALUES (_created_by, _email_address)
@@ -83,10 +86,8 @@ BEGIN
     UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL ROLE NONE;
-
   RETURN _id;
-END $$ LANGUAGE plpgsql;
+END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_create(UUID, TEXT) TO vibetype_account;
 
