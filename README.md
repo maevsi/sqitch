@@ -16,7 +16,7 @@ Changes to the test data can be persisted using `git add -AN && git diff > test/
 
 This diagram shows the structure of Vibetype's database.
 
-![Graph](./docs/graph.png)
+![Graph](./docs/resources/graph.png)
 
 You can create this file as follows:
 
