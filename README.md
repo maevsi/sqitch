@@ -35,3 +35,11 @@ You can create this file as follows:
 1. then upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
 
 1. click the link in the output and download the image that pops up!
+
+## Additional Documentation
+
+You find additional documentation on selected database topics here:
+
+* [Roles](./docs/roles.md)
+
+* [Vacuuming the database](./docs/advanced/vacuum.md)
