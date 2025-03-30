@@ -1,3 +1,13 @@
+## [7.0.0-beta.7](https://github.com/maevsi/sqitch/compare/7.0.0-beta.6...7.0.0-beta.7) (2025-03-30)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** add format preference (#180)
+
+### Features
+
+* **event:** add format preference ([#180](https://github.com/maevsi/sqitch/issues/180)) ([31ee10b](https://github.com/maevsi/sqitch/commit/31ee10bcf6ca9fcf3284ce337e3d387bbbb2a7e2))
+
 ## [7.0.0-beta.6](https://github.com/maevsi/sqitch/compare/7.0.0-beta.5...7.0.0-beta.6) (2025-03-29)
 
 ### Bug Fixes
