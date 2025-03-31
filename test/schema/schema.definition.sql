@@ -6064,7 +6064,7 @@ ALTER TABLE ONLY vibetype.device
 --
 
 ALTER TABLE ONLY vibetype.event
-    ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id);
+    ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id) ON DELETE SET NULL;
 
 
 --

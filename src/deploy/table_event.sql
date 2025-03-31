@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.event (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  address_id               UUID REFERENCES vibetype.address(id),
+  address_id               UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
   guest_count_maximum    INTEGER CHECK (guest_count_maximum > 0),
