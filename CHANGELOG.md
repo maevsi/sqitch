@@ -1,3 +1,13 @@
+## [7.0.0-beta.9](https://github.com/maevsi/sqitch/compare/7.0.0-beta.8...7.0.0-beta.9) (2025-03-31)
+
+### ⚠ BREAKING CHANGES
+
+* **constraint:** add `ON DELETE` clauses to foreign keys (#175)
+
+### Features
+
+* **constraint:** add `ON DELETE` clauses to foreign keys ([#175](https://github.com/maevsi/sqitch/issues/175)) ([11fd0f4](https://github.com/maevsi/sqitch/commit/11fd0f4c04ef0ad30e09f0c492bcbfeb6bb6429f))
+
 ## [7.0.0-beta.8](https://github.com/maevsi/sqitch/compare/7.0.0-beta.7...7.0.0-beta.8) (2025-03-31)
 
 ### Features
