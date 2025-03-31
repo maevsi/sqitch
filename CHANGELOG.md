@@ -1,3 +1,9 @@
+## [7.0.0-beta.8](https://github.com/maevsi/sqitch/compare/7.0.0-beta.7...7.0.0-beta.8) (2025-03-31)
+
+### Features
+
+* add audit log ([#168](https://github.com/maevsi/sqitch/issues/168)) ([0933459](https://github.com/maevsi/sqitch/commit/0933459063f46ca3f8eb225c5ff2b5bdf697249c))
+
 ## [7.0.0-beta.7](https://github.com/maevsi/sqitch/compare/7.0.0-beta.6...7.0.0-beta.7) (2025-03-30)
 
 ### ⚠ BREAKING CHANGES
