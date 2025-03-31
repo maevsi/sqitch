@@ -1,3 +1,9 @@
+## [6.1.0](https://github.com/maevsi/sqitch/compare/6.0.0...6.1.0) (2025-03-25)
+
+### Features
+
+* **event:** add format mapping ([#178](https://github.com/maevsi/sqitch/issues/178)) ([b3ddef8](https://github.com/maevsi/sqitch/commit/b3ddef8f0f291cd443245563e8996c8e64ef5559))
+
 ## [6.0.0](https://github.com/maevsi/sqitch/compare/5.0.2...6.0.0) (2025-03-12)
 
 ### ⚠ BREAKING CHANGES

@@ -101,6 +101,8 @@ enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven
 table_friendship [schema_public enum_friendship_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
 table_friendship_policy [schema_public table_friendship role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
 test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
+table_event_format [schema_public role_anonymous role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Table for storing event formats.
+table_event_format_mapping [schema_public table_event table_event_format role_anonymous role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Table for storing event to category (M:N) relationships.
 table_audit_log [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Table for storing audit log records.
 view_audit_log_trigger [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # View showing all audit log triggers.
 function_audit_log [schema_private table_audit_log view_audit_log_trigger] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Utility functions for managing audit log triggers.
