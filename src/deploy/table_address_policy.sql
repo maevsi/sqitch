@@ -5,7 +5,7 @@ GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.address TO vibetype_accou
 
 ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY address ON vibetype.address USING (
+CREATE POLICY address ON vibetype.address FOR ALL USING (
   created_by = vibetype.invoker_account_id()
   AND
   created_by NOT IN (

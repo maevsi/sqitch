@@ -383,7 +383,7 @@ DECLARE
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_delete.password, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     IF (EXISTS (SELECT 1 FROM vibetype.event WHERE event.created_by = _current_account_id)) THEN
       RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
     ELSE
@@ -460,8 +460,8 @@ BEGIN
 
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(account_password_change.password_current, account.password_hash))) THEN
-    UPDATE vibetype_private.account SET password_hash = crypt(account_password_change.password_new, gen_salt('bf')) WHERE account.id = _current_account_id;
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
+    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -507,7 +507,7 @@ BEGIN
 
   UPDATE vibetype_private.account
     SET
-      password_hash = crypt(account_password_reset.password, gen_salt('bf')),
+      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf')),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
 END;
@@ -572,10 +572,10 @@ COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, 
 
 
 --
--- Name: account_registration(text, text, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: account_registration(text, text, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) RETURNS uuid
+CREATE FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -596,7 +596,7 @@ BEGIN
   END IF;
 
   INSERT INTO vibetype_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, crypt(account_registration.password, gen_salt('bf')), CURRENT_TIMESTAMP)
+    (account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -609,6 +609,9 @@ BEGIN
     _new_account_private.email_address_verification,
     _new_account_private.email_address_verification_valid_until
   INTO _new_account_notify;
+
+  INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
+    (_new_account_private.id, account_registration.legal_term_id);
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
@@ -625,13 +628,13 @@ END;
 $$;
 
 
-ALTER FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(email_address text, language text, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) IS 'Creates a contact and registers an account referencing it.';
+COMMENT ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) IS 'Creates a contact and registers an account referencing it.';
 
 
 --
@@ -794,7 +797,7 @@ BEGIN
         FROM vibetype_private.account
         WHERE
               account.id = _account_id
-          AND account.password_hash = crypt(authenticate.password, account.password_hash)
+          AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
       ) IS NOT NULL) THEN
       RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
     END IF;
@@ -805,7 +808,7 @@ BEGIN
       WHERE
             account.id = _account_id
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = crypt(authenticate.password, account.password_hash)
+        AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
       RETURNING *
     ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
       FROM updated
@@ -1123,7 +1126,7 @@ DECLARE
 BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = crypt(event_delete.password, account.password_hash))) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(event_delete.password, account.password_hash))) THEN
     DELETE
       FROM vibetype.event
       WHERE
@@ -2248,31 +2251,6 @@ END $$;
 ALTER FUNCTION vibetype_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO ci;
 
 --
--- Name: account_create(text, text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
---
-
-CREATE FUNCTION vibetype_test.account_create(_username text, _email text) RETURNS uuid
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _id UUID;
-  _verification UUID;
-BEGIN
-  _id := vibetype.account_registration(_username, _email, 'password', 'en');
-
-  SELECT email_address_verification INTO _verification
-  FROM vibetype_private.account
-  WHERE id = _id;
-
-  PERFORM vibetype.account_email_address_verification(_verification);
-
-  RETURN _id;
-END $$;
-
-
-ALTER FUNCTION vibetype_test.account_create(_username text, _email text) OWNER TO ci;
-
---
 -- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: vibetype_test; Owner: ci
 --
 
@@ -2382,18 +2360,20 @@ CREATE FUNCTION vibetype_test.account_registration_verified(_username text, _ema
     LANGUAGE plpgsql
     AS $$
 DECLARE
-  _id UUID;
+  _account_id UUID;
+  _legal_term_id UUID;
   _verification UUID;
 BEGIN
-  _id := vibetype.account_registration(_username, _email_address, 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
 
   SELECT email_address_verification INTO _verification
   FROM vibetype_private.account
-  WHERE id = _id;
+  WHERE id = _account_id;
 
   PERFORM vibetype.account_email_address_verification(_verification);
 
-  RETURN _id;
+  RETURN _account_id;
 END $$;
 
 
@@ -2519,7 +2499,7 @@ CREATE FUNCTION vibetype_test.event_category_create(_category text) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  INSERT INTO vibetype.event_category(category) VALUES (_category);
+  INSERT INTO vibetype.event_category(name) VALUES (_category);
 END $$;
 
 
@@ -2536,8 +2516,8 @@ BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO vibetype.event_category_mapping(event_id, category)
-  VALUES (_event_id, _category);
+  INSERT INTO vibetype.event_category_mapping(event_id, category_id)
+  VALUES (_event_id, (SELECT id FROM vibetype.event_category WHERE name = _category));
 
   CALL vibetype_test.set_local_superuser();
 END $$;
@@ -3078,6 +3058,30 @@ END $$;
 
 
 ALTER FUNCTION vibetype_test.invoker_unset() OWNER TO ci;
+
+--
+-- Name: legal_term_singleton(); Type: FUNCTION; Schema: vibetype_test; Owner: ci
+--
+
+CREATE FUNCTION vibetype_test.legal_term_singleton() RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _id UUID;
+  _verification UUID;
+BEGIN
+  SELECT id INTO _id FROM vibetype.legal_term LIMIT 1;
+
+  IF (_id IS NULL) THEN
+    INSERT INTO vibetype.legal_term (term, version) VALUES ('Be excellent to each other', '0.0.0')
+      RETURNING id INTO _id;
+  END IF;
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION vibetype_test.legal_term_singleton() OWNER TO ci;
 
 --
 -- Name: set_local_superuser(); Type: PROCEDURE; Schema: vibetype_test; Owner: ci
@@ -3708,36 +3712,78 @@ COMMENT ON COLUMN vibetype.account_block.created_by IS 'The account id of the us
 
 
 --
--- Name: account_interest; Type: TABLE; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
-CREATE TABLE vibetype.account_interest (
+CREATE TABLE vibetype.account_preference_event_category (
     account_id uuid NOT NULL,
-    category text NOT NULL
+    category_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
-ALTER TABLE vibetype.account_interest OWNER TO ci;
+ALTER TABLE vibetype.account_preference_event_category OWNER TO ci;
 
 --
--- Name: TABLE account_interest; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: TABLE account_preference_event_category; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.account_interest IS 'Event categories a user account is interested in (M:N relationship).';
-
-
---
--- Name: COLUMN account_interest.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account_interest.account_id IS 'A user account id.';
+COMMENT ON TABLE vibetype.account_preference_event_category IS 'Event categories a user account is interested in (M:N relationship).';
 
 
 --
--- Name: COLUMN account_interest.category; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN account_preference_event_category.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account_interest.category IS 'An event category.';
+COMMENT ON COLUMN vibetype.account_preference_event_category.account_id IS 'A user account id.';
+
+
+--
+-- Name: COLUMN account_preference_event_category.category_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_preference_event_category.category_id IS 'An event category id.';
+
+
+--
+-- Name: account_preference_event_format; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.account_preference_event_format (
+    account_id uuid NOT NULL,
+    format_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype.account_preference_event_format OWNER TO ci;
+
+--
+-- Name: TABLE account_preference_event_format; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.account_preference_event_format IS 'Event formats a user account is interested in (M:N relationship).';
+
+
+--
+-- Name: COLUMN account_preference_event_format.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_preference_event_format.account_id IS 'A user account id.';
+
+
+--
+-- Name: COLUMN account_preference_event_format.format_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_preference_event_format.format_id IS 'The id of an event format.';
+
+
+--
+-- Name: COLUMN account_preference_event_format.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_preference_event_format.created_at IS 'The timestammp when the record was created..';
 
 
 --
@@ -4230,7 +4276,8 @@ Reference to the account that last updated the device.';
 --
 
 CREATE TABLE vibetype.event_category (
-    category text NOT NULL
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL
 );
 
 
@@ -4244,10 +4291,17 @@ COMMENT ON TABLE vibetype.event_category IS 'Event categories.';
 
 
 --
--- Name: COLUMN event_category.category; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN event_category.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_category.category IS 'A category name.';
+COMMENT ON COLUMN vibetype.event_category.id IS 'The id of the event category.';
+
+
+--
+-- Name: COLUMN event_category.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_category.name IS 'A category name.';
 
 
 --
@@ -4256,7 +4310,7 @@ COMMENT ON COLUMN vibetype.event_category.category IS 'A category name.';
 
 CREATE TABLE vibetype.event_category_mapping (
     event_id uuid NOT NULL,
-    category text NOT NULL
+    category_id uuid NOT NULL
 );
 
 
@@ -4277,10 +4331,10 @@ COMMENT ON COLUMN vibetype.event_category_mapping.event_id IS 'An event id.';
 
 
 --
--- Name: COLUMN event_category_mapping.category; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN event_category_mapping.category_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_category_mapping.category IS 'A category name.';
+COMMENT ON COLUMN vibetype.event_category_mapping.category_id IS 'A category id.';
 
 
 --
@@ -4341,7 +4395,7 @@ Reference to the account that created the event favorite.';
 
 CREATE TABLE vibetype.event_format (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text
+    name text NOT NULL
 );
 
 
@@ -5346,19 +5400,27 @@ ALTER TABLE ONLY vibetype.account_block
 
 
 --
--- Name: account_interest account_interest_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.account_interest
-    ADD CONSTRAINT account_interest_pkey PRIMARY KEY (account_id, category);
-
-
---
 -- Name: account account_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.account
     ADD CONSTRAINT account_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: account_preference_event_category account_preference_event_category_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_preference_event_category
+    ADD CONSTRAINT account_preference_event_category_pkey PRIMARY KEY (account_id, category_id);
+
+
+--
+-- Name: account_preference_event_format account_preference_event_format_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_preference_event_format
+    ADD CONSTRAINT account_preference_event_format_pkey PRIMARY KEY (account_id, format_id);
 
 
 --
@@ -5460,7 +5522,7 @@ ALTER TABLE ONLY vibetype.device
 --
 
 ALTER TABLE ONLY vibetype.event_category_mapping
-    ADD CONSTRAINT event_category_mapping_pkey PRIMARY KEY (event_id, category);
+    ADD CONSTRAINT event_category_mapping_pkey PRIMARY KEY (event_id, category_id);
 
 
 --
@@ -5468,7 +5530,7 @@ ALTER TABLE ONLY vibetype.event_category_mapping
 --
 
 ALTER TABLE ONLY vibetype.event_category
-    ADD CONSTRAINT event_category_pkey PRIMARY KEY (category);
+    ADD CONSTRAINT event_category_pkey PRIMARY KEY (id);
 
 
 --
@@ -5508,6 +5570,14 @@ ALTER TABLE ONLY vibetype.event_favorite
 
 ALTER TABLE ONLY vibetype.event_format_mapping
     ADD CONSTRAINT event_format_mapping_pkey PRIMARY KEY (event_id, format_id);
+
+
+--
+-- Name: event_format event_format_name_unique; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_format
+    ADD CONSTRAINT event_format_name_unique UNIQUE (name);
 
 
 --
@@ -5682,6 +5752,14 @@ COMMENT ON CONSTRAINT report_created_by_target_account_id_target_event_id_target
 
 ALTER TABLE ONLY vibetype.report
     ADD CONSTRAINT report_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_category unique_event_category_name; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_category
+    ADD CONSTRAINT unique_event_category_name UNIQUE (name);
 
 
 --
@@ -6046,19 +6124,35 @@ ALTER TABLE ONLY vibetype.account
 
 
 --
--- Name: account_interest account_interest_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category account_preference_event_category_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype.account_interest
-    ADD CONSTRAINT account_interest_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+ALTER TABLE ONLY vibetype.account_preference_event_category
+    ADD CONSTRAINT account_preference_event_category_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
--- Name: account_interest account_interest_category_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category account_preference_event_category_category_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype.account_interest
-    ADD CONSTRAINT account_interest_category_fkey FOREIGN KEY (category) REFERENCES vibetype.event_category(category) ON DELETE CASCADE;
+ALTER TABLE ONLY vibetype.account_preference_event_category
+    ADD CONSTRAINT account_preference_event_category_category_id_fkey FOREIGN KEY (category_id) REFERENCES vibetype.event_category(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_preference_event_format account_preference_event_format_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_preference_event_format
+    ADD CONSTRAINT account_preference_event_format_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_preference_event_format account_preference_event_format_format_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_preference_event_format
+    ADD CONSTRAINT account_preference_event_format_format_id_fkey FOREIGN KEY (format_id) REFERENCES vibetype.event_format(id) ON DELETE CASCADE;
 
 
 --
@@ -6150,11 +6244,11 @@ ALTER TABLE ONLY vibetype.event
 
 
 --
--- Name: event_category_mapping event_category_mapping_category_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: event_category_mapping event_category_mapping_category_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.event_category_mapping
-    ADD CONSTRAINT event_category_mapping_category_fkey FOREIGN KEY (category) REFERENCES vibetype.event_category(category) ON DELETE CASCADE;
+    ADD CONSTRAINT event_category_mapping_category_id_fkey FOREIGN KEY (category_id) REFERENCES vibetype.event_category(id) ON DELETE CASCADE;
 
 
 --
@@ -6423,30 +6517,57 @@ CREATE POLICY account_block_select ON vibetype.account_block FOR SELECT USING ((
 
 
 --
--- Name: account_interest; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
-ALTER TABLE vibetype.account_interest ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibetype.account_preference_event_category ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_interest account_interest_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category account_preference_event_category_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_interest_delete ON vibetype.account_interest FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_interest account_interest_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_interest_insert ON vibetype.account_interest FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY account_preference_event_category_delete ON vibetype.account_preference_event_category FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
--- Name: account_interest account_interest_select; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category account_preference_event_category_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_interest_select ON vibetype.account_interest FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY account_preference_event_category_insert ON vibetype.account_preference_event_category FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: account_preference_event_category account_preference_event_category_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_preference_event_category_select ON vibetype.account_preference_event_category FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: account_preference_event_format; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.account_preference_event_format ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_preference_event_format account_preference_event_format_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_preference_event_format_delete ON vibetype.account_preference_event_format FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: account_preference_event_format account_preference_event_format_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_preference_event_format_insert ON vibetype.account_preference_event_format FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: account_preference_event_format account_preference_event_format_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_preference_event_format_select ON vibetype.account_preference_event_format FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7304,12 +7425,12 @@ GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text
 
 
 --
--- Name: FUNCTION account_registration(username text, email_address text, password text, language text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(email_address text, language text, legal_term_id uuid, password text, username text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) TO vibetype_anonymous;
-GRANT ALL ON FUNCTION vibetype.account_registration(username text, email_address text, password text, language text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_account;
 
 
 --
@@ -7617,14 +7738,6 @@ GRANT ALL ON FUNCTION vibetype_test.account_block_remove(_created_by uuid, _bloc
 
 
 --
--- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: vibetype_test; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_test.account_create(_username text, _email text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_test.account_create(_username text, _email text) TO vibetype_account;
-
-
---
 -- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: vibetype_test; Owner: ci
 --
 
@@ -7834,6 +7947,13 @@ GRANT ALL ON FUNCTION vibetype_test.invoker_unset() TO vibetype_account;
 
 
 --
+-- Name: FUNCTION legal_term_singleton(); Type: ACL; Schema: vibetype_test; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_test.legal_term_singleton() FROM PUBLIC;
+
+
+--
 -- Name: PROCEDURE set_local_superuser(); Type: ACL; Schema: vibetype_test; Owner: ci
 --
 
@@ -7867,10 +7987,17 @@ GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;
 
 
 --
--- Name: TABLE account_interest; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: TABLE account_preference_event_category; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_interest TO vibetype_account;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_preference_event_category TO vibetype_account;
+
+
+--
+-- Name: TABLE account_preference_event_format; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_preference_event_format TO vibetype_account;
 
 
 --

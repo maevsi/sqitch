@@ -18,10 +18,10 @@ index 0000000..88e6683
 +
 +BEGIN
 +SELECT vibetype.account_registration(
-+    'jonas',
 +    'mail+sqitch-1@maev.si',
++    'en',
 +    'testtest',
-+    'en'
++    'jonas'
 +  ) INTO _account_id_jonas;
 +
 +PERFORM vibetype.account_email_address_verification(
@@ -33,10 +33,10 @@ index 0000000..88e6683
 +);
 +
 +SELECT vibetype.account_registration(
-+    'peter',
 +    'mail+sqitch-2@maev.si',
++    'de',
 +    'testtest',
-+    'de'
++    'peter'
 +  ) INTO _account_id_peter;
 +
 +SELECT id

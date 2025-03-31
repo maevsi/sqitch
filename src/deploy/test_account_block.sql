@@ -21,25 +21,6 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_anonymous, vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.account_create (
-  _username TEXT,
-  _email TEXT
-) RETURNS UUID AS $$
-DECLARE
-  _id UUID;
-  _verification UUID;
-BEGIN
-  _id := vibetype.account_registration(_username, _email, 'password', 'en');
-
-  SELECT email_address_verification INTO _verification
-  FROM vibetype_private.account
-  WHERE id = _id;
-
-  PERFORM vibetype.account_email_address_verification(_verification);
-
-  RETURN _id;
-END $$ LANGUAGE plpgsql;
-
 CREATE FUNCTION vibetype_test.account_remove (
   _username TEXT
 ) RETURNS VOID AS $$
@@ -146,7 +127,7 @@ CREATE FUNCTION vibetype_test.event_category_create (
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
-  INSERT INTO vibetype.event_category(category) VALUES (_category);
+  INSERT INTO vibetype.event_category(name) VALUES (_category);
 END $$ LANGUAGE plpgsql;
 
 CREATE FUNCTION vibetype_test.event_category_mapping_create (
@@ -158,8 +139,8 @@ BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO vibetype.event_category_mapping(event_id, category)
-  VALUES (_event_id, _category);
+  INSERT INTO vibetype.event_category_mapping(event_id, category_id)
+  VALUES (_event_id, (SELECT id FROM vibetype.event_category WHERE name = _category));
 
   CALL vibetype_test.set_local_superuser();
 END $$ LANGUAGE plpgsql;
@@ -367,7 +348,6 @@ END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_create(UUID, UUID) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_remove(UUID, UUID) TO vibetype_account;
-GRANT EXECUTE ON FUNCTION vibetype_test.account_create(TEXT, TEXT) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_remove(TEXT) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_create(UUID, TEXT) TO vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_select_by_account_id(UUID) TO vibetype_account;

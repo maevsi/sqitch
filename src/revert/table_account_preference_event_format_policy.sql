@@ -1,0 +1,7 @@
+BEGIN;
+
+DROP POLICY account_preference_event_format_delete ON vibetype.account_preference_event_format;
+DROP POLICY account_preference_event_format_insert ON vibetype.account_preference_event_format;
+DROP POLICY account_preference_event_format_select ON vibetype.account_preference_event_format;
+
+COMMIT;
