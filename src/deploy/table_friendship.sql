@@ -3,14 +3,14 @@ BEGIN;
 CREATE TABLE vibetype.friendship (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  a_account_id        UUID NOT NULL REFERENCES vibetype.account(id),
-  b_account_id        UUID NOT NULL REFERENCES vibetype.account(id),
+  a_account_id        UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
+  b_account_id        UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   status              vibetype.friendship_status NOT NULL DEFAULT 'requested'::vibetype.friendship_status,
 
   created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by          UUID NOT NULL REFERENCES vibetype.account(id),
+  created_by          UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   updated_at          TIMESTAMP WITH TIME ZONE,
-  updated_by          UUID REFERENCES vibetype.account(id),
+  updated_by          UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
 
   UNIQUE (a_account_id, b_account_id),
   CONSTRAINT friendship_creator_participant CHECK (created_by = a_account_id or created_by = b_account_id),

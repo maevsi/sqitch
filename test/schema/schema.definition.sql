@@ -6303,19 +6303,19 @@ ALTER TABLE ONLY vibetype.legal_term
 
 
 --
--- Name: profile_picture profile_picture_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.profile_picture
-    ADD CONSTRAINT profile_picture_account_id_key UNIQUE (account_id);
-
-
---
 -- Name: profile_picture profile_picture_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.profile_picture
     ADD CONSTRAINT profile_picture_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: profile_picture profile_picture_unique; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.profile_picture
+    ADD CONSTRAINT profile_picture_unique UNIQUE (account_id);
 
 
 --
@@ -6699,7 +6699,7 @@ ALTER TABLE ONLY sqitch.tags
 --
 
 ALTER TABLE ONLY vibetype.account_block
-    ADD CONSTRAINT account_block_blocked_account_id_fkey FOREIGN KEY (blocked_account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT account_block_blocked_account_id_fkey FOREIGN KEY (blocked_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6707,7 +6707,7 @@ ALTER TABLE ONLY vibetype.account_block
 --
 
 ALTER TABLE ONLY vibetype.account_block
-    ADD CONSTRAINT account_block_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT account_block_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6755,7 +6755,7 @@ ALTER TABLE ONLY vibetype.account_preference_event_format
 --
 
 ALTER TABLE ONLY vibetype.account_preference_event_size
-    ADD CONSTRAINT account_preference_event_size_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT account_preference_event_size_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6771,7 +6771,7 @@ ALTER TABLE ONLY vibetype.account_social_network
 --
 
 ALTER TABLE ONLY vibetype.achievement
-    ADD CONSTRAINT achievement_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT achievement_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6779,7 +6779,7 @@ ALTER TABLE ONLY vibetype.achievement
 --
 
 ALTER TABLE ONLY vibetype.address
-    ADD CONSTRAINT address_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT address_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6787,7 +6787,7 @@ ALTER TABLE ONLY vibetype.address
 --
 
 ALTER TABLE ONLY vibetype.address
-    ADD CONSTRAINT address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -6795,7 +6795,7 @@ ALTER TABLE ONLY vibetype.address
 --
 
 ALTER TABLE ONLY vibetype.contact
-    ADD CONSTRAINT contact_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT contact_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -6803,7 +6803,7 @@ ALTER TABLE ONLY vibetype.contact
 --
 
 ALTER TABLE ONLY vibetype.contact
-    ADD CONSTRAINT contact_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id);
+    ADD CONSTRAINT contact_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id) ON DELETE SET NULL;
 
 
 --
@@ -6819,7 +6819,7 @@ ALTER TABLE ONLY vibetype.contact
 --
 
 ALTER TABLE ONLY vibetype.device
-    ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6827,7 +6827,7 @@ ALTER TABLE ONLY vibetype.device
 --
 
 ALTER TABLE ONLY vibetype.device
-    ADD CONSTRAINT device_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT device_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -6835,7 +6835,7 @@ ALTER TABLE ONLY vibetype.device
 --
 
 ALTER TABLE ONLY vibetype.event
-    ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id);
+    ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id) ON DELETE SET NULL;
 
 
 --
@@ -6859,7 +6859,7 @@ ALTER TABLE ONLY vibetype.event_category_mapping
 --
 
 ALTER TABLE ONLY vibetype.event
-    ADD CONSTRAINT event_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT event_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6867,7 +6867,7 @@ ALTER TABLE ONLY vibetype.event
 --
 
 ALTER TABLE ONLY vibetype.event_favorite
-    ADD CONSTRAINT event_favorite_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT event_favorite_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6875,7 +6875,7 @@ ALTER TABLE ONLY vibetype.event_favorite
 --
 
 ALTER TABLE ONLY vibetype.event_favorite
-    ADD CONSTRAINT event_favorite_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id);
+    ADD CONSTRAINT event_favorite_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -6899,7 +6899,7 @@ ALTER TABLE ONLY vibetype.event_format_mapping
 --
 
 ALTER TABLE ONLY vibetype.event_group
-    ADD CONSTRAINT event_group_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT event_group_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6907,7 +6907,7 @@ ALTER TABLE ONLY vibetype.event_group
 --
 
 ALTER TABLE ONLY vibetype.event_grouping
-    ADD CONSTRAINT event_grouping_event_group_id_fkey FOREIGN KEY (event_group_id) REFERENCES vibetype.event_group(id);
+    ADD CONSTRAINT event_grouping_event_group_id_fkey FOREIGN KEY (event_group_id) REFERENCES vibetype.event_group(id) ON DELETE CASCADE;
 
 
 --
@@ -6915,7 +6915,7 @@ ALTER TABLE ONLY vibetype.event_grouping
 --
 
 ALTER TABLE ONLY vibetype.event_grouping
-    ADD CONSTRAINT event_grouping_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id);
+    ADD CONSTRAINT event_grouping_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -6939,7 +6939,7 @@ ALTER TABLE ONLY vibetype.event_recommendation
 --
 
 ALTER TABLE ONLY vibetype.event_upload
-    ADD CONSTRAINT event_upload_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id);
+    ADD CONSTRAINT event_upload_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -6947,7 +6947,7 @@ ALTER TABLE ONLY vibetype.event_upload
 --
 
 ALTER TABLE ONLY vibetype.event_upload
-    ADD CONSTRAINT event_upload_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES vibetype.upload(id);
+    ADD CONSTRAINT event_upload_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES vibetype.upload(id) ON DELETE CASCADE;
 
 
 --
@@ -6955,7 +6955,7 @@ ALTER TABLE ONLY vibetype.event_upload
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT friendship_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6963,7 +6963,7 @@ ALTER TABLE ONLY vibetype.friendship
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT friendship_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6971,7 +6971,7 @@ ALTER TABLE ONLY vibetype.friendship
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT friendship_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6979,7 +6979,7 @@ ALTER TABLE ONLY vibetype.friendship
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -6987,7 +6987,7 @@ ALTER TABLE ONLY vibetype.friendship
 --
 
 ALTER TABLE ONLY vibetype.guest
-    ADD CONSTRAINT guest_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES vibetype.contact(id);
+    ADD CONSTRAINT guest_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES vibetype.contact(id) ON DELETE CASCADE;
 
 
 --
@@ -6995,7 +6995,7 @@ ALTER TABLE ONLY vibetype.guest
 --
 
 ALTER TABLE ONLY vibetype.guest
-    ADD CONSTRAINT guest_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id);
+    ADD CONSTRAINT guest_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -7003,7 +7003,7 @@ ALTER TABLE ONLY vibetype.guest
 --
 
 ALTER TABLE ONLY vibetype.guest
-    ADD CONSTRAINT guest_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT guest_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -7027,7 +7027,7 @@ ALTER TABLE ONLY vibetype.legal_term_acceptance
 --
 
 ALTER TABLE ONLY vibetype.profile_picture
-    ADD CONSTRAINT profile_picture_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT profile_picture_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -7035,7 +7035,7 @@ ALTER TABLE ONLY vibetype.profile_picture
 --
 
 ALTER TABLE ONLY vibetype.profile_picture
-    ADD CONSTRAINT profile_picture_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES vibetype.upload(id);
+    ADD CONSTRAINT profile_picture_upload_id_fkey FOREIGN KEY (upload_id) REFERENCES vibetype.upload(id) ON DELETE CASCADE;
 
 
 --
@@ -7043,7 +7043,7 @@ ALTER TABLE ONLY vibetype.profile_picture
 --
 
 ALTER TABLE ONLY vibetype.report
-    ADD CONSTRAINT report_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT report_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -7051,7 +7051,7 @@ ALTER TABLE ONLY vibetype.report
 --
 
 ALTER TABLE ONLY vibetype.report
-    ADD CONSTRAINT report_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT report_target_account_id_fkey FOREIGN KEY (target_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -7059,7 +7059,7 @@ ALTER TABLE ONLY vibetype.report
 --
 
 ALTER TABLE ONLY vibetype.report
-    ADD CONSTRAINT report_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES vibetype.event(id);
+    ADD CONSTRAINT report_target_event_id_fkey FOREIGN KEY (target_event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -7067,7 +7067,7 @@ ALTER TABLE ONLY vibetype.report
 --
 
 ALTER TABLE ONLY vibetype.report
-    ADD CONSTRAINT report_target_upload_id_fkey FOREIGN KEY (target_upload_id) REFERENCES vibetype.upload(id);
+    ADD CONSTRAINT report_target_upload_id_fkey FOREIGN KEY (target_upload_id) REFERENCES vibetype.upload(id) ON DELETE CASCADE;
 
 
 --
@@ -7075,7 +7075,7 @@ ALTER TABLE ONLY vibetype.report
 --
 
 ALTER TABLE ONLY vibetype.upload
-    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id);
+    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
