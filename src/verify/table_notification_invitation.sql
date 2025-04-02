@@ -6,10 +6,10 @@ SELECT
   channel,
   is_acknowledged,
   payload,
+  created_by,
   created_at,
   -- columns specific for vibetype.notification_invitation
-  guest_id,
-  created_by
+  guest_id
 FROM vibetype.notification_invitation
 WHERE FALSE;
 

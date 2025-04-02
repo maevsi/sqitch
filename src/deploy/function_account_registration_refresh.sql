@@ -26,12 +26,13 @@ BEGIN
     FROM updated JOIN vibetype.account ON updated.id = account.id
     INTO _new_account_notify;
 
-  INSERT INTO vibetype.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+    )),
+    account_registration_refresh.account_id
   );
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;

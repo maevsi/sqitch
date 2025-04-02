@@ -1,9 +1,10 @@
 BEGIN;
 
-DROP FUNCTION vibetype_test.account_block_create(UUID, UUID);
-DROP FUNCTION vibetype_test.account_block_remove(UUID, UUID);
 DROP FUNCTION vibetype_test.account_create(TEXT, TEXT);
 DROP FUNCTION vibetype_test.account_remove(TEXT);
+DROP FUNCTION vibetype_test.account_select_by_email_address(TEXT);
+DROP FUNCTION vibetype_test.account_block_create(UUID, UUID);
+DROP FUNCTION vibetype_test.account_block_remove(UUID, UUID);
 DROP FUNCTION vibetype_test.contact_create(UUID, TEXT);
 DROP FUNCTION vibetype_test.contact_select_by_account_id(UUID);
 DROP FUNCTION vibetype_test.contact_test(TEXT, UUID, UUID[]);

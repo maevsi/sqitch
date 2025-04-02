@@ -531,31 +531,36 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _notify_data RECORD;
+  _rec_account vibetype_private.account%ROWTYPE;
+  _notify_data RECORD := NULL;
 BEGIN
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = account_password_reset_request.email_address
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.password_reset_verification,
-    updated.password_reset_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _notify_data;
+
+  UPDATE vibetype_private.account
+    SET password_reset_verification = gen_random_uuid()
+    WHERE account.email_address = account_password_reset_request.email_address
+    RETURNING * INTO _rec_account;
+
+  IF _rec_account IS NOT NULL THEN
+    SELECT
+      username,
+      _rec_account.email_address,
+      _rec_account.password_reset_verification,
+      _rec_account.password_reset_verification_valid_until
+      INTO _notify_data
+      FROM vibetype.account
+      WHERE id = _rec_account.id;
+  END IF;
 
   IF (_notify_data IS NULL) THEN
     -- noop
   ELSE
-    INSERT INTO vibetype.notification (channel, payload) VALUES (
+    INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
         'template', jsonb_build_object('language', account_password_reset_request.language)
-      ))
+      )),
+      _rec_account.id
     );
   END IF;
 END;
@@ -579,8 +584,8 @@ CREATE FUNCTION vibetype.account_registration(username text, email_address text,
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
+  _new_account_private vibetype_private.account%ROWTYPE;
+  _new_account_public vibetype.account%ROWTYPE;
   _new_account_notify RECORD;
 BEGIN
   IF (char_length(account_registration.password) < 8) THEN
@@ -612,12 +617,13 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language)
-    ))
+    )),
+    _new_account_private.id
   );
 
   RETURN _new_account_public.id;
@@ -663,12 +669,13 @@ BEGIN
     FROM updated JOIN vibetype.account ON updated.id = account.id
     INTO _new_account_notify;
 
-  INSERT INTO vibetype.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+    )),
+    account_registration_refresh.account_id
   );
 END;
 $$;
@@ -2218,7 +2225,7 @@ CREATE FUNCTION vibetype_test.account_block_create(_created_by uuid, _blocked_ac
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.account_block(created_by, blocked_account_id)
@@ -2238,7 +2245,7 @@ ALTER FUNCTION vibetype_test.account_block_create(_created_by uuid, _blocked_acc
 --
 
 CREATE FUNCTION vibetype_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) RETURNS void
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _id UUID;
@@ -2255,7 +2262,7 @@ ALTER FUNCTION vibetype_test.account_block_remove(_created_by uuid, _blocked_acc
 --
 
 CREATE FUNCTION vibetype_test.account_create(_username text, _email text) RETURNS uuid
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _id UUID;
@@ -2416,7 +2423,7 @@ BEGIN
 
   IF _id IS NOT NULL THEN
 
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
     DELETE FROM vibetype.event WHERE created_by = _id;
@@ -2431,6 +2438,28 @@ END $$;
 ALTER FUNCTION vibetype_test.account_remove(_username text) OWNER TO ci;
 
 --
+-- Name: account_select_by_email_address(text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
+--
+
+CREATE FUNCTION vibetype_test.account_select_by_email_address(_email_address text) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _account_id UUID;
+BEGIN
+  SELECT id
+  INTO _account_id
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
+
+  RETURN _account_id;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_test.account_select_by_email_address(_email_address text) OWNER TO ci;
+
+--
 -- Name: contact_create(uuid, text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
 --
 
@@ -2441,10 +2470,11 @@ DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-  SELECT id FROM vibetype_private.account WHERE email_address = _email_address INTO _account_id;
 
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
+
+  _account_id := vibetype_test.account_select_by_email_address(_email_address);
 
   INSERT INTO vibetype.contact(created_by, email_address)
   VALUES (_created_by, _email_address)
@@ -2493,10 +2523,10 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -2519,7 +2549,7 @@ ALTER FUNCTION vibetype_test.contact_test(_test_case text, _account_id uuid, _ex
 --
 
 CREATE FUNCTION vibetype_test.event_category_create(_category text) RETURNS void
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
   INSERT INTO vibetype.event_category(category) VALUES (_category);
@@ -2536,7 +2566,7 @@ CREATE FUNCTION vibetype_test.event_category_mapping_create(_created_by uuid, _e
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.event_category_mapping(event_id, category)
@@ -2557,10 +2587,10 @@ CREATE FUNCTION vibetype_test.event_category_mapping_test(_test_case text, _acco
     AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -2588,7 +2618,7 @@ CREATE FUNCTION vibetype_test.event_create(_created_by uuid, _name text, _slug t
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.event(created_by, name, slug, start, visibility)
@@ -2718,10 +2748,10 @@ CREATE FUNCTION vibetype_test.event_test(_test_case text, _account_id uuid, _exp
     AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -2932,7 +2962,7 @@ DECLARE
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
   -- reads all guests where _account_id is invited,
@@ -2973,7 +3003,7 @@ CREATE FUNCTION vibetype_test.guest_create(_created_by uuid, _event_id uuid, _co
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.guest(contact_id, event_id)
@@ -2997,10 +3027,10 @@ CREATE FUNCTION vibetype_test.guest_test(_test_case text, _account_id uuid, _exp
     AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -3060,7 +3090,7 @@ CREATE FUNCTION vibetype_test.invoker_set(_invoker_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
 END $$;
 
@@ -4796,6 +4826,7 @@ CREATE TABLE vibetype.notification (
     channel text NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
+    created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
@@ -4839,6 +4870,14 @@ COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.
 
 
 --
+-- Name: COLUMN notification.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_by IS '@omit create
+Reference to the account that created the notification.';
+
+
+--
 -- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -4850,8 +4889,7 @@ COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the noti
 --
 
 CREATE TABLE vibetype.notification_invitation (
-    guest_id uuid NOT NULL,
-    created_by uuid NOT NULL
+    guest_id uuid NOT NULL
 )
 INHERITS (vibetype.notification);
 
@@ -4870,14 +4908,6 @@ COMMENT ON TABLE vibetype.notification_invitation IS '@omit update,delete\nStore
 --
 
 COMMENT ON COLUMN vibetype.notification_invitation.guest_id IS 'The ID of the guest associated with this invitation.';
-
-
---
--- Name: COLUMN notification_invitation.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification_invitation.created_by IS '@omit create
-Reference to the account that created the invitation.';
 
 
 --
@@ -6269,11 +6299,11 @@ ALTER TABLE ONLY vibetype.legal_term_acceptance
 
 
 --
--- Name: notification_invitation notification_invitation_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: notification notification_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype.notification_invitation
-    ADD CONSTRAINT notification_invitation_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id);
+ALTER TABLE ONLY vibetype.notification
+    ADD CONSTRAINT notification_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -7603,6 +7633,14 @@ REVOKE ALL ON FUNCTION vibetype_test.account_registration_verified(_username tex
 
 REVOKE ALL ON FUNCTION vibetype_test.account_remove(_username text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_test.account_remove(_username text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION account_select_by_email_address(_email_address text); Type: ACL; Schema: vibetype_test; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_test.account_select_by_email_address(_email_address text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_test.account_select_by_email_address(_email_address text) TO vibetype_account;
 
 
 --

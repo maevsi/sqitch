@@ -15,10 +15,10 @@ function_invoker_account_id [privilege_execute_revoke schema_public role_account
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
 enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public, private and unlisted.
 function_trigger_metadata_update [privilege_execute_revoke schema_public function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.
-table_notification [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
 test_postgres [schema_test] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Checks whether the given indexes exist in the specified schema.
 table_account_private [schema_private test_postgres] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add private table account.
 table_account_public [schema_public schema_private table_account_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add public table account.
+table_notification [schema_private table_account_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
 table_account_block [schema_public table_account_public test_postgres] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Blocking of an account by another account.
 table_account_block_policy [schema_public table_account_block role_account role_anonymous function_invoker_account_id] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table account block.
 function_account_block_ids [schema_public table_account_block role_account role_anonymous function_invoker_account_id] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Function returning all account id's involved in blocking.
@@ -102,6 +102,6 @@ enum_friendship_status [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven
 table_friendship [schema_public enum_friendship_status table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A friend relation together with its status.
 table_friendship_policy [schema_public table_friendship role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Policy for table friend.
 test_friendship [schema_test] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Test cases for friendship.
-table_notification_invitation [schema_public table_guest table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
+table_notification_invitation [schema_public table_guest] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
 table_notification_invitation_policy [schema_public table_notification_invitation role_account function_invoker_account_id table_guest table_event] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Stores invitations and their statuses.
 test_invitation [schema_test function_test_utilities] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Invitation related tests.

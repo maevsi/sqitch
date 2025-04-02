@@ -5,31 +5,36 @@ CREATE FUNCTION vibetype.account_password_reset_request(
   language TEXT
 ) RETURNS VOID AS $$
 DECLARE
-  _notify_data RECORD;
+  _rec_account vibetype_private.account%ROWTYPE;
+  _notify_data RECORD := NULL;
 BEGIN
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = account_password_reset_request.email_address
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.password_reset_verification,
-    updated.password_reset_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _notify_data;
+
+  UPDATE vibetype_private.account
+    SET password_reset_verification = gen_random_uuid()
+    WHERE account.email_address = account_password_reset_request.email_address
+    RETURNING * INTO _rec_account;
+
+  IF _rec_account IS NOT NULL THEN
+    SELECT
+      username,
+      _rec_account.email_address,
+      _rec_account.password_reset_verification,
+      _rec_account.password_reset_verification_valid_until
+      INTO _notify_data
+      FROM vibetype.account
+      WHERE id = _rec_account.id;
+  END IF;
 
   IF (_notify_data IS NULL) THEN
     -- noop
   ELSE
-    INSERT INTO vibetype.notification (channel, payload) VALUES (
+    INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
         'template', jsonb_build_object('language', account_password_reset_request.language)
-      ))
+      )),
+      _rec_account.id
     );
   END IF;
 END;

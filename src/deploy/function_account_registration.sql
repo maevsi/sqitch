@@ -7,8 +7,8 @@ CREATE FUNCTION vibetype.account_registration(
   language TEXT
 ) RETURNS UUID AS $$
 DECLARE
-  _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
+  _new_account_private vibetype_private.account%ROWTYPE;
+  _new_account_public vibetype.account%ROWTYPE;
   _new_account_notify RECORD;
 BEGIN
   IF (char_length(account_registration.password) < 8) THEN
@@ -40,12 +40,13 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language)
-    ))
+    )),
+    _new_account_private.id
   );
 
   RETURN _new_account_public.id;

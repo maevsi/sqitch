@@ -1,5 +1,6 @@
 BEGIN;
 
+
 CREATE FUNCTION vibetype_test.account_create (
   _username TEXT,
   _email TEXT
@@ -32,7 +33,7 @@ BEGIN
 
   IF _id IS NOT NULL THEN
 
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
     DELETE FROM vibetype.event WHERE created_by = _id;
@@ -44,6 +45,59 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_remove(TEXT) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_email_address(_email_address text)
+RETURNS UUID AS $$
+DECLARE
+  _account_id UUID;
+BEGIN
+  SELECT id
+  INTO _account_id
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
+
+  RETURN _account_id;
+END;
+$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_select_by_email_address(TEXT) TO vibetype_account;
+
+
+CREATE FUNCTION vibetype_test.account_block_create (
+  _created_by UUID,
+  _blocked_account_id UUID
+) RETURNS UUID AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  SET LOCAL ROLE = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
+
+  INSERT INTO vibetype.account_block(created_by, blocked_account_id)
+  VALUES (_created_by, _blocked_Account_id)
+  RETURNING id INTO _id;
+
+  SET LOCAL ROLE NONE;
+
+  RETURN _id;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_block_create(UUID, UUID) TO vibetype_account;
+
+
+CREATE FUNCTION vibetype_test.account_block_remove (
+  _created_by UUID,
+  _blocked_account_id UUID
+) RETURNS VOID AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  DELETE FROM vibetype.account_block
+  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
+END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_block_remove(UUID, UUID) TO vibetype_account;
 
 
 CREATE FUNCTION vibetype_test.contact_select_by_account_id (
@@ -71,12 +125,10 @@ DECLARE
   _account_id UUID;
 BEGIN
 
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  SELECT id
-  INTO _account_id
-  FROM vibetype_private.account
-  WHERE email_address = _email_address;
+  _account_id := vibetype_test.account_select_by_email_address(_email_address);
 
   INSERT INTO vibetype.contact(created_by, email_address)
   VALUES (_created_by, _email_address)
@@ -86,8 +138,10 @@ BEGIN
     UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
+  SET LOCAL ROLE NONE;
+
   RETURN _id;
-END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_create(UUID, TEXT) TO vibetype_account;
 
@@ -102,7 +156,7 @@ CREATE FUNCTION vibetype_test.event_create (
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.event(created_by, name, slug, start, visibility)
@@ -125,7 +179,7 @@ CREATE FUNCTION vibetype_test.guest_create (
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.guest(contact_id, event_id)
@@ -145,7 +199,7 @@ CREATE FUNCTION vibetype_test.event_category_create (
 ) RETURNS VOID AS $$
 BEGIN
   INSERT INTO vibetype.event_category(category) VALUES (_category);
-END $$ LANGUAGE plpgsql;
+END $$ LANGUAGE plpgsql STRICT sECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_category_create(TEXT) TO vibetype_account;
 
@@ -156,7 +210,7 @@ CREATE FUNCTION vibetype_test.event_category_mapping_create (
   _category TEXT
 ) RETURNS VOID AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.event_category_mapping(event_id, category)
@@ -168,42 +222,6 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION vibetype_test.event_category_mapping_create(UUID, UUID, TEXT) TO vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.account_block_create (
-  _created_by UUID,
-  _blocked_account_id UUID
-) RETURNS UUID AS $$
-DECLARE
-  _id UUID;
-BEGIN
-  SET LOCAL role = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
-
-  INSERT INTO vibetype.account_block(created_by, blocked_account_id)
-  VALUES (_created_by, _blocked_Account_id)
-  RETURNING id INTO _id;
-
-  SET LOCAL ROLE NONE;
-
-  RETURN _id;
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.account_block_create(UUID, UUID) TO vibetype_account;
-
-
-CREATE FUNCTION vibetype_test.account_block_remove (
-  _created_by UUID,
-  _blocked_account_id UUID
-) RETURNS VOID AS $$
-DECLARE
-  _id UUID;
-BEGIN
-  DELETE FROM vibetype.account_block
-  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.account_block_remove(UUID, UUID) TO vibetype_account;
-
-
 CREATE FUNCTION vibetype_test.event_test (
   _test_case TEXT,
   _account_id UUID,
@@ -211,10 +229,10 @@ CREATE FUNCTION vibetype_test.event_test (
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -239,10 +257,10 @@ CREATE FUNCTION vibetype_test.event_category_mapping_test (
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -269,10 +287,10 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -297,10 +315,10 @@ CREATE FUNCTION vibetype_test.guest_test (
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -327,7 +345,7 @@ DECLARE
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
   -- reads all guests where _account_id is invited,
@@ -363,7 +381,7 @@ CREATE FUNCTION vibetype_test.invoker_set (
 )
 RETURNS VOID AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
 END $$ LANGUAGE plpgsql;
 
