@@ -18,8 +18,10 @@ DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _legal_term_id UUID;
 BEGIN
-  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
   PERFORM vibetype.account_email_address_verification(
     (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
@@ -41,8 +43,10 @@ DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _legal_term_id UUID;
 BEGIN
-  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
   PERFORM vibetype.account_email_address_verification(
     (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
@@ -60,8 +64,10 @@ DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _legal_term_id UUID;
 BEGIN
-  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
   PERFORM vibetype.account_email_address_verification(
     (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
@@ -83,8 +89,10 @@ DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _legal_term_id UUID;
 BEGIN
-  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
   PERFORM vibetype.account_email_address_verification(
     (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
@@ -106,8 +114,10 @@ DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _legal_term_id UUID;
 BEGIN
-  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
   PERFORM vibetype.account_email_address_verification(
     (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );
@@ -129,8 +139,10 @@ DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _legal_term_id UUID;
 BEGIN
-  _account_id := vibetype.account_registration('username', 'email@example.com', 'password', 'en');
+  _legal_term_id := vibetype_test.legal_term_singleton();
+  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
   PERFORM vibetype.account_email_address_verification(
     (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
   );

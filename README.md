@@ -16,11 +16,9 @@ Changes to the test data can be persisted using `git add -AN && git diff > test/
 
 This diagram shows the structure of Vibetype's database.
 
-![Graph](./docs/graph.png)
+![Graph](./docs/resources/graph.png)
 
 You can create this file as follows:
-
-1. configure [maevsi/stack](https://github.com/maevsi/stack) by adding a portforward of `5432:5432` to the `postgres` service
 
 1. start `maevsi/stack`
 
@@ -35,3 +33,11 @@ You can create this file as follows:
 1. then upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
 
 1. click the link in the output and download the image that pops up!
+
+## Additional Documentation
+
+You find additional documentation on selected database topics here:
+
+* [Roles](./docs/roles.md)
+
+* [Vacuuming the database](./docs/advanced/vacuum.md)

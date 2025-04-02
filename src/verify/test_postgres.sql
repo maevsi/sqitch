@@ -2,8 +2,8 @@ BEGIN;
 
 CREATE TABLE vibetype_test.base (id UUID PRIMARY KEY, text TEXT);
 CREATE INDEX idx_base_text ON vibetype_test.base USING btree (text);
-CREATE TABLE vibetype.depentent (base_id UUID REFERENCES vibetype_test.base(id));
-CREATE INDEX idx_dependent_base_id ON vibetype.depentent USING btree (base_id);
+CREATE TABLE vibetype.dependent (base_id UUID REFERENCES vibetype_test.base(id) ON DELETE CASCADE);
+CREATE INDEX idx_dependent_base_id ON vibetype.dependent USING btree (base_id);
 
 SAVEPOINT schema_implicit;
 DO $$
@@ -115,7 +115,7 @@ END $$;
 ROLLBACK TO SAVEPOINT schema_implicit_multiple_failure;
 
 DROP INDEX vibetype.idx_dependent_base_id;
-DROP TABLE vibetype.depentent;
+DROP TABLE vibetype.dependent;
 DROP INDEX vibetype_test.idx_base_text;
 DROP TABLE vibetype_test.base;
 

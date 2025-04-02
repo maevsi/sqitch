@@ -4,11 +4,8 @@
 # Determine which Docker image to run.
 SQITCH_IMAGE=${SQITCH_IMAGE:=sqitch/sqitch:latest}
 
-if [ -e "$PWD/SQITCH_TARGET.env" ]
-then
-    SQITCH_TARGET="$(cat "$PWD"/SQITCH_TARGET.env)"
-    export SQITCH_TARGET
-fi
+SQITCH_TARGET="db:pg://postgres:postgres@localhost/vibetype"
+export SQITCH_TARGET
 
 # Set up required pass-through variables.
 user=${USER-$(whoami)}
@@ -46,7 +43,7 @@ for var in \
     TNS_ADMIN TWO_TASK ORACLE_SID \
     ISC_USER ISC_PASSWORD \
     VSQL_HOST VSQL_PORT VSQL_USER VSQL_PASSWORD VSQL_SSLMODE \
-    SNOWSQL_ACCOUNT SNOWSQL_USER SNOWSQL_PWD SNOWSQL_HOST SNOWSQL_PORT SNOWSQL_DATABASE SNOWSQL_REGION SNOWSQL_WAREHOUSE SNOWSQL_PRIVATE_KEY_PASSPHRASE
+    SNOWSQL_ACCOUNT SNOWSQL_USER SNOWSQL_PWD SNOWSQL_HOST SNOWSQL_PORT SNOWSQL_DATABASE SNOWSQL_REGION SNOWSQL_WAREHOUSE SNOWSQL_PRIVATE_KEY_PASSPHRASE SNOWSQL_ROLE
 do
     if [ -n "${!var}" ]; then
        passopt+=(-e "$var")
@@ -72,9 +69,8 @@ fi
 docker run --rm --network host \
     --mount "type=bind,src=$(pwd),dst=/repo" \
     --mount "type=bind,src=$HOME,dst=$homedst" \
-    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_vibetype_password.secret,dst=/run/secrets/postgres_role_vibetype_password" \
-    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_vibetype_username.secret,dst=/run/secrets/postgres_role_vibetype_username" \
-    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_postgraphile_password.secret,dst=/run/secrets/postgres_role_postgraphile_password" \
-    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_postgraphile_username.secret,dst=/run/secrets/postgres_role_postgraphile_username" \
-    --mount "type=bind,src=/run/postgresql/,dst=/run/postgresql/" \
+    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_service_vibetype_password.secret,dst=/run/secrets/postgres_role_service_vibetype_password" \
+    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_service_vibetype_username.secret,dst=/run/secrets/postgres_role_service_vibetype_username" \
+    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_service_postgraphile_password.secret,dst=/run/secrets/postgres_role_service_postgraphile_password" \
+    --mount "type=bind,src=$PWD/../../stack/src/development/secrets/postgres/role_service_postgraphile_username.secret,dst=/run/secrets/postgres_role_service_postgraphile_username" \
     "${passopt[@]}" "$SQITCH_IMAGE" "$@"

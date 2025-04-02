@@ -3,9 +3,9 @@ BEGIN;
 CREATE TABLE vibetype.event_upload (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  event_id          UUID NOT NULL REFERENCES vibetype.event(id),
+  event_id          UUID NOT NULL REFERENCES vibetype.event(id) ON DELETE CASCADE,
   is_header_image   BOOLEAN,
-  upload_id         UUID NOT NULL REFERENCES vibetype.upload(id),
+  upload_id         UUID NOT NULL REFERENCES vibetype.upload(id) ON DELETE CASCADE,
 
   UNIQUE (event_id, upload_id)
 );
