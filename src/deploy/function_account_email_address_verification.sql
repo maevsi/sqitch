@@ -40,11 +40,15 @@ DECLARE
   _verification UUID;
 BEGIN
   _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
+  PERFORM vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
+
+  SELECT id INTO _account_id
+    FROM vibetype.account
+    WHERE username = _username;
 
   SELECT email_address_verification INTO _verification
-  FROM vibetype_private.account
-  WHERE id = _account_id;
+    FROM vibetype_private.account
+    WHERE id = _account_id;
 
   PERFORM vibetype.account_email_address_verification(_verification);
 

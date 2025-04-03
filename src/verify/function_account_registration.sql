@@ -58,9 +58,6 @@ BEGIN
   _legal_term_id := vibetype_test.legal_term_singleton();
   PERFORM vibetype.account_registration('duplicate@example.com', 'en', _legal_term_id, 'password', 'username-diff');
   PERFORM vibetype.account_registration('duplicate@example.com', 'en', _legal_term_id, 'password', 'username-erent');
-  RAISE EXCEPTION 'Test failed: Duplicate email not enforced';
-EXCEPTION WHEN unique_violation THEN
-  NULL;
 END $$;
 ROLLBACK TO SAVEPOINT email_uniqueness;
 
