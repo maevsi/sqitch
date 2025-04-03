@@ -575,7 +575,7 @@ COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, 
 -- Name: account_registration(text, text, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) RETURNS uuid
+CREATE FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -592,7 +592,7 @@ BEGIN
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
-    RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
+    RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
   INSERT INTO vibetype_private.account(email_address, password_hash, last_activity) VALUES
@@ -622,8 +622,6 @@ BEGIN
       'template', jsonb_build_object('language', account_registration.language)
     ))
   );
-
-  RETURN _new_account_public.id;
 END;
 $$;
 
@@ -2773,11 +2771,15 @@ DECLARE
   _verification UUID;
 BEGIN
   _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
+  PERFORM vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
+
+  SELECT id INTO _account_id
+    FROM vibetype.account
+    WHERE username = _username;
 
   SELECT email_address_verification INTO _verification
-  FROM vibetype_private.account
-  WHERE id = _account_id;
+    FROM vibetype_private.account
+    WHERE id = _account_id;
 
   PERFORM vibetype.account_email_address_verification(_verification);
 
