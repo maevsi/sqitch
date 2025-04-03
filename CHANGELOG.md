@@ -1,3 +1,13 @@
+## [7.0.0-beta.10](https://github.com/maevsi/sqitch/compare/7.0.0-beta.9...7.0.0-beta.10) (2025-04-03)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** fail silently at registration on duplicate email (#186)
+
+### Features
+
+* **account:** fail silently at registration on duplicate email ([#186](https://github.com/maevsi/sqitch/issues/186)) ([da03588](https://github.com/maevsi/sqitch/commit/da03588cbd21aa36883696c1bef78325968092fa))
+
 ## [7.0.0-beta.9](https://github.com/maevsi/sqitch/compare/7.0.0-beta.8...7.0.0-beta.9) (2025-03-31)
 
 ### ⚠ BREAKING CHANGES
