@@ -8,13 +8,8 @@ DECLARE
   _event_id_result UUID;
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-
   -- Register account
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  _account_id := vibetype_test.account_registration_verified('username', 'email@example.com');
 
   -- Set account-specific context
   SET LOCAL role = 'vibetype_account';

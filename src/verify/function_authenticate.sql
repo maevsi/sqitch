@@ -16,15 +16,9 @@ ROLLBACK TO SAVEPOINT privileges;
 SAVEPOINT username_success;
 DO $$
 DECLARE
-  _account_id UUID;
   _jwt vibetype.jwt;
-  _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
 
   _jwt := vibetype.authenticate('username', 'password');
 
@@ -41,15 +35,9 @@ ROLLBACK TO SAVEPOINT username_success;
 SAVEPOINT username_incorrect;
 DO $$
 DECLARE
-  _account_id UUID;
   _jwt vibetype.jwt;
-  _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
 
   BEGIN
     _jwt := vibetype.authenticate('username_incorrect', 'password');
@@ -62,15 +50,9 @@ ROLLBACK TO SAVEPOINT username_incorrect;
 SAVEPOINT username_password_incorrect;
 DO $$
 DECLARE
-  _account_id UUID;
   _jwt vibetype.jwt;
-  _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
 
   BEGIN
     _jwt := vibetype.authenticate('username', 'password_incorrect');
@@ -87,15 +69,9 @@ ROLLBACK TO SAVEPOINT username_password_incorrect;
 SAVEPOINT email_success;
 DO $$
 DECLARE
-  _account_id UUID;
   _jwt vibetype.jwt;
-  _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
 
   _jwt := vibetype.authenticate('email@example.com', 'password');
 
@@ -112,15 +88,9 @@ ROLLBACK TO SAVEPOINT email_success;
 SAVEPOINT email_incorrect;
 DO $$
 DECLARE
-  _account_id UUID;
   _jwt vibetype.jwt;
-  _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
 
   BEGIN
     _jwt := vibetype.authenticate('email_incorrect@example.com', 'password');
@@ -137,15 +107,9 @@ ROLLBACK TO SAVEPOINT email_incorrect;
 SAVEPOINT email_password_incorrect;
 DO $$
 DECLARE
-  _account_id UUID;
   _jwt vibetype.jwt;
-  _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
-  _account_id := vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
-  PERFORM vibetype.account_email_address_verification(
-    (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-  );
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
 
   BEGIN
     _jwt := vibetype.authenticate('email@example.com', 'password_incorrect');
