@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE vibetype_private.notification;
+DROP TABLE vibetype.notification;
 
 COMMIT;
