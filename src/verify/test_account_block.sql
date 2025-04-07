@@ -43,9 +43,9 @@ BEGIN
 
   -- fill with test data
 
-  accountA := vibetype_test.account_create('a', 'a@example.com');
-  accountB := vibetype_test.account_create('b', 'b@example.com');
-  accountC := vibetype_test.account_create('c', 'c@example.com');
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  accountC := vibetype_test.account_registration_verified('c', 'c@example.com');
 
   contactAA := vibetype_test.contact_select_by_account_id(accountA);
   contactBB := vibetype_test.contact_select_by_account_id(accountB);

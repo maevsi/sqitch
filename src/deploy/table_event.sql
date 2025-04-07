@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.event (
   id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  address_id               UUID REFERENCES vibetype.address(id),
+  address_id               UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
   guest_count_maximum    INTEGER CHECK (guest_count_maximum > 0),
@@ -18,7 +18,7 @@ CREATE TABLE vibetype.event (
   visibility               vibetype.event_visibility NOT NULL,
 
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  created_by               UUID NOT NULL REFERENCES vibetype.account(id),
+  created_by               UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   search_vector            TSVECTOR,
 
   UNIQUE (created_by, slug)

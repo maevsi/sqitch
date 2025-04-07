@@ -20,8 +20,6 @@ This diagram shows the structure of Vibetype's database.
 
 You can create this file as follows:
 
-1. configure [maevsi/stack](https://github.com/maevsi/stack) by adding a portforward of `5432:5432` to the `postgres` service
-
 1. start `maevsi/stack`
 
 1. run `docker run -v /run/postgresql/:/run/postgresql/ --network=host --name schemacrawler --rm -i -t --user=0:0 --entrypoint=/bin/bash schemacrawler/schemacrawler`

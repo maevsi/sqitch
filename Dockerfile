@@ -36,18 +36,17 @@ RUN apt-get update \
     sqitch=1.1.0000-1 \
   && mkdir -p /run/secrets \
   && echo "postgres"      > /run/secrets/postgres_password \
-  && echo "postgraphile"  > /run/secrets/postgres_role_postgraphile_username \
-  && echo "vibetype"          > /run/secrets/postgres_role_vibetype_username \
+  && echo "postgraphile"  > /run/secrets/postgres_role_service_postgraphile_username \
+  && echo "vibetype"          > /run/secrets/postgres_role_service_vibetype_username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_vibetype_password \
-    /run/secrets/postgres_role_vibetype-postgraphile_password \
+    /run/secrets/postgres_role_service_vibetype_password \
+    /run/secrets/postgres_role_service_postgraphile_password \
     /dev/null
 
 COPY ./src ./
 COPY ./test/index-missing.sql ./test/
 
-RUN export SQITCH_TARGET="$(cat SQITCH_TARGET.env)" \
-  && docker-entrypoint.sh postgres & \
+RUN docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
   && sqitch deploy -t db:pg://ci:postgres@/ci_database \
   && psql -h localhost -U ci -d ci_database -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
