@@ -1,3 +1,31 @@
+## [7.0.0](https://github.com/maevsi/sqitch/compare/6.2.0...7.0.0) (2025-04-07)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** fail silently at registration on duplicate email (#186)
+* **constraint:** add `ON DELETE` clauses to foreign keys (#175)
+* **event:** add format preference (#180)
+* **role:** rename for services
+* **environment:** dissolve target variable file
+* **role:** rename postgraphile secret variable
+
+### Features
+
+* **account:** fail silently at registration on duplicate email ([#186](https://github.com/maevsi/sqitch/issues/186)) ([da03588](https://github.com/maevsi/sqitch/commit/da03588cbd21aa36883696c1bef78325968092fa))
+* **constraint:** add `ON DELETE` clauses to foreign keys ([#175](https://github.com/maevsi/sqitch/issues/175)) ([11fd0f4](https://github.com/maevsi/sqitch/commit/11fd0f4c04ef0ad30e09f0c492bcbfeb6bb6429f))
+* **event:** add format preference ([#180](https://github.com/maevsi/sqitch/issues/180)) ([31ee10b](https://github.com/maevsi/sqitch/commit/31ee10bcf6ca9fcf3284ce337e3d387bbbb2a7e2))
+
+### Bug Fixes
+
+* **account:** accept legal term on registration ([b55aa95](https://github.com/maevsi/sqitch/commit/b55aa951401f2d296008328bb0b81b5693fe7f1e))
+* **plan:** add dependency on account verification for friendship test ([fcbbb8c](https://github.com/maevsi/sqitch/commit/fcbbb8c1c564c593b65ea1bd2f874112ae4ee912))
+
+### Code Refactoring
+
+* **environment:** dissolve target variable file ([9f4ae82](https://github.com/maevsi/sqitch/commit/9f4ae82019b34c0dea7ff815401937edebe4c435))
+* **role:** rename for services ([c83b9d1](https://github.com/maevsi/sqitch/commit/c83b9d140a8a0b56f2490f9ce9f7ebdac8398fcd))
+* **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
+
 ## [7.0.0-beta.10](https://github.com/maevsi/sqitch/compare/7.0.0-beta.9...7.0.0-beta.10) (2025-04-03)
 
 ### ⚠ BREAKING CHANGES
