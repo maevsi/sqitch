@@ -82,6 +82,12 @@
 
 * **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
 
+## [6.2.0](https://github.com/maevsi/sqitch/compare/6.1.0...6.2.0) (2025-03-31)
+
+### Features
+
+* add audit log ([#168](https://github.com/maevsi/sqitch/issues/168)) ([0933459](https://github.com/maevsi/sqitch/commit/0933459063f46ca3f8eb225c5ff2b5bdf697249c))
+
 ## [6.1.0](https://github.com/maevsi/sqitch/compare/6.0.0...6.1.0) (2025-03-25)
 
 ### Features
