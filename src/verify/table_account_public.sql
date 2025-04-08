@@ -1,7 +1,9 @@
 BEGIN;
 
 SELECT id,
-       username
+       username,
+       description,
+       imprint
 FROM vibetype.account WHERE FALSE;
 
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
