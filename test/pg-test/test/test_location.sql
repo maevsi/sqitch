@@ -1,15 +1,16 @@
+\echo test_location...
+
 BEGIN;
 
 DO $$
 DECLARE
   _account_id UUID;
-  _coordinates DOUBLE PRECISION[];
   _event_id UUID;
-  _event_id_result UUID;
-  _legal_term_id UUID;
+  _coordinates DOUBLE PRECISION[];
+  _id UUID;
 BEGIN
   -- Register account
-  _account_id := vibetype_test.account_registration_verified('username', 'email@example.com');
+  _account_id := vibetype_test.account_registration_verified ('username', 'email@example.com');
 
   -- Set account-specific context
   SET LOCAL role = 'vibetype_account';
@@ -37,32 +38,32 @@ BEGIN
   END IF;
 
   -- Test event filtering by radius from account
-  SELECT event_id INTO _event_id_result
+  SELECT event_id INTO _id
   FROM vibetype_test.event_filter_radius_account(_account_id, 100);
 
-  IF _event_id_result IS NOT NULL THEN
+  IF _id IS NOT NULL THEN
     RAISE EXCEPTION 'Function `event_filter_radius_account` with radius 100 km should have returned an empty result';
   END IF;
 
-  SELECT event_id INTO _event_id_result
+  SELECT event_id INTO _id
   FROM vibetype_test.event_filter_radius_account(_account_id, 250);
 
-  IF _event_id_result != _event_id THEN
+  IF _id != _event_id THEN
     RAISE EXCEPTION 'Function `event_filter_radius_account` with radius 250 km should have returned `_event_id`';
   END IF;
 
   -- Test account filtering by radius from event
-  SELECT account_id INTO _event_id_result
+  SELECT account_id INTO _id
   FROM vibetype_test.account_filter_radius_event(_event_id, 100);
 
-  IF _event_id_result IS NOT NULL THEN
+  IF _id IS NOT NULL THEN
     RAISE EXCEPTION 'Function `account_filter_radius_event` with radius 100 km should have returned an empty result';
   END IF;
 
-  SELECT account_id INTO _event_id_result
+  SELECT account_id INTO _id
   FROM vibetype_test.account_filter_radius_event(_event_id, 250);
 
-  IF _event_id_result != _account_id THEN
+  IF _id != _account_id THEN
     RAISE EXCEPTION 'Function `account_filter_radius_event` with radius 250 km should have returned `_account_id`';
   END IF;
 END;

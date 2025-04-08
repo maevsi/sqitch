@@ -1,7 +1,5 @@
-BEGIN;
 
-
-CREATE FUNCTION vibetype_test.account_filter_radius_event(
+CREATE OR REPLACE FUNCTION vibetype_test.account_filter_radius_event(
   _event_id UUID,
   _distance_max DOUBLE PRECISION
 )
@@ -37,7 +35,7 @@ COMMENT ON FUNCTION vibetype_test.account_filter_radius_event(UUID, DOUBLE PRECI
 GRANT EXECUTE ON FUNCTION vibetype_test.account_filter_radius_event(UUID, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.event_filter_radius_account(
+CREATE OR REPLACE FUNCTION vibetype_test.event_filter_radius_account(
   _account_id UUID,
   _distance_max DOUBLE PRECISION
 )
@@ -70,7 +68,7 @@ COMMENT ON FUNCTION vibetype_test.event_filter_radius_account(UUID, DOUBLE PRECI
 GRANT EXECUTE ON FUNCTION vibetype_test.event_filter_radius_account(UUID, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.account_location_update(
+CREATE OR REPLACE FUNCTION vibetype_test.account_location_update(
   _account_id UUID,
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
@@ -90,7 +88,7 @@ COMMENT ON FUNCTION vibetype_test.account_location_update(UUID, DOUBLE PRECISION
 GRANT EXECUTE ON FUNCTION vibetype_test.account_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.event_location_update(
+CREATE OR REPLACE FUNCTION vibetype_test.event_location_update(
   _event_id UUID,
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
@@ -115,7 +113,7 @@ COMMENT ON FUNCTION vibetype_test.event_location_update(UUID, DOUBLE PRECISION, 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_location_update(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.account_location_coordinates(
+CREATE OR REPLACE FUNCTION vibetype_test.account_location_coordinates(
   _account_id UUID
 )
 RETURNS DOUBLE PRECISION[] AS $$
@@ -143,7 +141,7 @@ COMMENT ON FUNCTION vibetype_test.account_location_coordinates(UUID) IS 'Returns
 GRANT EXECUTE ON FUNCTION vibetype_test.account_location_coordinates(UUID) TO vibetype_account;
 
 
-CREATE FUNCTION vibetype_test.event_location_coordinates(
+CREATE OR REPLACE FUNCTION vibetype_test.event_location_coordinates(
   _event_id UUID
 )
 RETURNS DOUBLE PRECISION[] AS $$
@@ -171,6 +169,3 @@ $$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
 COMMENT ON FUNCTION vibetype_test.event_location_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_location_coordinates(UUID) TO vibetype_account;
-
-
-COMMIT;

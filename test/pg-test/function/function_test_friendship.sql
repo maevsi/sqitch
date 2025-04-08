@@ -1,6 +1,4 @@
-BEGIN;
-
-CREATE FUNCTION vibetype_test.friendship_accept (
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_accept (
   _invoker_account_id UUID,
   _id UUID
 ) RETURNS VOID AS $$
@@ -15,10 +13,13 @@ BEGIN
     SET "status" = 'accepted'::vibetype.friendship_status
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION vibetype_test.friendship_reject (
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_accept(UUID, UUID) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_reject (
   _invoker_account_id UUID,
   _id UUID
 ) RETURNS VOID AS $$
@@ -29,10 +30,13 @@ BEGIN
   DELETE FROM vibetype.friendship
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION vibetype_test.friendship_request (
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_reject(UUID, UUID) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_request (
   _invoker_account_id UUID,
   _friend_account_id UUID
 ) RETURNS UUID AS $$
@@ -56,12 +60,15 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION vibetype_test.friendship_test (
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request(UUID, UUID) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_test (
   _test_case TEXT,
   _invoker_account_id UUID,
   _status TEXT, -- status IS NULL means "any status"
@@ -94,10 +101,13 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION vibetype_test.friendship_account_ids_test (
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, TEXT, UUID[]) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_account_ids_test (
   _test_case TEXT,
   _invoker_account_id UUID,
   _expected_result UUID[]
@@ -154,4 +164,4 @@ BEGIN
   END IF;
 END $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-END;
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_account_ids_test(TEXT, UUID, UUID[]) TO vibetype_account;
