@@ -14,4 +14,14 @@ COMMENT ON COLUMN vibetype.account_social_network.social_network IS 'The social 
 COMMENT ON COLUMN vibetype.account_social_network.social_network_username IS 'The username of the account on the specified social network.';
 COMMENT ON CONSTRAINT account_social_network_pkey ON vibetype.account_social_network IS 'Ensures uniqueness by combining the account ID and social network, allowing each account to have a single entry per social network.';
 
+GRANT SELECT ON TABLE vibetype.account_social_network TO vibetype_anonymous;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE vibetype.account_social_network TO vibetype_account;
+
+ALTER TABLE vibetype.account_social_network ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY account_social_network_all ON vibetype.account_social_network FOR ALL
+USING (
+  account_id = vibetype.invoker_account_id()
+);
+
 COMMIT;

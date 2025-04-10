@@ -29,10 +29,9 @@ GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.event_group TO vibetype_account;
 ALTER TABLE vibetype.event_group ENABLE ROW LEVEL SECURITY;
 
 -- TODO:
--- CREATE POLICY event_group_select ON vibetype.event_group FOR SELECT USING (
---     id IN (
---         SELECT event_group_id FROM vibetype.event_grouping
---     )
+-- CREATE POLICY event_group_select ON vibetype.event_group FOR SELECT
+-- USING (
+--   id IN (SELECT event_group_id FROM vibetype.event_grouping)
 -- );
 
 COMMIT;

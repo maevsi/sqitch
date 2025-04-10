@@ -19,7 +19,8 @@ GRANT SELECT ON TABLE vibetype_private.achievement_code TO :role_service_vibetyp
 ALTER TABLE vibetype_private.achievement_code ENABLE ROW LEVEL SECURITY;
 
 -- Make all achievement codes accessible.
-CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR SELECT USING (
+CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR ALL
+USING (
   TRUE
 );
 

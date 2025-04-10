@@ -7111,24 +7111,10 @@ ALTER TABLE vibetype.account ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vibetype.account_block ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_block account_block_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_block account_block_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_block_delete ON vibetype.account_block FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
-
-
---
--- Name: account_block account_block_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_block_insert ON vibetype.account_block FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
-
-
---
--- Name: account_block account_block_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_block_select ON vibetype.account_block FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
+CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -7138,24 +7124,10 @@ CREATE POLICY account_block_select ON vibetype.account_block FOR SELECT USING ((
 ALTER TABLE vibetype.account_preference_event_category ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_preference_event_category account_preference_event_category_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_category account_preference_event_category_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_preference_event_category_delete ON vibetype.account_preference_event_category FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_preference_event_category account_preference_event_category_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_preference_event_category_insert ON vibetype.account_preference_event_category FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_preference_event_category account_preference_event_category_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_preference_event_category_select ON vibetype.account_preference_event_category FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY account_preference_event_category_all ON vibetype.account_preference_event_category USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7165,24 +7137,10 @@ CREATE POLICY account_preference_event_category_select ON vibetype.account_prefe
 ALTER TABLE vibetype.account_preference_event_format ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_preference_event_format account_preference_event_format_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_format account_preference_event_format_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_preference_event_format_delete ON vibetype.account_preference_event_format FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_preference_event_format account_preference_event_format_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_preference_event_format_insert ON vibetype.account_preference_event_format FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_preference_event_format account_preference_event_format_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_preference_event_format_select ON vibetype.account_preference_event_format FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY account_preference_event_format_all ON vibetype.account_preference_event_format USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7192,24 +7150,10 @@ CREATE POLICY account_preference_event_format_select ON vibetype.account_prefere
 ALTER TABLE vibetype.account_preference_event_size ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_preference_event_size account_preference_event_size_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_preference_event_size account_preference_event_size_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_preference_event_size_delete ON vibetype.account_preference_event_size FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_preference_event_size account_preference_event_size_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_preference_event_size_insert ON vibetype.account_preference_event_size FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_preference_event_size account_preference_event_size_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_preference_event_size_select ON vibetype.account_preference_event_size FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY account_preference_event_size_all ON vibetype.account_preference_event_size USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7226,24 +7170,10 @@ CREATE POLICY account_select ON vibetype.account FOR SELECT USING (true);
 ALTER TABLE vibetype.account_social_network ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: account_social_network account_social_network_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: account_social_network account_social_network_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_social_network_delete ON vibetype.account_social_network FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_social_network account_social_network_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_social_network_insert ON vibetype.account_social_network FOR INSERT WITH CHECK ((account_id = vibetype.invoker_account_id()));
-
-
---
--- Name: account_social_network account_social_network_update; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_social_network_update ON vibetype.account_social_network FOR UPDATE USING ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY account_social_network_all ON vibetype.account_social_network USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7256,7 +7186,7 @@ ALTER TABLE vibetype.achievement ENABLE ROW LEVEL SECURITY;
 -- Name: achievement achievement_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY achievement_select ON vibetype.achievement FOR SELECT USING (true);
+CREATE POLICY achievement_select ON vibetype.achievement USING (true);
 
 
 --
@@ -7266,10 +7196,10 @@ CREATE POLICY achievement_select ON vibetype.achievement FOR SELECT USING (true)
 ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: address address; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: address address_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY address ON vibetype.address USING (((created_by = vibetype.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+CREATE POLICY address_all ON vibetype.address USING (((created_by = vibetype.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
    FROM vibetype_private.account_block_ids() account_block_ids(id)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -7320,10 +7250,10 @@ CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by 
 ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: device device; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: device device_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY device ON vibetype.device USING ((created_by = vibetype.invoker_account_id())) WITH CHECK (true);
+CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoker_account_id())) WITH CHECK (true);
 
 
 --
@@ -7331,6 +7261,13 @@ CREATE POLICY device ON vibetype.device USING ((created_by = vibetype.invoker_ac
 --
 
 ALTER TABLE vibetype.event ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event event_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_all ON vibetype.event USING ((created_by = vibetype.invoker_account_id()));
+
 
 --
 -- Name: event_category_mapping; Type: ROW SECURITY; Schema: vibetype; Owner: ci
@@ -7342,18 +7279,18 @@ ALTER TABLE vibetype.event_category_mapping ENABLE ROW LEVEL SECURITY;
 -- Name: event_category_mapping event_category_mapping_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_category_mapping_delete ON vibetype.event_category_mapping FOR DELETE USING (((vibetype.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
+CREATE POLICY event_category_mapping_delete ON vibetype.event_category_mapping FOR DELETE USING ((( SELECT event.created_by
    FROM vibetype.event
-  WHERE (event.id = event_category_mapping.event_id)) = vibetype.invoker_account_id())));
+  WHERE (event.id = event_category_mapping.event_id)) = vibetype.invoker_account_id()));
 
 
 --
 -- Name: event_category_mapping event_category_mapping_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_category_mapping_insert ON vibetype.event_category_mapping FOR INSERT WITH CHECK (((vibetype.invoker_account_id() IS NOT NULL) AND (( SELECT event.created_by
+CREATE POLICY event_category_mapping_insert ON vibetype.event_category_mapping FOR INSERT WITH CHECK ((( SELECT event.created_by
    FROM vibetype.event
-  WHERE (event.id = event_category_mapping.event_id)) = vibetype.invoker_account_id())));
+  WHERE (event.id = event_category_mapping.event_id)) = vibetype.invoker_account_id()));
 
 
 --
@@ -7365,37 +7302,16 @@ CREATE POLICY event_category_mapping_select ON vibetype.event_category_mapping F
 
 
 --
--- Name: event event_delete; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY event_delete ON vibetype.event FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
-
-
---
 -- Name: event_favorite; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE vibetype.event_favorite ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event_favorite event_favorite_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: event_favorite event_favorite_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_favorite_delete ON vibetype.event_favorite FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
-
-
---
--- Name: event_favorite event_favorite_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY event_favorite_insert ON vibetype.event_favorite FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
-
-
---
--- Name: event_favorite event_favorite_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY event_favorite_select ON vibetype.event_favorite FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
+CREATE POLICY event_favorite_all ON vibetype.event_favorite USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -7443,13 +7359,6 @@ ALTER TABLE vibetype.event_group ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vibetype.event_grouping ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: event event_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY event_insert ON vibetype.event FOR INSERT WITH CHECK (((vibetype.invoker_account_id() IS NOT NULL) AND (created_by = vibetype.invoker_account_id())));
-
-
---
 -- Name: event_recommendation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7459,7 +7368,7 @@ ALTER TABLE vibetype.event_recommendation ENABLE ROW LEVEL SECURITY;
 -- Name: event_recommendation event_recommendation_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR SELECT USING (((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id())));
+CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7467,14 +7376,7 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 --
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (created_by IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR (created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT vibetype_private.events_invited() AS events_invited))));
-
-
---
--- Name: event event_update; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY event_update ON vibetype.event FOR UPDATE USING (((vibetype.invoker_account_id() IS NOT NULL) AND (created_by = vibetype.invoker_account_id())));
+   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR (id IN ( SELECT vibetype_private.events_invited() AS events_invited))));
 
 
 --
@@ -7612,17 +7514,10 @@ ALTER TABLE vibetype.legal_term ENABLE ROW LEVEL SECURITY;
 ALTER TABLE vibetype.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: legal_term_acceptance legal_term_acceptance_insert; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: legal_term_acceptance legal_term_acceptance_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY legal_term_acceptance_insert ON vibetype.legal_term_acceptance FOR INSERT WITH CHECK (((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id())));
-
-
---
--- Name: legal_term_acceptance legal_term_acceptance_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY legal_term_acceptance_select ON vibetype.legal_term_acceptance FOR SELECT USING (((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id())));
+CREATE POLICY legal_term_acceptance_all ON vibetype.legal_term_acceptance USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
@@ -7639,17 +7534,17 @@ CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (true);
 ALTER TABLE vibetype.profile_picture ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: profile_picture profile_picture_delete; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: profile_picture profile_picture_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY profile_picture_delete ON vibetype.profile_picture FOR DELETE USING (((( SELECT CURRENT_USER AS "current_user") = 'vibetype'::name) OR ((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id()))));
+CREATE POLICY profile_picture_all ON vibetype.profile_picture USING ((account_id = vibetype.invoker_account_id()));
 
 
 --
--- Name: profile_picture profile_picture_insert; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: profile_picture profile_picture_delete_service; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY profile_picture_insert ON vibetype.profile_picture FOR INSERT WITH CHECK (((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id())));
+CREATE POLICY profile_picture_delete_service ON vibetype.profile_picture FOR DELETE TO vibetype USING (true);
 
 
 --
@@ -7660,30 +7555,16 @@ CREATE POLICY profile_picture_select ON vibetype.profile_picture FOR SELECT USIN
 
 
 --
--- Name: profile_picture profile_picture_update; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY profile_picture_update ON vibetype.profile_picture FOR UPDATE USING (((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id())));
-
-
---
 -- Name: report; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE vibetype.report ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: report report_insert; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: report report_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY report_insert ON vibetype.report FOR INSERT WITH CHECK (((vibetype.invoker_account_id() IS NOT NULL) AND (created_by = vibetype.invoker_account_id())));
-
-
---
--- Name: report report_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY report_select ON vibetype.report FOR SELECT USING (((vibetype.invoker_account_id() IS NOT NULL) AND (created_by = vibetype.invoker_account_id())));
+CREATE POLICY report_all ON vibetype.report USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -7693,25 +7574,18 @@ CREATE POLICY report_select ON vibetype.report FOR SELECT USING (((vibetype.invo
 ALTER TABLE vibetype.upload ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: upload upload_delete_using; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: upload upload_all_service; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_delete_using ON vibetype.upload FOR DELETE USING ((( SELECT CURRENT_USER AS "current_user") = 'vibetype'::name));
+CREATE POLICY upload_all_service ON vibetype.upload TO vibetype USING (true);
 
 
 --
--- Name: upload upload_select_using; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: upload upload_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_select_using ON vibetype.upload FOR SELECT USING (((( SELECT CURRENT_USER AS "current_user") = 'vibetype'::name) OR ((vibetype.invoker_account_id() IS NOT NULL) AND (account_id = vibetype.invoker_account_id())) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (id IN ( SELECT profile_picture.upload_id
    FROM vibetype.profile_picture))));
-
-
---
--- Name: upload upload_update_using; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY upload_update_using ON vibetype.upload FOR UPDATE USING ((( SELECT CURRENT_USER AS "current_user") = 'vibetype'::name));
 
 
 --
@@ -7724,7 +7598,7 @@ ALTER TABLE vibetype_private.achievement_code ENABLE ROW LEVEL SECURITY;
 -- Name: achievement_code achievement_code_select; Type: POLICY; Schema: vibetype_private; Owner: ci
 --
 
-CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR SELECT USING (true);
+CREATE POLICY achievement_code_select ON vibetype_private.achievement_code USING (true);
 
 
 --

@@ -21,9 +21,7 @@ ALTER TABLE vibetype.event_grouping ENABLE ROW LEVEL SECURITY;
 
 -- TODO:
 -- CREATE POLICY event_grouping_select ON vibetype.event_grouping FOR SELECT USING (
---     event_id IN (
---         SELECT id FROM vibetype.event
---     )
+--     event_id IN (SELECT id FROM vibetype.event)
 -- );
 
 COMMIT;

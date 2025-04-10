@@ -52,4 +52,14 @@ CREATE TRIGGER vibetype_trigger_device_update_fcm
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_metadata_update_fcm();
 
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.device TO vibetype_account;
+
+ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY device_all ON vibetype.device FOR ALL
+USING (
+  created_by = vibetype.invoker_account_id()
+)
+WITH CHECK (TRUE);
+
 COMMIT;
