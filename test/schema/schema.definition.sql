@@ -4041,9 +4041,11 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 CREATE TABLE vibetype.account (
     id uuid NOT NULL,
-    username text NOT NULL,
     description text,
     imprint text,
+    username text NOT NULL,
+    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
+    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
     CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
 );
 
@@ -4065,13 +4067,6 @@ COMMENT ON COLUMN vibetype.account.id IS 'The account''s internal id.';
 
 
 --
--- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.username IS 'The account''s username.';
-
-
---
 -- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -4083,6 +4078,13 @@ COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
 --
 
 COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
+
+
+--
+-- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.username IS 'The account''s username.';
 
 
 --
