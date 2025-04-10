@@ -7723,20 +7723,20 @@ CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (true);
 ALTER TABLE vibetype.notification_invitation ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: notification_invitation notification_invitation_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_invitation_all ON vibetype.notification_invitation USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
 -- Name: notification_invitation notification_invitation_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY notification_invitation_insert ON vibetype.notification_invitation FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (vibetype.invoker_account_id() = ( SELECT e.created_by
+CREATE POLICY notification_invitation_insert ON vibetype.notification_invitation FOR INSERT WITH CHECK ((vibetype.invoker_account_id() = ( SELECT e.created_by
    FROM (vibetype.guest g
      JOIN vibetype.event e ON ((g.event_id = e.id)))
-  WHERE (g.id = notification_invitation.guest_id)))));
-
-
---
--- Name: notification_invitation notification_invitation_select; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY notification_invitation_select ON vibetype.notification_invitation FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
+  WHERE (g.id = notification_invitation.guest_id))));
 
 
 --
