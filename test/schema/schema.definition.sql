@@ -531,31 +531,36 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _notify_data RECORD;
+  _rec_account vibetype_private.account%ROWTYPE;
+  _notify_data RECORD := NULL;
 BEGIN
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = account_password_reset_request.email_address
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.password_reset_verification,
-    updated.password_reset_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _notify_data;
+
+  UPDATE vibetype_private.account
+    SET password_reset_verification = gen_random_uuid()
+    WHERE account.email_address = account_password_reset_request.email_address
+    RETURNING * INTO _rec_account;
+
+  IF _rec_account IS NOT NULL THEN
+    SELECT
+      username,
+      _rec_account.email_address,
+      _rec_account.password_reset_verification,
+      _rec_account.password_reset_verification_valid_until
+      INTO _notify_data
+      FROM vibetype.account
+      WHERE id = _rec_account.id;
+  END IF;
 
   IF (_notify_data IS NULL) THEN
     -- noop
   ELSE
-    INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+    INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
         'template', jsonb_build_object('language', account_password_reset_request.language)
-      ))
+      )),
+      _rec_account.id
     );
   END IF;
 END;
@@ -579,8 +584,8 @@ CREATE FUNCTION vibetype.account_registration(email_address text, language text,
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
+  _new_account_private vibetype_private.account%ROWTYPE;
+  _new_account_public vibetype.account%ROWTYPE;
   _new_account_notify RECORD;
 BEGIN
   IF (char_length(account_registration.password) < 8) THEN
@@ -615,12 +620,13 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language)
-    ))
+    )),
+    _new_account_private.id
   );
 END;
 $$;
@@ -661,16 +667,16 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
+    FROM updated JOIN vibetype.account ON updated.id = account.id
     INTO _new_account_notify;
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+    )),
+    account_registration_refresh.account_id
   );
 END;
 $$;
@@ -1479,20 +1485,22 @@ COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the guest co
 -- Name: invite(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
+CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_creator_profile_picture_upload_id UUID;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
+  _id UUID;
 BEGIN
   -- Guest UUID
-  SELECT * FROM vibetype.guest INTO _guest WHERE guest.id = invite.guest_id;
+  SELECT * INTO _guest
+  FROM vibetype.guest
+  WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
@@ -1503,30 +1511,16 @@ BEGIN
   END IF;
 
   -- Event
-  SELECT
-    id,
-    address_id,
-    description,
-    "end",
-    guest_count_maximum,
-    is_archived,
-    is_in_person,
-    is_remote,
-    name,
-    slug,
-    start,
-    url,
-    visibility,
-    created_at,
-    created_by
-  FROM vibetype.event INTO _event WHERE "event".id = _guest.event_id;
+  SELECT * INTO _event FROM vibetype.event WHERE id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM vibetype.contact INTO _contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address INTO _contact
+  FROM vibetype.contact
+  WHERE id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1540,7 +1534,9 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM vibetype_private.account INTO _email_address WHERE account.id = _contact.account_id;
+    SELECT email_address INTO _email_address
+    FROM vibetype_private.account
+    WHERE id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -1548,14 +1544,19 @@ BEGIN
   END IF;
 
   -- Event creator username
-  SELECT username FROM vibetype.account INTO _event_creator_username WHERE account.id = _event.created_by;
+  SELECT username INTO _event_creator_username
+  FROM vibetype.account
+  WHERE id = _event.created_by;
 
   -- Event creator profile picture storage key
-  SELECT upload_id FROM vibetype.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key FROM vibetype.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
+  SELECT u.storage_key INTO _event_creator_profile_picture_upload_storage_key
+  FROM vibetype.profile_picture p
+    JOIN vibetype.upload u ON p.upload_id = u.id
+  WHERE p.account_id = _event.created_by;
 
-  INSERT INTO vibetype_private.notification (channel, payload)
+  INSERT INTO vibetype.notification_invitation (guest_id, channel, payload, created_by)
     VALUES (
+      invite.guest_id,
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
@@ -1566,8 +1567,12 @@ BEGIN
           'guestId', _guest.id
         ),
         'template', jsonb_build_object('language', invite.language)
-      ))
-    );
+      )),
+      vibetype.invoker_account_id()
+    )
+    RETURNING id INTO _id;
+
+    RETURN _id;
 END;
 $$;
 
@@ -1578,7 +1583,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an invitation and a notification.';
 
 
 --
@@ -1725,10 +1730,15 @@ ALTER FUNCTION vibetype.legal_term_change() OWNER TO ci;
 CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
+DECLARE
+  update_count INTEGER;
 BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
-    UPDATE vibetype_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
-  ELSE
+  UPDATE vibetype.notification SET
+    is_acknowledged = notification_acknowledge.is_acknowledged
+  WHERE id = notification_acknowledge.id;
+
+  GET DIAGNOSTICS update_count = ROW_COUNT;
+  IF update_count = 0 THEN
     RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;
@@ -2624,14 +2634,14 @@ CREATE FUNCTION vibetype_test.account_block_create(_created_by uuid, _blocked_ac
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.account_block(created_by, blocked_account_id)
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -2644,7 +2654,7 @@ ALTER FUNCTION vibetype_test.account_block_create(_created_by uuid, _blocked_acc
 --
 
 CREATE FUNCTION vibetype_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) RETURNS void
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _id UUID;
@@ -2655,6 +2665,31 @@ END $$;
 
 
 ALTER FUNCTION vibetype_test.account_block_remove(_created_by uuid, _blocked_account_id uuid) OWNER TO ci;
+
+--
+-- Name: account_create(text, text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
+--
+
+CREATE FUNCTION vibetype_test.account_create(_username text, _email text) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _id UUID;
+  _verification UUID;
+BEGIN
+  _id := vibetype.account_registration(_username, _email, 'password', 'en');
+
+  SELECT email_address_verification INTO _verification
+  FROM vibetype_private.account
+  WHERE id = _id;
+
+  PERFORM vibetype.account_email_address_verification(_verification);
+
+  RETURN _id;
+END $$;
+
+
+ALTER FUNCTION vibetype_test.account_create(_username text, _email text) OWNER TO ci;
 
 --
 -- Name: account_filter_radius_event(uuid, double precision); Type: FUNCTION; Schema: vibetype_test; Owner: ci
@@ -2803,19 +2838,41 @@ BEGIN
 
   IF _id IS NOT NULL THEN
 
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _id || '''';
 
     DELETE FROM vibetype.event WHERE created_by = _id;
 
     PERFORM vibetype.account_delete('password');
 
-    CALL vibetype_test.set_local_superuser();
+    SET LOCAL ROLE NONE;
   END IF;
 END $$;
 
 
 ALTER FUNCTION vibetype_test.account_remove(_username text) OWNER TO ci;
+
+--
+-- Name: account_select_by_email_address(text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
+--
+
+CREATE FUNCTION vibetype_test.account_select_by_email_address(_email_address text) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _account_id UUID;
+BEGIN
+  SELECT id
+  INTO _account_id
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
+
+  RETURN _account_id;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_test.account_select_by_email_address(_email_address text) OWNER TO ci;
 
 --
 -- Name: contact_create(uuid, text); Type: FUNCTION; Schema: vibetype_test; Owner: ci
@@ -2828,10 +2885,11 @@ DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-  SELECT id FROM vibetype_private.account WHERE email_address = _email_address INTO _account_id;
 
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
+
+  _account_id := vibetype_test.account_select_by_email_address(_email_address);
 
   INSERT INTO vibetype.contact(created_by, email_address)
   VALUES (_created_by, _email_address)
@@ -2841,7 +2899,7 @@ BEGIN
     UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -2880,10 +2938,10 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -2895,7 +2953,7 @@ BEGIN
     RAISE EXCEPTION 'some contact is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2906,7 +2964,7 @@ ALTER FUNCTION vibetype_test.contact_test(_test_case text, _account_id uuid, _ex
 --
 
 CREATE FUNCTION vibetype_test.event_category_create(_category text) RETURNS void
-    LANGUAGE plpgsql
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
   INSERT INTO vibetype.event_category(name) VALUES (_category);
@@ -2923,13 +2981,13 @@ CREATE FUNCTION vibetype_test.event_category_mapping_create(_created_by uuid, _e
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.event_category_mapping(event_id, category_id)
   VALUES (_event_id, (SELECT id FROM vibetype.event_category WHERE name = _category));
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2944,10 +3002,10 @@ CREATE FUNCTION vibetype_test.event_category_mapping_test(_test_case text, _acco
     AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -2959,7 +3017,7 @@ BEGIN
     RAISE EXCEPTION 'some event_category_mappings is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -2975,14 +3033,14 @@ CREATE FUNCTION vibetype_test.event_create(_created_by uuid, _name text, _slug t
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.event(created_by, name, slug, start, visibility)
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
   RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -3105,10 +3163,10 @@ CREATE FUNCTION vibetype_test.event_test(_test_case text, _account_id uuid, _exp
     AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -3120,7 +3178,7 @@ BEGIN
     RAISE EXCEPTION 'some event is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -3144,7 +3202,7 @@ BEGIN
     SET "status" = 'accepted'::vibetype.friendship_status
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -3226,7 +3284,7 @@ BEGIN
   DELETE FROM vibetype.friendship
     WHERE id = _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -3259,7 +3317,7 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -3301,7 +3359,7 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -3319,7 +3377,7 @@ DECLARE
   _result UUID[] := ARRAY[]::UUID[];
   _text TEXT := '';
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
   -- reads all guests where _account_id is invited,
@@ -3342,7 +3400,7 @@ BEGIN
 
   EXECUTE 'SET LOCAL jwt.claims.guests = ''[' || _text || ']''';
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _result;
 END $$;
@@ -3360,14 +3418,14 @@ CREATE FUNCTION vibetype_test.guest_create(_created_by uuid, _event_id uuid, _co
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
   INSERT INTO vibetype.guest(contact_id, event_id)
   VALUES (_contact_id, _event_id)
   RETURNING id INTO _id;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 
   RETURN _id;
 END $$;
@@ -3384,10 +3442,10 @@ CREATE FUNCTION vibetype_test.guest_test(_test_case text, _account_id uuid, _exp
     AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
+    SET LOCAL ROLE = 'vibetype_anonymous';
     SET LOCAL jwt.claims.account_id = '';
   ELSE
-    SET LOCAL role = 'vibetype_account';
+    SET LOCAL ROLE = 'vibetype_account';
     EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
   END IF;
 
@@ -3399,7 +3457,7 @@ BEGIN
     RAISE EXCEPTION 'some guest is missing in the query result';
   END IF;
 
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
 END $$;
 
 
@@ -3447,7 +3505,7 @@ CREATE FUNCTION vibetype_test.invoker_set(_invoker_id uuid) RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
+  SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
 END $$;
 
@@ -3462,7 +3520,7 @@ CREATE FUNCTION vibetype_test.invoker_unset() RETURNS void
     LANGUAGE plpgsql
     AS $$
 BEGIN
-  CALL vibetype_test.set_local_superuser();
+  SET LOCAL ROLE NONE;
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
 END $$;
 
@@ -3492,32 +3550,6 @@ END $$;
 
 
 ALTER FUNCTION vibetype_test.legal_term_singleton() OWNER TO ci;
-
---
--- Name: set_local_superuser(); Type: PROCEDURE; Schema: vibetype_test; Owner: ci
---
-
-CREATE PROCEDURE vibetype_test.set_local_superuser()
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  _superuser_name TEXT;
-BEGIN
-  SELECT usename INTO _superuser_name
-  FROM pg_user
-  WHERE usesuper = true
-  ORDER BY usename
-  LIMIT 1;
-
-  IF _superuser_name IS NOT NULL THEN
-    EXECUTE format('SET LOCAL role = %I', _superuser_name);
-  ELSE
-    RAISE NOTICE 'No superuser found!';
-  END IF;
-END $$;
-
-
-ALTER PROCEDURE vibetype_test.set_local_superuser() OWNER TO ci;
 
 --
 -- Name: uuid_array_test(text, uuid[], uuid[]); Type: FUNCTION; Schema: vibetype_test; Owner: ci
@@ -5341,6 +5373,99 @@ Timestamp showing when the legal terms were accepted, set automatically at the t
 
 
 --
+-- Name: notification; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.notification (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    channel text NOT NULL,
+    is_acknowledged boolean,
+    payload text NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
+);
+
+
+ALTER TABLE vibetype.notification OWNER TO ci;
+
+--
+-- Name: TABLE notification; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.notification IS 'A notification.';
+
+
+--
+-- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.id IS 'The notification''s internal id.';
+
+
+--
+-- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.channel IS 'The notification''s channel.';
+
+
+--
+-- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+
+
+--
+-- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.';
+
+
+--
+-- Name: COLUMN notification.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_by IS '@omit create
+Reference to the account that created the notification.';
+
+
+--
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
+-- Name: notification_invitation; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.notification_invitation (
+    guest_id uuid NOT NULL
+)
+INHERITS (vibetype.notification);
+
+
+ALTER TABLE vibetype.notification_invitation OWNER TO ci;
+
+--
+-- Name: TABLE notification_invitation; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.notification_invitation IS '@omit update,delete\nStores invitations and their statuses.';
+
+
+--
+-- Name: COLUMN notification_invitation.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification_invitation.guest_id IS 'The ID of the guest associated with this invitation.';
+
+
+--
 -- Name: profile_picture; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -5836,61 +5961,17 @@ COMMENT ON COLUMN vibetype_private.jwt.token IS 'The token.';
 
 
 --
--- Name: notification; Type: TABLE; Schema: vibetype_private; Owner: ci
+-- Name: notification_invitation id; Type: DEFAULT; Schema: vibetype; Owner: ci
 --
 
-CREATE TABLE vibetype_private.notification (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    channel text NOT NULL,
-    is_acknowledged boolean,
-    payload text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
-);
-
-
-ALTER TABLE vibetype_private.notification OWNER TO ci;
-
---
--- Name: TABLE notification; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON TABLE vibetype_private.notification IS 'A notification.';
+ALTER TABLE ONLY vibetype.notification_invitation ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
 
 --
--- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: notification_invitation created_at; Type: DEFAULT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.id IS 'The notification''s internal id.';
-
-
---
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.channel IS 'The notification''s channel.';
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
-
-
---
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+ALTER TABLE ONLY vibetype.notification_invitation ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
 
 
 --
@@ -6305,6 +6386,14 @@ ALTER TABLE ONLY vibetype.legal_term
 
 
 --
+-- Name: notification notification_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification
+    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: profile_picture profile_picture_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6421,14 +6510,6 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 ALTER TABLE ONLY vibetype_private.jwt
     ADD CONSTRAINT jwt_token_key UNIQUE (token);
-
-
---
--- Name: notification notification_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
---
-
-ALTER TABLE ONLY vibetype_private.notification
-    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
 
 
 --
@@ -6555,6 +6636,13 @@ CREATE INDEX idx_guest_updated_by ON vibetype.guest USING btree (updated_by);
 --
 
 COMMENT ON INDEX vibetype.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_invitation_guest_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_invitation_guest_id ON vibetype.notification_invitation USING btree (guest_id);
 
 
 --
@@ -7022,6 +7110,22 @@ ALTER TABLE ONLY vibetype.legal_term_acceptance
 
 ALTER TABLE ONLY vibetype.legal_term_acceptance
     ADD CONSTRAINT legal_term_acceptance_legal_term_id_fkey FOREIGN KEY (legal_term_id) REFERENCES vibetype.legal_term(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: notification notification_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification
+    ADD CONSTRAINT notification_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_invitation notification_invitation_guest_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification_invitation
+    ADD CONSTRAINT notification_invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES vibetype.guest(id);
 
 
 --
@@ -7612,6 +7716,29 @@ CREATE POLICY legal_term_acceptance_select ON vibetype.legal_term_acceptance FOR
 --
 
 CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (true);
+
+
+--
+-- Name: notification_invitation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.notification_invitation ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: notification_invitation notification_invitation_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_invitation_all ON vibetype.notification_invitation USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: notification_invitation notification_invitation_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_invitation_insert ON vibetype.notification_invitation FOR INSERT WITH CHECK ((vibetype.invoker_account_id() = ( SELECT e.created_by
+   FROM (vibetype.guest g
+     JOIN vibetype.event e ON ((g.event_id = e.id)))
+  WHERE (g.id = notification_invitation.guest_id))));
 
 
 --
@@ -8405,6 +8532,14 @@ GRANT ALL ON FUNCTION vibetype_test.account_block_remove(_created_by uuid, _bloc
 
 
 --
+-- Name: FUNCTION account_create(_username text, _email text); Type: ACL; Schema: vibetype_test; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_test.account_create(_username text, _email text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_test.account_create(_username text, _email text) TO vibetype_account;
+
+
+--
 -- Name: FUNCTION account_filter_radius_event(_event_id uuid, _distance_max double precision); Type: ACL; Schema: vibetype_test; Owner: ci
 --
 
@@ -8441,6 +8576,14 @@ REVOKE ALL ON FUNCTION vibetype_test.account_registration_verified(_username tex
 
 REVOKE ALL ON FUNCTION vibetype_test.account_remove(_username text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_test.account_remove(_username text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION account_select_by_email_address(_email_address text); Type: ACL; Schema: vibetype_test; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_test.account_select_by_email_address(_email_address text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_test.account_select_by_email_address(_email_address text) TO vibetype_account;
 
 
 --
@@ -8618,15 +8761,6 @@ GRANT ALL ON FUNCTION vibetype_test.invoker_unset() TO vibetype_account;
 --
 
 REVOKE ALL ON FUNCTION vibetype_test.legal_term_singleton() FROM PUBLIC;
-
-
---
--- Name: PROCEDURE set_local_superuser(); Type: ACL; Schema: vibetype_test; Owner: ci
---
-
-REVOKE ALL ON PROCEDURE vibetype_test.set_local_superuser() FROM PUBLIC;
-GRANT ALL ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_anonymous;
-GRANT ALL ON PROCEDURE vibetype_test.set_local_superuser() TO vibetype_account;
 
 
 --
@@ -8811,6 +8945,13 @@ GRANT SELECT ON TABLE vibetype.legal_term TO vibetype_anonymous;
 --
 
 GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
+
+
+--
+-- Name: TABLE notification_invitation; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT ON TABLE vibetype.notification_invitation TO vibetype_account;
 
 
 --
