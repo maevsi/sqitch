@@ -1,3 +1,13 @@
+## [8.0.0-beta.2](https://github.com/maevsi/sqitch/compare/8.0.0-beta.1...8.0.0-beta.2) (2025-04-17)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** remove existence validation function (#191)
+
+### Features
+
+* **event:** remove existence validation function ([#191](https://github.com/maevsi/sqitch/issues/191)) ([4abfcaf](https://github.com/maevsi/sqitch/commit/4abfcaf0d5a12ab93b9270d3b92d1ec44df33f60))
+
 ## [8.0.0-beta.1](https://github.com/maevsi/sqitch/compare/7.0.0...8.0.0-beta.1) (2025-04-10)
 
 ### ⚠ BREAKING CHANGES
