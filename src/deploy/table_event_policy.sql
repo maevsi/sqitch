@@ -5,10 +5,16 @@ GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.event TO vibetype_account;
 
 ALTER TABLE vibetype.event ENABLE ROW LEVEL SECURITY;
 
+-- Only allow events that are organized by oneself.
+CREATE POLICY event_all ON vibetype.event FOR ALL
+USING (
+  created_by = vibetype.invoker_account_id()
+);
+
 -- Only display events that are public and not full and not organized by a blocked account.
--- Only display events that are organized by oneself.
 -- Only display events to which oneself is invited, but not by a guest created by a blocked account.
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING (
+CREATE POLICY event_select ON vibetype.event FOR SELECT
+USING (
   (
     visibility = 'public'
     AND
@@ -22,30 +28,8 @@ CREATE POLICY event_select ON vibetype.event FOR SELECT USING (
     )
   )
   OR (
-    created_by = vibetype.invoker_account_id()
-  )
-  OR (
     id IN (SELECT vibetype_private.events_invited())
   )
-);
-
--- Only allow inserts for events created by the current user.
-CREATE POLICY event_insert ON vibetype.event FOR INSERT WITH CHECK (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
-  created_by = vibetype.invoker_account_id()
-);
-
--- Only allow updates for events created by the current user.
-CREATE POLICY event_update ON vibetype.event FOR UPDATE USING (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
-  created_by = vibetype.invoker_account_id()
-);
-
--- Only allow deletes for events created by the current user.
-CREATE POLICY event_delete ON vibetype.event FOR DELETE USING (
-  created_by = vibetype.invoker_account_id()
 );
 
 COMMIT;

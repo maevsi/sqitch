@@ -20,15 +20,8 @@ GRANT SELECT, INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account
 ALTER TABLE vibetype.legal_term_acceptance ENABLE ROW LEVEL SECURITY;
 
 -- Allow to select legal term acceptances for the own account.
-CREATE POLICY legal_term_acceptance_select ON vibetype.legal_term_acceptance FOR SELECT USING (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
-  account_id = vibetype.invoker_account_id()
-);
-
-CREATE POLICY legal_term_acceptance_insert ON vibetype.legal_term_acceptance FOR INSERT WITH CHECK (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
+CREATE POLICY legal_term_acceptance_all ON vibetype.legal_term_acceptance FOR ALL
+USING (
   account_id = vibetype.invoker_account_id()
 );
 

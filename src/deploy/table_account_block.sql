@@ -18,4 +18,14 @@ COMMENT ON COLUMN vibetype.account_block.blocked_account_id IS 'The account id o
 COMMENT ON COLUMN vibetype.account_block.created_at IS E'@omit create\nTimestamp of when the account block was created.';
 COMMENT ON COLUMN vibetype.account_block.created_by IS 'The account id of the user who created the account block.';
 
+GRANT INSERT, SELECT ON TABLE vibetype.account_block TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;
+
+ALTER TABLE vibetype.account_block ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY account_block_all ON vibetype.account_block FOR ALL
+USING (
+  created_by = vibetype.invoker_account_id()
+);
+
 COMMIT;
