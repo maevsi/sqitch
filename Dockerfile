@@ -44,15 +44,17 @@ RUN apt-get update \
     /dev/null
 
 COPY ./src ./
-COPY ./test/index-missing.sql ./test/
+COPY ./test/pg-test/test_main.sql ./test/pg-test/
+COPY ./test/pg-test/function/* ./test/pg-test/function/
+COPY ./test/pg-test/test/* ./test/pg-test/test/
 
 RUN docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
   && sqitch deploy -t db:pg://ci:postgres@/ci_database \
-  && psql -h localhost -U ci -d ci_database -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
   && pg_dump -s -h localhost -U ci -p 5432 ci_database | sed -e '/^-- Dumped/d' > schema.sql \
+  && psql -h localhost -U ci -d ci_database -w -q -f ./test/pg-test/test_main.sql \
+     -v db_owner=ci -v test_dir=./test/pg-test -v ON_ERROR_STOP=on \
   && sqitch revert -t db:pg://ci:postgres@/ci_database
-
 
 ##############################
 FROM test-build AS test

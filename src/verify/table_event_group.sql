@@ -9,10 +9,6 @@ SELECT id,
        created_by
 FROM vibetype.event_group WHERE FALSE;
 
-SELECT vibetype_test.index_existence(
-  ARRAY ['event_group_created_by_slug_key']
-);
-
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
 

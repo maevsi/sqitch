@@ -1,4 +1,12 @@
+\echo test_index...
+
+-- test for existance of index on foreign keys
+
+SELECT vibetype_test.index_on_foreign_key_check();
+
 BEGIN;
+
+-- test function vibetype_test.index_existence
 
 CREATE TABLE vibetype_test.base (id UUID PRIMARY KEY, text TEXT);
 CREATE INDEX idx_base_text ON vibetype_test.base USING btree (text);
@@ -120,3 +128,42 @@ DROP INDEX vibetype_test.idx_base_text;
 DROP TABLE vibetype_test.base;
 
 COMMIT;
+
+-- test for the existence of individual indexes
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_account_private_location'],
+  'vibetype_private'
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['account_block_created_by_blocked_account_id_key']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_address_location', 'idx_address_created_by', 'idx_address_updated_by']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_device_updated_by', 'device_created_by_fcm_token_key']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['event_grouping_event_id_event_group_id_key']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['event_created_by_slug_key', 'idx_event_search_vector']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_friendship_created_by', 'idx_friendship_updated_by']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['event_group_created_by_slug_key']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['guest_event_id_contact_id_key', 'idx_guest_updated_by']
+);

@@ -12,8 +12,4 @@ SELECT
 FROM vibetype.friendship
 WHERE FALSE;
 
-SELECT vibetype_test.index_existence(
-  ARRAY ['idx_friendship_created_by', 'idx_friendship_updated_by']
-);
-
 ROLLBACK;

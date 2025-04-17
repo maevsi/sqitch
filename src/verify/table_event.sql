@@ -18,8 +18,5 @@ SELECT id,
        search_vector
 FROM vibetype.event WHERE FALSE;
 
-SELECT vibetype_test.index_existence(
-  ARRAY ['event_created_by_slug_key', 'idx_event_search_vector']
-);
 
 ROLLBACK;

@@ -1,3 +1,5 @@
+\echo test_account_block...
+
 BEGIN;
 
 DO $$
@@ -74,7 +76,7 @@ BEGIN
   contactBC := vibetype_test.contact_create(accountB, 'c@example.com');
   contactCA := vibetype_test.contact_create(accountC, 'a@example.com');
   contactCB := vibetype_test.contact_create(accountC, 'b@example.com');
-
+  
   eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
   eventB := vibetype_test.event_create(accountB, 'Event by B', 'event-by-b', '2025-06-01 20:00', 'public');
   eventC := vibetype_test.event_create(accountC, 'Event by C', 'event-by-c', '2025-06-01 20:00', 'public');
@@ -161,7 +163,8 @@ BEGIN
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_remove(accountA, accountB); -- , contactBA, contactCA
+
   PERFORM vibetype_test.contact_test('contact: no block, perspective A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
   PERFORM vibetype_test.contact_test('contact: no block, perspective B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
 

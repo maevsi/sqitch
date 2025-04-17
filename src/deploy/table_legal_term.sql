@@ -62,20 +62,4 @@ CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (
   TRUE
 );
 
-
-CREATE FUNCTION vibetype_test.legal_term_singleton () RETURNS UUID AS $$
-DECLARE
-  _id UUID;
-  _verification UUID;
-BEGIN
-  SELECT id INTO _id FROM vibetype.legal_term LIMIT 1;
-
-  IF (_id IS NULL) THEN
-    INSERT INTO vibetype.legal_term (term, version) VALUES ('Be excellent to each other', '0.0.0')
-      RETURNING id INTO _id;
-  END IF;
-
-  RETURN _id;
-END $$ LANGUAGE plpgsql;
-
 COMMIT;
