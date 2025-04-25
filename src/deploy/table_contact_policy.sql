@@ -1,7 +1,7 @@
 BEGIN;
 
-GRANT SELECT ON TABLE vibetype.contact TO vibetype_account, vibetype_anonymous;
-GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.contact TO vibetype_account;
 
 ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 

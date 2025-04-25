@@ -22,8 +22,8 @@ COMMENT ON COLUMN vibetype.event_upload.upload_id IS E'@omit update\nReference t
 COMMENT ON CONSTRAINT event_upload_event_id_upload_id_key ON vibetype.event_upload IS 'Ensures that each upload is associated with a unique event, preventing duplicate uploads for the same event.';
 COMMENT ON INDEX vibetype.idx_event_upload_is_header_image_unique IS 'Ensures that at most one header image exists per event.';
 
-GRANT SELECT ON TABLE vibetype.event_upload TO vibetype_account, vibetype_anonymous;
-GRANT INSERT, DELETE ON TABLE vibetype.event_upload TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_upload TO vibetype_anonymous;
+GRANT INSERT, SELECT, DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 
 ALTER TABLE vibetype.event_upload ENABLE ROW LEVEL SECURITY;
 

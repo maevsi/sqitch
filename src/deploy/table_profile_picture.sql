@@ -1,5 +1,7 @@
 BEGIN;
 
+\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+
 CREATE TABLE vibetype.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -14,11 +16,9 @@ COMMENT ON COLUMN vibetype.profile_picture.id IS E'@omit create,update\nThe prof
 COMMENT ON COLUMN vibetype.profile_picture.account_id IS 'The account''s id.';
 COMMENT ON COLUMN vibetype.profile_picture.upload_id IS 'The upload''s id.';
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
-
-GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_account, vibetype_anonymous, :role_service_vibetype_username;
-GRANT INSERT, DELETE, UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
-GRANT DELETE ON TABLE vibetype.profile_picture TO :role_service_vibetype_username;
+GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_anonymous;
+GRANT INSERT, SELECT, DELETE, UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
+GRANT SELECT, DELETE ON TABLE vibetype.profile_picture TO :role_service_vibetype_username;
 
 ALTER TABLE vibetype.profile_picture ENABLE ROW LEVEL SECURITY;
 

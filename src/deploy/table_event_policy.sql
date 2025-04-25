@@ -1,7 +1,7 @@
 BEGIN;
 
-GRANT SELECT ON TABLE vibetype.event TO vibetype_account, vibetype_anonymous;
-GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.event TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.event TO vibetype_account;
 
 ALTER TABLE vibetype.event ENABLE ROW LEVEL SECURITY;
 

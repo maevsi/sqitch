@@ -7975,8 +7975,8 @@ GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) 
 -- Name: TABLE event; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event TO vibetype_account;
 
 
 --
@@ -8594,8 +8594,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.address TO vibetype_account;
 -- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 
 
 --
@@ -8648,16 +8648,16 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_ac
 -- Name: TABLE event_group; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_group TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event_group TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_group TO vibetype_account;
 
 
 --
 -- Name: TABLE event_grouping; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_grouping TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event_grouping TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_grouping TO vibetype_account;
 
 
 --
@@ -8671,8 +8671,8 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_recommendation TO vibetype_ac
 -- Name: TABLE event_upload; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event_upload TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 
 
 --
@@ -8709,8 +8709,8 @@ GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
 -- Name: TABLE profile_picture; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
 GRANT SELECT,DELETE ON TABLE vibetype.profile_picture TO vibetype;
 
 
