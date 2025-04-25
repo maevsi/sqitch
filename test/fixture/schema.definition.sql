@@ -1182,32 +1182,6 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
--- Name: event_is_existing(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.event_is_existing(created_by uuid, slug text) RETURNS boolean
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype.event WHERE "event".created_by = event_is_existing.created_by AND "event".slug = event_is_existing.slug)) THEN
-    RETURN TRUE;
-  ELSE
-    RETURN FALSE;
-  END IF;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.event_is_existing(created_by uuid, slug text) OWNER TO ci;
-
---
--- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.event_is_existing(created_by uuid, slug text) IS 'Shows if an event exists.';
-
-
---
 -- Name: event_search(text, vibetype.language); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -3100,7 +3074,11 @@ COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who pl
 
 CREATE TABLE vibetype.account (
     id uuid NOT NULL,
+    description text,
+    imprint text,
     username text NOT NULL,
+    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
+    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
     CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
 );
 
@@ -3119,6 +3097,20 @@ COMMENT ON TABLE vibetype.account IS 'Public account data.';
 --
 
 COMMENT ON COLUMN vibetype.account.id IS 'The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
+
+
+--
+-- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
 
 
 --
@@ -7153,15 +7145,6 @@ GRANT ALL ON FUNCTION vibetype.event_delete(id uuid, password text) TO vibetype_
 REVOKE ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION event_is_existing(created_by uuid, slug text); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.event_is_existing(created_by uuid, slug text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.event_is_existing(created_by uuid, slug text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.event_is_existing(created_by uuid, slug text) TO vibetype_anonymous;
 
 
 --
