@@ -20,7 +20,7 @@ DO $$
 DECLARE
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username');
 END $$;
 ROLLBACK TO SAVEPOINT account_registration;
@@ -30,7 +30,7 @@ DO $$
 DECLARE
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'short', 'username');
   RAISE EXCEPTION 'Test failed: Password length not enforced';
 EXCEPTION WHEN invalid_parameter_value THEN
@@ -43,7 +43,7 @@ DO $$
 DECLARE
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('diff@example.com', 'en', _legal_term_id, 'password', 'username-duplicate');
   PERFORM vibetype.account_registration('erent@example.com', 'en', _legal_term_id, 'password', 'username-duplicate');
   RAISE EXCEPTION 'Test failed: Duplicate username not enforced';
@@ -57,7 +57,7 @@ DO $$
 DECLARE
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('duplicate@example.com', 'en', _legal_term_id, 'password', 'username-diff');
   PERFORM vibetype.account_registration('duplicate@example.com', 'en', _legal_term_id, 'password', 'username-erent');
 END $$;
@@ -68,7 +68,7 @@ DO $$
 DECLARE
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', NULL);
   RAISE EXCEPTION 'Test failed: NULL username allowed';
 EXCEPTION WHEN OTHERS THEN
@@ -81,7 +81,7 @@ DO $$
 DECLARE
   _legal_term_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', '');
   RAISE EXCEPTION 'Test failed: Empty username allowed';
 EXCEPTION WHEN OTHERS THEN
@@ -95,7 +95,7 @@ DECLARE
   _legal_term_id UUID;
   _account_id UUID;
 BEGIN
-  _legal_term_id := vibetype_test.legal_term_singleton();
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
   PERFORM vibetype.account_registration('email@example.com', 'en', _legal_term_id, 'password', 'username-8b973f');
 
   SELECT id INTO _account_id
@@ -114,7 +114,7 @@ BEGIN
   END IF;
 */
 
-  PERFORM vibetype_test.invoker_unset();
+  PERFORM vibetype_test.invoker_set_empty();
 
 END $$;
 ROLLBACK TO SAVEPOINT notification;

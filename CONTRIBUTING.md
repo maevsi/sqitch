@@ -37,7 +37,7 @@ Now edit the source code of this project.
 Before submitting a pull request, it's important to update the schema artifacts to ensure consistency. We have a script to make this process easier. Run the following command:
 
 ```
-test/schema/schema-update.sh
+test/test.sh --update
 ```
 
 This script will regenerate the necessary schema files and update other artifacts as needed. Make sure to include these changes in your pull request.

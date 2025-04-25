@@ -1,5 +1,5 @@
 BEGIN;
 
--- moved to test/pg-test/test/test_authenticate.sql
+-- in /test/logic/scenario/model/authenticate.sql
 
 ROLLBACK;

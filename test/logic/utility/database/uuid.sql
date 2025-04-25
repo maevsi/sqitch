@@ -1,26 +1,3 @@
-
-CREATE OR REPLACE FUNCTION vibetype_test.invoker_set (
-  _invoker_id UUID
-)
-RETURNS VOID AS $$
-BEGIN
-  SET LOCAL ROLE = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_id || '''';
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set(UUID) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.invoker_unset ()
-RETURNS VOID AS $$
-BEGIN
-  SET LOCAL ROLE NONE;
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''''';
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.invoker_unset() TO vibetype_account;
-
-
 CREATE OR REPLACE FUNCTION vibetype_test.uuid_array_test (
   _test_case TEXT,
   _array UUID[],

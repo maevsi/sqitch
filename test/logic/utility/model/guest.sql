@@ -21,6 +21,44 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION vibetype_test.guest_create(UUID, UUID, UUID) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.guest_create_multiple_test (
+  _test_case TEXT,
+  _account_id UUID,
+  _event_id UUID,
+  _contact_ids UUID[],
+  _guest_ids UUID[]
+) RETURNS VOID AS $$
+BEGIN
+  IF _account_id IS NULL THEN
+    SET LOCAL ROLE = 'vibetype_anonymous';
+    SET LOCAL jwt.claims.account_id = '';
+  ELSE
+    SET LOCAL ROLE = 'vibetype_account';
+    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  END IF;
+
+  IF EXISTS (
+      SELECT id FROM vibetype.guest WHERE event_id = _event_id AND contact_id = ANY(_contact_ids)
+        EXCEPT
+      SELECT * FROM unnest(_guest_ids)
+     ) THEN
+    RAISE EXCEPTION '%: some guest should not appear in table guest', _test_case;
+  END IF;
+
+  IF EXISTS (
+      SELECT * FROM unnest(_guest_ids)
+        EXCEPT
+      SELECT id FROM vibetype.guest WHERE event_id = _event_id AND contact_id = ANY(_contact_ids)
+    ) THEN
+    RAISE EXCEPTION '%: some guest is missing in table guest', _test_case;
+  END IF;
+
+  SET LOCAL ROLE NONE;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.guest_create_multiple_test(TEXT, UUID, UUID, UUID[], UUID[]) TO vibetype_account;
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.guest_test (
   _test_case TEXT,
   _account_id UUID,
@@ -49,44 +87,7 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION vibetype_test.guest_test(TEXT, UUID, UUID[]) TO vibetype_account;
 
 
-CREATE OR REPLACE FUNCTION vibetype_test.guest_create_multiple_test (
-  _test_case TEXT,
-  _account_id UUID,
-  _event_id UUID,
-  _contact_ids UUID[],
-  _guest_ids UUID[]
-) RETURNS VOID AS $$
-BEGIN
-  IF _account_id IS NULL THEN
-    SET LOCAL ROLE = 'vibetype_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL ROLE = 'vibetype_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  END IF;
-
-  IF EXISTS (
-      SELECT id FROM vibetype.guest WHERE event_id = _event_id AND contact_id = ANY(_contact_ids)
-        EXCEPT 
-      SELECT * FROM unnest(_guest_ids)
-     ) THEN
-    RAISE EXCEPTION '%: some guest should not appear in table guest', _test_case;
-  END IF;
-
-  IF EXISTS (
-      SELECT * FROM unnest(_guest_ids) 
-        EXCEPT 
-      SELECT id FROM vibetype.guest WHERE event_id = _event_id AND contact_id = ANY(_contact_ids)
-    ) THEN
-    RAISE EXCEPTION '%: some guest is missing in table guest', _test_case;
-  END IF;
-
-  SET LOCAL ROLE NONE;
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.guest_create_multiple_test(TEXT, UUID, UUID, UUID[], UUID[]) TO vibetype_account;
-
-
+-- returns all guest ids that represent invitations received by the given account
 CREATE OR REPLACE FUNCTION vibetype_test.guest_claim_from_account_guest (
   _account_id UUID
 )
@@ -99,9 +100,9 @@ BEGIN
   SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
 
-  -- reads all guests where _account_id is invited,
-  -- sets jwt.claims.guests to a string representation of these guests
-  -- and returns an array of these guests.
+  -- -- reads all guest ids that represent invitations received by the given account,
+  -- -- sets jwt.claims.guests to a string representation of these guests
+  -- -- and returns an array of these guests.
 
   FOR _guest IN
     SELECT g.id

@@ -1,4 +1,3 @@
-
 CREATE OR REPLACE FUNCTION vibetype_test.account_block_create (
   _created_by UUID,
   _blocked_account_id UUID
@@ -21,7 +20,7 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_create(UUID, UUID) TO vibetype_account;
 
 
-CREATE OR REPLACE FUNCTION vibetype_test.account_block_remove (
+CREATE OR REPLACE FUNCTION vibetype_test.account_block_delete (
   _created_by UUID,
   _blocked_account_id UUID
 ) RETURNS VOID AS $$
@@ -32,4 +31,4 @@ BEGIN
   WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
 END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.account_block_remove(UUID, UUID) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.account_block_delete(UUID, UUID) TO vibetype_account;
