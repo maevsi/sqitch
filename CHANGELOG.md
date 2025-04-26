@@ -1,3 +1,9 @@
+## [7.0.1](https://github.com/maevsi/sqitch/compare/7.0.0...7.0.1) (2025-04-26)
+
+### Bug Fixes
+
+* schedule release ([8e1b5b8](https://github.com/maevsi/sqitch/commit/8e1b5b8f29e4de79249f693341ee42862825ced8))
+
 ## [7.0.0](https://github.com/maevsi/sqitch/compare/6.2.0...7.0.0) (2025-04-07)
 
 ### ⚠ BREAKING CHANGES
