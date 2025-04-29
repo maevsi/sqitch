@@ -19,4 +19,13 @@ COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.
 COMMENT ON COLUMN vibetype.notification.created_by IS E'@omit create\nReference to the account that created the notification.';
 COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
 
+GRANT SELECT, INSERT ON vibetype.notification TO vibetype_account;
+
+ALTER TABLE vibetype.notification ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY notification_all ON vibetype.notification FOR ALL
+USING (
+  created_by = vibetype.invoker_account_id()
+);
+
 COMMIT;

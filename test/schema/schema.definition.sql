@@ -7717,6 +7717,19 @@ CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (true);
 
 
 --
+-- Name: notification; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.notification ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: notification notification_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_all ON vibetype.notification USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
 -- Name: notification_invitation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -8943,6 +8956,13 @@ GRANT SELECT ON TABLE vibetype.legal_term TO vibetype_anonymous;
 --
 
 GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
+
+
+--
+-- Name: TABLE notification; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT ON TABLE vibetype.notification TO vibetype_account;
 
 
 --
