@@ -68,7 +68,6 @@ CREATE POLICY event_category_mapping_delete ON vibetype.event_category_mapping F
   (SELECT created_by FROM vibetype.event WHERE id = event_id) = vibetype.invoker_account_id()
 );
 ```
-
 See https://www.postgresql.org/docs/17/sql-createpolicy.html for more details on the `CREATE POLICY` command and how policies are enforced.
 
 ### How are policies enforced?
@@ -76,8 +75,6 @@ See https://www.postgresql.org/docs/17/sql-createpolicy.html for more details on
 When a table is accessed by the `SELECT` action, all policies defined for that table and referring to this action are determined, and their `USING` conditions are evaluated for each table row.
 If there is more than one policy, the conditions are logically connected by `OR`.
 Thus, a row is visible to the query if one of the conditions evaluates to `true`.
-
-> In a strict sense, this applies only to the so-called *permissive* policies, which are currently the only kind of policy used in *Vibetype*.
 
 When a table is accessed by a specific action (`SELECT`, `INSERT`, `UPDATE`, or `DELETE`), all policies defined for that table and referring to the current action are chosen, and their conditions are evaluated for each row – using `OR` as the logical operator in case more than one policy applies.
 
@@ -105,16 +102,8 @@ CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (
 );
 ```
 
-The first policy opens up the complete content of table `upload` to the *Vibetype service* user.
-The second condition restricts access to all other roles.
-
-### Permissive and restrictive policies
-
-While *permissive* policies define conditions telling us which rows should be visible, *restrictive* policies start from a set of visible rows (given by at least one permissive policy) and define conditions telling us which rows should NOT be seen.
-If multiple restrictive policies apply, they are logically connected by `AND`.
-As mentioned above, restrictive policies are currently not used in *Vibetype*.
-
-See https://www.postgresql.org/docs/17/sql-createpolicy.html for more details on restrictive policies.
+The first policy opens up the complete content of table `upload` to the *Vibetype service* role (user).
+The second condition restricts access to all roles. In case the current role is the *Vibetype service* role it does not need to be checked because the first policy with the condition `TRUE` condition also applies and both conditions will be logically connected by `OR`.
 
 ### When is RLS not enforced?
 
