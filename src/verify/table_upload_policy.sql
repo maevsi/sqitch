@@ -1,5 +1,14 @@
 BEGIN;
 
+SELECT id,
+       account_id,
+       name,
+       size_byte,
+       storage_key,
+       type,
+       created_at
+FROM vibetype.upload WHERE FALSE;
+
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
 
