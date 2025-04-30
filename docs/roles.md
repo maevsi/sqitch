@@ -1,4 +1,4 @@
-## Roles in Vibetype (PostgreSQL)
+# Roles in Vibetype (PostgreSQL)
 
 > In this document, we present the *role* concept of PostgreSQL and how it is used in the Vibetype project.
 
@@ -108,7 +108,7 @@ In all subsequent requests, *Postgraphile* performs the role switching under the
 *Postgraphile* will also automatically set the runtime parameter `jwt.claims.account_id` to the account ID from the JWT, which corresponds to the command `SET LOCAL 'jwt.claims.account_id' TO '<account_id>'`.
 If a user is not logged in, the role will be 'vibetype_anonymous'.
 
-### Additional remarks:
+## Additional remarks:
 
 * A superuser can switch to any role; we don't need a `GRANT <role> TO <superuser>` for that.
 * `SET ROLE` cannot be used within a `SECURITY DEFINER` function, which is a function executed with the privileges of the owner of the function.

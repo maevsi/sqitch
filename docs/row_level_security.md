@@ -1,4 +1,4 @@
-## Row Level Security in Vibetype (PostgreSQL)
+# Row Level Security in Vibetype (PostgreSQL)
 
 > In this document, we present the *row level security* concept of PostgreSQL and how it is used in the Vibetype project.
 
@@ -7,15 +7,13 @@ This is done by defining conditions that must be fulfilled when executing one of
 
 See https://www.postgresql.org/docs/17/ddl-rowsecurity.html for a more complete introductory overview.
 
-### Enabling RLS and creating policies
+## Enabling RLS and creating policies
 
 RLS is enabled per table by this command:
 
 ```sql
 ALTER TABLE <table_name> ENABLE ROW LEVEL SECURITY;
 ```
-
-To disable RLS for the table, replace `ENABLE` with `DISABLE`.
 
 When RLS is initially enabled for a table, all content of the table is hidden, and no DML commands will succeed.
 
@@ -70,7 +68,7 @@ CREATE POLICY event_category_mapping_delete ON vibetype.event_category_mapping F
 ```
 See https://www.postgresql.org/docs/17/sql-createpolicy.html for more details on the `CREATE POLICY` command and how policies are enforced.
 
-### How are policies enforced?
+## How are policies enforced?
 
 When a table is accessed by the `SELECT` action, all policies defined for that table and referring to this action are determined, and their `USING` conditions are evaluated for each table row.
 If there is more than one policy, the conditions are logically connected by `OR`.
@@ -81,7 +79,7 @@ When a table is accessed by a specific action (`SELECT`, `INSERT`, `UPDATE`, or 
 With `INSERT` and `UPDATE` commands, the `WITH CHECK` conditions are determined similarly and evaluated against the newly inserted or updated rows.
 If the check fails, the statement will fail.
 
-### Policies targeting specific roles
+## Policies targeting specific roles
 
 It is possible to create a policy to apply for a specific role (or set of roles) using the `TO <role_name>` clause.
 In *Vibetype*, this is rarely done, and most often no `TO` clause will appear (`TO PUBLIC` would have been the explicit way).
@@ -105,7 +103,7 @@ CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (
 The first policy opens up the complete content of table `upload` to the *Vibetype service* role (user).
 The second condition restricts access to all roles. In case the current role is the *Vibetype service* role it does not need to be checked because the first policy with the condition `TRUE` condition also applies and both conditions will be logically connected by `OR`.
 
-### When is RLS not enforced?
+## When is RLS not enforced?
 
 Even if RLS is enabled for a table, there are situations when RLS is actually not enforced.
 We should be aware of these cases:
