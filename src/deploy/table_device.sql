@@ -59,7 +59,6 @@ ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 CREATE POLICY device_all ON vibetype.device FOR ALL
 USING (
   created_by = vibetype.invoker_account_id()
-)
-WITH CHECK (TRUE);
+);
 
 COMMIT;

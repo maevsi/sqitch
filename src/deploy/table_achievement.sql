@@ -21,7 +21,7 @@ GRANT SELECT ON TABLE vibetype.achievement TO vibetype_account, vibetype_anonymo
 ALTER TABLE vibetype.achievement ENABLE ROW LEVEL SECURITY;
 
 -- Make all achievement unlocks accessible by everyone.
-CREATE POLICY achievement_select ON vibetype.achievement FOR ALL
+CREATE POLICY achievement_select ON vibetype.achievement FOR SELECT
 USING (
   TRUE
 );

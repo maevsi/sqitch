@@ -7177,6 +7177,13 @@ CREATE POLICY account_social_network_all ON vibetype.account_social_network USIN
 
 
 --
+-- Name: account_social_network account_social_network_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_social_network_select ON vibetype.account_social_network FOR SELECT USING (true);
+
+
+--
 -- Name: achievement; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7186,7 +7193,7 @@ ALTER TABLE vibetype.achievement ENABLE ROW LEVEL SECURITY;
 -- Name: achievement achievement_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY achievement_select ON vibetype.achievement USING (true);
+CREATE POLICY achievement_select ON vibetype.achievement FOR SELECT USING (true);
 
 
 --
@@ -7253,7 +7260,7 @@ ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 -- Name: device device_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoker_account_id())) WITH CHECK (true);
+CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -7598,7 +7605,7 @@ ALTER TABLE vibetype_private.achievement_code ENABLE ROW LEVEL SECURITY;
 -- Name: achievement_code achievement_code_select; Type: POLICY; Schema: vibetype_private; Owner: ci
 --
 
-CREATE POLICY achievement_code_select ON vibetype_private.achievement_code USING (true);
+CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR SELECT USING (true);
 
 
 --
@@ -8664,7 +8671,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_grouping TO vibetype_a
 -- Name: TABLE event_recommendation; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_recommendation TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_recommendation TO vibetype_account;
 
 
 --

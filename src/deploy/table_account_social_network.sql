@@ -24,4 +24,9 @@ USING (
   account_id = vibetype.invoker_account_id()
 );
 
+CREATE POLICY account_social_network_select ON vibetype.account_social_network FOR SELECT
+USING (
+  TRUE
+);
+
 COMMIT;
