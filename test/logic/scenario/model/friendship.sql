@@ -1,3 +1,5 @@
+\echo test_friendship..
+
 BEGIN;
 
 DO $$

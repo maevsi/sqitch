@@ -1,3 +1,5 @@
+\echo test_account_block...
+
 BEGIN;
 
 DO $$
@@ -37,9 +39,9 @@ BEGIN
 
   -- remove accounts (if exist)
 
-  PERFORM vibetype_test.account_remove('a');
-  PERFORM vibetype_test.account_remove('b');
-  PERFORM vibetype_test.account_remove('c');
+  PERFORM vibetype_test.account_delete('a');
+  PERFORM vibetype_test.account_delete('b');
+  PERFORM vibetype_test.account_delete('c');
 
   -- fill with test data
 
@@ -66,7 +68,7 @@ BEGIN
   END;
 
   -- A unblocks B
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
 
   contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
   contactAC := vibetype_test.contact_create(accountA, 'c@example.com');
@@ -99,7 +101,7 @@ BEGIN
   END;
 
   -- A unblocks B
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
 
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
   guestAC := vibetype_test.guest_create(accountA, eventA, contactAC);
@@ -114,7 +116,7 @@ BEGIN
   BEGIN
     PERFORM vibetype_test.invoker_set(accountC);
     PERFORM vibetype.create_guests(eventC, ARRAY[contactCA, contactCB]);
-    PERFORM vibetype_test.invoker_unset();
+    PERFORM vibetype_test.invoker_set_empty();
     RAISE EXCEPTION 'User should not be able to add users as guests if one of the users is blocked';
   EXCEPTION
     WHEN insufficient_privilege THEN
@@ -125,11 +127,11 @@ BEGIN
   END;
 
   -- C unblocks B
-  PERFORM vibetype_test.account_block_remove(accountC, accountB);
+  PERFORM vibetype_test.account_block_delete(accountC, accountB);
 
   PERFORM vibetype_test.invoker_set(accountC);
 
-  -- TODO: try to extract to other test file (https://github.com/vibetype/sqitch/issues/142)
+  -- TODO: try to extract to other test file (https://github.com/maevsi/sqitch/issues/142)
 
   FOR rec IN
     SELECT * FROM vibetype.create_guests(eventC, ARRAY[contactCA, contactCB])
@@ -141,11 +143,11 @@ BEGIN
     END IF;
   END LOOP;
 
-  PERFORM vibetype_test.invoker_unset();
+  PERFORM vibetype_test.invoker_set_empty();
 
   -- run tests
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
   PERFORM vibetype_test.event_test('event: no block, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
   PERFORM vibetype_test.event_test('event: no block, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
 
@@ -153,7 +155,7 @@ BEGIN
   PERFORM vibetype_test.event_test('event: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM vibetype_test.event_test('event: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: no block, perspective A', accountA, ARRAY[eventA, eventB, eventC]::UUID[]);
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: no block, perspective B', accountB, ARRAY[eventA, eventB, eventC]::UUID[]);
 
@@ -161,7 +163,8 @@ BEGIN
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
+
   PERFORM vibetype_test.contact_test('contact: no block, perspective A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
   PERFORM vibetype_test.contact_test('contact: no block, perspective B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);
 
@@ -169,7 +172,7 @@ BEGIN
   PERFORM vibetype_test.contact_test('contact: A blocks B, perspective A', accountA, ARRAY[contactAA, contactAC, contactCA]::UUID[]);
   PERFORM vibetype_test.contact_test('contact: A blocks B, perspective B', accountB, ARRAY[contactBB, contactBC, contactCB]::UUID[]);
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
   PERFORM vibetype_test.guest_test('guest: no block, perspective A', accountA, ARRAY[guestAB, guestAC, guestBA, guestCA]::UUID[]);
   PERFORM vibetype_test.guest_test('guest: no block, perspective B', accountB, ARRAY[guestBA, guestBC, guestAB, guestCB]::UUID[]);
 
@@ -177,7 +180,7 @@ BEGIN
   PERFORM vibetype_test.guest_test('guest: A blocks B, perspective A', accountA, ARRAY[guestAC, guestCA]::UUID[]);
   PERFORM vibetype_test.guest_test('guest: A blocks B, perspective B', accountB, ARRAY[guestBC, guestCB]::UUID[]);
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
   PERFORM vibetype_test.event_test('anonymous login: no block, events', null, ARRAY[eventA, eventB, eventC]::UUID[]);
   PERFORM vibetype_test.contact_test('anonymous login: no block, contacts', null, ARRAY[]::UUID[]);
   PERFORM vibetype_test.guest_test('anonymous login: no block, guests', null, ARRAY[]::UUID[]);
@@ -188,7 +191,7 @@ BEGIN
 
   -- tests for function `guest_claim_array()`
 
-  PERFORM vibetype_test.account_block_remove(accountA, accountB);
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
   guestClaimArray := vibetype.guest_claim_array();
   PERFORM vibetype_test.uuid_array_test('no block, guest claim is unset', guestClaimArray, ARRAY[]::UUID[]);
 

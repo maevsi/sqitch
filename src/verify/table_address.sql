@@ -17,10 +17,6 @@ SELECT id,
        updated_by
 FROM vibetype.address WHERE FALSE;
 
-SELECT vibetype_test.index_existence(
-  ARRAY ['idx_address_location', 'idx_address_created_by', 'idx_address_updated_by']
-);
-
 ROLLBACK;
 
 BEGIN;

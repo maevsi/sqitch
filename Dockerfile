@@ -43,21 +43,21 @@ RUN apt-get update \
     /run/secrets/postgres_role_service_postgraphile_password \
     /dev/null
 
-COPY ./src ./
-COPY ./test/index-missing.sql ./test/
+COPY ./src ./src
+COPY ./test ./test
 
 RUN docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
-  && sqitch deploy -t db:pg://ci:postgres@/ci_database \
-  && psql -h localhost -U ci -d ci_database -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
+  && sqitch --chdir src deploy -t db:pg://ci:postgres@/ci_database \
   && pg_dump -s -h localhost -U ci -p 5432 ci_database | sed -e '/^-- Dumped/d' > schema.sql \
-  && sqitch revert -t db:pg://ci:postgres@/ci_database
-
+  && psql -h localhost -U ci -d ci_database -q -f ./test/logic/main.sql \
+    -v TEST_DIRECTORY=./test/logic -v ON_ERROR_STOP=on \
+  && sqitch --chdir src revert -t db:pg://ci:postgres@/ci_database
 
 ##############################
 FROM test-build AS test
 
-COPY ./test/schema/schema.definition.sql ./
+COPY ./test/fixture/schema.definition.sql ./
 
 RUN diff schema.definition.sql schema.sql
 
