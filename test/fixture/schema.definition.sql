@@ -3816,14 +3816,15 @@ ALTER TABLE vibetype.event_favorite OWNER TO ci;
 -- Name: TABLE event_favorite; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_favorite IS 'Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
+COMMENT ON TABLE vibetype.event_favorite IS '@omit update
+Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
 --
 -- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_favorite.id IS '@omit create
 Primary key, uniquely identifies each favorite entry.';
 
 
@@ -3838,7 +3839,7 @@ COMMENT ON COLUMN vibetype.event_favorite.event_id IS 'Reference to the event th
 -- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_favorite.created_at IS '@omit create
 Timestamp when the favorite was created. Defaults to the current timestamp.';
 
 
@@ -3846,8 +3847,7 @@ Timestamp when the favorite was created. Defaults to the current timestamp.';
 -- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.created_by IS '@omit create,update
-Reference to the account that created the event favorite.';
+COMMENT ON COLUMN vibetype.event_favorite.created_by IS 'Reference to the account that created the event favorite.';
 
 
 --
