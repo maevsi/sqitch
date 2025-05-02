@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.invite(
   guest_id UUID,
-  "language" TEXT
+  language TEXT
 ) RETURNS UUID AS $$
 DECLARE
   _contact RECORD;
@@ -88,11 +88,11 @@ BEGIN
     )
     RETURNING id INTO _id;
 
-    RETURN _id;
+  RETURN _id;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an invitation and a notification.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.';
 
 GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 

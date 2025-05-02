@@ -5,24 +5,24 @@ CREATE FUNCTION vibetype.account_password_reset_request(
   language TEXT
 ) RETURNS VOID AS $$
 DECLARE
-  _rec_account vibetype_private.account%ROWTYPE;
+  _account vibetype_private.account%ROWTYPE;
   _notify_data RECORD := NULL;
 BEGIN
 
   UPDATE vibetype_private.account
     SET password_reset_verification = gen_random_uuid()
     WHERE account.email_address = account_password_reset_request.email_address
-    RETURNING * INTO _rec_account;
+    RETURNING * INTO _account;
 
-  IF _rec_account IS NOT NULL THEN
+  IF _account IS NOT NULL THEN
     SELECT
       username,
-      _rec_account.email_address,
-      _rec_account.password_reset_verification,
-      _rec_account.password_reset_verification_valid_until
+      _account.email_address,
+      _account.password_reset_verification,
+      _account.password_reset_verification_valid_until
       INTO _notify_data
       FROM vibetype.account
-      WHERE id = _rec_account.id;
+      WHERE id = _account.id;
   END IF;
 
   IF (_notify_data IS NULL) THEN
@@ -34,7 +34,7 @@ BEGIN
         'account', _notify_data,
         'template', jsonb_build_object('language', account_password_reset_request.language)
       )),
-      _rec_account.id
+      _account.id
     );
   END IF;
 END;

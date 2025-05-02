@@ -515,24 +515,24 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _rec_account vibetype_private.account%ROWTYPE;
+  _account vibetype_private.account%ROWTYPE;
   _notify_data RECORD := NULL;
 BEGIN
 
   UPDATE vibetype_private.account
     SET password_reset_verification = gen_random_uuid()
     WHERE account.email_address = account_password_reset_request.email_address
-    RETURNING * INTO _rec_account;
+    RETURNING * INTO _account;
 
-  IF _rec_account IS NOT NULL THEN
+  IF _account IS NOT NULL THEN
     SELECT
       username,
-      _rec_account.email_address,
-      _rec_account.password_reset_verification,
-      _rec_account.password_reset_verification_valid_until
+      _account.email_address,
+      _account.password_reset_verification,
+      _account.password_reset_verification_valid_until
       INTO _notify_data
       FROM vibetype.account
-      WHERE id = _rec_account.id;
+      WHERE id = _account.id;
   END IF;
 
   IF (_notify_data IS NULL) THEN
@@ -544,7 +544,7 @@ BEGIN
         'account', _notify_data,
         'template', jsonb_build_object('language', account_password_reset_request.language)
       )),
-      _rec_account.id
+      _account.id
     );
   END IF;
 END;
@@ -1530,7 +1530,7 @@ BEGIN
     )
     RETURNING id INTO _id;
 
-    RETURN _id;
+  RETURN _id;
 END;
 $$;
 
@@ -1541,7 +1541,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an invitation and a notification.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
 
 
 --
@@ -4410,8 +4410,8 @@ CREATE TABLE vibetype.notification (
     channel text NOT NULL,
     is_acknowledged boolean,
     payload text NOT NULL,
-    created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
 );
 
@@ -4454,18 +4454,17 @@ COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.
 
 
 --
--- Name: COLUMN notification.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.notification.created_by IS '@omit create
-Reference to the account that created the notification.';
-
-
---
 -- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
 COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
+-- Name: COLUMN notification.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_by IS 'Reference to the account that created the notification.';
 
 
 --
@@ -5675,6 +5674,13 @@ CREATE INDEX idx_invitation_guest_id ON vibetype.notification_invitation USING b
 
 
 --
+-- Name: idx_notification_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_notification_created_by ON vibetype.notification USING btree (created_by);
+
+
+--
 -- Name: idx_account_private_location; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
@@ -6676,16 +6682,6 @@ CREATE POLICY notification_invitation_all ON vibetype.notification_invitation US
 
 
 --
--- Name: notification_invitation notification_invitation_insert; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY notification_invitation_insert ON vibetype.notification_invitation FOR INSERT WITH CHECK ((vibetype.invoker_account_id() = ( SELECT e.created_by
-   FROM (vibetype.guest g
-     JOIN vibetype.event e ON ((g.event_id = e.id)))
-  WHERE (g.id = notification_invitation.guest_id))));
-
-
---
 -- Name: profile_picture; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7601,14 +7597,14 @@ GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
 -- Name: TABLE notification; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT ON TABLE vibetype.notification TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.notification TO vibetype_account;
 
 
 --
 -- Name: TABLE notification_invitation; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT ON TABLE vibetype.notification_invitation TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.notification_invitation TO vibetype_account;
 
 
 --
