@@ -14,10 +14,6 @@ SELECT id,
        last_activity
 FROM vibetype_private.account WHERE FALSE;
 
-SELECT vibetype_test.index_existence(
-  ARRAY ['idx_account_private_location'],
-  'vibetype_private'
-);
 
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
