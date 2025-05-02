@@ -14,4 +14,13 @@ COMMENT ON COLUMN vibetype.account_preference_event_size.account_id IS 'The acco
 COMMENT ON COLUMN vibetype.account_preference_event_size.event_size IS 'A preferred event sized';
 COMMENT ON COLUMN vibetype.account_preference_event_size.created_at IS E'@omit create,update\nTimestamp of when the event size preference was created, defaults to the current timestamp.';
 
+GRANT SELECT, INSERT, DELETE ON TABLE vibetype.account_preference_event_size TO vibetype_account;
+
+ALTER TABLE vibetype.account_preference_event_size ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY account_preference_event_size_all ON vibetype.account_preference_event_size FOR ALL
+USING (
+  account_id = vibetype.invoker_account_id()
+);
+
 END;

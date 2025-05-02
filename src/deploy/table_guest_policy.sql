@@ -5,7 +5,8 @@ GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
 
 ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT
+USING (
     -- Display guests accessible through guest claims.
     id = ANY (vibetype.guest_claim_array())
   OR
@@ -52,7 +53,8 @@ CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (
 -- Only allow inserts for guests of events for which the maximum guest count is not yet reached.
 -- Only allow inserts for guests for a contact that was created by oneself.
 -- Do not allow inserts for guests for a contact referring a blocked account.
-CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (
+CREATE POLICY guest_insert ON vibetype.guest FOR INSERT
+WITH CHECK (
     event_id IN (SELECT vibetype.events_organized())
   AND
   (
@@ -83,7 +85,8 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (
 -- Only allow updates to guests accessible through guest claims.
 -- Only allow updates to guests accessible through the account, but not guests auhored by a blocked account.
 -- Only allow updates to guests to events organized by oneself, but not guests referencing a blocked account or authored by a blocked account.
-CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (
+CREATE POLICY guest_update ON vibetype.guest FOR UPDATE
+USING (
     id = ANY (vibetype.guest_claim_array())
   OR
   (
@@ -125,7 +128,8 @@ CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (
 );
 
 -- Only allow deletes for guests of events organized by oneself.
-CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING (
+CREATE POLICY guest_delete ON vibetype.guest FOR DELETE
+USING (
   event_id IN (SELECT vibetype.events_organized())
 );
 

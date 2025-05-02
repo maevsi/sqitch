@@ -14,4 +14,13 @@ COMMENT ON COLUMN vibetype.account_preference_event_format.account_id IS 'A user
 COMMENT ON COLUMN vibetype.account_preference_event_format.format_id IS 'The id of an event format.';
 COMMENT ON COLUMN vibetype.account_preference_event_format.created_at IS 'The timestammp when the record was created..';
 
+GRANT SELECT, INSERT, DELETE ON TABLE vibetype.account_preference_event_format TO vibetype_account;
+
+ALTER TABLE vibetype.account_preference_event_format ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY account_preference_event_format_all ON vibetype.account_preference_event_format FOR ALL
+USING (
+  account_id = vibetype.invoker_account_id()
+);
+
 COMMIT;

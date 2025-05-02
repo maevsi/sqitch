@@ -14,16 +14,14 @@ COMMENT ON COLUMN vibetype.event_grouping.id IS E'@omit create,update\nThe event
 COMMENT ON COLUMN vibetype.event_grouping.event_group_id IS 'The event grouping''s internal event group id.';
 COMMENT ON COLUMN vibetype.event_grouping.event_id IS 'The event grouping''s internal event id.';
 
-GRANT SELECT ON TABLE vibetype.event_grouping TO vibetype_account, vibetype_anonymous;
-GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.event_grouping TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_grouping TO vibetype_anonymous;
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.event_grouping TO vibetype_account;
 
 ALTER TABLE vibetype.event_grouping ENABLE ROW LEVEL SECURITY;
 
 -- TODO:
 -- CREATE POLICY event_grouping_select ON vibetype.event_grouping FOR SELECT USING (
---     event_id IN (
---         SELECT id FROM vibetype.event
---     )
+--     event_id IN (SELECT id FROM vibetype.event)
 -- );
 
 COMMIT;
