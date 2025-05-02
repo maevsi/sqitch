@@ -1,5 +1,5 @@
 BEGIN;
 
--- in test/logic/scenario/model/table_account_social_network_policy.sql
+-- in /test/logic/scenario/model/account_social_network.sql
 
 ROLLBACK;

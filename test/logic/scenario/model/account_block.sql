@@ -163,7 +163,7 @@ BEGIN
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective A', accountA, ARRAY[eventA, eventC]::UUID[]);
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping: A blocks B, perspective B', accountB, ARRAY[eventB, eventC]::UUID[]);
 
-  PERFORM vibetype_test.account_block_delete(accountA, accountB); -- , contactBA, contactCA
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
 
   PERFORM vibetype_test.contact_test('contact: no block, perspective A', accountA, ARRAY[contactAA, contactAB, contactAC, contactBA, contactCA]::UUID[]);
   PERFORM vibetype_test.contact_test('contact: no block, perspective B', accountB, ARRAY[contactBB, contactBA, contactBC, contactAB, contactCB]::UUID[]);

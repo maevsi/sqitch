@@ -4,7 +4,10 @@ DO $$
 DECLARE
   rec RECORD;
 BEGIN
-
+  /*
+    * Array types are indicated by preceding underscore in the type name
+    * WITH ORDINALITY/ORDER BY ordinality is needed to preserve the order of type in p.proargtypes
+  */
   FOR rec IN
     SELECT n.nspname, p.proname,
       CASE p.prokind WHEN 'f' THEN 'FUNCTION' ELSE 'PROCEDURE' END prokind,
@@ -17,15 +20,6 @@ BEGIN
       JOIN pg_namespace n ON p.pronamespace = n.oid
     WHERE n.nspname = 'vibetype_test'  AND p.prokind IN ('f', 'p')
   LOOP
-
---  RAISE NOTICE 'DROP % %.%(%)', rec.prokind, rec.nspname, rec.proname, rec.args;
     EXECUTE format('DROP %s %s.%s(%s)', rec.prokind, rec.nspname, rec.proname, rec.args);
   END LOOP;
-
 END $$;
-
-/*
-Comments:
-  * Array types are indicated by preceding underscore in the type name
-  * WITH ORDINALITY/ORDER BY ordinality is needed to preserve the order of type in p.proargtypes
-*/
