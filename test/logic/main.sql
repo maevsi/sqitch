@@ -1,11 +1,10 @@
-\cd :test_dir
-
-\echo test_dir = :test_dir
-
+\echo TEST_DIRECTORY = :TEST_DIRECTORY
+\cd :TEST_DIRECTORY
 \! pwd
+\set USER_INITIAL :USER
 
 \echo ==========================================================
-\echo connected as :db_owner
+\echo connected as :USER
 \echo create schema vibetype_test, test functions and run tests
 \echo ==========================================================
 
@@ -51,11 +50,11 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \echo all tests completed sucessfully.
 
-\echo ==========================================================
-\echo  connect as :db_owner and drop schema vibetype_test
-\echo ==========================================================
+\c - :USER_INITIAL
 
-\c - :db_owner
+\echo ==========================================================
+\echo  connect as :USER and drop schema vibetype_test
+\echo ==========================================================
 
 \i utility/test/cleanup.sql
 

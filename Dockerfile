@@ -50,8 +50,8 @@ RUN docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
   && sqitch --chdir src deploy -t db:pg://ci:postgres@/ci_database \
   && pg_dump -s -h localhost -U ci -p 5432 ci_database | sed -e '/^-- Dumped/d' > schema.sql \
-  && psql -h localhost -U ci -d ci_database -w -q -f ./test/logic/main.sql \
-     -v db_owner=ci -v test_dir=./test/logic -v ON_ERROR_STOP=on \
+  && psql -h localhost -U ci -d ci_database -q -f ./test/logic/main.sql \
+    -v TEST_DIRECTORY=./test/logic -v ON_ERROR_STOP=on \
   && sqitch --chdir src revert -t db:pg://ci:postgres@/ci_database
 
 ##############################
