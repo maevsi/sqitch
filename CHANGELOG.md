@@ -1,3 +1,14 @@
+## [8.0.0-beta.5](https://github.com/maevsi/sqitch/compare/8.0.0-beta.4...8.0.0-beta.5) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* **event-favorite:** correct smart tags (#194)
+
+### Bug Fixes
+
+* **event-favorite:** correct smart tags ([c977979](https://github.com/maevsi/sqitch/commit/c97797938503a3845b0b07784b1e283236b25078))
+* **event-favorite:** correct smart tags ([#194](https://github.com/maevsi/sqitch/issues/194)) ([fa81e9e](https://github.com/maevsi/sqitch/commit/fa81e9ecaea39d7bf9b809835fd1303c0412325b))
+
 ## [8.0.0-beta.4](https://github.com/maevsi/sqitch/compare/8.0.0-beta.3...8.0.0-beta.4) (2025-05-02)
 
 ### ⚠ BREAKING CHANGES
