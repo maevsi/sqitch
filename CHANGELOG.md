@@ -1,3 +1,13 @@
+## [8.0.0-beta.4](https://github.com/maevsi/sqitch/compare/8.0.0-beta.3...8.0.0-beta.4) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* **policy:** simplify policies (#190)
+
+### Miscellaneous Chores
+
+* **policy:** simplify policies ([#190](https://github.com/maevsi/sqitch/issues/190)) ([7e525e1](https://github.com/maevsi/sqitch/commit/7e525e1e82cdeda035064bc8367030d0a57027e4))
+
 ## [8.0.0-beta.3](https://github.com/maevsi/sqitch/compare/8.0.0-beta.2...8.0.0-beta.3) (2025-05-02)
 
 ### ⚠ BREAKING CHANGES
