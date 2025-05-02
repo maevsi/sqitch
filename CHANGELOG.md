@@ -1,3 +1,13 @@
+## [8.0.0-beta.3](https://github.com/maevsi/sqitch/compare/8.0.0-beta.2...8.0.0-beta.3) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* run separately from `sqitch` (#187)
+
+### Tests
+
+* run separately from `sqitch` ([#187](https://github.com/maevsi/sqitch/issues/187)) ([ef987b2](https://github.com/maevsi/sqitch/commit/ef987b26c615cd64c3f66d7f2947ca0347a430a4))
+
 ## [8.0.0-beta.2](https://github.com/maevsi/sqitch/compare/8.0.0-beta.1...8.0.0-beta.2) (2025-04-17)
 
 ### ⚠ BREAKING CHANGES
