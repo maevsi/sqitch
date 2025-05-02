@@ -23,16 +23,15 @@ COMMENT ON COLUMN vibetype.event_group.slug IS E'@omit create,update\nThe event 
 COMMENT ON COLUMN vibetype.event_group.created_at IS E'@omit create,update\nTimestamp of when the event group was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.event_group.created_by IS 'The event group creator''s id.';
 
-GRANT SELECT ON TABLE vibetype.event_group TO vibetype_account, vibetype_anonymous;
-GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.event_group TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_group TO vibetype_anonymous;
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.event_group TO vibetype_account;
 
 ALTER TABLE vibetype.event_group ENABLE ROW LEVEL SECURITY;
 
 -- TODO:
--- CREATE POLICY event_group_select ON vibetype.event_group FOR SELECT USING (
---     id IN (
---         SELECT event_group_id FROM vibetype.event_grouping
---     )
+-- CREATE POLICY event_group_select ON vibetype.event_group FOR SELECT
+-- USING (
+--   id IN (SELECT event_group_id FROM vibetype.event_grouping)
 -- );
 
 COMMIT;

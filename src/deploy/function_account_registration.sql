@@ -6,7 +6,7 @@ CREATE FUNCTION vibetype.account_registration(
   legal_term_id UUID,
   password TEXT,
   username TEXT
-) RETURNS UUID AS $$
+) RETURNS VOID AS $$
 DECLARE
   _new_account_private vibetype_private.account%ROWTYPE;
   _new_account_public vibetype.account%ROWTYPE;
@@ -21,7 +21,7 @@ BEGIN
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
-    RAISE 'An account with this email address already exists!' USING ERRCODE = 'unique_violation';
+    RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
   INSERT INTO vibetype_private.account(email_address, password_hash, last_activity) VALUES
@@ -52,8 +52,6 @@ BEGIN
     )),
     _new_account_private.id
   );
-
-  RETURN _new_account_public.id;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 

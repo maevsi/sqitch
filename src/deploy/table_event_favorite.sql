@@ -18,6 +18,13 @@ COMMENT ON COLUMN vibetype.event_favorite.created_at IS E'@omit create,update\nT
 COMMENT ON COLUMN vibetype.event_favorite.created_by IS E'@omit create,update\nReference to the account that created the event favorite.';
 COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON vibetype.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
 
--- GRANTs, RLS and POLICYs are specified in `table_event_favorite_policy`.
+GRANT SELECT, INSERT, DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
+
+ALTER TABLE vibetype.event_favorite ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY event_favorite_all ON vibetype.event_favorite FOR ALL
+USING (
+  created_by = vibetype.invoker_account_id()
+);
 
 COMMIT;

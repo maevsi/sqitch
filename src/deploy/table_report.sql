@@ -27,4 +27,13 @@ COMMENT ON CONSTRAINT report_reason_check ON vibetype.report IS 'Ensures the rea
 COMMENT ON CONSTRAINT report_check ON vibetype.report IS 'Ensures that the report targets exactly one element (account, event, or upload).';
 COMMENT ON CONSTRAINT report_created_by_target_account_id_target_event_id_target__key ON vibetype.report IS 'Ensures that the same user cannot submit multiple reports on the same element (account, event, or upload).';
 
+GRANT INSERT, SELECT ON TABLE vibetype.report TO vibetype_account;
+
+ALTER TABLE vibetype.report ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY report_all ON vibetype.report FOR ALL
+USING (
+  created_by = vibetype.invoker_account_id()
+);
+
 COMMIT;

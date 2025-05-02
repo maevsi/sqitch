@@ -16,40 +16,27 @@ COMMENT ON COLUMN vibetype.profile_picture.id IS E'@omit create,update\nThe prof
 COMMENT ON COLUMN vibetype.profile_picture.account_id IS 'The account''s id.';
 COMMENT ON COLUMN vibetype.profile_picture.upload_id IS 'The upload''s id.';
 
-GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_account, vibetype_anonymous, :role_service_vibetype_username;
-GRANT INSERT, DELETE, UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
-GRANT DELETE ON TABLE vibetype.profile_picture TO :role_service_vibetype_username;
+GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_anonymous;
+GRANT INSERT, SELECT, DELETE, UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
+GRANT SELECT, DELETE ON TABLE vibetype.profile_picture TO :role_service_vibetype_username;
 
 ALTER TABLE vibetype.profile_picture ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY profile_picture_all ON vibetype.profile_picture FOR ALL
+USING (
+  account_id = vibetype.invoker_account_id()
+);
 
 -- Make all profile pictures accessible by everyone.
 CREATE POLICY profile_picture_select ON vibetype.profile_picture FOR SELECT USING (
   TRUE
 );
 
--- Only allow inserts with a account id that matches the invoker's account id.
-CREATE POLICY profile_picture_insert ON vibetype.profile_picture FOR INSERT WITH CHECK (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
-  account_id = vibetype.invoker_account_id()
-);
-
--- Only allow updates to the item with the account id that matches the invoker's account id.
-CREATE POLICY profile_picture_update ON vibetype.profile_picture FOR UPDATE USING (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
-  account_id = vibetype.invoker_account_id()
-);
-
--- Only allow deletes for the item with the account id that matches the invoker's account id.
-CREATE POLICY profile_picture_delete ON vibetype.profile_picture FOR DELETE USING (
-    (SELECT current_user) = :'role_service_vibetype_username'
-  OR
-    (
-      vibetype.invoker_account_id() IS NOT NULL
-      AND
-      account_id = vibetype.invoker_account_id()
-    )
+-- Allow all profile pictures to be deleted by the service.
+CREATE POLICY profile_picture_delete_service ON vibetype.profile_picture FOR DELETE
+TO :role_service_vibetype_username
+USING (
+  TRUE
 );
 
 COMMIT;

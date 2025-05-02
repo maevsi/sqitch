@@ -1,3 +1,81 @@
+## [8.0.0-beta.4](https://github.com/maevsi/sqitch/compare/8.0.0-beta.3...8.0.0-beta.4) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* **policy:** simplify policies (#190)
+
+### Miscellaneous Chores
+
+* **policy:** simplify policies ([#190](https://github.com/maevsi/sqitch/issues/190)) ([7e525e1](https://github.com/maevsi/sqitch/commit/7e525e1e82cdeda035064bc8367030d0a57027e4))
+
+## [8.0.0-beta.3](https://github.com/maevsi/sqitch/compare/8.0.0-beta.2...8.0.0-beta.3) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* run separately from `sqitch` (#187)
+
+### Tests
+
+* run separately from `sqitch` ([#187](https://github.com/maevsi/sqitch/issues/187)) ([ef987b2](https://github.com/maevsi/sqitch/commit/ef987b26c615cd64c3f66d7f2947ca0347a430a4))
+
+## [8.0.0-beta.2](https://github.com/maevsi/sqitch/compare/8.0.0-beta.1...8.0.0-beta.2) (2025-04-17)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** remove existence validation function (#191)
+
+### Features
+
+* **event:** remove existence validation function ([#191](https://github.com/maevsi/sqitch/issues/191)) ([4abfcaf](https://github.com/maevsi/sqitch/commit/4abfcaf0d5a12ab93b9270d3b92d1ec44df33f60))
+
+## [8.0.0-beta.1](https://github.com/maevsi/sqitch/compare/7.0.0...8.0.0-beta.1) (2025-04-10)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** add imprint and description (#188)
+
+### Features
+
+* **account:** add imprint and description ([#188](https://github.com/maevsi/sqitch/issues/188)) ([ce8a9c9](https://github.com/maevsi/sqitch/commit/ce8a9c95f9e0dbf91d4f5df424650b1541e61461))
+
+## [7.0.0](https://github.com/maevsi/sqitch/compare/6.2.0...7.0.0) (2025-04-07)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** fail silently at registration on duplicate email (#186)
+* **constraint:** add `ON DELETE` clauses to foreign keys (#175)
+* **event:** add format preference (#180)
+* **role:** rename for services
+* **environment:** dissolve target variable file
+* **role:** rename postgraphile secret variable
+
+### Features
+
+* **account:** fail silently at registration on duplicate email ([#186](https://github.com/maevsi/sqitch/issues/186)) ([da03588](https://github.com/maevsi/sqitch/commit/da03588cbd21aa36883696c1bef78325968092fa))
+* **constraint:** add `ON DELETE` clauses to foreign keys ([#175](https://github.com/maevsi/sqitch/issues/175)) ([11fd0f4](https://github.com/maevsi/sqitch/commit/11fd0f4c04ef0ad30e09f0c492bcbfeb6bb6429f))
+* **event:** add format preference ([#180](https://github.com/maevsi/sqitch/issues/180)) ([31ee10b](https://github.com/maevsi/sqitch/commit/31ee10bcf6ca9fcf3284ce337e3d387bbbb2a7e2))
+
+### Bug Fixes
+
+* **account:** accept legal term on registration ([b55aa95](https://github.com/maevsi/sqitch/commit/b55aa951401f2d296008328bb0b81b5693fe7f1e))
+* **plan:** add dependency on account verification for friendship test ([fcbbb8c](https://github.com/maevsi/sqitch/commit/fcbbb8c1c564c593b65ea1bd2f874112ae4ee912))
+
+### Code Refactoring
+
+* **environment:** dissolve target variable file ([9f4ae82](https://github.com/maevsi/sqitch/commit/9f4ae82019b34c0dea7ff815401937edebe4c435))
+* **role:** rename for services ([c83b9d1](https://github.com/maevsi/sqitch/commit/c83b9d140a8a0b56f2490f9ce9f7ebdac8398fcd))
+* **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
+
+## [7.0.0-beta.10](https://github.com/maevsi/sqitch/compare/7.0.0-beta.9...7.0.0-beta.10) (2025-04-03)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** fail silently at registration on duplicate email (#186)
+
+### Features
+
+* **account:** fail silently at registration on duplicate email ([#186](https://github.com/maevsi/sqitch/issues/186)) ([da03588](https://github.com/maevsi/sqitch/commit/da03588cbd21aa36883696c1bef78325968092fa))
+
 ## [7.0.0-beta.9](https://github.com/maevsi/sqitch/compare/7.0.0-beta.8...7.0.0-beta.9) (2025-03-31)
 
 ### ⚠ BREAKING CHANGES
@@ -71,6 +149,12 @@
 ### Code Refactoring
 
 * **role:** rename postgraphile secret variable ([7bbae8e](https://github.com/maevsi/sqitch/commit/7bbae8ea0255be81387bce8ea78f1eac8ed10aee))
+
+## [6.2.0](https://github.com/maevsi/sqitch/compare/6.1.0...6.2.0) (2025-03-31)
+
+### Features
+
+* add audit log ([#168](https://github.com/maevsi/sqitch/issues/168)) ([0933459](https://github.com/maevsi/sqitch/commit/0933459063f46ca3f8eb225c5ff2b5bdf697249c))
 
 ## [6.1.0](https://github.com/maevsi/sqitch/compare/6.0.0...6.1.0) (2025-03-25)
 

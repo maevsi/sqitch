@@ -1,7 +1,7 @@
 BEGIN;
 
-GRANT SELECT ON TABLE vibetype.contact TO vibetype_account, vibetype_anonymous;
-GRANT INSERT, UPDATE, DELETE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.contact TO vibetype_account;
 
 ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 
@@ -10,7 +10,8 @@ ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 -- 2) Display contacts created by the invoker's account, omit contacts referring to an account
 --    blocked by the invoker or by an account that blocked the invoker.
 -- 3) Display contacts for which an accessible guest exists.
-CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING (
+CREATE POLICY contact_select ON vibetype.contact FOR SELECT
+USING (
   (
     account_id = vibetype.invoker_account_id()
     AND
@@ -35,7 +36,8 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING (
 
 -- Only allow inserts for contacts created by the invoker's account.
 -- Disallow inserts for contacts that refer to a blocked account.
-CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (
+CREATE POLICY contact_insert ON vibetype.contact FOR INSERT
+WITH CHECK (
   created_by = vibetype.invoker_account_id()
   AND account_id NOT IN (
     SELECT blocked_account_id
@@ -46,7 +48,8 @@ CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (
 
 -- Only allow updates for contacts created by the invoker's account.
 -- No contact referring to a blocked account can be updated.
-CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (
+CREATE POLICY contact_update ON vibetype.contact FOR UPDATE
+USING (
   created_by = vibetype.invoker_account_id()
   AND account_id NOT IN (
     SELECT blocked_account_id
@@ -56,7 +59,8 @@ CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (
 );
 
 -- Only allow deletes for contacts created by the invoker's account except for the own account's contact.
-CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (
+CREATE POLICY contact_delete ON vibetype.contact FOR DELETE
+USING (
   vibetype.invoker_account_id() IS NOT NULL
   AND
   created_by = vibetype.invoker_account_id()
