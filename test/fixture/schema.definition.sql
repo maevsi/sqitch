@@ -6676,13 +6676,6 @@ CREATE POLICY notification_all ON vibetype.notification USING ((created_by = vib
 ALTER TABLE vibetype.notification_invitation ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: notification_invitation notification_invitation_all; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY notification_invitation_all ON vibetype.notification_invitation USING ((created_by = vibetype.invoker_account_id()));
-
-
---
 -- Name: profile_picture; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
