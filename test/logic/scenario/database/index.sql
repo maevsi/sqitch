@@ -149,19 +149,11 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['event_grouping_event_id_event_group_id_key']
-);
-
-SELECT vibetype_test.index_existence(
   ARRAY ['event_created_by_slug_key', 'idx_event_search_vector']
 );
 
 SELECT vibetype_test.index_existence(
   ARRAY ['idx_friendship_created_by', 'idx_friendship_updated_by']
-);
-
-SELECT vibetype_test.index_existence(
-  ARRAY ['event_group_created_by_slug_key']
 );
 
 SELECT vibetype_test.index_existence(
