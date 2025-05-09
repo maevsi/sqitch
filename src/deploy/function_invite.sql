@@ -7,8 +7,7 @@ CREATE FUNCTION vibetype.invite(
 DECLARE
   _contact RECORD;
   _email_address TEXT;
-  _event_id UUID;
-  _event_created_by UUID;
+  _event RECORD;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
@@ -28,9 +27,26 @@ BEGIN
   END IF;
 
   -- Event
-  SELECT id, created_by INTO _event_id, _event_created_by FROM vibetype.event WHERE id = _guest.event_id;
+  SELECT
+    id,
+    address_id,
+    description,
+    "end",
+    guest_count_maximum,
+    is_archived,
+    is_in_person,
+    is_remote,
+    name,
+    slug,
+    start,
+    url,
+    visibility,
+    created_at,
+    created_by
+  INTO _event
+  FROM vibetype.event WHERE id = _guest.event_id;
 
-  IF (_event_id IS NULL) THEN
+  IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
@@ -63,13 +79,13 @@ BEGIN
   -- Event creator username
   SELECT username INTO _event_creator_username
   FROM vibetype.account
-  WHERE id = _event_created_by;
+  WHERE id = _event.created_by;
 
   -- Event creator profile picture storage key
   SELECT u.storage_key INTO _event_creator_profile_picture_upload_storage_key
   FROM vibetype.profile_picture p
     JOIN vibetype.upload u ON p.upload_id = u.id
-  WHERE p.account_id = _event_created_by;
+  WHERE p.account_id = _event.created_by;
 
   INSERT INTO vibetype.notification_invitation (guest_id, channel, payload, created_by)
     VALUES (
@@ -78,7 +94,7 @@ BEGIN
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
           'emailAddress', _email_address,
-          'eventId', _event_id,
+          'event', _event,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
           'guestId', _guest.id
