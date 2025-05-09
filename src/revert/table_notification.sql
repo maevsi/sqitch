@@ -1,5 +1,7 @@
 BEGIN;
 
-DROP TABLE vibetype_private.notification;
+DROP POLICY notification_all ON vibetype.notification;
+
+DROP TABLE vibetype.notification;
 
 COMMIT;
