@@ -1,3 +1,15 @@
+## [8.0.0-beta.6](https://github.com/maevsi/sqitch/compare/8.0.0-beta.5...8.0.0-beta.6) (2025-05-09)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** remove groups (#195)
+* **event:** remove groups
+
+### Features
+
+* **event:** remove groups ([22cf406](https://github.com/maevsi/sqitch/commit/22cf406c924bf048fc539faea747d2936312f28b))
+* **event:** remove groups ([#195](https://github.com/maevsi/sqitch/issues/195)) ([4bae6c6](https://github.com/maevsi/sqitch/commit/4bae6c67b8a427d453cc8825ec6955a55f03fe3a))
+
 ## [8.0.0-beta.5](https://github.com/maevsi/sqitch/compare/8.0.0-beta.4...8.0.0-beta.5) (2025-05-02)
 
 ### ⚠ BREAKING CHANGES
