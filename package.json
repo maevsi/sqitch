@@ -7,7 +7,14 @@
   },
   "packageManager": "pnpm@10.10.0",
   "scripts": {
-    "prepare": "husky"
+    "deploy": "pnpm run sqitch:deploy",
+    "prepare": "husky",
+    "revert": "pnpm run sqitch:revert",
+    "sqitch": "./src/sqitch",
+    "sqitch:deploy": "pnpm run sqitch deploy",
+    "sqitch:revert": "pnpm run sqitch revert",
+    "test": "./test/test.sh",
+    "test:update": "pnpm run test --update"
   },
   "devDependencies": {
     "@commitlint/cli": "19.8.1",
