@@ -18,7 +18,7 @@
     "sqitch": "./src/sqitch",
     "sqitch:deploy": "pnpm run sqitch deploy",
     "sqitch:revert": "pnpm run sqitch revert",
-    "test": "./test/test.sh",
+    "test": "./test/schema/schema-update.sh",
     "test:update": "pnpm run test --update"
   },
   "type": "module",
