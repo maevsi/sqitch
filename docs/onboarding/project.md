@@ -6,7 +6,7 @@ Welcome! This guide provides a clear understanding of the `maevsi/sqitch` projec
 
 The `src` directory contains the Sqitch executable, which you can use to interact with the migrations located in the directory's subdirectories.
 The executable is a shell script that invokes Sqitch's Docker image.
-When you run `npx nypm run deploy` to deploy the database migrations, this package script invokes the Sqitch executable.
+When you run `npm run deploy` to deploy the database migrations, this package script invokes the Sqitch executable.
 
 The other files in `src` follow the structure outlined in the [Sqitch documentation](https://sqitch.org/docs/).
 
@@ -16,7 +16,7 @@ The other files in `src` follow the structure outlined in the [Sqitch documentat
 To run all Sqitch tests, execute:
 
 ```sh
-npx nypm run test
+npm run test
 ```
 
 This will:
@@ -52,7 +52,7 @@ git add -AN && git diff > test/data.patch
 Before submitting a pull request, update the schema artifact to ensure consistency by running:
 
 ```sh
-npx nypm run test:update
+npm run test:update
 ```
 
 Be sure to include any resulting changes in your pull request.
