@@ -2,42 +2,67 @@
 
 [<img src="https://sqitch.org/img/sqitch-logo.svg" alt="Sqitch" width="1000"/>](https://sqitch.org/)
 
-[Sqitch](https://sqitch.org/) is Vibetype's database migration tool.
+**[Sqitch](https://sqitch.org/)** is the database migration tool driving [Vibetype](https://github.com/maevsi/vibetype).
 
-The `src` directory in this repository contains a `sqitch` executable that you can use to interact with the migrations residing in the directory's subdirectories.
-For example, run `./sqitch deploy` to fill the database with structure like tables, types and policies.
 
-In case you want to be able to simple call `sqitch deploy` without `./` instead, add an `alias sqitch="./sqitch"` to your shell configuration (`~/.bashrc`, `~/.zshrc`, ...).
+## 📋 Table of Contents
 
-A basic test data migration can be added to your working directory by running `git apply --3way test/data.patch` and deployed as explained above.
-Changes to the test data can be persisted using `git add -AN && git diff > test/data.patch`.
+1. [🚀 Introduction](#🚀-introduction)
+2. [🛠️ Quickstart](#🛠️-quickstart)
+3. [📚 Documentation](#📚-documentation)
 
-## Database Diagram
 
-This diagram shows the structure of Vibetype's database.
+## 🚀 Introduction
 
-![Graph](./docs/resources/graph.png)
+Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](./docs/resources/graph.png)):
 
-You can create this file as follows:
+[<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
 
-1. start `maevsi/stack`
 
-1. run `docker run -v /run/postgresql/:/run/postgresql/ --network=host --name schemacrawler --rm -i -t --user=0:0 --entrypoint=/bin/bash schemacrawler/schemacrawler`
+## 🛠️ Quickstart
 
-1. connect as user `schcrwlr` to the now running `schemacrawler` container, e.g. using Portainer
+This project is designed to be used within the [maevsi/stack](https://github.com/maevsi/stack).
+To get started, follow the [Vibetype fullstack setup guide](https://github.com/maevsi/vibetype/blob/main/README.md#fullstack).
 
-1. as `schcrwlr` run `schemacrawler --server=postgresql --database=vibetype --user=postgres --password=postgres --command=schema --info-level=maximum --output-format=png --output-file=graph.png --schemas=vibetype.*`
+Once your development environment is running, use these commands to manage database migrations:
 
-1. reconnect as `root` to the same container and install curl using `apk update && apk add curl`
 
-1. then upload the graph image by running `curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"`
+```bash
+npx nypm install      # initial set up & update installation
 
-1. click the link in the output and download the image that pops up!
+npx nypm run deploy   # apply database migrations
+npx nypm run revert   # roll back database migrations
 
-## Additional Documentation
+npx nypm run test     # execute test suite
+```
 
-You find additional documentation on selected database topics here:
+After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
 
-* [Roles](./docs/roles.md)
+> 💡 Tip: You can run `npx nypm run sqitch <command> [options]` to access full Sqitch functionality.
 
-* [Vacuuming the database](./docs/advanced/vacuum.md)
+<!-- TODO: Add a way to inspect the schema without launching the full maevsi/stack. -->
+
+## 📚 Documentation
+
+### 🧭 Onboarding
+
+Kick off your journey with the fundamentals:
+
+1. **Project**
+    1. [Code Structure](./docs/onboarding/project.md)
+    1. [Contributing](./CONTRIBUTING.md)
+    1. [Code of Conduct](./CODE_OF_CONDUCT.md)
+1. **Database concepts**
+    1. [Roles](./docs/onboarding/database/roles.md)
+    1. [Row Level Security](./docs/onboarding/database/row_level_security.md)
+
+### 🔍 In-Depth Guides
+
+Explore advanced topics and deeper insights:
+
+1. **Project**
+    1. [Code Structure](./docs/advanced/project.md)
+    1. [Changelog](./CHANGELOG.md)
+1. **Database concepts**
+    1. [Row Level Security](./docs/advanced/database/row_level_security.md)
+    1. [Vacuuming](./docs/advanced/database/vacuum.md)
