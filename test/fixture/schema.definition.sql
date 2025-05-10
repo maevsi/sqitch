@@ -1740,10 +1740,10 @@ CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS trigger
     AS $$
   BEGIN
     IF (
-      -- invoked without account it
+      -- invoked without account id
       vibetype.invoker_account_id() IS NULL
       OR
-      -- invoked with account it
+      -- invoked with account id
       -- and
       (
         -- updating own account's contact

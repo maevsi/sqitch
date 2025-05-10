@@ -45,10 +45,10 @@ COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS '
 CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER AS $$
   BEGIN
     IF (
-      -- invoked without account it
+      -- invoked without account id
       vibetype.invoker_account_id() IS NULL
       OR
-      -- invoked with account it
+      -- invoked with account id
       -- and
       (
         -- updating own account's contact

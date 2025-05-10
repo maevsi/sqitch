@@ -30,15 +30,15 @@ Once your development environment is running, use these commands to manage datab
 ```bash
 npx nypm install      # initial set up & update installation
 
-npx nypm run deploy   # apply database migrations
-npx nypm run revert   # roll back database migrations
+npm run deploy   # apply database migrations
+npm run revert   # roll back database migrations
 
-npx nypm run test     # execute test suite
+npm run test     # execute test suite
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
 
-> 💡 Tip: You can run `npx nypm run sqitch <command> [options]` to access full Sqitch functionality.
+> 💡 Tip: You can run `npm run sqitch <command> [options]` to access full Sqitch functionality.
 
 <!-- TODO: Add a way to inspect the schema without launching the full maevsi/stack. -->
 
