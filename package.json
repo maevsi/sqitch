@@ -12,14 +12,12 @@
   "packageManager": "pnpm@10.10.0",
   "private": true,
   "scripts": {
-    "deploy": "pnpm run sqitch:deploy",
+    "deploy": "npm run sqitch deploy",
     "prepare": "husky",
-    "revert": "pnpm run sqitch:revert",
+    "revert": "npm run sqitch revert",
     "sqitch": "./src/sqitch",
-    "sqitch:deploy": "pnpm run sqitch deploy",
-    "sqitch:revert": "pnpm run sqitch revert",
     "test": "./test/schema/schema-update.sh",
-    "test:update": "pnpm run test --update"
+    "test:update": "npm run test --update"
   },
   "type": "module",
   "version": "7.0.1"
