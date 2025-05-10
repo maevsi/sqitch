@@ -1,3 +1,9 @@
+## [8.0.0-beta.7](https://github.com/maevsi/sqitch/compare/8.0.0-beta.6...8.0.0-beta.7) (2025-05-10)
+
+### Bug Fixes
+
+* schedule release ([8e1b5b8](https://github.com/maevsi/sqitch/commit/8e1b5b8f29e4de79249f693341ee42862825ced8))
+
 ## [8.0.0-beta.6](https://github.com/maevsi/sqitch/compare/8.0.0-beta.5...8.0.0-beta.6) (2025-05-09)
 
 ### ⚠ BREAKING CHANGES
