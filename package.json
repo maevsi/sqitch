@@ -1,7 +1,7 @@
 {
   "devDependencies": {
-    "@commitlint/cli": "19.8.0",
-    "@commitlint/config-conventional": "19.8.0",
+    "@commitlint/cli": "19.8.1",
+    "@commitlint/config-conventional": "19.8.1",
     "conventional-changelog-conventionalcommits": "8.0.0",
     "husky": "9.1.7"
   },
@@ -9,10 +9,17 @@
     "node": "22"
   },
   "name": "@maevsi/sqitch",
-  "packageManager": "pnpm@10.7.1",
+  "packageManager": "pnpm@10.10.0",
   "private": true,
   "scripts": {
-    "prepare": "husky"
+    "deploy": "pnpm run sqitch:deploy",
+    "prepare": "husky",
+    "revert": "pnpm run sqitch:revert",
+    "sqitch": "./src/sqitch",
+    "sqitch:deploy": "pnpm run sqitch deploy",
+    "sqitch:revert": "pnpm run sqitch revert",
+    "test": "./test/test.sh",
+    "test:update": "pnpm run test --update"
   },
   "type": "module",
   "version": "8.0.0-beta.6"
