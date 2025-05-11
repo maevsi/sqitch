@@ -4,18 +4,18 @@ CREATE FUNCTION vibetype.upload_create(
   size_byte BIGINT
 ) RETURNS vibetype.upload AS $$
 DECLARE
-    _upload vibetype.upload;
+  _upload vibetype.upload;
 BEGIN
   IF (COALESCE((
     SELECT SUM(upload.size_byte)
     FROM vibetype.upload
-    WHERE upload.account_id = current_setting('jwt.claims.account_id')::UUID
+    WHERE upload.created_by = current_setting('jwt.claims.account_id')::UUID
   ), 0) + upload_create.size_byte <= (
     SELECT upload_quota_bytes
     FROM vibetype_private.account
     WHERE account.id = current_setting('jwt.claims.account_id')::UUID
   )) THEN
-    INSERT INTO vibetype.upload(account_id, size_byte)
+    INSERT INTO vibetype.upload(created_by, size_byte)
     VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
     RETURNING upload.id INTO _upload;
 

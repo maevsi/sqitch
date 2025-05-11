@@ -1902,20 +1902,54 @@ $$;
 ALTER FUNCTION vibetype.trigger_metadata_update_fcm() OWNER TO ci;
 
 --
+-- Name: trigger_upload_insert(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_upload_insert() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  _current_usage BIGINT;
+  _quota BIGINT;
+BEGIN
+  SELECT COALESCE(SUM(size_byte), 0)
+    INTO _current_usage
+    FROM vibetype.upload
+    WHERE created_by = current_setting('jwt.claims.account_id')::UUID;
+
+  SELECT upload_quota_bytes
+    INTO _quota
+    FROM vibetype_private.account
+    WHERE id = current_setting('jwt.claims.account_id')::UUID;
+
+  IF (_current_usage + NEW.size_byte) > _quota THEN
+    RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
+
+--
 -- Name: upload; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
 CREATE TABLE vibetype.upload (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid NOT NULL,
     name text,
     size_byte bigint NOT NULL,
     storage_key text,
     type text DEFAULT 'image'::text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
     CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
+
+ALTER TABLE ONLY vibetype.upload REPLICA IDENTITY FULL;
 
 
 ALTER TABLE vibetype.upload OWNER TO ci;
@@ -1936,13 +1970,6 @@ The upload''s internal id.';
 
 
 --
--- Name: COLUMN upload.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.account_id IS 'The uploader''s account id.';
-
-
---
 -- Name: COLUMN upload.name; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -1953,21 +1980,24 @@ COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
 -- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.size_byte IS 'The upload''s size in bytes.';
+COMMENT ON COLUMN vibetype.upload.size_byte IS '@omit update
+The upload''s size in bytes.';
 
 
 --
 -- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.storage_key IS 'The upload''s storage key.';
+COMMENT ON COLUMN vibetype.upload.storage_key IS '@omit create,update
+The upload''s storage key.';
 
 
 --
 -- Name: COLUMN upload.type; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.type IS 'The type of the uploaded file, default is ''image''.';
+COMMENT ON COLUMN vibetype.upload.type IS '@omit create,update
+The type of the uploaded file, default is ''image''.';
 
 
 --
@@ -1979,6 +2009,13 @@ Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
 --
+-- Name: COLUMN upload.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
+
+
+--
 -- Name: upload_create(bigint); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1986,18 +2023,18 @@ CREATE FUNCTION vibetype.upload_create(size_byte bigint) RETURNS vibetype.upload
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-    _upload vibetype.upload;
+  _upload vibetype.upload;
 BEGIN
   IF (COALESCE((
     SELECT SUM(upload.size_byte)
     FROM vibetype.upload
-    WHERE upload.account_id = current_setting('jwt.claims.account_id')::UUID
+    WHERE upload.created_by = current_setting('jwt.claims.account_id')::UUID
   ), 0) + upload_create.size_byte <= (
     SELECT upload_quota_bytes
     FROM vibetype_private.account
     WHERE account.id = current_setting('jwt.claims.account_id')::UUID
   )) THEN
-    INSERT INTO vibetype.upload(account_id, size_byte)
+    INSERT INTO vibetype.upload(created_by, size_byte)
     VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
     RETURNING upload.id INTO _upload;
 
@@ -5533,6 +5570,13 @@ CREATE TRIGGER vibetype_trigger_friendship_update BEFORE UPDATE ON vibetype.frie
 
 
 --
+-- Name: upload vibetype_trigger_upload_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER vibetype_trigger_upload_insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
+
+
+--
 -- Name: account vibetype_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: vibetype_private; Owner: ci
 --
 
@@ -5947,11 +5991,11 @@ ALTER TABLE ONLY vibetype.report
 
 
 --
--- Name: upload upload_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: upload upload_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.upload
-    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT upload_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6253,7 +6297,7 @@ CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK
    FROM vibetype.event
   WHERE (event.created_by = vibetype.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
    FROM vibetype.upload
-  WHERE (upload.account_id = vibetype.invoker_account_id())))));
+  WHERE (upload.created_by = vibetype.invoker_account_id())))));
 
 
 --
@@ -6425,18 +6469,39 @@ CREATE POLICY report_all ON vibetype.report USING ((created_by = vibetype.invoke
 ALTER TABLE vibetype.upload ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: upload upload_all_service; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: upload upload_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_all_service ON vibetype.upload TO vibetype USING (true);
+CREATE POLICY upload_delete ON vibetype.upload FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: upload upload_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_insert ON vibetype.upload FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
 --
 -- Name: upload upload_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT profile_picture.upload_id
    FROM vibetype.profile_picture))));
+
+
+--
+-- Name: upload upload_service_vibetype_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_service_vibetype_all ON vibetype.upload TO vibetype USING (true);
+
+
+--
+-- Name: upload upload_update; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_update ON vibetype.upload FOR UPDATE USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -6994,12 +7059,19 @@ REVOKE ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION trigger_upload_insert(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
+
+
+--
 -- Name: TABLE upload; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT ON TABLE vibetype.upload TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
-GRANT SELECT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype_account;
+GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
 
 
 --
