@@ -41,10 +41,10 @@ git apply --3way test/data.patch
 
 Then, deploy the patch as described in the [Code Structure](#code-structure) section.
 
-To persist changes to test data, run:
+To persist changes to test data, stage them and run:
 
 ```sh
-git add -AN && git diff > test/data.patch
+git diff --staged > test/data.patch
 ```
 
 ### Schema Fixture
