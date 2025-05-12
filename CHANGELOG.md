@@ -1,3 +1,15 @@
+## [8.0.0-beta.8](https://github.com/maevsi/sqitch/compare/8.0.0-beta.7...8.0.0-beta.8) (2025-05-12)
+
+### ⚠ BREAKING CHANGES
+
+* **upload:** drop custom create function
+* **upload:** rework permissions
+
+### Features
+
+* **upload:** drop custom create function ([caa5e05](https://github.com/maevsi/sqitch/commit/caa5e053a85f62861e3ddaee4d366c8db7a5a81a))
+* **upload:** rework permissions ([bfb3603](https://github.com/maevsi/sqitch/commit/bfb36037b1e804184dd12b18cbc2acffe4ea9519))
+
 ## [8.0.0-beta.7](https://github.com/maevsi/sqitch/compare/8.0.0-beta.6...8.0.0-beta.7) (2025-05-10)
 
 ### Bug Fixes
