@@ -39,8 +39,8 @@ RUN apt-get update \
   && echo "postgraphile"  > /run/secrets/postgres_role_service_postgraphile_username \
   && echo "vibetype"          > /run/secrets/postgres_role_service_vibetype_username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_service_vibetype_password \
     /run/secrets/postgres_role_service_postgraphile_password \
+    /run/secrets/postgres_role_service_vibetype_password \
     /dev/null
 
 COPY ./src ./src
