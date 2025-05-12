@@ -1934,128 +1934,6 @@ $$;
 ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
 
 --
--- Name: upload; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.upload (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text,
-    size_byte bigint NOT NULL,
-    storage_key text,
-    type text DEFAULT 'image'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
-    CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
-);
-
-ALTER TABLE ONLY vibetype.upload REPLICA IDENTITY FULL;
-
-
-ALTER TABLE vibetype.upload OWNER TO ci;
-
---
--- Name: TABLE upload; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.upload IS 'An upload.';
-
-
---
--- Name: COLUMN upload.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.id IS '@omit create,update
-The upload''s internal id.';
-
-
---
--- Name: COLUMN upload.name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
-
-
---
--- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.size_byte IS '@omit update
-The upload''s size in bytes.';
-
-
---
--- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.storage_key IS '@omit create,update
-The upload''s storage key.';
-
-
---
--- Name: COLUMN upload.type; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.type IS '@omit create,update
-The type of the uploaded file, default is ''image''.';
-
-
---
--- Name: COLUMN upload.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.created_at IS '@omit create,update
-Timestamp of when the upload was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN upload.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
-
-
---
--- Name: upload_create(bigint); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.upload_create(size_byte bigint) RETURNS vibetype.upload
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _upload vibetype.upload;
-BEGIN
-  IF (COALESCE((
-    SELECT SUM(upload.size_byte)
-    FROM vibetype.upload
-    WHERE upload.created_by = current_setting('jwt.claims.account_id')::UUID
-  ), 0) + upload_create.size_byte <= (
-    SELECT upload_quota_bytes
-    FROM vibetype_private.account
-    WHERE account.id = current_setting('jwt.claims.account_id')::UUID
-  )) THEN
-    INSERT INTO vibetype.upload(created_by, size_byte)
-    VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
-    RETURNING upload.id INTO _upload;
-
-    RETURN _upload;
-  ELSE
-    RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
-  END IF;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.upload_create(size_byte bigint) OWNER TO ci;
-
---
--- Name: FUNCTION upload_create(size_byte bigint); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.upload_create(size_byte bigint) IS 'Creates an upload with the given size if quota is available.';
-
-
---
 -- Name: account_block_ids(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -4439,6 +4317,88 @@ COMMENT ON CONSTRAINT report_check ON vibetype.report IS 'Ensures that the repor
 --
 
 COMMENT ON CONSTRAINT report_reason_check ON vibetype.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
+
+
+--
+-- Name: upload; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.upload (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text,
+    size_byte bigint NOT NULL,
+    storage_key text,
+    type text DEFAULT 'image'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
+    CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
+);
+
+ALTER TABLE ONLY vibetype.upload REPLICA IDENTITY FULL;
+
+
+ALTER TABLE vibetype.upload OWNER TO ci;
+
+--
+-- Name: TABLE upload; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.upload IS 'An upload.';
+
+
+--
+-- Name: COLUMN upload.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.id IS '@omit create,update
+The upload''s internal id.';
+
+
+--
+-- Name: COLUMN upload.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
+
+
+--
+-- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.size_byte IS '@omit update
+The upload''s size in bytes.';
+
+
+--
+-- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.storage_key IS '@omit create,update
+The upload''s storage key.';
+
+
+--
+-- Name: COLUMN upload.type; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.type IS '@omit create,update
+The type of the uploaded file, default is ''image''.';
+
+
+--
+-- Name: COLUMN upload.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.created_at IS '@omit create,update
+Timestamp of when the upload was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN upload.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
 
 
 --
@@ -7066,23 +7026,6 @@ REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
 
 
 --
--- Name: TABLE upload; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype_account;
-GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
-
-
---
--- Name: FUNCTION upload_create(size_byte bigint); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.upload_create(size_byte bigint) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.upload_create(size_byte bigint) TO vibetype_account;
-
-
---
 -- Name: FUNCTION account_block_ids(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -7360,6 +7303,15 @@ GRANT SELECT,DELETE ON TABLE vibetype.profile_picture TO vibetype;
 --
 
 GRANT SELECT,INSERT ON TABLE vibetype.report TO vibetype_account;
+
+
+--
+-- Name: TABLE upload; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype_account;
+GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
 
 
 --
