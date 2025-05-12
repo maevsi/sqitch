@@ -6,8 +6,6 @@ SELECT id,
        upload_id
 FROM vibetype.event_upload WHERE FALSE;
 
-BEGIN;
-
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
 

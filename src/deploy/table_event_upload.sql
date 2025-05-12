@@ -44,7 +44,7 @@ CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK
   AND
   upload_id IN (
     SELECT id FROM vibetype.upload
-    WHERE account_id = vibetype.invoker_account_id()
+    WHERE created_by = vibetype.invoker_account_id()
   )
 );
 
