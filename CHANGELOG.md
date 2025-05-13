@@ -1,3 +1,9 @@
+## [8.0.0-beta.9](https://github.com/maevsi/sqitch/compare/8.0.0-beta.8...8.0.0-beta.9) (2025-05-13)
+
+### Features
+
+* **grafana:** readd ([0fbae08](https://github.com/maevsi/sqitch/commit/0fbae08feb875e51c2fc19ac18a3d9a25f4f2234))
+
 ## [8.0.0-beta.8](https://github.com/maevsi/sqitch/compare/8.0.0-beta.7...8.0.0-beta.8) (2025-05-12)
 
 ### ⚠ BREAKING CHANGES
