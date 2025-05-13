@@ -29,12 +29,12 @@ CREATE ROLE ci WITH SUPERUSER LOGIN PASSWORD '*****' ...;
 -------------------------
 -- Login roles
 
-CREATE ROLE :role_postgraphile_username LOGIN PASSWORD :'role_vibetype_postgraphile_password';
--- Assume 'postgraphile' for :role_postgraphile_username
+CREATE ROLE :role_service_postgraphile_username LOGIN PASSWORD :'role_service_postgraphile_password';
+-- Assume 'postgraphile' for :role_service_postgraphile_username
 
-CREATE ROLE :role_service_vibetype_username LOGIN PASSWORD :'role_vibetype_password';
+CREATE ROLE :role_service_vibetype_username LOGIN PASSWORD :'role_service_vibetype_password';
 
-GRANT :role_service_vibetype_username TO :role_postgraphile_username;
+GRANT :role_service_vibetype_username TO :role_service_postgraphile_username;
 -- Assume 'vibetype' for :role_service_vibetype_username
 
 -------------------------
@@ -42,11 +42,11 @@ GRANT :role_service_vibetype_username TO :role_postgraphile_username;
 
 CREATE ROLE vibetype_account;
 
-GRANT vibetype_account TO :role_postgraphile_username;
+GRANT vibetype_account TO :role_service_postgraphile_username;
 
 CREATE ROLE vibetype_anonymous;
 
-GRANT vibetype_anonymous TO :role_postgraphile_username;
+GRANT vibetype_anonymous TO :role_service_postgraphile_username;
 ```
 
 So what are the roles `vibetype_account` and `vibetype_anonymous` used for if you cannot log in as these users?
