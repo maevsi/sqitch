@@ -1,5 +1,7 @@
 BEGIN;
 
+\set role_service_grafana_username `cat /run/secrets/postgres_role_service_grafana_username`
+
 CREATE TABLE vibetype_private.account (
   id                                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
@@ -85,5 +87,7 @@ CREATE TRIGGER vibetype_private_account_password_reset_verification_valid_until
   ON vibetype_private.account
   FOR EACH ROW
   EXECUTE PROCEDURE vibetype_private.account_password_reset_verification_valid_until();
+
+GRANT SELECT ON TABLE vibetype_private.account TO :role_service_grafana_username;
 
 COMMIT;

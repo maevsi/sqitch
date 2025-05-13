@@ -3,6 +3,8 @@
 %uri=https://github.com/maevsi/vibetype/
 
 privilege_execute_revoke 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Revoke execute privilege from public.
+role_grafana 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role grafana.
+database_grafana [role_grafana] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add the database for grafana.
 role_postgraphile 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role postgraphile.
 role_anonymous [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role anonymous.
 role_account [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role account.

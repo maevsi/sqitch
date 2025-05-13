@@ -6487,6 +6487,13 @@ GRANT USAGE ON SCHEMA vibetype TO vibetype;
 
 
 --
+-- Name: SCHEMA vibetype_private; Type: ACL; Schema: -; Owner: ci
+--
+
+GRANT USAGE ON SCHEMA vibetype_private TO grafana;
+
+
+--
 -- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: ci
 --
 
@@ -7312,6 +7319,13 @@ GRANT SELECT,INSERT ON TABLE vibetype.report TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype_account;
 GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
+
+
+--
+-- Name: TABLE account; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype_private.account TO grafana;
 
 
 --
