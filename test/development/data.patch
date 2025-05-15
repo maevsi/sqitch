@@ -1,9 +1,9 @@
 diff --git a/src/deploy/data_test.sql b/src/deploy/data_test.sql
 new file mode 100644
-index 0000000..a0a9388
+index 0000000..07790a1
 --- /dev/null
 +++ b/src/deploy/data_test.sql
-@@ -0,0 +1,208 @@
+@@ -0,0 +1,234 @@
 +-- Deploy vibetype:data_test to pg
 +BEGIN;
 +
@@ -11,6 +11,8 @@ index 0000000..a0a9388
 +DECLARE
 +  _account_id_jonas UUID;
 +  _account_id_peter UUID;
++  _address_id_frankfurt UUID;
++  _address_id_kassel UUID;
 +  _contact_id_jonas UUID;
 +  _contact_id_peter UUID;
 +  _legal_term_id    UUID;
@@ -84,6 +86,26 @@ index 0000000..a0a9388
 +      _account_id_jonas
 +    );
 +
++  INSERT INTO vibetype.address (
++    name,
++    location,
++    created_by
++  ) VALUES (
++    'Frankfurt',
++    ST_Point(8.650, 50.113, 4326),
++    _account_id_jonas
++  ) RETURNING id INTO _address_id_frankfurt;
++
++  INSERT INTO vibetype.address (
++    name,
++    location,
++    created_by
++  ) VALUES (
++    'Kassel',
++    ST_Point(9.476, 51.304, 4326),
++    _account_id_jonas
++  ) RETURNING id INTO _address_id_kassel;
++
 +  INSERT INTO vibetype.event (
 +      "id",
 +      "name",
@@ -109,6 +131,7 @@ index 0000000..a0a9388
 +
 +  INSERT INTO vibetype.event (
 +      "id",
++      "address_id",
 +      "name",
 +      "slug",
 +      "visibility",
@@ -118,6 +141,7 @@ index 0000000..a0a9388
 +    )
 +    VALUES (
 +      '59462df6-10a9-11ea-bf8e-0f50c4d91a6b',
++      _address_id_kassel,
 +      'Foreign Invited',
 +      'foreign-invited',
 +      'public',
@@ -128,6 +152,7 @@ index 0000000..a0a9388
 +
 +  INSERT INTO vibetype.event (
 +      "id",
++      "address_id",
 +      "name",
 +      "slug",
 +      "visibility",
@@ -137,6 +162,7 @@ index 0000000..a0a9388
 +    )
 +    VALUES (
 +      '59462df6-10a9-11ea-bf8e-0f50c4d91a6c',
++      _address_id_frankfurt,
 +      'Foreign Uninvited',
 +      'foreign-uninvited',
 +      'public',
@@ -214,10 +240,10 @@ index 0000000..a0a9388
 +COMMIT;
 diff --git a/src/revert/data_test.sql b/src/revert/data_test.sql
 new file mode 100644
-index 0000000..b95c347
+index 0000000..dbae147
 --- /dev/null
 +++ b/src/revert/data_test.sql
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,13 @@
 +-- Revert vibetype:data_test from pg
 +
 +BEGIN;
@@ -225,19 +251,20 @@ index 0000000..b95c347
 +DELETE FROM vibetype.profile_picture;
 +DELETE FROM vibetype.upload;
 +DELETE FROM vibetype.guest;
++DELETE FROM vibetype.address;
 +DELETE FROM vibetype.event;
 +DELETE FROM vibetype.contact;
 +DELETE FROM vibetype_private.account;
 +
 +COMMIT;
 diff --git a/src/sqitch.plan b/src/sqitch.plan
-index 835f0d4..742eb6c 100644
+index cb81213..1ae77d3 100644
 --- a/src/sqitch.plan
 +++ b/src/sqitch.plan
-@@ -108,3 +108,4 @@ view_audit_log_trigger [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sve
+@@ -88,3 +88,4 @@ table_audit_log [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thele
+ view_audit_log_trigger [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # View showing all audit log triggers.
  function_audit_log [schema_private table_audit_log view_audit_log_trigger] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Utility functions for managing audit log triggers.
  table_account_preference_event_format [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Event formats a user account is interested in (M:N relationship).
- table_account_preference_event_format_policy [schema_public table_account_preference_event_format role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Security policies for the accounts' event format preferences.
 +data_test 1970-01-01T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Add test data.
 diff --git a/src/verify/data_test.sql b/src/verify/data_test.sql
 new file mode 100644
