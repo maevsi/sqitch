@@ -1,3 +1,96 @@
+## [8.0.0-beta.10](https://github.com/maevsi/sqitch/compare/8.0.0-beta.9...8.0.0-beta.10) (2025-05-15)
+
+### Bug Fixes
+
+* **address:** allow selects for accessible events ([dec870a](https://github.com/maevsi/sqitch/commit/dec870a9236a44adf688a4d61444e138afb9c1bb))
+
+## [8.0.0-beta.9](https://github.com/maevsi/sqitch/compare/8.0.0-beta.8...8.0.0-beta.9) (2025-05-13)
+
+### Features
+
+* **grafana:** readd ([0fbae08](https://github.com/maevsi/sqitch/commit/0fbae08feb875e51c2fc19ac18a3d9a25f4f2234))
+
+## [8.0.0-beta.8](https://github.com/maevsi/sqitch/compare/8.0.0-beta.7...8.0.0-beta.8) (2025-05-12)
+
+### ⚠ BREAKING CHANGES
+
+* **upload:** drop custom create function
+* **upload:** rework permissions
+
+### Features
+
+* **upload:** drop custom create function ([caa5e05](https://github.com/maevsi/sqitch/commit/caa5e053a85f62861e3ddaee4d366c8db7a5a81a))
+* **upload:** rework permissions ([bfb3603](https://github.com/maevsi/sqitch/commit/bfb36037b1e804184dd12b18cbc2acffe4ea9519))
+
+## [8.0.0-beta.7](https://github.com/maevsi/sqitch/compare/8.0.0-beta.6...8.0.0-beta.7) (2025-05-10)
+
+### Bug Fixes
+
+* schedule release ([8e1b5b8](https://github.com/maevsi/sqitch/commit/8e1b5b8f29e4de79249f693341ee42862825ced8))
+
+## [8.0.0-beta.6](https://github.com/maevsi/sqitch/compare/8.0.0-beta.5...8.0.0-beta.6) (2025-05-09)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** remove groups (#195)
+* **event:** remove groups
+
+### Features
+
+* **event:** remove groups ([22cf406](https://github.com/maevsi/sqitch/commit/22cf406c924bf048fc539faea747d2936312f28b))
+* **event:** remove groups ([#195](https://github.com/maevsi/sqitch/issues/195)) ([4bae6c6](https://github.com/maevsi/sqitch/commit/4bae6c67b8a427d453cc8825ec6955a55f03fe3a))
+
+## [8.0.0-beta.5](https://github.com/maevsi/sqitch/compare/8.0.0-beta.4...8.0.0-beta.5) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* **event-favorite:** correct smart tags (#194)
+
+### Bug Fixes
+
+* **event-favorite:** correct smart tags ([c977979](https://github.com/maevsi/sqitch/commit/c97797938503a3845b0b07784b1e283236b25078))
+* **event-favorite:** correct smart tags ([#194](https://github.com/maevsi/sqitch/issues/194)) ([fa81e9e](https://github.com/maevsi/sqitch/commit/fa81e9ecaea39d7bf9b809835fd1303c0412325b))
+
+## [8.0.0-beta.4](https://github.com/maevsi/sqitch/compare/8.0.0-beta.3...8.0.0-beta.4) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* **policy:** simplify policies (#190)
+
+### Miscellaneous Chores
+
+* **policy:** simplify policies ([#190](https://github.com/maevsi/sqitch/issues/190)) ([7e525e1](https://github.com/maevsi/sqitch/commit/7e525e1e82cdeda035064bc8367030d0a57027e4))
+
+## [8.0.0-beta.3](https://github.com/maevsi/sqitch/compare/8.0.0-beta.2...8.0.0-beta.3) (2025-05-02)
+
+### ⚠ BREAKING CHANGES
+
+* run separately from `sqitch` (#187)
+
+### Tests
+
+* run separately from `sqitch` ([#187](https://github.com/maevsi/sqitch/issues/187)) ([ef987b2](https://github.com/maevsi/sqitch/commit/ef987b26c615cd64c3f66d7f2947ca0347a430a4))
+
+## [8.0.0-beta.2](https://github.com/maevsi/sqitch/compare/8.0.0-beta.1...8.0.0-beta.2) (2025-04-17)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** remove existence validation function (#191)
+
+### Features
+
+* **event:** remove existence validation function ([#191](https://github.com/maevsi/sqitch/issues/191)) ([4abfcaf](https://github.com/maevsi/sqitch/commit/4abfcaf0d5a12ab93b9270d3b92d1ec44df33f60))
+
+## [8.0.0-beta.1](https://github.com/maevsi/sqitch/compare/7.0.0...8.0.0-beta.1) (2025-04-10)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** add imprint and description (#188)
+
+### Features
+
+* **account:** add imprint and description ([#188](https://github.com/maevsi/sqitch/issues/188)) ([ce8a9c9](https://github.com/maevsi/sqitch/commit/ce8a9c95f9e0dbf91d4f5df424650b1541e61461))
+
 ## [7.0.1](https://github.com/maevsi/sqitch/compare/7.0.0...7.0.1) (2025-04-26)
 
 ### Bug Fixes

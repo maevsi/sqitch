@@ -36,7 +36,7 @@ All tests run in a containerized environment.
 You can add basic test data to your working directory by running:
 
 ```sh
-git apply --3way test/data.patch
+git apply --3way test/development/data.patch
 ```
 
 Then, deploy the patch as described in the [Code Structure](#code-structure) section.
@@ -44,7 +44,7 @@ Then, deploy the patch as described in the [Code Structure](#code-structure) sec
 To persist changes to test data, stage them and run:
 
 ```sh
-git diff --staged > test/data.patch
+git diff --staged > test/development/data.patch
 ```
 
 ### Schema Fixture

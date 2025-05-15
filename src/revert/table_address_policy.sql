@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP POLICY address ON vibetype.address;
+DROP POLICY address_all ON vibetype.address;
 
 COMMIT;

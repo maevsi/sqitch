@@ -35,29 +35,31 @@ RUN apt-get update \
   && apt-get install --no-install-recommends -y \
     sqitch=1.1.0000-1 \
   && mkdir -p /run/secrets \
+  && echo "grafana" > /run/secrets/postgres_role_service_grafana_username \
   && echo "postgres"      > /run/secrets/postgres_password \
   && echo "postgraphile"  > /run/secrets/postgres_role_service_postgraphile_username \
   && echo "vibetype"          > /run/secrets/postgres_role_service_vibetype_username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_service_vibetype_password \
+    /run/secrets/postgres_role_service_grafana_password \
     /run/secrets/postgres_role_service_postgraphile_password \
+    /run/secrets/postgres_role_service_vibetype_password \
     /dev/null
 
-COPY ./src ./
-COPY ./test/index-missing.sql ./test/
+COPY ./src ./src
+COPY ./test ./test
 
 RUN docker-entrypoint.sh postgres & \
   while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
-  && sqitch deploy -t db:pg://ci:postgres@/ci_database \
-  && psql -h localhost -U ci -d ci_database -f ./test/index-missing.sql -v ON_ERROR_STOP=on \
+  && sqitch --chdir src deploy -t db:pg://ci:postgres@/ci_database \
   && pg_dump -s -h localhost -U ci -p 5432 ci_database | sed -e '/^-- Dumped/d' > schema.sql \
-  && sqitch revert -t db:pg://ci:postgres@/ci_database
-
+  && psql -h localhost -U ci -d ci_database -q -f ./test/logic/main.sql \
+    -v TEST_DIRECTORY=./test/logic -v ON_ERROR_STOP=on \
+  && sqitch --chdir src revert -t db:pg://ci:postgres@/ci_database
 
 ##############################
 FROM test-build AS test
 
-COPY ./test/schema/schema.definition.sql ./
+COPY ./test/fixture/schema.definition.sql ./
 
 RUN diff schema.definition.sql schema.sql
 
