@@ -2056,6 +2056,39 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 
 
 --
+-- Name: event_policy_select(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.event
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    SELECT * FROM vibetype.event e
+    WHERE (
+      (
+        e.visibility = 'public'
+        AND (
+          e.guest_count_maximum IS NULL
+          OR e.guest_count_maximum > vibetype.guest_count(e.id)
+        )
+        AND e.created_by NOT IN (
+          SELECT id FROM vibetype_private.account_block_ids()
+        )
+      )
+      OR (
+        e.id IN (
+          SELECT * FROM vibetype_private.events_invited()
+        )
+      )
+    );
+END
+$$;
+
+
+ALTER FUNCTION vibetype_private.event_policy_select() OWNER TO ci;
+
+--
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -6066,7 +6099,8 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 -- Name: address address_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY address_all ON vibetype.address USING (((created_by = vibetype.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT event_policy_select.address_id
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (created_by IN ( SELECT account_block_ids.id
    FROM vibetype_private.account_block_ids() account_block_ids(id)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -6230,8 +6264,8 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (created_by IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR (id IN ( SELECT vibetype_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((id IN ( SELECT event_policy_select.id
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector))));
 
 
 --
@@ -7062,6 +7096,15 @@ GRANT ALL ON FUNCTION vibetype_private.account_password_reset_verification_valid
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_policy_select(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.event_policy_select() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_anonymous;
 
 
 --
