@@ -1,3 +1,9 @@
+## [8.0.0-beta.10](https://github.com/maevsi/sqitch/compare/8.0.0-beta.9...8.0.0-beta.10) (2025-05-15)
+
+### Bug Fixes
+
+* **address:** allow selects for accessible events ([dec870a](https://github.com/maevsi/sqitch/commit/dec870a9236a44adf688a4d61444e138afb9c1bb))
+
 ## [8.0.0-beta.9](https://github.com/maevsi/sqitch/compare/8.0.0-beta.8...8.0.0-beta.9) (2025-05-13)
 
 ### Features
