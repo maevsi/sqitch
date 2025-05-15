@@ -1,3 +1,9 @@
+## [8.0.1](https://github.com/maevsi/sqitch/compare/8.0.0...8.0.1) (2025-05-15)
+
+### Bug Fixes
+
+* **upload:** correct insert trigger creator ([235804a](https://github.com/maevsi/sqitch/commit/235804a5fefad5cab04f7ab343b5a28cc220687d))
+
 ## [8.0.0](https://github.com/maevsi/sqitch/compare/7.0.1...8.0.0) (2025-05-15)
 
 ### ⚠ BREAKING CHANGES
