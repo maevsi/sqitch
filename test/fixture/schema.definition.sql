@@ -1767,10 +1767,10 @@ CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS trigger
     AS $$
   BEGIN
     IF (
-      -- invoked without account it
+      -- invoked without account id
       vibetype.invoker_account_id() IS NULL
       OR
-      -- invoked with account it
+      -- invoked with account id
       -- and
       (
         -- updating own account's contact
@@ -1929,121 +1929,36 @@ $$;
 ALTER FUNCTION vibetype.trigger_metadata_update_fcm() OWNER TO ci;
 
 --
--- Name: upload; Type: TABLE; Schema: vibetype; Owner: ci
+-- Name: trigger_upload_insert(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE TABLE vibetype.upload (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid NOT NULL,
-    name text,
-    size_byte bigint NOT NULL,
-    storage_key text,
-    type text DEFAULT 'image'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
-    CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
-);
-
-
-ALTER TABLE vibetype.upload OWNER TO ci;
-
---
--- Name: TABLE upload; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.upload IS 'An upload.';
-
-
---
--- Name: COLUMN upload.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.id IS '@omit create,update
-The upload''s internal id.';
-
-
---
--- Name: COLUMN upload.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.account_id IS 'The uploader''s account id.';
-
-
---
--- Name: COLUMN upload.name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
-
-
---
--- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.size_byte IS 'The upload''s size in bytes.';
-
-
---
--- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.storage_key IS 'The upload''s storage key.';
-
-
---
--- Name: COLUMN upload.type; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.type IS 'The type of the uploaded file, default is ''image''.';
-
-
---
--- Name: COLUMN upload.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.upload.created_at IS '@omit create,update
-Timestamp of when the upload was created, defaults to the current timestamp.';
-
-
---
--- Name: upload_create(bigint); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.upload_create(size_byte bigint) RETURNS vibetype.upload
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+CREATE FUNCTION vibetype.trigger_upload_insert() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
-    _upload vibetype.upload;
+  _current_usage BIGINT;
+  _quota BIGINT;
 BEGIN
-  IF (COALESCE((
-    SELECT SUM(upload.size_byte)
+  SELECT COALESCE(SUM(size_byte), 0)
+    INTO _current_usage
     FROM vibetype.upload
-    WHERE upload.account_id = current_setting('jwt.claims.account_id')::UUID
-  ), 0) + upload_create.size_byte <= (
-    SELECT upload_quota_bytes
-    FROM vibetype_private.account
-    WHERE account.id = current_setting('jwt.claims.account_id')::UUID
-  )) THEN
-    INSERT INTO vibetype.upload(account_id, size_byte)
-    VALUES (current_setting('jwt.claims.account_id')::UUID, upload_create.size_byte)
-    RETURNING upload.id INTO _upload;
+    WHERE created_by = NEW.created_by;
 
-    RETURN _upload;
-  ELSE
+  SELECT upload_quota_bytes
+    INTO _quota
+    FROM vibetype_private.account
+    WHERE id = NEW.created_by;
+
+  IF (_current_usage + NEW.size_byte) > _quota THEN
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
   END IF;
+
+  RETURN NEW;
 END;
 $$;
 
 
-ALTER FUNCTION vibetype.upload_create(size_byte bigint) OWNER TO ci;
-
---
--- Name: FUNCTION upload_create(size_byte bigint); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.upload_create(size_byte bigint) IS 'Creates an upload with the given size if quota is available.';
-
+ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
 
 --
 -- Name: account_block_ids(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -2166,6 +2081,39 @@ ALTER FUNCTION vibetype_private.adjust_audit_log_id_seq() OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function resetting the current value of the sequence vibetype_private.audit_log_id_seq according to the content of table audit_log.';
 
+
+--
+-- Name: event_policy_select(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.event
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    SELECT * FROM vibetype.event e
+    WHERE (
+      (
+        e.visibility = 'public'
+        AND (
+          e.guest_count_maximum IS NULL
+          OR e.guest_count_maximum > vibetype.guest_count(e.id)
+        )
+        AND e.created_by NOT IN (
+          SELECT id FROM vibetype_private.account_block_ids()
+        )
+      )
+      OR (
+        e.id IN (
+          SELECT * FROM vibetype_private.events_invited()
+        )
+      )
+    );
+END
+$$;
+
+
+ALTER FUNCTION vibetype_private.event_policy_select() OWNER TO ci;
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -3843,14 +3791,15 @@ ALTER TABLE vibetype.event_favorite OWNER TO ci;
 -- Name: TABLE event_favorite; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_favorite IS 'Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
+COMMENT ON TABLE vibetype.event_favorite IS '@omit update
+Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
 --
 -- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_favorite.id IS '@omit create
 Primary key, uniquely identifies each favorite entry.';
 
 
@@ -3865,7 +3814,7 @@ COMMENT ON COLUMN vibetype.event_favorite.event_id IS 'Reference to the event th
 -- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_favorite.created_at IS '@omit create
 Timestamp when the favorite was created. Defaults to the current timestamp.';
 
 
@@ -3873,8 +3822,7 @@ Timestamp when the favorite was created. Defaults to the current timestamp.';
 -- Name: COLUMN event_favorite.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.created_by IS '@omit create,update
-Reference to the account that created the event favorite.';
+COMMENT ON COLUMN vibetype.event_favorite.created_by IS 'Reference to the account that created the event favorite.';
 
 
 --
@@ -3941,127 +3889,6 @@ COMMENT ON COLUMN vibetype.event_format_mapping.event_id IS 'An event id.';
 --
 
 COMMENT ON COLUMN vibetype.event_format_mapping.format_id IS 'A format id.';
-
-
---
--- Name: event_group; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.event_group (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    description text,
-    is_archived boolean DEFAULT false NOT NULL,
-    name text NOT NULL,
-    slug text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    CONSTRAINT event_group_description_check CHECK ((char_length(description) < 1000000)),
-    CONSTRAINT event_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
-    CONSTRAINT event_group_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text)))
-);
-
-
-ALTER TABLE vibetype.event_group OWNER TO ci;
-
---
--- Name: TABLE event_group; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.event_group IS 'A group of events.';
-
-
---
--- Name: COLUMN event_group.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.id IS '@omit create,update
-The event group''s internal id.';
-
-
---
--- Name: COLUMN event_group.description; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.description IS 'The event group''s description.';
-
-
---
--- Name: COLUMN event_group.is_archived; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.is_archived IS 'Indicates whether the event group is archived.';
-
-
---
--- Name: COLUMN event_group.name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.name IS 'The event group''s name.';
-
-
---
--- Name: COLUMN event_group.slug; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.slug IS '@omit create,update
-The event group''s name, slugified.';
-
-
---
--- Name: COLUMN event_group.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.created_at IS '@omit create,update
-Timestamp of when the event group was created, defaults to the current timestamp.';
-
-
---
--- Name: COLUMN event_group.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_group.created_by IS 'The event group creator''s id.';
-
-
---
--- Name: event_grouping; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.event_grouping (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    event_group_id uuid NOT NULL,
-    event_id uuid NOT NULL
-);
-
-
-ALTER TABLE vibetype.event_grouping OWNER TO ci;
-
---
--- Name: TABLE event_grouping; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.event_grouping IS 'A bidirectional mapping between an event and an event group.';
-
-
---
--- Name: COLUMN event_grouping.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_grouping.id IS '@omit create,update
-The event grouping''s internal id.';
-
-
---
--- Name: COLUMN event_grouping.event_group_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_grouping.event_group_id IS 'The event grouping''s internal event group id.';
-
-
---
--- Name: COLUMN event_grouping.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event_grouping.event_id IS 'The event grouping''s internal event id.';
 
 
 --
@@ -4642,6 +4469,88 @@ COMMENT ON CONSTRAINT report_check ON vibetype.report IS 'Ensures that the repor
 --
 
 COMMENT ON CONSTRAINT report_reason_check ON vibetype.report IS 'Ensures the reason field contains between 1 and 2000 characters.';
+
+
+--
+-- Name: upload; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.upload (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text,
+    size_byte bigint NOT NULL,
+    storage_key text,
+    type text DEFAULT 'image'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
+    CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
+);
+
+ALTER TABLE ONLY vibetype.upload REPLICA IDENTITY FULL;
+
+
+ALTER TABLE vibetype.upload OWNER TO ci;
+
+--
+-- Name: TABLE upload; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.upload IS 'An upload.';
+
+
+--
+-- Name: COLUMN upload.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.id IS '@omit create,update
+The upload''s internal id.';
+
+
+--
+-- Name: COLUMN upload.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
+
+
+--
+-- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.size_byte IS '@omit update
+The upload''s size in bytes.';
+
+
+--
+-- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.storage_key IS '@omit create,update
+The upload''s storage key.';
+
+
+--
+-- Name: COLUMN upload.type; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.type IS '@omit create,update
+The type of the uploaded file, default is ''image''.';
+
+
+--
+-- Name: COLUMN upload.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.created_at IS '@omit create,update
+Timestamp of when the upload was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN upload.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
 
 
 --
@@ -5304,38 +5213,6 @@ ALTER TABLE ONLY vibetype.event_format
 
 
 --
--- Name: event_group event_group_created_by_slug_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_group
-    ADD CONSTRAINT event_group_created_by_slug_key UNIQUE (created_by, slug);
-
-
---
--- Name: event_group event_group_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_group
-    ADD CONSTRAINT event_group_pkey PRIMARY KEY (id);
-
-
---
--- Name: event_grouping event_grouping_event_id_event_group_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_grouping
-    ADD CONSTRAINT event_grouping_event_id_event_group_id_key UNIQUE (event_id, event_group_id);
-
-
---
--- Name: event_grouping event_grouping_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_grouping
-    ADD CONSTRAINT event_grouping_pkey PRIMARY KEY (id);
-
-
---
 -- Name: event event_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5775,6 +5652,13 @@ CREATE TRIGGER vibetype_trigger_friendship_update BEFORE UPDATE ON vibetype.frie
 
 
 --
+-- Name: upload vibetype_trigger_upload_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER vibetype_trigger_upload_insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
+
+
+--
 -- Name: account vibetype_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: vibetype_private; Owner: ci
 --
 
@@ -6037,30 +5921,6 @@ ALTER TABLE ONLY vibetype.event_format_mapping
 
 
 --
--- Name: event_group event_group_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_group
-    ADD CONSTRAINT event_group_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
-
-
---
--- Name: event_grouping event_grouping_event_group_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_grouping
-    ADD CONSTRAINT event_grouping_event_group_id_fkey FOREIGN KEY (event_group_id) REFERENCES vibetype.event_group(id) ON DELETE CASCADE;
-
-
---
--- Name: event_grouping event_grouping_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.event_grouping
-    ADD CONSTRAINT event_grouping_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
-
-
---
 -- Name: event_recommendation event_recommendation_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6229,11 +6089,11 @@ ALTER TABLE ONLY vibetype.report
 
 
 --
--- Name: upload upload_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: upload upload_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.upload
-    ADD CONSTRAINT upload_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT upload_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -6344,7 +6204,8 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 -- Name: address address_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY address_all ON vibetype.address USING (((created_by = vibetype.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
+CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT event_policy_select.address_id
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (created_by IN ( SELECT account_block_ids.id
    FROM vibetype_private.account_block_ids() account_block_ids(id)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -6492,18 +6353,6 @@ CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR S
 
 
 --
--- Name: event_group; Type: ROW SECURITY; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE vibetype.event_group ENABLE ROW LEVEL SECURITY;
-
---
--- Name: event_grouping; Type: ROW SECURITY; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE vibetype.event_grouping ENABLE ROW LEVEL SECURITY;
-
---
 -- Name: event_recommendation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -6520,8 +6369,8 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (created_by IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR (id IN ( SELECT vibetype_private.events_invited() AS events_invited))));
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((id IN ( SELECT event_policy_select.id
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector))));
 
 
 --
@@ -6547,7 +6396,7 @@ CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK
    FROM vibetype.event
   WHERE (event.created_by = vibetype.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
    FROM vibetype.upload
-  WHERE (upload.account_id = vibetype.invoker_account_id())))));
+  WHERE (upload.created_by = vibetype.invoker_account_id())))));
 
 
 --
@@ -6738,18 +6587,39 @@ CREATE POLICY report_all ON vibetype.report USING ((created_by = vibetype.invoke
 ALTER TABLE vibetype.upload ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: upload upload_all_service; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: upload upload_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_all_service ON vibetype.upload TO vibetype USING (true);
+CREATE POLICY upload_delete ON vibetype.upload FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: upload upload_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_insert ON vibetype.upload FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
 --
 -- Name: upload upload_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (id IN ( SELECT profile_picture.upload_id
+CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT profile_picture.upload_id
    FROM vibetype.profile_picture))));
+
+
+--
+-- Name: upload upload_service_vibetype_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_service_vibetype_all ON vibetype.upload TO vibetype USING (true);
+
+
+--
+-- Name: upload upload_update; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_update ON vibetype.upload FOR UPDATE USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -6772,6 +6642,13 @@ CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR S
 GRANT USAGE ON SCHEMA vibetype TO vibetype_anonymous;
 GRANT USAGE ON SCHEMA vibetype TO vibetype_account;
 GRANT USAGE ON SCHEMA vibetype TO vibetype;
+
+
+--
+-- Name: SCHEMA vibetype_private; Type: ACL; Schema: -; Owner: ci
+--
+
+GRANT USAGE ON SCHEMA vibetype_private TO grafana;
 
 
 --
@@ -7307,20 +7184,10 @@ REVOKE ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() FROM PUBLIC;
 
 
 --
--- Name: TABLE upload; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION trigger_upload_insert(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT ON TABLE vibetype.upload TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
-GRANT SELECT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype;
-
-
---
--- Name: FUNCTION upload_create(size_byte bigint); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.upload_create(size_byte bigint) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.upload_create(size_byte bigint) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
 
 
 --
@@ -7353,6 +7220,15 @@ GRANT ALL ON FUNCTION vibetype_private.account_password_reset_verification_valid
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION event_policy_select(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.event_policy_select() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_anonymous;
 
 
 --
@@ -7543,22 +7419,6 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_ac
 
 
 --
--- Name: TABLE event_group; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.event_group TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_group TO vibetype_account;
-
-
---
--- Name: TABLE event_grouping; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.event_grouping TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_grouping TO vibetype_account;
-
-
---
 -- Name: TABLE event_recommendation; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7631,6 +7491,22 @@ GRANT SELECT,DELETE ON TABLE vibetype.profile_picture TO vibetype;
 --
 
 GRANT SELECT,INSERT ON TABLE vibetype.report TO vibetype_account;
+
+
+--
+-- Name: TABLE upload; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype_account;
+GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
+
+
+--
+-- Name: TABLE account; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype_private.account TO grafana;
 
 
 --

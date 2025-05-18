@@ -3,6 +3,8 @@
 %uri=https://github.com/maevsi/vibetype/
 
 privilege_execute_revoke 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Revoke execute privilege from public.
+role_grafana 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add role grafana.
+database_grafana [role_grafana] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+maevsi/sqitch@jonas-thelemann.de> # Add the database for grafana.
 role_postgraphile 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role postgraphile.
 role_anonymous [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role anonymous.
 role_account [role_postgraphile] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role account.
@@ -19,7 +21,6 @@ table_account_public [schema_public schema_private table_account_private] 1970-0
 table_notification [schema_private table_account_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
 table_account_block [schema_public table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Blocking of an account by another account.
 function_account_block_ids [schema_public table_account_block role_account role_anonymous function_invoker_account_id] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Function returning all account id's involved in blocking.
-table_event_group [schema_public role_account role_anonymous table_account_public enum_event_visibility] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add table event_group.
 enum_language [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Supported ISO 639 language codes.
 function_language_iso_full_text_search [privilege_execute_revoke schema_public enum_language] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # ISO language code to full text search language conversion.
 table_address [schema_public table_account_public function_trigger_metadata_update] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Stores detailed address information, including lines, city, state, country, and metadata.
@@ -34,9 +35,9 @@ function_guest_contact_ids [privilege_execute_revoke schema_public table_guest f
 table_contact_policy [schema_public table_contact role_account role_anonymous function_invoker_account_id function_account_block_ids function_guest_contact_ids] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add policy for table contact.
 function_guest_count [privilege_execute_revoke schema_public table_guest role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add a function that returns the guest count for an event.
 table_event_policy [schema_public table_event role_account role_anonymous function_guest_count function_account_block_ids function_invoker_account_id schema_private function_events_invited] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add policy for table event.
+table_address_policy [schema_public table_address role_anonymous role_account function_invoker_account_id table_event_policy function_account_block_ids] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add policy for table address.
 function_event_guest_count_maximum [privilege_execute_revoke schema_public table_event function_guest_count function_invoker_account_id schema_private function_events_invited role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add a function that returns the maximum guest count of an accessible event.
 table_guest_policy [schema_public table_guest role_account role_anonymous function_guest_claim_array function_invoker_account_id function_events_organized function_account_block_ids function_event_guest_count_maximum] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add policy for table contact.
-table_event_grouping [schema_public role_account role_anonymous table_event table_event_group] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add table event grouping.
 type_jwt [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add type jwt.
 table_legal_term [schema_public role_account role_anonymous] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Legal terms like privacy policies or terms of service.
 table_legal_term_acceptance [schema_public table_account_public table_legal_term role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Tracks each user account's acceptance of legal terms and conditions.
@@ -49,7 +50,6 @@ type_event_unlock_response [schema_public type_jwt] 1970-01-01T00:00:00Z Jonas T
 function_event_unlock [privilege_execute_revoke schema_public function_invoker_account_id table_event table_guest function_guest_claim_array type_jwt table_jwt type_event_unlock_response] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add a function that assigns a guest to the current session
 function_jwt_refresh [privilege_execute_revoke schema_public type_jwt table_jwt] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add a function that refreshes tokens.
 table_upload [schema_public table_account_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # An upload.
-function_upload_create [privilege_execute_revoke schema_public schema_private role_account table_upload table_account_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Creates an upload with the given size if quota is available.
 table_profile_picture [schema_public table_account_public table_upload role_account role_anonymous role_vibetype function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Mapping of usernames to upload storage keys.
 table_upload_policy [schema_public table_upload role_account role_anonymous role_vibetype function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Policies for uploads.
 function_profile_picture_set [privilege_execute_revoke schema_public role_account table_profile_picture] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Sets the picture with the given storage key as the invoker's profile picture.
