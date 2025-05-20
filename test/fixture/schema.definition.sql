@@ -3697,7 +3697,8 @@ ALTER TABLE vibetype.event_category OWNER TO ci;
 -- Name: TABLE event_category; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_category IS 'Event categories.';
+COMMENT ON TABLE vibetype.event_category IS '@omit create,update,delete
+Event categories.';
 
 
 --
@@ -3815,7 +3816,8 @@ ALTER TABLE vibetype.event_format OWNER TO ci;
 -- Name: TABLE event_format; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_format IS 'Event formats.';
+COMMENT ON TABLE vibetype.event_format IS '@omit create,update,delete
+Event formats.';
 
 
 --
