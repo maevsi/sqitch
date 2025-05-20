@@ -1,3 +1,15 @@
+## [9.0.0-beta.2](https://github.com/maevsi/sqitch/compare/9.0.0-beta.1...9.0.0-beta.2) (2025-05-20)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** simplify naming
+* **event:** disable endpoints for category and format
+
+### Features
+
+* **event:** disable endpoints for category and format ([8c1764a](https://github.com/maevsi/sqitch/commit/8c1764aa4b5963af9b12ee187cf14a6b2507c6d5))
+* **preference:** simplify naming ([04115fd](https://github.com/maevsi/sqitch/commit/04115fdca95422ba29cd6d8a083e0a1a72c4d6c1))
+
 ## [9.0.0-beta.1](https://github.com/maevsi/sqitch/compare/8.0.1...9.0.0-beta.1) (2025-05-20)
 
 ### ⚠ BREAKING CHANGES
