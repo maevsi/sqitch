@@ -3095,7 +3095,8 @@ Blocking of one account by another.';
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account_block.id IS '@omit create\nThe account block''s internal id.';
+COMMENT ON COLUMN vibetype.account_block.id IS '@omit create
+The account block''s internal id.';
 
 
 --
@@ -4185,7 +4186,8 @@ ALTER TABLE vibetype.legal_term_acceptance OWNER TO ci;
 -- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.legal_term_acceptance IS '@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
+COMMENT ON TABLE vibetype.legal_term_acceptance IS '@omit update,delete
+Tracks each user account''s acceptance of legal terms and conditions.';
 
 
 --
