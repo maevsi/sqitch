@@ -9,7 +9,7 @@ CREATE TABLE vibetype.legal_term_acceptance (
   created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-COMMENT ON TABLE vibetype.legal_term_acceptance IS '@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
+COMMENT ON TABLE vibetype.legal_term_acceptance IS E'@omit update,delete\nTracks each user account''s acceptance of legal terms and conditions.';
 COMMENT ON COLUMN vibetype.legal_term_acceptance.id IS E'@omit create\nUnique identifier for this legal term acceptance record. Automatically generated for each new acceptance.';
 COMMENT ON COLUMN vibetype.legal_term_acceptance.account_id IS 'The user account ID that accepted the legal terms. If the account is deleted, this acceptance record will also be deleted.';
 COMMENT ON COLUMN vibetype.legal_term_acceptance.legal_term_id IS 'The ID of the legal terms that were accepted. Deletion of these legal terms is restricted while they are still referenced in this table.';
