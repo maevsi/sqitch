@@ -1,3 +1,18 @@
+## [9.0.0-beta.1](https://github.com/maevsi/sqitch/compare/8.0.1...9.0.0-beta.1) (2025-05-20)
+
+### ⚠ BREAKING CHANGES
+
+* add missing smart comment prefix
+* specify function arguments for revert
+
+### Bug Fixes
+
+* add missing smart comment prefix ([3c78d9a](https://github.com/maevsi/sqitch/commit/3c78d9a6affb0a4846e3f71fda5b77de1420a811))
+
+### Miscellaneous Chores
+
+* specify function arguments for revert ([bb96980](https://github.com/maevsi/sqitch/commit/bb9698049291f6be8f784a7569270ec6e3526236))
+
 ## [8.0.1](https://github.com/maevsi/sqitch/compare/8.0.0...8.0.1) (2025-05-15)
 
 ### Bug Fixes
