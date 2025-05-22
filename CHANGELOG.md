@@ -1,3 +1,9 @@
+## [8.2.0](https://github.com/maevsi/sqitch/compare/8.1.0...8.2.0) (2025-05-22)
+
+### Features
+
+* **account:** add location setter function ([531335c](https://github.com/maevsi/sqitch/commit/531335c4a0276f2271e95071c04341cbaa4b9f06))
+
 ## [8.1.0](https://github.com/maevsi/sqitch/compare/8.0.1...8.1.0) (2025-05-22)
 
 ### Features
