@@ -1,3 +1,9 @@
+## [8.1.0](https://github.com/maevsi/sqitch/compare/8.0.1...8.1.0) (2025-05-22)
+
+### Features
+
+* **account:** add birth date setter function ([1ec9e33](https://github.com/maevsi/sqitch/commit/1ec9e33ceebae5670dfb8d1bc777f09ba31affd0))
+
 ## [8.0.1](https://github.com/maevsi/sqitch/compare/8.0.0...8.0.1) (2025-05-15)
 
 ### Bug Fixes
