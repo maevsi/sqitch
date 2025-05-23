@@ -28,12 +28,12 @@ Once your development environment is running, use these commands to manage datab
 
 
 ```bash
-npx nypm install      # initial set up & update installation
+npx nypm install  # initial set up & update installation
 
-npm run deploy   # apply database migrations
-npm run revert   # roll back database migrations
+npm run deploy    # apply database migrations
+npm run revert    # roll back database migrations
 
-npm run test     # execute test suite
+npm run test      # execute test suite
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
