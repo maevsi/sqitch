@@ -14,7 +14,7 @@
 
 ## 🚀 Introduction
 
-Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](./docs/resources/graph.png)):
+Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](https://raw.githubusercontent.com/maevsi/sqitch/refs/heads/main/docs/resources/graph.png)):
 
 [<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
 
