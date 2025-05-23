@@ -88,3 +88,5 @@ table_audit_log [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thele
 view_audit_log_trigger [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # View showing all audit log triggers.
 function_audit_log [schema_private table_audit_log view_audit_log_trigger] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Utility functions for managing audit log triggers.
 table_preference_event_format [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Event formats a user account is interested in (M:N relationship).
+role_zammad 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add role zammad.
+database_zammad [role_zammad] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add the database for zammad.
