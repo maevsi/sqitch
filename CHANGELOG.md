@@ -1,3 +1,13 @@
+## [9.0.0-beta.3](https://github.com/maevsi/sqitch/compare/9.0.0-beta.2...9.0.0-beta.3) (2025-05-26)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** disallow null id for favorite
+
+### Bug Fixes
+
+* **event:** disallow null id for favorite ([bb882a1](https://github.com/maevsi/sqitch/commit/bb882a1d649031e1bf775c9482b27ed2c0ab8ae1))
+
 ## [9.0.0-beta.2](https://github.com/maevsi/sqitch/compare/9.0.0-beta.1...9.0.0-beta.2) (2025-05-20)
 
 ### ⚠ BREAKING CHANGES
