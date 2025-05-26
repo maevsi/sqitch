@@ -20,5 +20,5 @@
     "test:update": "pnpm run test --update"
   },
   "type": "module",
-  "version": "8.2.0"
+  "version": "8.3.0"
 }

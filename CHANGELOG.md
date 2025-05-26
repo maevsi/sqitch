@@ -1,3 +1,9 @@
+## [8.3.0](https://github.com/maevsi/sqitch/compare/8.2.0...8.3.0) (2025-05-26)
+
+### Features
+
+* **zammad:** create database and role ([1565f57](https://github.com/maevsi/sqitch/commit/1565f575277da81aa79edad5f8adea454916e2e1))
+
 ## [8.2.0](https://github.com/maevsi/sqitch/compare/8.1.0...8.2.0) (2025-05-22)
 
 ### Features
