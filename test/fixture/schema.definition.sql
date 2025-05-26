@@ -3637,7 +3637,7 @@ COMMENT ON COLUMN vibetype.event_category_mapping.category_id IS 'A category id.
 
 CREATE TABLE vibetype.event_favorite (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    event_id uuid,
+    event_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL
 );
