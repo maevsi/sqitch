@@ -90,3 +90,5 @@ function_audit_log [schema_private table_audit_log view_audit_log_trigger] 1970-
 table_account_preference_event_format [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Event formats a user account is interested in (M:N relationship).
 function_account_birth_date_update [privilege_execute_revoke schema_public table_account_private function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Sets the birth date for the invoker's account.
 function_account_location_update [privilege_execute_revoke schema_public table_account_private function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Sets the location for the invoker's account.
+role_zammad 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add role zammad.
+database_zammad [role_zammad] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add the database for zammad.
