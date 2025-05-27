@@ -1,3 +1,13 @@
+## [9.0.0-beta.7](https://github.com/maevsi/sqitch/compare/9.0.0-beta.6...9.0.0-beta.7) (2025-05-27)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** add id
+
+### Features
+
+* **preference:** add id ([786a8d3](https://github.com/maevsi/sqitch/commit/786a8d38940a8b6989a342e97711bbed54e2ceab))
+
 ## [9.0.0-beta.6](https://github.com/maevsi/sqitch/compare/9.0.0-beta.5...9.0.0-beta.6) (2025-05-27)
 
 ### ⚠ BREAKING CHANGES
