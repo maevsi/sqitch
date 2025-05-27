@@ -1,3 +1,9 @@
+## [8.3.1](https://github.com/maevsi/sqitch/compare/8.3.0...8.3.1) (2025-05-27)
+
+### Bug Fixes
+
+* revert "Merge pull request [#211](https://github.com/maevsi/sqitch/issues/211) from maevsi/feat/zammad/db" ([f71fa5b](https://github.com/maevsi/sqitch/commit/f71fa5bec07d14b36a34fd9ec3559aac67547750))
+
 ## [8.3.0](https://github.com/maevsi/sqitch/compare/8.2.0...8.3.0) (2025-05-26)
 
 ### Features
