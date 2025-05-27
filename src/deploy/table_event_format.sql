@@ -7,7 +7,7 @@ CREATE TABLE vibetype.event_format(
   CONSTRAINT event_format_name_unique UNIQUE(name)
 );
 
-COMMENT ON TABLE vibetype.event_format IS 'Event formats.';
+COMMENT ON TABLE vibetype.event_format IS E'@omit create,update,delete\nEvent formats.';
 COMMENT ON COLUMN vibetype.event_format.id IS 'The id of the event format.';
 COMMENT ON COLUMN vibetype.event_format.name IS 'The name of the event format.';
 

@@ -2,7 +2,7 @@ BEGIN;
 
 DROP TRIGGER vibetype_guest_update ON vibetype.guest;
 
-DROP FUNCTION vibetype.trigger_guest_update;
+DROP FUNCTION vibetype.trigger_guest_update();
 
 DROP POLICY guest_delete ON vibetype.guest;
 DROP POLICY guest_update ON vibetype.guest;
