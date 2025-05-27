@@ -1,1 +1,0 @@
-DROP DATABASE zammad WITH (FORCE);
