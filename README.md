@@ -14,7 +14,7 @@
 
 ## 🚀 Introduction
 
-Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](./docs/resources/graph.png)):
+Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](https://raw.githubusercontent.com/maevsi/sqitch/refs/heads/main/docs/resources/graph.png)):
 
 [<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
 
@@ -28,12 +28,12 @@ Once your development environment is running, use these commands to manage datab
 
 
 ```bash
-npx nypm install      # initial set up & update installation
+npx nypm install  # initial set up & update installation
 
-npm run deploy   # apply database migrations
-npm run revert   # roll back database migrations
+npm run deploy    # apply database migrations
+npm run revert    # roll back database migrations
 
-npm run test     # execute test suite
+npm run test      # execute test suite
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.

@@ -35,6 +35,36 @@
 
 * specify function arguments for revert ([bb96980](https://github.com/maevsi/sqitch/commit/bb9698049291f6be8f784a7569270ec6e3526236))
 
+## [8.4.0](https://github.com/maevsi/sqitch/compare/8.3.1...8.4.0) (2025-05-27)
+
+### Features
+
+* **preference:** add location ([2c2d5dc](https://github.com/maevsi/sqitch/commit/2c2d5dc0b11027edb97cbc4c95f150fc2d64726a))
+
+## [8.3.1](https://github.com/maevsi/sqitch/compare/8.3.0...8.3.1) (2025-05-27)
+
+### Bug Fixes
+
+* revert "Merge pull request [#211](https://github.com/maevsi/sqitch/issues/211) from maevsi/feat/zammad/db" ([f71fa5b](https://github.com/maevsi/sqitch/commit/f71fa5bec07d14b36a34fd9ec3559aac67547750))
+
+## [8.3.0](https://github.com/maevsi/sqitch/compare/8.2.0...8.3.0) (2025-05-26)
+
+### Features
+
+* **zammad:** create database and role ([1565f57](https://github.com/maevsi/sqitch/commit/1565f575277da81aa79edad5f8adea454916e2e1))
+
+## [8.2.0](https://github.com/maevsi/sqitch/compare/8.1.0...8.2.0) (2025-05-22)
+
+### Features
+
+* **account:** add location setter function ([531335c](https://github.com/maevsi/sqitch/commit/531335c4a0276f2271e95071c04341cbaa4b9f06))
+
+## [8.1.0](https://github.com/maevsi/sqitch/compare/8.0.1...8.1.0) (2025-05-22)
+
+### Features
+
+* **account:** add birth date setter function ([1ec9e33](https://github.com/maevsi/sqitch/commit/1ec9e33ceebae5670dfb8d1bc777f09ba31affd0))
+
 ## [8.0.1](https://github.com/maevsi/sqitch/compare/8.0.0...8.0.1) (2025-05-15)
 
 ### Bug Fixes

@@ -356,6 +356,52 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 
 
 --
+-- Name: account_birth_date_update(date); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_birth_date_update(birth_date date) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  birth_date_existing DATE;
+BEGIN
+  SELECT account.birth_date
+    INTO birth_date_existing
+    FROM vibetype_private.account
+    WHERE id = vibetype.invoker_account_id();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Account not found'
+      USING ERRCODE = 'P0002'; -- no_data_found
+  END IF;
+
+  IF birth_date_existing IS NOT NULL THEN
+    RAISE EXCEPTION 'Birth date is already set'
+      USING ERRCODE = '23514'; -- check_violation
+  END IF;
+
+  UPDATE vibetype_private.account
+    SET birth_date = account_birth_date_update.birth_date
+    WHERE id = vibetype.invoker_account_id();
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.account_birth_date_update(birth_date date) OWNER TO ci;
+
+--
+-- Name: FUNCTION account_birth_date_update(birth_date date); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_birth_date_update(birth_date date) IS '@name update_account_birth_date
+Sets the birth date for the invoker''s account.
+
+Error codes:
+- **P0002** when no record was updated
+- **23514** when the birth date is already set';
+
+
+--
 -- Name: account_delete(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -426,6 +472,39 @@ ALTER FUNCTION vibetype.account_email_address_verification(code uuid) OWNER TO c
 --
 
 COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
+
+
+--
+-- Name: account_location_update(double precision, double precision); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE vibetype_private.account
+    SET location = ST_Point(account_location_update.longitude, account_location_update.latitude, 4326)
+    WHERE id = vibetype.invoker_account_id();
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Account not found'
+      USING ERRCODE = 'P0002'; -- no_data_found
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) OWNER TO ci;
+
+--
+-- Name: FUNCTION account_location_update(latitude double precision, longitude double precision); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) IS '@name update_account_location
+Sets the location for the invoker''s account.
+
+Error codes:
+- **P0002** when no record was updated.';
 
 
 --
@@ -4181,6 +4260,66 @@ COMMENT ON COLUMN vibetype.preference_event_format.created_at IS 'The timestammp
 
 
 --
+-- Name: preference_event_location; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.preference_event_location (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    location public.geography(Point,4326) NOT NULL,
+    radius double precision NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT preference_event_location_radius_check CHECK ((radius > (0)::double precision))
+);
+
+
+ALTER TABLE vibetype.preference_event_location OWNER TO ci;
+
+--
+-- Name: TABLE preference_event_location; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.preference_event_location IS 'Stores preferred event locations for user accounts, including coordinates and search radius.';
+
+
+--
+-- Name: COLUMN preference_event_location.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_event_location.id IS '@omit create
+Unique identifier for the preference record.';
+
+
+--
+-- Name: COLUMN preference_event_location.location; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_event_location.location IS 'Geographical point representing the preferred location, derived from latitude and longitude.';
+
+
+--
+-- Name: COLUMN preference_event_location.radius; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_event_location.radius IS 'Search radius in meters around the location where events are preferred. Must be positive.';
+
+
+--
+-- Name: COLUMN preference_event_location.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_event_location.created_at IS '@omit create
+Timestamp of when the event size preference was created, defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN preference_event_location.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_event_location.created_by IS 'Reference to the account that created the location preference.';
+
+
+--
 -- Name: preference_event_size; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -5229,6 +5368,22 @@ ALTER TABLE ONLY vibetype.preference_event_format
 
 
 --
+-- Name: preference_event_location preference_event_location_created_by_location_radius_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_event_location
+    ADD CONSTRAINT preference_event_location_created_by_location_radius_key UNIQUE (created_by, location, radius);
+
+
+--
+-- Name: preference_event_location preference_event_location_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_event_location
+    ADD CONSTRAINT preference_event_location_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: preference_event_size preference_event_size_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5932,6 +6087,14 @@ ALTER TABLE ONLY vibetype.preference_event_format
 
 
 --
+-- Name: preference_event_location preference_event_location_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_event_location
+    ADD CONSTRAINT preference_event_location_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: preference_event_size preference_event_size_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6408,6 +6571,19 @@ CREATE POLICY preference_event_format_all ON vibetype.preference_event_format US
 
 
 --
+-- Name: preference_event_location; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.preference_event_location ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: preference_event_location preference_event_location_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY preference_event_location_all ON vibetype.preference_event_location USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
 -- Name: preference_event_size; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -6784,6 +6960,14 @@ REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBL
 
 
 --
+-- Name: FUNCTION account_birth_date_update(birth_date date); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_birth_date_update(birth_date date) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_birth_date_update(birth_date date) TO vibetype_account;
+
+
+--
 -- Name: FUNCTION account_delete(password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6798,6 +6982,14 @@ GRANT ALL ON FUNCTION vibetype.account_delete(password text) TO vibetype_account
 REVOKE ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION account_location_update(latitude double precision, longitude double precision); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) TO vibetype_account;
 
 
 --
@@ -7334,6 +7526,13 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_category TO vibety
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_format TO vibetype_account;
+
+
+--
+-- Name: TABLE preference_event_location; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_location TO vibetype_account;
 
 
 --
