@@ -4356,7 +4356,7 @@ COMMENT ON COLUMN vibetype.preference_event_size.account_id IS 'The account''s i
 -- Name: COLUMN preference_event_size.event_size; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.preference_event_size.event_size IS 'A preferred event sized';
+COMMENT ON COLUMN vibetype.preference_event_size.event_size IS 'A preferred event size.';
 
 
 --
