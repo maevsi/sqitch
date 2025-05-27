@@ -1,3 +1,13 @@
+## [9.0.0-beta.6](https://github.com/maevsi/sqitch/compare/9.0.0-beta.5...9.0.0-beta.6) (2025-05-27)
+
+### ⚠ BREAKING CHANGES
+
+* cleanup comments and formatting
+
+### Miscellaneous Chores
+
+* cleanup comments and formatting ([1e5d667](https://github.com/maevsi/sqitch/commit/1e5d667d156010d457399c41403d5bee17c30c0d))
+
 ## [9.0.0-beta.5](https://github.com/maevsi/sqitch/compare/9.0.0-beta.4...9.0.0-beta.5) (2025-05-27)
 
 ### ⚠ BREAKING CHANGES
