@@ -1,3 +1,13 @@
+## [9.0.0-beta.5](https://github.com/maevsi/sqitch/compare/9.0.0-beta.4...9.0.0-beta.5) (2025-05-27)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** only allow birth dates that are at least 18 years old
+
+### Features
+
+* **account:** only allow birth dates that are at least 18 years old ([3114191](https://github.com/maevsi/sqitch/commit/3114191b4f315be6b49b36015d6df40d49bf246d))
+
 ## [9.0.0-beta.4](https://github.com/maevsi/sqitch/compare/9.0.0-beta.3...9.0.0-beta.4) (2025-05-27)
 
 ### Features
