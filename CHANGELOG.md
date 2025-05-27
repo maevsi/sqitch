@@ -1,3 +1,9 @@
+## [8.4.0](https://github.com/maevsi/sqitch/compare/8.3.1...8.4.0) (2025-05-27)
+
+### Features
+
+* **preference:** add location ([2c2d5dc](https://github.com/maevsi/sqitch/commit/2c2d5dc0b11027edb97cbc4c95f150fc2d64726a))
+
 ## [8.3.1](https://github.com/maevsi/sqitch/compare/8.3.0...8.3.1) (2025-05-27)
 
 ### Bug Fixes
