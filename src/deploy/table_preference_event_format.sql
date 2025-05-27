@@ -1,12 +1,14 @@
 BEGIN;
 
 CREATE TABLE vibetype.preference_event_format (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   account_id  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
   format_id   UUID NOT NULL REFERENCES vibetype.event_format(id) ON DELETE CASCADE,
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  PRIMARY KEY (account_id, format_id)
+  UNIQUE (account_id, format_id)
 );
 
 COMMENT ON TABLE vibetype.preference_event_format IS 'Event formats a user account is interested in (M:N relationship).';

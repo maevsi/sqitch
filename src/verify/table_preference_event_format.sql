@@ -1,11 +1,12 @@
 BEGIN;
 
-SELECT a.account_id,
-       a.format_id,
-       a.created_at,
+SELECT p.id,
+       p.account_id,
+       p.format_id,
+       p.created_at,
        f.name
-FROM vibetype.preference_event_format a
-  JOIN vibetype.event_format f ON a.format_id = f.id
+FROM vibetype.preference_event_format p
+  JOIN vibetype.event_format f ON p.format_id = f.id
 WHERE FALSE;
 
 ROLLBACK;
