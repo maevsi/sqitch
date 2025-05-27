@@ -372,12 +372,17 @@ BEGIN
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Account not found'
-      USING ERRCODE = 'P0002'; -- no_data_found
+      USING ERRCODE = 'no_data_found'; -- P0002
   END IF;
 
   IF birth_date_existing IS NOT NULL THEN
     RAISE EXCEPTION 'Birth date is already set'
-      USING ERRCODE = '23514'; -- check_violation
+      USING ERRCODE = 'check_violation'; -- 23514
+  END IF;
+
+  IF birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
+    RAISE EXCEPTION 'You must be at least 18 years old'
+      USING ERRCODE = 'invalid_parameter_value'; -- 22023
   END IF;
 
   UPDATE vibetype_private.account
@@ -398,7 +403,8 @@ Sets the birth date for the invoker''s account.
 
 Error codes:
 - **P0002** when no record was updated
-- **23514** when the birth date is already set';
+- **23514** when the birth date is already set
+- **22023** when the birth date is not at least 18 years ago';
 
 
 --
