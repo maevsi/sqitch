@@ -1,12 +1,14 @@
 BEGIN;
 
 CREATE TABLE vibetype.preference_event_size (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
   account_id  UUID REFERENCES vibetype.account(id) ON DELETE CASCADE,
   event_size  vibetype.event_size,
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-  PRIMARY KEY (account_id, event_size)
+  UNIQUE (account_id, event_size)
 );
 
 COMMENT ON TABLE vibetype.preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';

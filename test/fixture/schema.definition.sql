@@ -4195,6 +4195,7 @@ Timestamp showing when the legal terms were accepted, set automatically at the t
 --
 
 CREATE TABLE vibetype.preference_event_category (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
     category_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -4229,6 +4230,7 @@ COMMENT ON COLUMN vibetype.preference_event_category.category_id IS 'An event ca
 --
 
 CREATE TABLE vibetype.preference_event_format (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
     format_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -4330,8 +4332,9 @@ COMMENT ON COLUMN vibetype.preference_event_location.created_by IS 'Reference to
 --
 
 CREATE TABLE vibetype.preference_event_size (
-    account_id uuid NOT NULL,
-    event_size vibetype.event_size NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid,
+    event_size vibetype.event_size,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -5358,11 +5361,27 @@ ALTER TABLE ONLY vibetype.legal_term
 
 
 --
+-- Name: preference_event_category preference_event_category_account_id_category_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_event_category
+    ADD CONSTRAINT preference_event_category_account_id_category_id_key UNIQUE (account_id, category_id);
+
+
+--
 -- Name: preference_event_category preference_event_category_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.preference_event_category
-    ADD CONSTRAINT preference_event_category_pkey PRIMARY KEY (account_id, category_id);
+    ADD CONSTRAINT preference_event_category_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: preference_event_format preference_event_format_account_id_format_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_event_format
+    ADD CONSTRAINT preference_event_format_account_id_format_id_key UNIQUE (account_id, format_id);
 
 
 --
@@ -5370,7 +5389,7 @@ ALTER TABLE ONLY vibetype.preference_event_category
 --
 
 ALTER TABLE ONLY vibetype.preference_event_format
-    ADD CONSTRAINT preference_event_format_pkey PRIMARY KEY (account_id, format_id);
+    ADD CONSTRAINT preference_event_format_pkey PRIMARY KEY (id);
 
 
 --
@@ -5390,11 +5409,19 @@ ALTER TABLE ONLY vibetype.preference_event_location
 
 
 --
+-- Name: preference_event_size preference_event_size_account_id_event_size_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_event_size
+    ADD CONSTRAINT preference_event_size_account_id_event_size_key UNIQUE (account_id, event_size);
+
+
+--
 -- Name: preference_event_size preference_event_size_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.preference_event_size
-    ADD CONSTRAINT preference_event_size_pkey PRIMARY KEY (account_id, event_size);
+    ADD CONSTRAINT preference_event_size_pkey PRIMARY KEY (id);
 
 
 --

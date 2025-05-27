@@ -1,6 +1,7 @@
 BEGIN;
 
-SELECT account_id,
+SELECT id,
+       account_id,
        event_size,
        created_at
 FROM vibetype.preference_event_size WHERE FALSE;

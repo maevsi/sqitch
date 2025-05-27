@@ -1,11 +1,12 @@
 BEGIN;
 
-SELECT a.account_id,
-       a.category_id,
-       a.created_at,
+SELECT p.id,
+       p.account_id,
+       p.category_id,
+       p.created_at,
        c.name
-FROM vibetype.preference_event_category a
-  JOIN vibetype.event_category c ON a.category_id = c.id
+FROM vibetype.preference_event_category p
+  JOIN vibetype.event_category c ON p.category_id = c.id
 WHERE FALSE;
 
 ROLLBACK;
