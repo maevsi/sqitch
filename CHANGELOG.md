@@ -1,3 +1,15 @@
+## [9.0.0-beta.9](https://github.com/maevsi/sqitch/compare/9.0.0-beta.8...9.0.0-beta.9) (2025-06-02)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** require birth date in registration
+* **account:** remove birth date update function
+
+### Features
+
+* **account:** remove birth date update function ([f59486f](https://github.com/maevsi/sqitch/commit/f59486fb91a472cb981fe8aa9bd3a1d6561f8046))
+* **account:** require birth date in registration ([a76b182](https://github.com/maevsi/sqitch/commit/a76b182aab14e2d14e3d0fc9a28d84f211034dc4))
+
 ## [9.0.0-beta.8](https://github.com/maevsi/sqitch/compare/9.0.0-beta.7...9.0.0-beta.8) (2025-06-02)
 
 ### ⚠ BREAKING CHANGES
