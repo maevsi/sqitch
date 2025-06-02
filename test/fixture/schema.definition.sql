@@ -356,58 +356,6 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 
 
 --
--- Name: account_birth_date_update(date); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.account_birth_date_update(birth_date date) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  birth_date_existing DATE;
-BEGIN
-  SELECT account.birth_date
-    INTO birth_date_existing
-    FROM vibetype_private.account
-    WHERE id = vibetype.invoker_account_id();
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Account not found'
-      USING ERRCODE = 'no_data_found'; -- P0002
-  END IF;
-
-  IF birth_date_existing IS NOT NULL THEN
-    RAISE EXCEPTION 'Birth date is already set'
-      USING ERRCODE = 'check_violation'; -- 23514
-  END IF;
-
-  IF birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
-    RAISE EXCEPTION 'You must be at least 18 years old'
-      USING ERRCODE = 'invalid_parameter_value'; -- 22023
-  END IF;
-
-  UPDATE vibetype_private.account
-    SET birth_date = account_birth_date_update.birth_date
-    WHERE id = vibetype.invoker_account_id();
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.account_birth_date_update(birth_date date) OWNER TO ci;
-
---
--- Name: FUNCTION account_birth_date_update(birth_date date); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.account_birth_date_update(birth_date date) IS '@name update_account_birth_date
-Sets the birth date for the invoker''s account.
-
-Error codes:
-- **P0002** when no record was updated
-- **23514** when the birth date is already set
-- **22023** when the birth date is not at least 18 years ago';
-
-
---
 -- Name: account_delete(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -6990,14 +6938,6 @@ REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBLIC;
-
-
---
--- Name: FUNCTION account_birth_date_update(birth_date date); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.account_birth_date_update(birth_date date) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_birth_date_update(birth_date date) TO vibetype_account;
 
 
 --
