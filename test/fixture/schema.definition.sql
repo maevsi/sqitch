@@ -356,58 +356,6 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 
 
 --
--- Name: account_birth_date_update(date); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.account_birth_date_update(birth_date date) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  birth_date_existing DATE;
-BEGIN
-  SELECT account.birth_date
-    INTO birth_date_existing
-    FROM vibetype_private.account
-    WHERE id = vibetype.invoker_account_id();
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Account not found'
-      USING ERRCODE = 'no_data_found'; -- P0002
-  END IF;
-
-  IF birth_date_existing IS NOT NULL THEN
-    RAISE EXCEPTION 'Birth date is already set'
-      USING ERRCODE = 'check_violation'; -- 23514
-  END IF;
-
-  IF birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
-    RAISE EXCEPTION 'You must be at least 18 years old'
-      USING ERRCODE = 'invalid_parameter_value'; -- 22023
-  END IF;
-
-  UPDATE vibetype_private.account
-    SET birth_date = account_birth_date_update.birth_date
-    WHERE id = vibetype.invoker_account_id();
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.account_birth_date_update(birth_date date) OWNER TO ci;
-
---
--- Name: FUNCTION account_birth_date_update(birth_date date); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.account_birth_date_update(birth_date date) IS '@name update_account_birth_date
-Sets the birth date for the invoker''s account.
-
-Error codes:
-- **P0002** when no record was updated
-- **23514** when the birth date is already set
-- **22023** when the birth date is not at least 18 years ago';
-
-
---
 -- Name: account_delete(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -641,10 +589,10 @@ COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, 
 
 
 --
--- Name: account_registration(text, text, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: account_registration(date, text, text, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) RETURNS void
+CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -652,20 +600,25 @@ DECLARE
   _new_account_public vibetype.account;
   _new_account_notify RECORD;
 BEGIN
+  IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
+    RAISE EXCEPTION 'The birth date must be at least 18 years in the past'
+      USING ERRCODE = 'VTBDA';
+  END IF;
+
   IF (char_length(account_registration.password) < 8) THEN
-    RAISE 'Password too short!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'Password too short!' USING ERRCODE = 'VTPLL';
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype.account WHERE account.username = account_registration.username)) THEN
-    RAISE 'An account with this username already exists!' USING ERRCODE = 'unique_violation';
+    RAISE 'An account with this username already exists!' USING ERRCODE = 'VTAUV';
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
-  INSERT INTO vibetype_private.account(email_address, password_hash, last_activity) VALUES
-    (account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
+  INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
+    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -691,17 +644,19 @@ BEGIN
       'template', jsonb_build_object('language', account_registration.language)
     ))
   );
+
+  -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration
 END;
 $$;
 
 
-ALTER FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration(email_address text, language text, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) IS 'Creates a contact and registers an account referencing it.';
+COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
 
 
 --
@@ -6993,14 +6948,6 @@ REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBL
 
 
 --
--- Name: FUNCTION account_birth_date_update(birth_date date); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.account_birth_date_update(birth_date date) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_birth_date_update(birth_date date) TO vibetype_account;
-
-
---
 -- Name: FUNCTION account_delete(password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7052,12 +6999,12 @@ GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text
 
 
 --
--- Name: FUNCTION account_registration(email_address text, language text, legal_term_id uuid, password text, username text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_anonymous;
-GRANT ALL ON FUNCTION vibetype.account_registration(email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_account;
 
 
 --
