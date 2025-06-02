@@ -1,3 +1,13 @@
+## [9.0.0-beta.8](https://github.com/maevsi/sqitch/compare/9.0.0-beta.7...9.0.0-beta.8) (2025-06-02)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** grant read access to grafana
+
+### Features
+
+* **notification:** grant read access to grafana ([6a5bd96](https://github.com/maevsi/sqitch/commit/6a5bd96f79538d2f7eb14bea3570fd756ce0cacc))
+
 ## [9.0.0-beta.7](https://github.com/maevsi/sqitch/compare/9.0.0-beta.6...9.0.0-beta.7) (2025-05-27)
 
 ### ⚠ BREAKING CHANGES
