@@ -7615,6 +7615,13 @@ GRANT SELECT ON TABLE vibetype_private.achievement_code TO vibetype;
 
 
 --
+-- Name: TABLE notification; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype_private.notification TO grafana;
+
+
+--
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: -; Owner: ci
 --
 
