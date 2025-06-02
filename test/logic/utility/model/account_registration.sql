@@ -8,7 +8,7 @@ DECLARE
   _verification UUID;
 BEGIN
   _legal_term_id := vibetype_test.legal_term_select_by_singleton();
-  PERFORM vibetype.account_registration(_email_address, 'en', _legal_term_id, 'password', _username);
+  PERFORM vibetype.account_registration('1970-01-01', _email_address, 'en', _legal_term_id, 'password', _username);
 
   SELECT id INTO _account_id
   FROM vibetype.account

@@ -26,6 +26,7 @@ index 0000000..47b26b7
 +  END IF;
 +
 +  PERFORM vibetype.account_registration(
++    '1970-01-01',
 +    'mail+sqitch-1@maev.si',
 +    'en',
 +    _legal_term_id,
@@ -47,6 +48,7 @@ index 0000000..47b26b7
 +  );
 +
 +  PERFORM vibetype.account_registration(
++    '1970-01-01',
 +    'mail+sqitch-2@maev.si',
 +    'de',
 +    _legal_term_id,
