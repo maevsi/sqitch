@@ -17,4 +17,7 @@ COMMENT ON COLUMN vibetype_private.notification.is_acknowledged IS 'Whether the 
 COMMENT ON COLUMN vibetype_private.notification.payload IS 'The notification''s payload.';
 COMMENT ON COLUMN vibetype_private.notification.created_at IS 'The timestamp of the notification''s creation.';
 
+\set role_service_grafana_username `cat /run/secrets/postgres_role_service_grafana_username`
+GRANT SELECT ON TABLE vibetype_private.notification TO :role_service_grafana_username;
+
 COMMIT;
