@@ -4288,8 +4288,8 @@ COMMENT ON COLUMN vibetype.preference_event_location.created_by IS 'Reference to
 
 CREATE TABLE vibetype.preference_event_size (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid,
-    event_size vibetype.event_size,
+    account_id uuid NOT NULL,
+    event_size vibetype.event_size NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
