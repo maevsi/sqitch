@@ -1,3 +1,13 @@
+## [9.0.0-beta.10](https://github.com/maevsi/sqitch/compare/9.0.0-beta.9...9.0.0-beta.10) (2025-06-06)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** disallow columns to be null for size
+
+### Bug Fixes
+
+* **preference:** disallow columns to be null for size ([35807d2](https://github.com/maevsi/sqitch/commit/35807d2838080716947b21f20d971b75409656e4))
+
 ## [9.0.0-beta.9](https://github.com/maevsi/sqitch/compare/9.0.0-beta.8...9.0.0-beta.9) (2025-06-02)
 
 ### ⚠ BREAKING CHANGES
