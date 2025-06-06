@@ -1,9 +1,9 @@
 diff --git a/src/deploy/data_test.sql b/src/deploy/data_test.sql
 new file mode 100644
-index 0000000..47b26b7
+index 0000000..2d5f052
 --- /dev/null
 +++ b/src/deploy/data_test.sql
-@@ -0,0 +1,266 @@
+@@ -0,0 +1,268 @@
 +-- Deploy vibetype:data_test to pg
 +BEGIN;
 +
@@ -294,10 +294,10 @@ index 0000000..8632271
 +
 +COMMIT;
 diff --git a/src/sqitch.plan b/src/sqitch.plan
-index ad9a7ea..3a8da2e 100644
+index cff21a3..5bcbc9d 100644
 --- a/src/sqitch.plan
 +++ b/src/sqitch.plan
-@@ -93,3 +93,4 @@ function_account_location_update [privilege_execute_revoke schema_public table_a
+@@ -92,3 +92,4 @@ function_account_location_update [privilege_execute_revoke schema_public table_a
  table_preference_event_location [schema_public table_account_public role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Stores preferred event locations for user accounts, including coordinates and search radius.
  role_zammad 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add role zammad.
  database_zammad [role_zammad] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add the database for zammad.
