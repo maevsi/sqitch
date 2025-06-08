@@ -1,3 +1,183 @@
+## [9.0.0](https://github.com/maevsi/sqitch/compare/8.4.0...9.0.0) (2025-06-06)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** disallow columns to be null for size
+* **account:** require birth date in registration
+* **account:** remove birth date update function
+* **notification:** grant read access to grafana
+* **preference:** add id
+* cleanup comments and formatting
+* **account:** only allow birth dates that are at least 18 years old
+* **event:** disallow null id for favorite
+* add missing smart comment prefix
+* **preference:** simplify naming
+* specify function arguments for revert
+* **event:** disable endpoints for category and format
+
+### Features
+
+* **account:** only allow birth dates that are at least 18 years old ([3114191](https://github.com/maevsi/sqitch/commit/3114191b4f315be6b49b36015d6df40d49bf246d))
+* **account:** remove birth date update function ([f59486f](https://github.com/maevsi/sqitch/commit/f59486fb91a472cb981fe8aa9bd3a1d6561f8046))
+* **account:** require birth date in registration ([a76b182](https://github.com/maevsi/sqitch/commit/a76b182aab14e2d14e3d0fc9a28d84f211034dc4))
+* **event:** disable endpoints for category and format ([8c1764a](https://github.com/maevsi/sqitch/commit/8c1764aa4b5963af9b12ee187cf14a6b2507c6d5))
+* **notification:** grant read access to grafana ([6a5bd96](https://github.com/maevsi/sqitch/commit/6a5bd96f79538d2f7eb14bea3570fd756ce0cacc))
+* **preference:** add id ([786a8d3](https://github.com/maevsi/sqitch/commit/786a8d38940a8b6989a342e97711bbed54e2ceab))
+* **preference:** simplify naming ([04115fd](https://github.com/maevsi/sqitch/commit/04115fdca95422ba29cd6d8a083e0a1a72c4d6c1))
+
+### Bug Fixes
+
+* add missing smart comment prefix ([3c78d9a](https://github.com/maevsi/sqitch/commit/3c78d9a6affb0a4846e3f71fda5b77de1420a811))
+* **event:** disallow null id for favorite ([bb882a1](https://github.com/maevsi/sqitch/commit/bb882a1d649031e1bf775c9482b27ed2c0ab8ae1))
+* **preference:** disallow columns to be null for size ([35807d2](https://github.com/maevsi/sqitch/commit/35807d2838080716947b21f20d971b75409656e4))
+
+### Miscellaneous Chores
+
+* cleanup comments and formatting ([1e5d667](https://github.com/maevsi/sqitch/commit/1e5d667d156010d457399c41403d5bee17c30c0d))
+* specify function arguments for revert ([bb96980](https://github.com/maevsi/sqitch/commit/bb9698049291f6be8f784a7569270ec6e3526236))
+
+## [9.0.0-beta.10](https://github.com/maevsi/sqitch/compare/9.0.0-beta.9...9.0.0-beta.10) (2025-06-06)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** disallow columns to be null for size
+
+### Bug Fixes
+
+* **preference:** disallow columns to be null for size ([35807d2](https://github.com/maevsi/sqitch/commit/35807d2838080716947b21f20d971b75409656e4))
+
+## [9.0.0-beta.9](https://github.com/maevsi/sqitch/compare/9.0.0-beta.8...9.0.0-beta.9) (2025-06-02)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** require birth date in registration
+* **account:** remove birth date update function
+
+### Features
+
+* **account:** remove birth date update function ([f59486f](https://github.com/maevsi/sqitch/commit/f59486fb91a472cb981fe8aa9bd3a1d6561f8046))
+* **account:** require birth date in registration ([a76b182](https://github.com/maevsi/sqitch/commit/a76b182aab14e2d14e3d0fc9a28d84f211034dc4))
+
+## [9.0.0-beta.8](https://github.com/maevsi/sqitch/compare/9.0.0-beta.7...9.0.0-beta.8) (2025-06-02)
+
+### ⚠ BREAKING CHANGES
+
+* **notification:** grant read access to grafana
+
+### Features
+
+* **notification:** grant read access to grafana ([6a5bd96](https://github.com/maevsi/sqitch/commit/6a5bd96f79538d2f7eb14bea3570fd756ce0cacc))
+
+## [9.0.0-beta.7](https://github.com/maevsi/sqitch/compare/9.0.0-beta.6...9.0.0-beta.7) (2025-05-27)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** add id
+
+### Features
+
+* **preference:** add id ([786a8d3](https://github.com/maevsi/sqitch/commit/786a8d38940a8b6989a342e97711bbed54e2ceab))
+
+## [9.0.0-beta.6](https://github.com/maevsi/sqitch/compare/9.0.0-beta.5...9.0.0-beta.6) (2025-05-27)
+
+### ⚠ BREAKING CHANGES
+
+* cleanup comments and formatting
+
+### Miscellaneous Chores
+
+* cleanup comments and formatting ([1e5d667](https://github.com/maevsi/sqitch/commit/1e5d667d156010d457399c41403d5bee17c30c0d))
+
+## [9.0.0-beta.5](https://github.com/maevsi/sqitch/compare/9.0.0-beta.4...9.0.0-beta.5) (2025-05-27)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** only allow birth dates that are at least 18 years old
+
+### Features
+
+* **account:** only allow birth dates that are at least 18 years old ([3114191](https://github.com/maevsi/sqitch/commit/3114191b4f315be6b49b36015d6df40d49bf246d))
+
+## [9.0.0-beta.4](https://github.com/maevsi/sqitch/compare/9.0.0-beta.3...9.0.0-beta.4) (2025-05-27)
+
+### Features
+
+* **account:** add birth date setter function ([1ec9e33](https://github.com/maevsi/sqitch/commit/1ec9e33ceebae5670dfb8d1bc777f09ba31affd0))
+* **account:** add location setter function ([531335c](https://github.com/maevsi/sqitch/commit/531335c4a0276f2271e95071c04341cbaa4b9f06))
+* **preference:** add location ([2c2d5dc](https://github.com/maevsi/sqitch/commit/2c2d5dc0b11027edb97cbc4c95f150fc2d64726a))
+* **zammad:** create database and role ([1565f57](https://github.com/maevsi/sqitch/commit/1565f575277da81aa79edad5f8adea454916e2e1))
+
+### Bug Fixes
+
+* revert "Merge pull request [#211](https://github.com/maevsi/sqitch/issues/211) from maevsi/feat/zammad/db" ([f71fa5b](https://github.com/maevsi/sqitch/commit/f71fa5bec07d14b36a34fd9ec3559aac67547750))
+
+## [9.0.0-beta.3](https://github.com/maevsi/sqitch/compare/9.0.0-beta.2...9.0.0-beta.3) (2025-05-26)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** disallow null id for favorite
+
+### Bug Fixes
+
+* **event:** disallow null id for favorite ([bb882a1](https://github.com/maevsi/sqitch/commit/bb882a1d649031e1bf775c9482b27ed2c0ab8ae1))
+
+## [9.0.0-beta.2](https://github.com/maevsi/sqitch/compare/9.0.0-beta.1...9.0.0-beta.2) (2025-05-20)
+
+### ⚠ BREAKING CHANGES
+
+* **preference:** simplify naming
+* **event:** disable endpoints for category and format
+
+### Features
+
+* **event:** disable endpoints for category and format ([8c1764a](https://github.com/maevsi/sqitch/commit/8c1764aa4b5963af9b12ee187cf14a6b2507c6d5))
+* **preference:** simplify naming ([04115fd](https://github.com/maevsi/sqitch/commit/04115fdca95422ba29cd6d8a083e0a1a72c4d6c1))
+
+## [9.0.0-beta.1](https://github.com/maevsi/sqitch/compare/8.0.1...9.0.0-beta.1) (2025-05-20)
+
+### ⚠ BREAKING CHANGES
+
+* add missing smart comment prefix
+* specify function arguments for revert
+
+### Bug Fixes
+
+* add missing smart comment prefix ([3c78d9a](https://github.com/maevsi/sqitch/commit/3c78d9a6affb0a4846e3f71fda5b77de1420a811))
+
+### Miscellaneous Chores
+
+* specify function arguments for revert ([bb96980](https://github.com/maevsi/sqitch/commit/bb9698049291f6be8f784a7569270ec6e3526236))
+
+## [8.4.0](https://github.com/maevsi/sqitch/compare/8.3.1...8.4.0) (2025-05-27)
+
+### Features
+
+* **preference:** add location ([2c2d5dc](https://github.com/maevsi/sqitch/commit/2c2d5dc0b11027edb97cbc4c95f150fc2d64726a))
+
+## [8.3.1](https://github.com/maevsi/sqitch/compare/8.3.0...8.3.1) (2025-05-27)
+
+### Bug Fixes
+
+* revert "Merge pull request [#211](https://github.com/maevsi/sqitch/issues/211) from maevsi/feat/zammad/db" ([f71fa5b](https://github.com/maevsi/sqitch/commit/f71fa5bec07d14b36a34fd9ec3559aac67547750))
+
+## [8.3.0](https://github.com/maevsi/sqitch/compare/8.2.0...8.3.0) (2025-05-26)
+
+### Features
+
+* **zammad:** create database and role ([1565f57](https://github.com/maevsi/sqitch/commit/1565f575277da81aa79edad5f8adea454916e2e1))
+
+## [8.2.0](https://github.com/maevsi/sqitch/compare/8.1.0...8.2.0) (2025-05-22)
+
+### Features
+
+* **account:** add location setter function ([531335c](https://github.com/maevsi/sqitch/commit/531335c4a0276f2271e95071c04341cbaa4b9f06))
+
+## [8.1.0](https://github.com/maevsi/sqitch/compare/8.0.1...8.1.0) (2025-05-22)
+
+### Features
+
+* **account:** add birth date setter function ([1ec9e33](https://github.com/maevsi/sqitch/commit/1ec9e33ceebae5670dfb8d1bc777f09ba31affd0))
+
 ## [8.0.1](https://github.com/maevsi/sqitch/compare/8.0.0...8.0.1) (2025-05-15)
 
 ### Bug Fixes

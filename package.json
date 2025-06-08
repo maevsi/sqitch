@@ -2,14 +2,14 @@
   "devDependencies": {
     "@commitlint/cli": "19.8.1",
     "@commitlint/config-conventional": "19.8.1",
-    "conventional-changelog-conventionalcommits": "8.0.0",
+    "conventional-changelog-conventionalcommits": "9.0.0",
     "husky": "9.1.7"
   },
   "engines": {
     "node": "22"
   },
   "name": "@maevsi/sqitch",
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.11.1",
   "private": true,
   "scripts": {
     "deploy": "pnpm run sqitch deploy",
@@ -20,5 +20,5 @@
     "test:update": "pnpm run test --update"
   },
   "type": "module",
-  "version": "8.0.1"
+  "version": "9.0.0"
 }

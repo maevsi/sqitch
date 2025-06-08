@@ -7,7 +7,7 @@ CREATE TABLE vibetype.event_category(
   CONSTRAINT unique_event_category_name UNIQUE(name)
 );
 
-COMMENT ON TABLE vibetype.event_category IS 'Event categories.';
+COMMENT ON TABLE vibetype.event_category IS E'@omit create,update,delete\nEvent categories.';
 COMMENT ON COLUMN vibetype.event_category.id IS 'The id of the event category.';
 COMMENT ON COLUMN vibetype.event_category.name IS 'A category name.';
 
