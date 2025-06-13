@@ -1,3 +1,9 @@
+## [9.1.0](https://github.com/maevsi/sqitch/compare/9.0.0...9.1.0) (2025-06-13)
+
+### Features
+
+* **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
+
 ## [9.0.0](https://github.com/maevsi/sqitch/compare/8.4.0...9.0.0) (2025-06-06)
 
 ### ⚠ BREAKING CHANGES
