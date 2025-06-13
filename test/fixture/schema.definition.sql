@@ -7430,6 +7430,7 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_category_mapping TO vibetype_
 -- Name: TABLE event_favorite; Type: ACL; Schema: vibetype; Owner: ci
 --
 
+GRANT SELECT ON TABLE vibetype.event_favorite TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
 
 
