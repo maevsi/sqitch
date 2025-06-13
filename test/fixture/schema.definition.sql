@@ -7431,6 +7431,7 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_category_mapping TO vibetype_
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_favorite TO vibetype_anonymous;
 
 
 --
