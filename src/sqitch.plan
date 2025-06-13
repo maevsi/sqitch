@@ -92,4 +92,3 @@ function_account_location_update [privilege_execute_revoke schema_public table_a
 table_preference_event_location [schema_public table_account_public role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Stores preferred event locations for user accounts, including coordinates and search radius.
 role_zammad 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add role zammad.
 database_zammad [role_zammad] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add the database for zammad.
-2025-06-13_event_favorite_anonymous [table_event_favorite role_anonymous] 2025-06-13T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Grant select permission for anonymous users on event favorites.
