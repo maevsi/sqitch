@@ -1,3 +1,14 @@
+## [10.0.0-beta.1](https://github.com/maevsi/sqitch/compare/9.0.0...10.0.0-beta.1) (2025-06-13)
+
+### ⚠ BREAKING CHANGES
+
+* **event-favorite:** grant select for anonymous
+
+### Features
+
+* **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
+* **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
+
 ## [9.0.0](https://github.com/maevsi/sqitch/compare/8.4.0...9.0.0) (2025-06-06)
 
 ### ⚠ BREAKING CHANGES
