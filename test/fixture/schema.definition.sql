@@ -1002,7 +1002,6 @@ CREATE TABLE vibetype.event (
     visibility vibetype.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    search_vector tsvector,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
@@ -1125,14 +1124,6 @@ Timestamp of when the event was created, defaults to the current timestamp.';
 --
 
 COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
-
-
---
--- Name: COLUMN event.search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event.search_vector IS '@omit
-A vector used for full-text search on events.';
 
 
 --
@@ -1824,13 +1815,28 @@ CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
+  rec       RECORD;
   ts_config regconfig;
+  _search_vector TSVECTOR;
 BEGIN
-  ts_config := vibetype.language_iso_full_text_search(NEW.language);
+  FOR rec IN
+    SELECT unnest as language
+    FROM unnest(enum_range(NULL::vibetype.language))
+  LOOP
+    ts_config := vibetype.language_iso_full_text_search(rec.language);
 
-  NEW.search_vector :=
-    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
-    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+    _search_vector :=
+      setweight(to_tsvector(ts_config, NEW.name), 'A') ||
+      setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+
+    MERGE INTO vibetype.event_search_vector e
+    USING (SELECT NEW.id as event_id, rec.language, _search_vector as search_vector) t
+    ON e.event_id = t.event_id and e.language = t.language
+    WHEN NOT MATCHED THEN
+      INSERT (event_id, language, search_vector) VALUES (t.event_id, t.language, t.search_vector)
+    WHEN MATCHED THEN
+      UPDATE SET search_vector = t.search_vector;
+  END LOOP;
 
   RETURN NEW;
 END;
@@ -1843,7 +1849,7 @@ ALTER FUNCTION vibetype.trigger_event_search_vector() OWNER TO ci;
 -- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
+COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Creates or updates search vectors for the event based on the name and description columns, weighted by their relevance,  and for all supported languages.';
 
 
 --
@@ -3840,6 +3846,57 @@ COMMENT ON COLUMN vibetype.event_recommendation.predicted_score IS 'The score of
 
 
 --
+-- Name: event_search_vector; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.event_search_vector (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid,
+    language vibetype.language NOT NULL,
+    search_vector tsvector
+);
+
+
+ALTER TABLE vibetype.event_search_vector OWNER TO ci;
+
+--
+-- Name: TABLE event_search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.event_search_vector IS 'A language-specific search vecotr for an event.';
+
+
+--
+-- Name: COLUMN event_search_vector.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_search_vector.id IS '@omit create,update
+The records''s internal id.';
+
+
+--
+-- Name: COLUMN event_search_vector.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_search_vector.event_id IS 'The reference to the event.';
+
+
+--
+-- Name: COLUMN event_search_vector.language; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_search_vector.language IS 'The language associated with the search vector.';
+
+
+--
+-- Name: COLUMN event_search_vector.search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_search_vector.search_vector IS '@omit
+A vector used for full-text search on events.';
+
+
+--
 -- Name: event_upload; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -5237,6 +5294,22 @@ ALTER TABLE ONLY vibetype.event_recommendation
 
 
 --
+-- Name: event_search_vector event_search_vector_event_id_language_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_search_vector
+    ADD CONSTRAINT event_search_vector_event_id_language_key UNIQUE (event_id, language);
+
+
+--
+-- Name: event_search_vector event_search_vector_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_search_vector
+    ADD CONSTRAINT event_search_vector_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: event_upload event_upload_event_id_upload_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5566,7 +5639,7 @@ COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize loo
 -- Name: idx_event_search_vector; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
+CREATE INDEX idx_event_search_vector ON vibetype.event_search_vector USING gin (search_vector);
 
 
 --
@@ -5699,7 +5772,7 @@ CREATE TRIGGER vibetype_trigger_device_update_fcm BEFORE UPDATE ON vibetype.devi
 -- Name: event vibetype_trigger_event_search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
+CREATE TRIGGER vibetype_trigger_event_search_vector AFTER INSERT OR UPDATE OF name, description ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
 
 
 --
@@ -5952,6 +6025,14 @@ ALTER TABLE ONLY vibetype.event_recommendation
 
 ALTER TABLE ONLY vibetype.event_recommendation
     ADD CONSTRAINT event_recommendation_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_search_vector event_search_vector_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_search_vector
+    ADD CONSTRAINT event_search_vector_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE SET NULL;
 
 
 --
@@ -6216,7 +6297,7 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT event_policy_select.address_id
-   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (created_by IN ( SELECT account_block_ids.id
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by)))) AND (NOT (created_by IN ( SELECT account_block_ids.id
    FROM vibetype_private.account_block_ids() account_block_ids(id)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -6377,11 +6458,19 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 
 
 --
+-- Name: event_search_vector event_search_vector_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_search_vector_select ON vibetype.event_search_vector FOR SELECT USING ((event_id IN ( SELECT event_policy_select.id
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by))));
+
+
+--
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((id IN ( SELECT event_policy_select.id
-   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector))));
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by))));
 
 
 --
@@ -7455,6 +7544,14 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_ac
 --
 
 GRANT SELECT ON TABLE vibetype.event_recommendation TO vibetype_account;
+
+
+--
+-- Name: TABLE event_search_vector; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.event_search_vector TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event_search_vector TO vibetype_account;
 
 
 --
