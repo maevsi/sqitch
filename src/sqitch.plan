@@ -93,3 +93,4 @@ table_preference_event_location [schema_public table_account_public role_account
 role_zammad 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add role zammad.
 database_zammad [role_zammad] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add the database for zammad.
 2025-06-13_event_favorite_anonymous [table_event_favorite role_anonymous] 2025-06-13T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Grant select permission for anonymous users on event favorites.
+2025-06-23_account_public_omits [schema_public table_account_public] 2025-06-23T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Correct table permissions and omits for public account.
