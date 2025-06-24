@@ -3077,7 +3077,8 @@ ALTER TABLE vibetype.account OWNER TO ci;
 -- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.account IS 'Public account data.';
+COMMENT ON TABLE vibetype.account IS '@omit create,delete
+Public account data.';
 
 
 --
@@ -3099,8 +3100,7 @@ COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
 -- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.imprint IS '@omit update
-The account''s imprint.';
+COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
 
 
 --
