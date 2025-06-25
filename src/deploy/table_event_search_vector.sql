@@ -9,11 +9,11 @@ CREATE TABLE vibetype.event_search_vector (
   UNIQUE (event_id, language)
 );
 
-COMMENT ON TABLE vibetype.event_search_vector IS 'A language-specific search vecotr for an event.';
-COMMENT ON COLUMN vibetype.event_search_vector.id IS E'@omit create,update\nThe records''s internal id.';
+COMMENT ON TABLE vibetype.event_search_vector IS E'@omit create,update,delete\nA language-specific search vector for an event.';
+COMMENT ON COLUMN vibetype.event_search_vector.id IS 'The records''s internal id.';
 COMMENT ON COLUMN vibetype.event_search_vector.event_id IS 'The reference to the event.';
 COMMENT ON COLUMN vibetype.event_search_vector.language IS 'The language associated with the search vector.';
-COMMENT ON COLUMN vibetype.event_search_vector.search_vector IS E'@omit\nA vector used for full-text search on events.';
+COMMENT ON COLUMN vibetype.event_search_vector.search_vector IS 'A vector used for full-text search on events.';
 
 CREATE INDEX idx_event_search_vector ON vibetype.event_search_vector USING gin (search_vector);
 

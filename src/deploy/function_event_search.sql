@@ -11,13 +11,15 @@ BEGIN
 
   RETURN QUERY
   SELECT
-    *
+    e.*
   FROM
-    vibetype.event
+    vibetype.event e
+    JOIN vibetype.event_search_vector esv ON esv.event_id = e.id
   WHERE
-    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+    esv.search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+    AND esv.language = event_search.language
   ORDER BY
-    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
+    ts_rank_cd(esv.search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
 END;
 $$ LANGUAGE PLPGSQL STABLE SECURITY INVOKER;
 

@@ -2,6 +2,8 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_create (
   _created_by UUID,
   _name TEXT,
   _slug TEXT,
+  _description TEXT,
+  _language vibetype.language,
   _start TEXT,
   _visibility TEXT
 ) RETURNS UUID AS $$
@@ -11,8 +13,8 @@ BEGIN
   SET LOCAL ROLE = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
 
-  INSERT INTO vibetype.event(created_by, name, slug, start, visibility)
-  VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
+  INSERT INTO vibetype.event(created_by, name, slug, description, language, start, visibility)
+  VALUES (_created_by, _name, _slug, _description, _language, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
   RETURNING id INTO _id;
 
   SET LOCAL ROLE NONE;
@@ -20,7 +22,7 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.event_create(UUID, TEXT, TEXT, TEXT, TEXT) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.event_create(UUID, TEXT, TEXT, TEXT, vibetype.language, TEXT, TEXT) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.event_select_address_coordinates(

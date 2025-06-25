@@ -1226,13 +1226,15 @@ BEGIN
 
   RETURN QUERY
   SELECT
-    *
+    e.*
   FROM
-    vibetype.event
+    vibetype.event e
+    JOIN vibetype.event_search_vector esv ON esv.event_id = e.id
   WHERE
-    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+    esv.search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+    AND esv.language = event_search.language
   ORDER BY
-    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
+    ts_rank_cd(esv.search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
 END;
 $$;
 
@@ -3863,15 +3865,15 @@ ALTER TABLE vibetype.event_search_vector OWNER TO ci;
 -- Name: TABLE event_search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_search_vector IS 'A language-specific search vecotr for an event.';
+COMMENT ON TABLE vibetype.event_search_vector IS '@omit create,update,delete
+A language-specific search vector for an event.';
 
 
 --
 -- Name: COLUMN event_search_vector.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_search_vector.id IS '@omit create,update
-The records''s internal id.';
+COMMENT ON COLUMN vibetype.event_search_vector.id IS 'The records''s internal id.';
 
 
 --
@@ -3892,8 +3894,7 @@ COMMENT ON COLUMN vibetype.event_search_vector.language IS 'The language associa
 -- Name: COLUMN event_search_vector.search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_search_vector.search_vector IS '@omit
-A vector used for full-text search on events.';
+COMMENT ON COLUMN vibetype.event_search_vector.search_vector IS 'A vector used for full-text search on events.';
 
 
 --

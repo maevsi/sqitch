@@ -77,9 +77,9 @@ BEGIN
   contactCA := vibetype_test.contact_create(accountC, 'a@example.com');
   contactCB := vibetype_test.contact_create(accountC, 'b@example.com');
 
-  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
-  eventB := vibetype_test.event_create(accountB, 'Event by B', 'event-by-b', '2025-06-01 20:00', 'public');
-  eventC := vibetype_test.event_create(accountC, 'Event by C', 'event-by-c', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', 'event by A', null, '2025-06-01 20:00', 'public');
+  eventB := vibetype_test.event_create(accountB, 'Event by B', 'event-by-b', 'event by B', null, '2025-06-01 20:00', 'public');
+  eventC := vibetype_test.event_create(accountC, 'Event by C', 'event-by-c', 'event by C', null, '2025-06-01 20:00', 'public');
 
   PERFORM vibetype_test.event_category_create('category');
   PERFORM vibetype_test.event_category_mapping_create(accountA, eventA, 'category');
