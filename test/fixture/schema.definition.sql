@@ -3077,16 +3077,14 @@ ALTER TABLE vibetype.account OWNER TO ci;
 -- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.account IS '@omit create,delete
-Public account data.';
+COMMENT ON TABLE vibetype.account IS 'Public account data.';
 
 
 --
 -- Name: COLUMN account.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.id IS '@omit create,update
-The account''s internal id.';
+COMMENT ON COLUMN vibetype.account.id IS 'The account''s internal id.';
 
 
 --
@@ -3107,8 +3105,7 @@ COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
 -- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.username IS '@omit update
-The account''s username.';
+COMMENT ON COLUMN vibetype.account.username IS 'The account''s username.';
 
 
 --
@@ -6196,13 +6193,6 @@ CREATE POLICY account_social_network_select ON vibetype.account_social_network F
 
 
 --
--- Name: account account_update; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY account_update ON vibetype.account FOR UPDATE USING ((id = vibetype.invoker_account_id()));
-
-
---
 -- Name: achievement; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7369,7 +7359,7 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM
 -- Name: TABLE account; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,UPDATE ON TABLE vibetype.account TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.account TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 
 
