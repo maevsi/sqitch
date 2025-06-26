@@ -1,3 +1,9 @@
+## [10.0.0-beta.2](https://github.com/maevsi/sqitch/compare/10.0.0-beta.1...10.0.0-beta.2) (2025-06-26)
+
+### Bug Fixes
+
+* schedule release ([c6c99dc](https://github.com/maevsi/sqitch/commit/c6c99dce2943f12bccd99369af554b8b10d0d3ad))
+
 ## [10.0.0-beta.1](https://github.com/maevsi/sqitch/compare/9.0.0...10.0.0-beta.1) (2025-06-13)
 
 ### ⚠ BREAKING CHANGES
