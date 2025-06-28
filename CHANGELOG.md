@@ -1,3 +1,11 @@
+## [10.0.0-beta.3](https://github.com/maevsi/sqitch/compare/10.0.0-beta.2...10.0.0-beta.3) (2025-06-28)
+
+### Features
+
+* **account:** correct comment and policy permissions ([648fe40](https://github.com/maevsi/sqitch/commit/648fe402f5a39005d512612e70b4b3ba4b0e69b2))
+* **account:** edit description ([ec38f4d](https://github.com/maevsi/sqitch/commit/ec38f4d51c4386e33087954fb15ca07d3b01099b))
+* **account:** edit imprint ([f3178a7](https://github.com/maevsi/sqitch/commit/f3178a75820b5c16c02d419fa0b05ac878aeadd2))
+
 ## [10.0.0-beta.2](https://github.com/maevsi/sqitch/compare/10.0.0-beta.1...10.0.0-beta.2) (2025-06-26)
 
 ### Bug Fixes
