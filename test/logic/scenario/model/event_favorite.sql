@@ -12,7 +12,7 @@ DECLARE
 BEGIN
   _account_favorite_owner := vibetype_test.account_registration_verified('favorite-owner', 'email+a@example.com');
   _account_other := vibetype_test.account_registration_verified('other', 'email+b@example.com');
-  _event := vibetype_test.event_create(_account_favorite_owner, 'Name', 'slug', '1970-01-01 00:00', 'public');
+  _event := vibetype_test.event_create(_account_favorite_owner, 'Name', 'slug', 'Description', null, '1970-01-01 00:00', 'public');
 
   INSERT INTO vibetype.event_favorite (event_id, created_by)
     VALUES (_event, _account_favorite_owner);
@@ -41,7 +41,7 @@ DECLARE
   _event UUID;
 BEGIN
   _account := vibetype_test.account_registration_verified('username', 'email@example.com');
-  _event := vibetype_test.event_create(_account, 'Name', 'slug', '1970-01-01 00:00', 'public');
+  _event := vibetype_test.event_create(_account, 'Name', 'slug', 'Description', null, '1970-01-01 00:00', 'public');
 
   INSERT INTO vibetype.event_favorite (event_id, created_by) VALUES (_event, _account);
 

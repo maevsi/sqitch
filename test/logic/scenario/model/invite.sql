@@ -20,7 +20,7 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
   contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', 'Description', null, '2025-06-01 20:00', 'public');
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
   PERFORM vibetype_test.invoker_set(accountA);
