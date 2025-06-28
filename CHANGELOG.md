@@ -1,3 +1,9 @@
+## [9.2.0](https://github.com/maevsi/sqitch/compare/9.1.1...9.2.0) (2025-06-28)
+
+### Features
+
+* **account:** correct comment and policy permissions ([648fe40](https://github.com/maevsi/sqitch/commit/648fe402f5a39005d512612e70b4b3ba4b0e69b2))
+
 ## [9.1.1](https://github.com/maevsi/sqitch/compare/9.1.0...9.1.1) (2025-06-21)
 
 ### Bug Fixes
