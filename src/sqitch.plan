@@ -16,9 +16,9 @@ function_invoker_account_id [privilege_execute_revoke schema_public role_account
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
 enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public, private and unlisted.
 function_trigger_metadata_update [privilege_execute_revoke schema_public function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.
-table_notification [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
 table_account_private [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add private table account.
 table_account_public [schema_public schema_private table_account_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add public table account.
+table_notification [schema_private table_account_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
 table_account_block [schema_public table_account_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Blocking of an account by another account.
 function_account_block_ids [schema_public table_account_block role_account role_anonymous function_invoker_account_id] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Function returning all account id's involved in blocking.
 enum_language [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Supported ISO 639 language codes.
@@ -87,6 +87,7 @@ table_event_format_mapping [schema_public table_event table_event_format role_an
 table_audit_log [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Table for storing audit log records.
 view_audit_log_trigger [schema_private] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # View showing all audit log triggers.
 function_audit_log [schema_private table_audit_log view_audit_log_trigger] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Utility functions for managing audit log triggers.
+table_notification_invitation [schema_public table_guest] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # A table for tracking actions around invitations.
 table_preference_event_format [schema_public table_account_public table_event_category] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Event formats a user account is interested in (M:N relationship).
 function_account_location_update [privilege_execute_revoke schema_public table_account_private function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Sets the location for the invoker's account.
 table_preference_event_location [schema_public table_account_public role_account function_invoker_account_id] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Stores preferred event locations for user accounts, including coordinates and search radius.
