@@ -7,7 +7,8 @@ DECLARE
   _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt vibetype.jwt;
 BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role INTO _jwt
+  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role
+  INTO _jwt
   FROM vibetype_private.jwt
   WHERE   id = jwt_refresh.jwt_id
   AND     (token)."exp" >= _epoch_now;

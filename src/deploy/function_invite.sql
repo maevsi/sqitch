@@ -14,7 +14,7 @@ DECLARE
   _guest RECORD;
 BEGIN
   -- Guest UUID
-  SELECT * FROM vibetype.guest INTO _guest WHERE guest.id = invite.guest_id;
+  SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
@@ -41,14 +41,16 @@ BEGIN
     visibility,
     created_at,
     created_by
-  FROM vibetype.event INTO _event WHERE "event".id = _guest.event_id;
+  INTO _event
+  FROM vibetype.event
+  WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM vibetype.contact INTO _contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -62,7 +64,7 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM vibetype_private.account INTO _email_address WHERE account.id = _contact.account_id;
+    SELECT email_address INTO _email_address FROM vibetype_private.account WHERE account.id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -70,11 +72,11 @@ BEGIN
   END IF;
 
   -- Event creator username
-  SELECT username FROM vibetype.account INTO _event_creator_username WHERE account.id = _event.created_by;
+  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
 
   -- Event creator profile picture storage key
-  SELECT upload_id FROM vibetype.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key FROM vibetype.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
+  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO vibetype_private.notification (channel, payload)
     VALUES (

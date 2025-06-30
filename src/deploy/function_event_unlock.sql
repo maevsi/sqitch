@@ -34,9 +34,9 @@ BEGIN
   END IF;
 
   SELECT *
+    INTO _event
     FROM vibetype.event
-    WHERE id = _event_id
-    INTO _event;
+    WHERE id = _event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';

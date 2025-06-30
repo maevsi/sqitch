@@ -17,9 +17,9 @@ BEGIN
     updated.email_address,
     updated.password_reset_verification,
     updated.password_reset_verification_valid_until
+    INTO _notify_data
     FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _notify_data;
+    WHERE updated.id = account.id;
 
   IF (_notify_data IS NULL) THEN
     -- noop
