@@ -126,12 +126,13 @@ BEGIN
       ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
   ELSE
     RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
-      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name;
+      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name
+      USING ERRCODE = 'VTALT';
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(TEXT, TEXT) IS 'Function creating an audit log trigger for a single table.';
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(TEXT, TEXT) IS 'Function creating an audit log trigger for a single table.\n\nError codes:\n- **VTALT** when a table cannot have an audit log trigger.';
 
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_drop_multiple()

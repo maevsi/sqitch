@@ -29,7 +29,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.event_delete(UUID, TEXT) IS 'Allows to delete an event.';
+COMMENT ON FUNCTION vibetype.event_delete(UUID, TEXT) IS 'Allows to delete an event.\n\nError codes:\n- **P0002** when the event was not found.\n- **28P01** when the account with the given password was not found.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_delete(UUID, TEXT) TO vibetype_account;
 

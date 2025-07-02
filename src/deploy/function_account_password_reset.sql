@@ -32,7 +32,8 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.account_password_reset(UUID, TEXT) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.';
+COMMENT ON FUNCTION vibetype.account_password_reset(UUID, TEXT) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.\n\nError codes:\n- **22023** when the password is too short.\n- **P0002** when the reset code is unknown.\n- **55000** when the reset code has expired.
+';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_password_reset(UUID, TEXT) TO vibetype_anonymous, vibetype_account;
 

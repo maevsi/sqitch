@@ -25,7 +25,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.account_email_address_verification(UUID) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
+COMMENT ON FUNCTION vibetype.account_email_address_verification(UUID) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.\n\nError codes:\n- **P0002** when the verification code is unknown.\n- **55000** when the verification code has expired.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_email_address_verification(UUID) TO vibetype_account, vibetype_anonymous;
 

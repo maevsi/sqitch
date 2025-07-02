@@ -21,7 +21,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.account_password_change(TEXT, TEXT) IS 'Allows to change an account''s password.';
+COMMENT ON FUNCTION vibetype.account_password_change(TEXT, TEXT) IS 'Allows to change an account''s password.\n\nError codes:\n- **22023** when the new password is too short.\n- **28P01** when an account with the given password is not found.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_password_change(TEXT, TEXT) TO vibetype_account;
 
