@@ -62,14 +62,16 @@ index 0000000..2d5f052
 +    WHERE username = 'peter';
 +
 +  SELECT id
++    INTO _contact_id_jonas
 +    FROM vibetype.contact
 +    WHERE account_id = _account_id_jonas
-+      AND created_by = _account_id_jonas INTO _contact_id_jonas;
++      AND created_by = _account_id_jonas;
 +
 +  SELECT id
++    INTO _contact_id_peter
 +    FROM vibetype.contact
 +    WHERE account_id = _account_id_peter
-+      AND created_by = _account_id_peter INTO _contact_id_peter;
++      AND created_by = _account_id_peter;
 +
 +  INSERT INTO vibetype.contact (
 +      "id",

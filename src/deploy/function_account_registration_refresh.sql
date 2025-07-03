@@ -23,9 +23,9 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
+    INTO _new_account_notify
     FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _new_account_notify;
+    WHERE updated.id = account.id;
 
   INSERT INTO vibetype_private.notification (channel, payload) VALUES (
     'account_registration',
