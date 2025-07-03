@@ -55,7 +55,7 @@ BEGIN
   RETURN (_event_creator_account_username, _event.slug, _jwt)::vibetype.event_unlock_response;
 END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.event_unlock(UUID) IS 'Adds a guest claim to the current session.';
+COMMENT ON FUNCTION vibetype.event_unlock(UUID) IS 'Adds a guest claim to the current session.\n\nError codes:\n- **P0002** when no guest, no event, or no event creator username was found for this guest id.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_unlock(UUID) TO vibetype_account, vibetype_anonymous;
 

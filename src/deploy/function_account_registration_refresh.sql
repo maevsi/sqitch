@@ -10,7 +10,7 @@ BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
   IF (NOT EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
-    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
@@ -37,7 +37,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) IS 'Refreshes an account''s email address verification validity period.';
+COMMENT ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) TO vibetype_anonymous;
 

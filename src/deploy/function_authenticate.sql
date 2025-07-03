@@ -60,7 +60,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.authenticate(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.authenticate(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
 
 GRANT EXECUTE ON FUNCTION vibetype.authenticate(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 

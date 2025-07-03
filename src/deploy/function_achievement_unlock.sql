@@ -39,7 +39,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.achievement_unlock(UUID, TEXT) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
+COMMENT ON FUNCTION vibetype.achievement_unlock(UUID, TEXT) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.\n\nError codes:\n- **P0002** when the achievement or the account is unknown.';
 
 GRANT EXECUTE ON FUNCTION vibetype.achievement_unlock(UUID, TEXT) TO vibetype_account;
 

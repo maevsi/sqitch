@@ -386,7 +386,7 @@ ALTER FUNCTION vibetype.account_delete(password text) OWNER TO ci;
 -- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.';
+COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
 
 
 --
@@ -425,7 +425,7 @@ ALTER FUNCTION vibetype.account_email_address_verification(code uuid) OWNER TO c
 -- Name: FUNCTION account_email_address_verification(code uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
+COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.\n\nError codes:\n- **P0002** when the verification code is unknown.\n- **55000** when the verification code has expired.';
 
 
 --
@@ -458,7 +458,7 @@ COMMENT ON FUNCTION vibetype.account_location_update(latitude double precision, 
 Sets the location for the invoker''s account.
 
 Error codes:
-- **P0002** when no record was updated.';
+- **P0002** when the account is not found.';
 
 
 --
@@ -492,7 +492,7 @@ ALTER FUNCTION vibetype.account_password_change(password_current text, password_
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_change(password_current text, password_new text) IS 'Allows to change an account''s password.';
+COMMENT ON FUNCTION vibetype.account_password_change(password_current text, password_new text) IS 'Allows to change an account''s password.\n\nError codes:\n- **22023** when the new password is too short.\n- **28P01** when an account with the given password is not found.';
 
 
 --
@@ -537,7 +537,8 @@ ALTER FUNCTION vibetype.account_password_reset(code uuid, password text) OWNER T
 -- Name: FUNCTION account_password_reset(code uuid, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.';
+COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.\n\nError codes:\n- **22023** when the password is too short.\n- **P0002** when the reset code is unknown.\n- **55000** when the reset code has expired.
+';
 
 
 --
@@ -672,7 +673,7 @@ BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
   IF (NOT EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
-    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
@@ -706,7 +707,7 @@ ALTER FUNCTION vibetype.account_registration_refresh(account_id uuid, language t
 -- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.';
+COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 
 --
@@ -780,7 +781,7 @@ ALTER FUNCTION vibetype.achievement_unlock(code uuid, alias text) OWNER TO ci;
 -- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
+COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.\n\nError codes:\n- **P0002** when the achievement or the account is unknown.';
 
 
 --
@@ -853,7 +854,7 @@ ALTER FUNCTION vibetype.authenticate(username text, password text) OWNER TO ci;
 -- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
 
 
 SET default_tablespace = '';
@@ -1174,7 +1175,7 @@ ALTER FUNCTION vibetype.event_delete(id uuid, password text) OWNER TO ci;
 -- Name: FUNCTION event_delete(id uuid, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to delete an event.';
+COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to delete an event.\n\nError codes:\n- **P0002** when the event was not found.\n- **28P01** when the account with the given password was not found.';
 
 
 --
@@ -1321,7 +1322,7 @@ ALTER FUNCTION vibetype.event_unlock(guest_id uuid) OWNER TO ci;
 -- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.';
+COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.\n\nError codes:\n- **P0002** when no guest, no event, or no event creator username was found for this guest id.';
 
 
 --
@@ -1578,7 +1579,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 
 --
@@ -1742,7 +1743,7 @@ ALTER FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolea
 -- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.';
+COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.\n\nError codes:\n- **P0002** when no notification with the given id is found.';
 
 
 --
@@ -2297,7 +2298,8 @@ BEGIN
       ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
   ELSE
     RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
-      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name;
+      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name
+      USING ERRCODE = 'VTALT';
   END IF;
 END;
 $$;
@@ -2309,7 +2311,7 @@ ALTER FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table
 -- Name: FUNCTION trigger_audit_log_create(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) IS 'Function creating an audit log trigger for a single table.';
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) IS 'Function creating an audit log trigger for a single table.\n\nError codes:\n- **VTALT** when a table cannot have an audit log trigger.';
 
 
 --

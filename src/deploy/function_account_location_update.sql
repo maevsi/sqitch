@@ -17,7 +17,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.account_location_update(DOUBLE PRECISION, DOUBLE PRECISION) IS E'@name update_account_location\nSets the location for the invoker''s account.\n\nError codes:\n- **P0002** when no record was updated.';
+COMMENT ON FUNCTION vibetype.account_location_update(DOUBLE PRECISION, DOUBLE PRECISION) IS E'@name update_account_location\nSets the location for the invoker''s account.\n\nError codes:\n- **P0002** when the account is not found.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_location_update(DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
 
