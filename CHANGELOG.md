@@ -1,3 +1,13 @@
+## [10.0.0-beta.5](https://github.com/maevsi/sqitch/compare/10.0.0-beta.4...10.0.0-beta.5) (2025-07-03)
+
+### ⚠ BREAKING CHANGES
+
+* document function error codes
+
+### Documentation
+
+* document function error codes ([04beea8](https://github.com/maevsi/sqitch/commit/04beea8aa368e8bed363c138daeee48a584ca74c))
+
 ## [10.0.0-beta.4](https://github.com/maevsi/sqitch/compare/10.0.0-beta.3...10.0.0-beta.4) (2025-07-03)
 
 ### ⚠ BREAKING CHANGES
