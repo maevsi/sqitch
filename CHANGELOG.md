@@ -1,3 +1,13 @@
+## [10.0.0-beta.4](https://github.com/maevsi/sqitch/compare/10.0.0-beta.3...10.0.0-beta.4) (2025-07-03)
+
+### ⚠ BREAKING CHANGES
+
+* reposition `INTO` clauses (#227)
+
+### Code Refactoring
+
+* reposition `INTO` clauses ([#227](https://github.com/maevsi/sqitch/issues/227)) ([5f9a60a](https://github.com/maevsi/sqitch/commit/5f9a60a0b7751550beacfb39250ad146545dffde))
+
 ## [10.0.0-beta.3](https://github.com/maevsi/sqitch/compare/10.0.0-beta.2...10.0.0-beta.3) (2025-06-28)
 
 ### Features
