@@ -5,7 +5,7 @@ CREATE TABLE vibetype.account (
 
   description TEXT CHECK (char_length(description) < 1000),
   imprint     TEXT CHECK (char_length(imprint) < 10000),
-  username    TEXT NOT NULL CHECK (char_length(username) < 100 AND username ~ '^[-A-Za-z0-9]+$') UNIQUE
+  username    TEXT NOT NULL COLLATE unicode CHECK (char_length(username) < 100 AND username ~ '^[-A-Za-z0-9]+$') UNIQUE
 );
 
 COMMENT ON TABLE vibetype.account IS E'@omit create,delete\nPublic account data.';
