@@ -3064,7 +3064,7 @@ CREATE TABLE vibetype.account (
     id uuid NOT NULL,
     description text,
     imprint text,
-    username text NOT NULL,
+    username text NOT NULL COLLATE pg_catalog.unicode,
     CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
     CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
     CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
