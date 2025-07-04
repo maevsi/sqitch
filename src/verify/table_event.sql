@@ -14,8 +14,7 @@ SELECT id,
        url,
        visibility,
        created_at,
-       created_by,
-       search_vector
+       created_by
 FROM vibetype.event WHERE FALSE;
 
 

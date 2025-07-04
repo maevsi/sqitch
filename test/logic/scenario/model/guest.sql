@@ -25,7 +25,7 @@ BEGIN
   contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
   contactAC := vibetype_test.contact_create(accountA, 'c@example.com');
 
-  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', 'Description', null, '2025-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
