@@ -1,3 +1,15 @@
+## [10.0.0-beta.6](https://github.com/maevsi/sqitch/compare/10.0.0-beta.5...10.0.0-beta.6) (2025-07-09)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** drop event check from deletion
+* **account:** specify unicode collation for username
+
+### Features
+
+* **account:** drop event check from deletion ([00fb035](https://github.com/maevsi/sqitch/commit/00fb0354b6addfc388f3cdbb70536be9419bff43))
+* **account:** specify unicode collation for username ([83b9f35](https://github.com/maevsi/sqitch/commit/83b9f35cfce25a6af9d1fa746295c288378de17f))
+
 ## [10.0.0-beta.5](https://github.com/maevsi/sqitch/compare/10.0.0-beta.4...10.0.0-beta.5) (2025-07-03)
 
 ### ⚠ BREAKING CHANGES
