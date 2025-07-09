@@ -1,3 +1,9 @@
+## [9.3.0](https://github.com/maevsi/sqitch/compare/9.2.0...9.3.0) (2025-07-09)
+
+### Features
+
+* **account:** specify unicode collation for username ([3c45a32](https://github.com/maevsi/sqitch/commit/3c45a323acbd31f5e364dbe339b442835f6aa82d))
+
 ## [9.2.0](https://github.com/maevsi/sqitch/compare/9.1.1...9.2.0) (2025-06-28)
 
 ### Features
