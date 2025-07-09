@@ -6173,7 +6173,8 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING (true);
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id)))));
 
 
 --
