@@ -1,3 +1,9 @@
+## [9.4.0](https://github.com/maevsi/sqitch/compare/9.3.0...9.4.0) (2025-07-09)
+
+### Features
+
+* **account:** drop event check from deletion ([506e018](https://github.com/maevsi/sqitch/commit/506e01823886653073278d2b64ca8377d6b1a6f1))
+
 ## [9.3.0](https://github.com/maevsi/sqitch/compare/9.2.0...9.3.0) (2025-07-09)
 
 ### Features
