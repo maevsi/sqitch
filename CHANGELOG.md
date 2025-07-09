@@ -1,3 +1,9 @@
+## [9.4.1](https://github.com/maevsi/sqitch/compare/9.4.0...9.4.1) (2025-07-09)
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([c31ea39](https://github.com/maevsi/sqitch/commit/c31ea39547e360a5baf17a4b9e7a656904e8c51a))
+
 ## [9.4.0](https://github.com/maevsi/sqitch/compare/9.3.0...9.4.0) (2025-07-09)
 
 ### Features
