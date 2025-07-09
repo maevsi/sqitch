@@ -1,3 +1,13 @@
+## [10.0.0-beta.7](https://github.com/maevsi/sqitch/compare/10.0.0-beta.6...10.0.0-beta.7) (2025-07-09)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** disallow selecting blocked
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([320e019](https://github.com/maevsi/sqitch/commit/320e0192d25c508f2f1d32c53a79945cd8ca11dd))
+
 ## [10.0.0-beta.6](https://github.com/maevsi/sqitch/compare/10.0.0-beta.5...10.0.0-beta.6) (2025-07-09)
 
 ### ⚠ BREAKING CHANGES
