@@ -7374,7 +7374,7 @@ GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 -- Name: TABLE account_block; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT ON TABLE vibetype.account_block TO vibetype_account;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_block TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;
 
 
