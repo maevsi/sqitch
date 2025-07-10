@@ -19,12 +19,9 @@ CREATE TABLE vibetype.event (
 
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by               UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
-  search_vector            TSVECTOR,
 
   UNIQUE (created_by, slug)
 );
-
-CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
 
 COMMENT ON TABLE vibetype.event IS 'An event.';
 COMMENT ON COLUMN vibetype.event.id IS E'@omit create,update\nThe event''s internal id.';
@@ -42,31 +39,44 @@ COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator.'
 COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN vibetype.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
-COMMENT ON COLUMN vibetype.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
-COMMENT ON INDEX vibetype.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER AS $$
 DECLARE
+  rec       RECORD;
   ts_config regconfig;
+  _search_vector TSVECTOR;
 BEGIN
-  ts_config := vibetype.language_iso_full_text_search(NEW.language);
+  FOR rec IN
+    SELECT unnest as language
+    FROM unnest(enum_range(NULL::vibetype.language))
+  LOOP
+    ts_config := vibetype.language_iso_full_text_search(rec.language);
 
-  NEW.search_vector :=
-    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
-    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+    _search_vector :=
+      setweight(to_tsvector(ts_config, NEW.name), 'A') ||
+      setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+
+    MERGE INTO vibetype.event_search_vector e
+    USING (SELECT NEW.id as event_id, rec.language, _search_vector as search_vector) t
+    ON e.event_id = t.event_id and e.language = t.language
+    WHEN NOT MATCHED THEN
+      INSERT (event_id, language, search_vector) VALUES (t.event_id, t.language, t.search_vector)
+    WHEN MATCHED THEN
+      UPDATE SET search_vector = t.search_vector;
+  END LOOP;
 
   RETURN NEW;
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
+COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Creates or updates search vectors for the event based on the name and description columns, weighted by their relevance,  and for all supported languages.';
 
 GRANT EXECUTE ON FUNCTION vibetype.trigger_event_search_vector() TO vibetype_account, vibetype_anonymous;
 
 CREATE TRIGGER vibetype_trigger_event_search_vector
-  BEFORE
-       INSERT
-    OR UPDATE OF name, description, language
+  AFTER
+    INSERT
+    OR UPDATE OF name, description
   ON vibetype.event
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_event_search_vector();

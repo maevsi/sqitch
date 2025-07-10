@@ -1,3 +1,4 @@
+\set ON_ERROR_STOP on
 \echo TEST_DIRECTORY = :TEST_DIRECTORY
 \cd :TEST_DIRECTORY
 \! pwd
@@ -43,6 +44,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account.sql
 \i scenario/model/authenticate.sql
 \i scenario/model/event.sql
+\i scenario/model/event_search.sql
 \i scenario/model/event_favorite.sql
 \i scenario/model/friendship.sql
 \i scenario/model/guest.sql
