@@ -1,3 +1,13 @@
+## [10.0.0-beta.8](https://github.com/maevsi/sqitch/compare/10.0.0-beta.7...10.0.0-beta.8) (2025-07-10)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** allow unblocking
+
+### Features
+
+* **account:** allow unblocking ([f98c115](https://github.com/maevsi/sqitch/commit/f98c115f113acf914056c7d4634118906171c73d))
+
 ## [10.0.0-beta.7](https://github.com/maevsi/sqitch/compare/10.0.0-beta.6...10.0.0-beta.7) (2025-07-09)
 
 ### ⚠ BREAKING CHANGES
