@@ -1,3 +1,9 @@
+## [9.5.0](https://github.com/maevsi/sqitch/compare/9.4.1...9.5.0) (2025-07-10)
+
+### Features
+
+* **account:** allow unblock ([ede85eb](https://github.com/maevsi/sqitch/commit/ede85ebdd11f21f8fe7d81dc522a78cf248434c8))
+
 ## [9.4.1](https://github.com/maevsi/sqitch/compare/9.4.0...9.4.1) (2025-07-09)
 
 ### Bug Fixes
