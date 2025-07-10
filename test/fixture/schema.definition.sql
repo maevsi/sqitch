@@ -782,7 +782,6 @@ BEGIN
   FROM vibetype.account
   WHERE
     lower(username) LIKE '%' || lower(account_search.search_string) || '%'
-    AND id != vibetype.invoker_account_id()
   ORDER BY
     username;
 END;

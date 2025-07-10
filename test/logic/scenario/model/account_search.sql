@@ -35,9 +35,9 @@ BEGIN
 
     expected_result :=
     CASE search_string
-      WHEN 'A' THEN ARRAY['BcblfGa']
-      WHEN 'a' THEN ARRAY['BcblfGa']
-      WHEN 'c' THEN ARRAY['BcblfGa', 'cdef']
+      WHEN 'A' THEN ARRAY['abc', 'BcblfGa']
+      WHEN 'a' THEN ARRAY['abc', 'BcblfGa']
+      WHEN 'c' THEN ARRAY['abc', 'BcblfGa', 'cdef']
       WHEN 'f' THEN ARRAY['BcblfGa', 'cdef', 'ffg56H']
       WHEN 'fg' THEN ARRAY['BcblfGa', 'ffg56H']
       WHEN 'fh' THEN ARRAY[]::text[]
