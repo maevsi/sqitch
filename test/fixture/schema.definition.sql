@@ -544,31 +544,36 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _notify_data RECORD;
+  _account vibetype_private.account%ROWTYPE;
+  _notify_data RECORD := NULL;
 BEGIN
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = account_password_reset_request.email_address
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.password_reset_verification,
-    updated.password_reset_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _notify_data;
+
+  UPDATE vibetype_private.account
+    SET password_reset_verification = gen_random_uuid()
+    WHERE account.email_address = account_password_reset_request.email_address
+    RETURNING * INTO _account;
+
+  IF _account IS NOT NULL THEN
+    SELECT
+      username,
+      _account.email_address,
+      _account.password_reset_verification,
+      _account.password_reset_verification_valid_until
+      INTO _notify_data
+      FROM vibetype.account
+      WHERE id = _account.id;
+  END IF;
 
   IF (_notify_data IS NULL) THEN
     -- noop
   ELSE
-    INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+    INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
       'account_password_reset_request',
       jsonb_pretty(jsonb_build_object(
         'account', _notify_data,
         'template', jsonb_build_object('language', account_password_reset_request.language)
-      ))
+      )),
+      _account.id
     );
   END IF;
 END;
@@ -592,8 +597,8 @@ CREATE FUNCTION vibetype.account_registration(birth_date date, email_address tex
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
+  _new_account_private vibetype_private.account%ROWTYPE;
+  _new_account_public vibetype.account%ROWTYPE;
   _new_account_notify RECORD;
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
@@ -633,12 +638,13 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language)
-    ))
+    )),
+    _new_account_private.id
   );
 
   -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration
@@ -681,16 +687,16 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
+    FROM updated JOIN vibetype.account ON updated.id = account.id
     INTO _new_account_notify;
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype.notification (channel, payload, created_by) VALUES (
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+    )),
+    account_registration_refresh.account_id
   );
 END;
 $$;
@@ -1473,20 +1479,22 @@ COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the guest co
 -- Name: invite(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
+CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_creator_profile_picture_upload_id UUID;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
+  _id UUID;
 BEGIN
   -- Guest UUID
-  SELECT * FROM vibetype.guest INTO _guest WHERE guest.id = invite.guest_id;
+  SELECT * INTO _guest
+  FROM vibetype.guest
+  WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
@@ -1513,14 +1521,17 @@ BEGIN
     visibility,
     created_at,
     created_by
-  FROM vibetype.event INTO _event WHERE "event".id = _guest.event_id;
+  INTO _event
+  FROM vibetype.event WHERE id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM vibetype.contact INTO _contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address INTO _contact
+  FROM vibetype.contact
+  WHERE id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1534,7 +1545,9 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM vibetype_private.account INTO _email_address WHERE account.id = _contact.account_id;
+    SELECT email_address INTO _email_address
+    FROM vibetype_private.account
+    WHERE id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -1542,14 +1555,19 @@ BEGIN
   END IF;
 
   -- Event creator username
-  SELECT username FROM vibetype.account INTO _event_creator_username WHERE account.id = _event.created_by;
+  SELECT username INTO _event_creator_username
+  FROM vibetype.account
+  WHERE id = _event.created_by;
 
   -- Event creator profile picture storage key
-  SELECT upload_id FROM vibetype.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key FROM vibetype.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
+  SELECT u.storage_key INTO _event_creator_profile_picture_upload_storage_key
+  FROM vibetype.profile_picture p
+    JOIN vibetype.upload u ON p.upload_id = u.id
+  WHERE p.account_id = _event.created_by;
 
-  INSERT INTO vibetype_private.notification (channel, payload)
+  INSERT INTO vibetype.notification_invitation (guest_id, channel, payload, created_by)
     VALUES (
+      invite.guest_id,
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
@@ -1560,8 +1578,12 @@ BEGIN
           'guestId', _guest.id
         ),
         'template', jsonb_build_object('language', invite.language)
-      ))
-    );
+      )),
+      vibetype.invoker_account_id()
+    )
+    RETURNING id INTO _id;
+
+  RETURN _id;
 END;
 $$;
 
@@ -1719,10 +1741,15 @@ ALTER FUNCTION vibetype.legal_term_change() OWNER TO ci;
 CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
+DECLARE
+  update_count INTEGER;
 BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
-    UPDATE vibetype_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
-  ELSE
+  UPDATE vibetype.notification SET
+    is_acknowledged = notification_acknowledge.is_acknowledged
+  WHERE id = notification_acknowledge.id;
+
+  GET DIAGNOSTICS update_count = ROW_COUNT;
+  IF update_count = 0 THEN
     RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;
@@ -4145,6 +4172,98 @@ Timestamp showing when the legal terms were accepted, set automatically at the t
 
 
 --
+-- Name: notification; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.notification (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    channel text NOT NULL,
+    is_acknowledged boolean,
+    payload text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
+);
+
+
+ALTER TABLE vibetype.notification OWNER TO ci;
+
+--
+-- Name: TABLE notification; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.notification IS 'A notification.';
+
+
+--
+-- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.id IS 'The notification''s internal id.';
+
+
+--
+-- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.channel IS 'The notification''s channel.';
+
+
+--
+-- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+
+
+--
+-- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.payload IS 'The notification''s payload.';
+
+
+--
+-- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_at IS 'The timestamp of the notification''s creation.';
+
+
+--
+-- Name: COLUMN notification.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification.created_by IS 'Reference to the account that created the notification.';
+
+
+--
+-- Name: notification_invitation; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.notification_invitation (
+    guest_id uuid NOT NULL
+)
+INHERITS (vibetype.notification);
+
+
+ALTER TABLE vibetype.notification_invitation OWNER TO ci;
+
+--
+-- Name: TABLE notification_invitation; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.notification_invitation IS '@omit update,delete\nStores invitations and their statuses.';
+
+
+--
+-- Name: COLUMN notification_invitation.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.notification_invitation.guest_id IS 'The ID of the guest associated with this invitation.';
+
+
+--
 -- Name: preference_event_category; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -4902,61 +5021,17 @@ COMMENT ON COLUMN vibetype_private.jwt.token IS 'The token.';
 
 
 --
--- Name: notification; Type: TABLE; Schema: vibetype_private; Owner: ci
+-- Name: notification_invitation id; Type: DEFAULT; Schema: vibetype; Owner: ci
 --
 
-CREATE TABLE vibetype_private.notification (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    channel text NOT NULL,
-    is_acknowledged boolean,
-    payload text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
-);
-
-
-ALTER TABLE vibetype_private.notification OWNER TO ci;
-
---
--- Name: TABLE notification; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON TABLE vibetype_private.notification IS 'A notification.';
+ALTER TABLE ONLY vibetype.notification_invitation ALTER COLUMN id SET DEFAULT gen_random_uuid();
 
 
 --
--- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: notification_invitation created_at; Type: DEFAULT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.id IS 'The notification''s internal id.';
-
-
---
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.channel IS 'The notification''s channel.';
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
-
-
---
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.payload IS 'The notification''s payload.';
-
-
---
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+ALTER TABLE ONLY vibetype.notification_invitation ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
 
 
 --
@@ -5315,6 +5390,14 @@ ALTER TABLE ONLY vibetype.legal_term
 
 
 --
+-- Name: notification notification_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification
+    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: preference_event_category preference_event_category_account_id_category_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5498,14 +5581,6 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 
 --
--- Name: notification notification_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
---
-
-ALTER TABLE ONLY vibetype_private.notification
-    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
-
-
---
 -- Name: idx_address_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5629,6 +5704,20 @@ CREATE INDEX idx_guest_updated_by ON vibetype.guest USING btree (updated_by);
 --
 
 COMMENT ON INDEX vibetype.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_invitation_guest_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_invitation_guest_id ON vibetype.notification_invitation USING btree (guest_id);
+
+
+--
+-- Name: idx_notification_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_notification_created_by ON vibetype.notification USING btree (created_by);
 
 
 --
@@ -6039,6 +6128,22 @@ ALTER TABLE ONLY vibetype.legal_term_acceptance
 
 ALTER TABLE ONLY vibetype.legal_term_acceptance
     ADD CONSTRAINT legal_term_acceptance_legal_term_id_fkey FOREIGN KEY (legal_term_id) REFERENCES vibetype.legal_term(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: notification notification_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification
+    ADD CONSTRAINT notification_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notification_invitation notification_invitation_guest_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.notification_invitation
+    ADD CONSTRAINT notification_invitation_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES vibetype.guest(id);
 
 
 --
@@ -6538,6 +6643,25 @@ CREATE POLICY legal_term_acceptance_all ON vibetype.legal_term_acceptance USING 
 
 CREATE POLICY legal_term_select ON vibetype.legal_term FOR SELECT USING (true);
 
+
+--
+-- Name: notification; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.notification ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: notification notification_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY notification_all ON vibetype.notification USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: notification_invitation; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.notification_invitation ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: preference_event_category; Type: ROW SECURITY; Schema: vibetype; Owner: ci
@@ -7503,6 +7627,21 @@ GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
 
 
 --
+-- Name: TABLE notification; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.notification TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.notification TO grafana;
+
+
+--
+-- Name: TABLE notification_invitation; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.notification_invitation TO vibetype_account;
+
+
+--
 -- Name: TABLE preference_event_category; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7567,13 +7706,6 @@ GRANT SELECT ON TABLE vibetype_private.account TO grafana;
 --
 
 GRANT SELECT ON TABLE vibetype_private.achievement_code TO vibetype;
-
-
---
--- Name: TABLE notification; Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype_private.notification TO grafana;
 
 
 --
