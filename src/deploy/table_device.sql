@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.device (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  fcm_token   TEXT CHECK (char_length("fcm_token") > 0 AND char_length("fcm_token") < 300),
+  fcm_token   TEXT NOT NULL CHECK (char_length("fcm_token") > 0 AND char_length("fcm_token") < 300),
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
@@ -52,13 +52,22 @@ CREATE TRIGGER vibetype_trigger_device_update_fcm
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_metadata_update_fcm();
 
+\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.device TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.device TO :role_service_vibetype_username;
 
 ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY device_all ON vibetype.device FOR ALL
 USING (
   created_by = vibetype.invoker_account_id()
+);
+
+CREATE POLICY device_service_vibetype_all ON vibetype.device FOR SELECT
+TO :role_service_vibetype_username
+USING (
+  TRUE
 );
 
 COMMIT;
