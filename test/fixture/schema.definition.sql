@@ -112,6 +112,20 @@ COMMENT ON EXTENSION fuzzystrmatch IS 'determine similarities and distance betwe
 
 
 --
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'Provides support for similarity of text using trigram matching, also used for speeding up LIKE queries.';
+
+
+--
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -781,7 +795,7 @@ BEGIN
   SELECT *
   FROM vibetype.account
   WHERE
-    lower(username) LIKE '%' || lower(account_search.search_string) || '%'
+    username ILIKE '%' || account_search.search_string || '%'
   ORDER BY
     username;
 END;
@@ -5543,6 +5557,20 @@ ALTER TABLE ONLY vibetype_private.notification
 
 
 --
+-- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username public.gin_trgm_ops);
+
+
+--
+-- Name: INDEX idx_account_username_like; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for LIKE/ILIKE conditions on username.';
+
+
+--
 -- Name: idx_address_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6739,6 +6767,20 @@ GRANT USAGE ON SCHEMA vibetype_private TO grafana;
 
 
 --
+-- Name: FUNCTION gtrgm_in(cstring); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_out(public.gtrgm); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_out(public.gtrgm) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: ci
 --
 
@@ -6834,6 +6876,97 @@ REVOKE ALL ON FUNCTION public.gen_salt(text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.gen_salt(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_extract_query_trgm(text, internal, smallint, internal, internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_extract_query_trgm(text, internal, smallint, internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_extract_value_trgm(text, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_extract_value_trgm(text, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_trgm_consistent(internal, smallint, text, integer, internal, internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_trgm_consistent(internal, smallint, text, integer, internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_trgm_triconsistent(internal, smallint, text, integer, internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_trgm_triconsistent(internal, smallint, text, integer, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_compress(internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_compress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_consistent(internal, text, smallint, oid, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_consistent(internal, text, smallint, oid, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_decompress(internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_decompress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_distance(internal, text, smallint, oid, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_distance(internal, text, smallint, oid, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_options(internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_options(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_penalty(internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_penalty(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_picksplit(internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_picksplit(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_same(public.gtrgm, public.gtrgm, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_same(public.gtrgm, public.gtrgm, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_union(internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_union(internal, internal) FROM PUBLIC;
 
 
 --
@@ -6988,6 +7121,118 @@ REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION set_limit(real); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.set_limit(real) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION show_limit(); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.show_limit() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION show_trgm(text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.show_trgm(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similarity(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.similarity(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similarity_dist(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.similarity_dist(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similarity_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.similarity_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_dist_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_dist_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_dist_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_dist_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_dist_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_dist_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_dist_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_dist_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_op(text, text) FROM PUBLIC;
 
 
 --

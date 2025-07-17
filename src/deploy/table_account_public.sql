@@ -14,6 +14,9 @@ COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
 COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
 COMMENT ON COLUMN vibetype.account.username IS E'@omit update\nThe account''s username.';
 
+CREATE INDEX idx_account_username_like ON vibetype.account USING gin(username gin_trgm_ops);
+COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for LIKE/ILIKE conditions on username.';
+
 GRANT SELECT ON TABLE vibetype.account TO vibetype_account, vibetype_anonymous;
 GRANT UPDATE ON TABLE vibetype.account TO vibetype_account;
 

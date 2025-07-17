@@ -25,4 +25,8 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.account', 'DELETE'));
 END $$;
 
+SELECT 1/COUNT(*)
+FROM pg_indexes
+WHERE schemaname = 'vibetype' AND indexname = 'idx_account_username_like';
+
 ROLLBACK;

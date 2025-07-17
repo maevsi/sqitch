@@ -8,7 +8,7 @@ BEGIN
   SELECT *
   FROM vibetype.account
   WHERE
-    lower(username) LIKE '%' || lower(account_search.search_string) || '%'
+    username ILIKE '%' || account_search.search_string || '%'
   ORDER BY
     username;
 END;
