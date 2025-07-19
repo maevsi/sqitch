@@ -117,7 +117,6 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(_account_id);
 
-/* TODO: remove comments when PR "feat(notification)!: inherit invitations" has been merged
   IF NOT EXISTS (
     SELECT 1 FROM vibetype.notification
     WHERE channel = 'account_registration'
@@ -125,7 +124,6 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Test failed: Notification not generated';
   END IF;
-*/
 
   PERFORM vibetype_test.invoker_set_empty();
 
