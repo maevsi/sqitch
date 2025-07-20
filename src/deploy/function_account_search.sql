@@ -14,7 +14,7 @@ BEGIN
 END;
 $$ LANGUAGE PLPGSQL STABLE;
 
-COMMENT ON FUNCTION vibetype.account_search(TEXT) IS 'Returns all accounts with a username starting with a given prefix.';
+COMMENT ON FUNCTION vibetype.account_search(TEXT) IS 'Returns all accounts with a username containing a given substring.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_search(TEXT) TO vibetype_account;
 
