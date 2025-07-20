@@ -1,3 +1,9 @@
+## [9.7.0](https://github.com/maevsi/sqitch/compare/9.6.0...9.7.0) (2025-07-20)
+
+### Features
+
+* **device:** add access control for service account ([baa9010](https://github.com/maevsi/sqitch/commit/baa901019596ebc8d6edfdbb952011e310b40c53))
+
 ## [9.6.0](https://github.com/maevsi/sqitch/compare/9.5.1...9.6.0) (2025-07-20)
 
 ### Features
