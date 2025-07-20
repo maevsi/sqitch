@@ -7,16 +7,9 @@
 
 ## 📋 Table of Contents
 
-1. [🚀 Introduction](#🚀-introduction)
-2. [🛠️ Quickstart](#🛠️-quickstart)
-3. [📚 Documentation](#📚-documentation)
-
-
-## 🚀 Introduction
-
-Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](https://raw.githubusercontent.com/maevsi/sqitch/refs/heads/main/docs/resources/graph.png)):
-
-[<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
+1. [🛠️ Quickstart](#🛠️-quickstart)
+2. [📚 Documentation](#📚-documentation)
+3. [🚀 Preview](#🚀-preview)
 
 
 ## 🛠️ Quickstart
@@ -66,3 +59,9 @@ To fully understand the quick start commands above and Vibetype's database conce
 1. **Database concepts**
     1. [Row Level Security](./docs/advanced/database/row_level_security.md)
     1. [Vacuuming](./docs/advanced/database/vacuum.md)
+
+## 🚀 Preview
+
+Here’s a visual overview of what Sqitch creates ([click here to zoom in](https://raw.githubusercontent.com/maevsi/sqitch/refs/heads/main/docs/resources/graph.png)):
+
+[<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
