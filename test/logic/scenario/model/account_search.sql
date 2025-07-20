@@ -2,51 +2,47 @@ BEGIN;
 
 DO $$
 DECLARE
-  _account_id UUID;
-  usernames TEXT[];
+  _search_result TEXT[];
+  _search_result_expected TEXT[];
+  _search_string TEXT;
+  _search_strings TEXT[];
+  _user_account_id UUID;
   _username TEXT;
-  search_strings TEXT[];
-  search_string TEXT;
-  expected_result TEXT[];
-  search_result TEXT[];
+  _usernames TEXT[];
 BEGIN
 
-  usernames := ARRAY['abc', 'cdef', 'BcblfGa', 'ffg56H'];
+  _usernames := ARRAY['abc', 'cdef', 'BcblfGa', 'ffg56H'];
 
-  FOREACH _username IN ARRAY usernames
+  FOREACH _username IN ARRAY _usernames
   LOOP
     IF _username = 'abc' THEN
-       _account_id := vibetype_test.account_registration_verified(_username, lower(_username) ||'@example.com');
+       _user_account_id := vibetype_test.account_registration_verified(_username, lower(_username)||'@example.com');
     ELSE
-       PERFORM vibetype_test.account_registration_verified(_username, lower(_username) ||'@example.com');
+       PERFORM vibetype_test.account_registration_verified(_username, lower(_username)||'@example.com');
     END IF;
   END LOOP;
 
-  -- switch to user 'abc' who should not appear in the search result
   SET LOCAL ROLE = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _user_account_id || '''';
 
-  search_strings := ARRAY['A', 'a', 'c', 'f' , 'fg', 'fh'];
+  _search_strings := ARRAY['A', 'a', 'c', 'f' , 'fg', 'fh'];
 
-  FOREACH search_string IN ARRAY search_strings
+  FOREACH _search_string IN ARRAY _search_strings
   LOOP
+    _search_result := ARRAY(SELECT username FROM vibetype.account_search(_search_string));
 
-    search_result := ARRAY(SELECT username FROM vibetype.account_search(search_string));
+    _search_result_expected :=
+      CASE _search_string
+        WHEN 'A' THEN ARRAY['abc', 'BcblfGa']
+        WHEN 'a' THEN ARRAY['abc', 'BcblfGa']
+        WHEN 'c' THEN ARRAY['abc', 'BcblfGa', 'cdef']
+        WHEN 'f' THEN ARRAY['BcblfGa', 'cdef', 'ffg56H']
+        WHEN 'fg' THEN ARRAY['BcblfGa', 'ffg56H']
+        WHEN 'fh' THEN ARRAY[]::text[]
+      END;
 
-    expected_result :=
-    CASE search_string
-      WHEN 'A' THEN ARRAY['abc', 'BcblfGa']
-      WHEN 'a' THEN ARRAY['abc', 'BcblfGa']
-      WHEN 'c' THEN ARRAY['abc', 'BcblfGa', 'cdef']
-      WHEN 'f' THEN ARRAY['BcblfGa', 'cdef', 'ffg56H']
-      WHEN 'fg' THEN ARRAY['BcblfGa', 'ffg56H']
-      WHEN 'fh' THEN ARRAY[]::text[]
-    END;
-
-    -- RAISE NOTICE 'search_string: % => search_result: %, expected_result: %', search_string, search_result, expected_result;
-
-    IF search_result <> expected_result THEN
-      RAISE EXCEPTION 'search for % does not return the expected result', search_string;
+    IF _search_result <> _search_result_expected THEN
+      RAISE EXCEPTION E'Search for % does not return the expected result.\nExpected: %\nReturned: %', _search_string, _search_result_expected, _search_result;
     END IF;
 
   END LOOP;

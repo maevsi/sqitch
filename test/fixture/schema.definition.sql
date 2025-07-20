@@ -803,7 +803,7 @@ ALTER FUNCTION vibetype.account_search(search_string text) OWNER TO ci;
 -- Name: FUNCTION account_search(search_string text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all accounts with a username starting with a given prefix.';
+COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all accounts with a username containing a given substring.';
 
 
 --
@@ -5558,7 +5558,7 @@ CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username p
 -- Name: INDEX idx_account_username_like; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for LIKE/ILIKE conditions on username.';
+COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
 
 
 --
