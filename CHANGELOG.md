@@ -1,3 +1,18 @@
+## [10.0.0-beta.11](https://github.com/maevsi/sqitch/compare/10.0.0-beta.10...10.0.0-beta.11) (2025-07-20)
+
+### Features
+
+* **account:** allow unblock ([ede85eb](https://github.com/maevsi/sqitch/commit/ede85ebdd11f21f8fe7d81dc522a78cf248434c8))
+* **account:** drop event check from deletion ([506e018](https://github.com/maevsi/sqitch/commit/506e01823886653073278d2b64ca8377d6b1a6f1))
+* **account:** search by username substring ([42abe71](https://github.com/maevsi/sqitch/commit/42abe719f7678f8f64d9fa1f58337299439beeb6))
+* **account:** specify unicode collation for username ([3c45a32](https://github.com/maevsi/sqitch/commit/3c45a323acbd31f5e364dbe339b442835f6aa82d))
+* **device:** add access control for service account ([baa9010](https://github.com/maevsi/sqitch/commit/baa901019596ebc8d6edfdbb952011e310b40c53))
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([c31ea39](https://github.com/maevsi/sqitch/commit/c31ea39547e360a5baf17a4b9e7a656904e8c51a))
+* schedule release ([45f6435](https://github.com/maevsi/sqitch/commit/45f6435e66cac829688f8d3ab71a41a4995a09a2))
+
 ## [10.0.0-beta.10](https://github.com/maevsi/sqitch/compare/10.0.0-beta.9...10.0.0-beta.10) (2025-07-20)
 
 ### ⚠ BREAKING CHANGES
