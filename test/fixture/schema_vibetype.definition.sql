@@ -586,6 +586,93 @@ ALTER FUNCTION vibetype.account_registration_refresh(account_id uuid, language t
 COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: account; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.account (
+    id uuid NOT NULL,
+    description text,
+    imprint text,
+    username text NOT NULL COLLATE pg_catalog.unicode,
+    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
+    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
+    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+);
+
+
+ALTER TABLE vibetype.account OWNER TO ci;
+
+--
+-- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.account IS '@omit create,delete
+Public account data.';
+
+
+--
+-- Name: COLUMN account.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.id IS '@omit create,update
+The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
+
+
+--
+-- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
+
+
+--
+-- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.username IS '@omit update
+The account''s username.';
+
+
+--
+-- Name: account_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_search(search_string text) RETURNS SETOF vibetype.account
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM vibetype.account
+  WHERE
+    username ILIKE '%' || account_search.search_string || '%'
+  ORDER BY
+    username;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.account_search(search_string text) OWNER TO ci;
+
+--
+-- Name: FUNCTION account_search(search_string text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all accounts with a username containing a given substring.';
+
+
 --
 -- Name: account_upload_quota_bytes(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
@@ -732,10 +819,6 @@ ALTER FUNCTION vibetype.authenticate(username text, password text) OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
 
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
 
 --
 -- Name: guest; Type: TABLE; Schema: vibetype; Owner: ci
@@ -2439,61 +2522,6 @@ ALTER FUNCTION vibetype_private.trigger_audit_log_enable_multiple() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Function enabling all audit log triggers that are currently disabled.';
-
-
---
--- Name: account; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.account (
-    id uuid NOT NULL,
-    description text,
-    imprint text,
-    username text NOT NULL COLLATE pg_catalog.unicode,
-    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
-    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
-    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
-);
-
-
-ALTER TABLE vibetype.account OWNER TO ci;
-
---
--- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.account IS '@omit create,delete
-Public account data.';
-
-
---
--- Name: COLUMN account.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.id IS '@omit create,update
-The account''s internal id.';
-
-
---
--- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
-
-
---
--- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
-
-
---
--- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.username IS '@omit update
-The account''s username.';
 
 
 --
@@ -4823,6 +4851,20 @@ ALTER TABLE ONLY vibetype_private.notification
 
 
 --
+-- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username public.gin_trgm_ops);
+
+
+--
+-- Name: INDEX idx_account_username_like; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+
+
+--
 -- Name: idx_address_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6040,6 +6082,22 @@ GRANT ALL ON FUNCTION vibetype.account_registration_refresh(account_id uuid, lan
 
 
 --
+-- Name: TABLE account; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,UPDATE ON TABLE vibetype.account TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION account_search(search_string text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_search(search_string text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_search(search_string text) TO vibetype_account;
+
+
+--
 -- Name: FUNCTION account_upload_quota_bytes(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6377,14 +6435,6 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name tex
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM PUBLIC;
-
-
---
--- Name: TABLE account; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT,UPDATE ON TABLE vibetype.account TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 
 
 --

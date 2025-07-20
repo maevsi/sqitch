@@ -112,6 +112,20 @@ COMMENT ON EXTENSION fuzzystrmatch IS 'determine similarities and distance betwe
 
 
 --
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'Provides support for similarity of text using trigram matching, also used for speeding up LIKE queries.';
+
+
+--
 -- Name: pgcrypto; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -706,6 +720,93 @@ ALTER FUNCTION vibetype.account_registration_refresh(account_id uuid, language t
 COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: account; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.account (
+    id uuid NOT NULL,
+    description text,
+    imprint text,
+    username text NOT NULL COLLATE pg_catalog.unicode,
+    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
+    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
+    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+);
+
+
+ALTER TABLE vibetype.account OWNER TO ci;
+
+--
+-- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.account IS '@omit create,delete
+Public account data.';
+
+
+--
+-- Name: COLUMN account.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.id IS '@omit create,update
+The account''s internal id.';
+
+
+--
+-- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
+
+
+--
+-- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
+
+
+--
+-- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.username IS '@omit update
+The account''s username.';
+
+
+--
+-- Name: account_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_search(search_string text) RETURNS SETOF vibetype.account
+    LANGUAGE plpgsql STABLE
+    AS $$
+BEGIN
+  RETURN QUERY
+  SELECT *
+  FROM vibetype.account
+  WHERE
+    username ILIKE '%' || account_search.search_string || '%'
+  ORDER BY
+    username;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.account_search(search_string text) OWNER TO ci;
+
+--
+-- Name: FUNCTION account_search(search_string text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all accounts with a username containing a given substring.';
+
+
 --
 -- Name: account_upload_quota_bytes(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
@@ -852,10 +953,6 @@ ALTER FUNCTION vibetype.authenticate(username text, password text) OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
 
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
 
 --
 -- Name: guest; Type: TABLE; Schema: vibetype; Owner: ci
@@ -3055,61 +3152,6 @@ COMMENT ON COLUMN sqitch.tags.planner_name IS 'Name of the user who planed the t
 --
 
 COMMENT ON COLUMN sqitch.tags.planner_email IS 'Email address of the user who planned the tag.';
-
-
---
--- Name: account; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.account (
-    id uuid NOT NULL,
-    description text,
-    imprint text,
-    username text NOT NULL COLLATE pg_catalog.unicode,
-    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
-    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
-    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
-);
-
-
-ALTER TABLE vibetype.account OWNER TO ci;
-
---
--- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.account IS '@omit create,delete
-Public account data.';
-
-
---
--- Name: COLUMN account.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.id IS '@omit create,update
-The account''s internal id.';
-
-
---
--- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
-
-
---
--- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
-
-
---
--- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.account.username IS '@omit update
-The account''s username.';
 
 
 --
@@ -5511,6 +5553,20 @@ ALTER TABLE ONLY vibetype_private.notification
 
 
 --
+-- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username public.gin_trgm_ops);
+
+
+--
+-- Name: INDEX idx_account_username_like; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+
+
+--
 -- Name: idx_address_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6708,6 +6764,20 @@ GRANT USAGE ON SCHEMA vibetype_private TO grafana;
 
 
 --
+-- Name: FUNCTION gtrgm_in(cstring); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_in(cstring) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_out(public.gtrgm); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_out(public.gtrgm) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION armor(bytea); Type: ACL; Schema: public; Owner: ci
 --
 
@@ -6803,6 +6873,97 @@ REVOKE ALL ON FUNCTION public.gen_salt(text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.gen_salt(text, integer) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_extract_query_trgm(text, internal, smallint, internal, internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_extract_query_trgm(text, internal, smallint, internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_extract_value_trgm(text, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_extract_value_trgm(text, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_trgm_consistent(internal, smallint, text, integer, internal, internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_trgm_consistent(internal, smallint, text, integer, internal, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gin_trgm_triconsistent(internal, smallint, text, integer, internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gin_trgm_triconsistent(internal, smallint, text, integer, internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_compress(internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_compress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_consistent(internal, text, smallint, oid, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_consistent(internal, text, smallint, oid, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_decompress(internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_decompress(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_distance(internal, text, smallint, oid, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_distance(internal, text, smallint, oid, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_options(internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_options(internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_penalty(internal, internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_penalty(internal, internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_picksplit(internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_picksplit(internal, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_same(public.gtrgm, public.gtrgm, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_same(public.gtrgm, public.gtrgm, internal) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION gtrgm_union(internal, internal); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.gtrgm_union(internal, internal) FROM PUBLIC;
 
 
 --
@@ -6960,6 +7121,118 @@ REVOKE ALL ON FUNCTION public.pgp_sym_encrypt_bytea(bytea, text, text) FROM PUBL
 
 
 --
+-- Name: FUNCTION set_limit(real); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.set_limit(real) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION show_limit(); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.show_limit() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION show_trgm(text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.show_trgm(text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similarity(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.similarity(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similarity_dist(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.similarity_dist(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similarity_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.similarity_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_dist_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_dist_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_dist_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_dist_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION strict_word_similarity_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.strict_word_similarity_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_dist_commutator_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_dist_commutator_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_dist_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_dist_op(text, text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION word_similarity_op(text, text); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.word_similarity_op(text, text) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION account_delete(password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7025,6 +7298,22 @@ GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_addre
 
 REVOKE ALL ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) TO vibetype_anonymous;
+
+
+--
+-- Name: TABLE account; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,UPDATE ON TABLE vibetype.account TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION account_search(search_string text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_search(search_string text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_search(search_string text) TO vibetype_account;
 
 
 --
@@ -7365,14 +7654,6 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name tex
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM PUBLIC;
-
-
---
--- Name: TABLE account; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT,UPDATE ON TABLE vibetype.account TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 
 
 --
