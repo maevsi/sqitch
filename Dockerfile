@@ -51,26 +51,27 @@ COPY ./src ./src
 COPY ./test ./test
 
 RUN docker-entrypoint.sh postgres & \
-  while ! pg_isready -h localhost -U ci -p 5432; do sleep 1; done \
-  && sqitch --chdir src deploy -t db:pg://ci:postgres@/ci_database \
-  && pg_dump -s -h localhost -U ci -p 5432 ci_database | sed -e '/^-- Dumped/d' > schema.sql \
-  && pg_dump -s -h localhost -U ci -p 5432 -n vibetype* ci_database | sed -e '/^-- Dumped/d' > schema_vibetype.sql \
-  && psql -h localhost -U ci -d ci_database -q -f ./test/logic/main.sql \
-    -v TEST_DIRECTORY=./test/logic -v ON_ERROR_STOP=on \
-  && sqitch --chdir src revert -t db:pg://ci:postgres@/ci_database
+  while ! pg_isready --host localhost --username ci --port 5432; do sleep 1; done \
+  && sqitch --chdir src deploy --target db:pg://ci:postgres@/ci_database \
+  && pg_dump --schema-only --host localhost --username ci --port 5432 --exclude-schema vibetype* ci_database | sed -e '/^-- Dumped/d' > schema_other.sql \
+  && pg_dump --schema-only --host localhost --username ci --port 5432 --schema vibetype* ci_database | sed -e '/^-- Dumped/d' > schema_vibetype.sql \
+  && psql --host localhost --username ci --dbname ci_database --quiet --file ./test/logic/main.sql \
+    --variable TEST_DIRECTORY=./test/logic --variable ON_ERROR_STOP=on \
+  && sqitch --chdir src revert --target db:pg://ci:postgres@/ci_database
 
 ##############################
 FROM test-build AS test
 
-COPY ./test/fixture/schema.definition.sql ./
+COPY ./test/fixture/schema_other.definition.sql ./test/fixture/schema_vibetype.definition.sql ./
 
-RUN diff schema.definition.sql schema.sql
+RUN diff schema_other.definition.sql schema_other.sql \
+  && diff schema_vibetype.definition.sql schema_vibetype.sql
 
 
 ##############################
 FROM prepare AS collect
 
-COPY --from=test /srv/app/schema.sql /dev/null
+COPY --from=test /srv/app/schema_vibetype.sql /dev/null
 COPY --from=build /srv/app ./
 
 
