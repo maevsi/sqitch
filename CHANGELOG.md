@@ -1,3 +1,9 @@
+## [9.6.0](https://github.com/maevsi/sqitch/compare/9.5.1...9.6.0) (2025-07-20)
+
+### Features
+
+* **account:** search by username substring ([42abe71](https://github.com/maevsi/sqitch/commit/42abe719f7678f8f64d9fa1f58337299439beeb6))
+
 ## [9.5.1](https://github.com/maevsi/sqitch/compare/9.5.0...9.5.1) (2025-07-19)
 
 ### Bug Fixes
