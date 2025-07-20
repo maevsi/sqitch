@@ -21,9 +21,10 @@ Sqitch sets up your database schema. Here’s a visual overview of what's create
 
 ## 🛠️ Quickstart
 
+Make sure you understand what Sqitch does, i.e. have a look into [Sqitch's documentation](https://sqitch.org/docs/).
+
 This project is designed to be used within the [maevsi/stack](https://github.com/maevsi/stack).
 To get started, follow the [Vibetype fullstack setup guide](https://github.com/maevsi/vibetype/blob/main/README.md#fullstack).
-
 Once your development environment is running, use these commands to manage database migrations:
 
 ```sh
@@ -45,9 +46,9 @@ After setup, you can inspect and test GraphQL queries and mutations using Graphi
 
 ## 📚 Documentation
 
-### 🧭 Onboarding
+To fully understand the quick start commands above and Vibetype's database concepts, check out the onboarding and in-depth guides below.
 
-Kick off your journey with the fundamentals:
+### 🧭 Onboarding
 
 1. **Project**
     1. [Code Structure](./docs/onboarding/project.md)
@@ -58,8 +59,6 @@ Kick off your journey with the fundamentals:
     1. [Row Level Security](./docs/onboarding/database/row_level_security.md)
 
 ### 🔍 In-Depth Guides
-
-Explore advanced topics and deeper insights:
 
 1. **Project**
     1. [Code Structure](./docs/advanced/project.md)
