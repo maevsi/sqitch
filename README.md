@@ -26,14 +26,14 @@ To get started, follow the [Vibetype fullstack setup guide](https://github.com/m
 
 Once your development environment is running, use these commands to manage database migrations:
 
+```sh
+npx nypm install      # initial project setup & update
 
-```bash
-npx nypm install  # initial set up & update installation
+npm run deploy        # apply database migrations
+npm run revert        # roll back database migrations
 
-npm run deploy    # apply database migrations
-npm run revert    # roll back database migrations
-
-npm run test      # execute test suite
+npm run test          # execute test suite
+npm run test:data     # deploy test data migration
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
