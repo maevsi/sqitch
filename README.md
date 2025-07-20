@@ -34,6 +34,7 @@ npm run revert        # roll back database migrations
 
 npm run test          # execute test suite
 npm run test:data     # deploy test data migration
+npm run test:update   # update test fixtures
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.

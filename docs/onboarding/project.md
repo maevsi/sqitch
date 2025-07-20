@@ -33,15 +33,10 @@ All tests run in a containerized environment.
 
 ### Data for Development
 
-You can add basic test data to your working directory by running:
+The `npm run test:data` command adds basic test data to your working directory.
+It applies a git patch of a database migration that includes test data, waits for merge conflict resolution if applicable and then deploys the added migration.
 
-```sh
-git apply --3way test/development/data.patch
-```
-
-Then, deploy the patch as described in the [Code Structure](#code-structure) section.
-
-To persist changes to test data, stage them and run:
+To persist changes to the test data migration, stage them and run:
 
 ```sh
 git diff --staged > test/development/data.patch
