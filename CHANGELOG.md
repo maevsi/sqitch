@@ -1,3 +1,13 @@
+## [10.0.0-beta.10](https://github.com/maevsi/sqitch/compare/10.0.0-beta.9...10.0.0-beta.10) (2025-07-20)
+
+### ⚠ BREAKING CHANGES
+
+* **device:** add access control for service account (#238)
+
+### Features
+
+* **device:** add access control for service account ([#238](https://github.com/maevsi/sqitch/issues/238)) ([0e7c719](https://github.com/maevsi/sqitch/commit/0e7c7194bccf7f4247c66f88632d3e7b6eea2b8a))
+
 ## [10.0.0-beta.9](https://github.com/maevsi/sqitch/compare/10.0.0-beta.8...10.0.0-beta.9) (2025-07-20)
 
 ### ⚠ BREAKING CHANGES
