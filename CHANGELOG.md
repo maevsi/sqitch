@@ -95,6 +95,54 @@
 * **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
 * **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
 
+## [9.7.0](https://github.com/maevsi/sqitch/compare/9.6.0...9.7.0) (2025-07-20)
+
+### Features
+
+* **device:** add access control for service account ([baa9010](https://github.com/maevsi/sqitch/commit/baa901019596ebc8d6edfdbb952011e310b40c53))
+
+## [9.6.0](https://github.com/maevsi/sqitch/compare/9.5.1...9.6.0) (2025-07-20)
+
+### Features
+
+* **account:** search by username substring ([42abe71](https://github.com/maevsi/sqitch/commit/42abe719f7678f8f64d9fa1f58337299439beeb6))
+
+## [9.5.1](https://github.com/maevsi/sqitch/compare/9.5.0...9.5.1) (2025-07-19)
+
+### Bug Fixes
+
+* schedule release ([45f6435](https://github.com/maevsi/sqitch/commit/45f6435e66cac829688f8d3ab71a41a4995a09a2))
+
+## [9.5.0](https://github.com/maevsi/sqitch/compare/9.4.1...9.5.0) (2025-07-10)
+
+### Features
+
+* **account:** allow unblock ([ede85eb](https://github.com/maevsi/sqitch/commit/ede85ebdd11f21f8fe7d81dc522a78cf248434c8))
+
+## [9.4.1](https://github.com/maevsi/sqitch/compare/9.4.0...9.4.1) (2025-07-09)
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([c31ea39](https://github.com/maevsi/sqitch/commit/c31ea39547e360a5baf17a4b9e7a656904e8c51a))
+
+## [9.4.0](https://github.com/maevsi/sqitch/compare/9.3.0...9.4.0) (2025-07-09)
+
+### Features
+
+* **account:** drop event check from deletion ([506e018](https://github.com/maevsi/sqitch/commit/506e01823886653073278d2b64ca8377d6b1a6f1))
+
+## [9.3.0](https://github.com/maevsi/sqitch/compare/9.2.0...9.3.0) (2025-07-09)
+
+### Features
+
+* **account:** specify unicode collation for username ([3c45a32](https://github.com/maevsi/sqitch/commit/3c45a323acbd31f5e364dbe339b442835f6aa82d))
+
+## [9.2.0](https://github.com/maevsi/sqitch/compare/9.1.1...9.2.0) (2025-06-28)
+
+### Features
+
+* **account:** correct comment and policy permissions ([648fe40](https://github.com/maevsi/sqitch/commit/648fe402f5a39005d512612e70b4b3ba4b0e69b2))
+
 ## [9.1.1](https://github.com/maevsi/sqitch/compare/9.1.0...9.1.1) (2025-06-21)
 
 ### Bug Fixes
