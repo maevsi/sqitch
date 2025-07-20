@@ -9,6 +9,7 @@ if [ "$1" = "--update" ]; then
 
   container_id="$(sudo docker create $image:build)"
   sudo docker cp "$container_id:/srv/app/schema.sql" "$THIS/fixture/schema.definition.sql"
+  sudo docker cp "$container_id:/srv/app/schema_vibetype.sql" "$THIS/fixture/schema_vibetype.definition.sql"
   sudo docker rm -v "$container_id"
 else
   sudo docker build -t "$image:test" --target test "$THIS/.." # --no-cache --progress plain

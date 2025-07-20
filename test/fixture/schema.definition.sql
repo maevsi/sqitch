@@ -382,11 +382,7 @@ BEGIN
   _current_account_id := current_setting('jwt.claims.account_id')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
-    IF (EXISTS (SELECT 1 FROM vibetype.event WHERE event.created_by = _current_account_id)) THEN
-      RAISE 'You still own events!' USING ERRCODE = 'foreign_key_violation';
-    ELSE
-      DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
-    END IF;
+    DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -736,7 +732,7 @@ CREATE TABLE vibetype.account (
     id uuid NOT NULL,
     description text,
     imprint text,
-    username text NOT NULL,
+    username text NOT NULL COLLATE pg_catalog.unicode,
     CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
     CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
     CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
@@ -6233,7 +6229,8 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING (true);
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id)))));
 
 
 --
@@ -7663,7 +7660,7 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM
 -- Name: TABLE account_block; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT ON TABLE vibetype.account_block TO vibetype_account;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_block TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;
 
 
