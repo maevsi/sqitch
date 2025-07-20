@@ -1,3 +1,13 @@
+## [10.0.0-beta.9](https://github.com/maevsi/sqitch/compare/10.0.0-beta.8...10.0.0-beta.9) (2025-07-20)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** search by username substring (#237)
+
+### Features
+
+* **account:** search by username substring ([#237](https://github.com/maevsi/sqitch/issues/237)) ([ec3ded3](https://github.com/maevsi/sqitch/commit/ec3ded36a9d91affa9659e714490f9fb86528012))
+
 ## [10.0.0-beta.8](https://github.com/maevsi/sqitch/compare/10.0.0-beta.7...10.0.0-beta.8) (2025-07-10)
 
 ### ⚠ BREAKING CHANGES
