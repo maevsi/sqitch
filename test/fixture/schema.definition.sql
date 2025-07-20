@@ -3580,7 +3580,7 @@ COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that 
 
 CREATE TABLE vibetype.device (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    fcm_token text,
+    fcm_token text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
@@ -6337,6 +6337,13 @@ CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoke
 
 
 --
+-- Name: device device_service_vibetype_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY device_service_vibetype_select ON vibetype.device FOR SELECT TO vibetype USING (true);
+
+
+--
 -- Name: event; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7696,6 +7703,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.device TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.device TO vibetype;
 
 
 --
