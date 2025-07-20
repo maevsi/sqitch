@@ -64,7 +64,7 @@ USING (
   created_by = vibetype.invoker_account_id()
 );
 
-CREATE POLICY device_service_vibetype_all ON vibetype.device FOR SELECT
+CREATE POLICY device_service_vibetype_select ON vibetype.device FOR SELECT
 TO :role_service_vibetype_username
 USING (
   TRUE

@@ -5592,10 +5592,10 @@ CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoke
 
 
 --
--- Name: device device_service_vibetype_all; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: device device_service_vibetype_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY device_service_vibetype_all ON vibetype.device FOR SELECT TO vibetype USING (true);
+CREATE POLICY device_service_vibetype_select ON vibetype.device FOR SELECT TO vibetype USING (true);
 
 
 --
