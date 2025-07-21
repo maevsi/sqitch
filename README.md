@@ -7,33 +7,28 @@
 
 ## 📋 Table of Contents
 
-1. [🚀 Introduction](#🚀-introduction)
-2. [🛠️ Quickstart](#🛠️-quickstart)
-3. [📚 Documentation](#📚-documentation)
-
-
-## 🚀 Introduction
-
-Sqitch sets up your database schema. Here’s a visual overview of what's created ([click here to zoom in](https://raw.githubusercontent.com/maevsi/sqitch/refs/heads/main/docs/resources/graph.png)):
-
-[<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
+1. [🛠️ Quickstart](#🛠️-quickstart)
+2. [📚 Documentation](#📚-documentation)
+3. [🚀 Preview](#🚀-preview)
 
 
 ## 🛠️ Quickstart
 
+Make sure you understand what Sqitch does, i.e. have a look into [Sqitch's documentation](https://sqitch.org/docs/).
+
 This project is designed to be used within the [maevsi/stack](https://github.com/maevsi/stack).
 To get started, follow the [Vibetype fullstack setup guide](https://github.com/maevsi/vibetype/blob/main/README.md#fullstack).
-
 Once your development environment is running, use these commands to manage database migrations:
 
+```sh
+npx nypm install      # initial project setup & update
 
-```bash
-npx nypm install  # initial set up & update installation
+npm run deploy        # apply database migrations
+npm run revert        # roll back database migrations
 
-npm run deploy    # apply database migrations
-npm run revert    # roll back database migrations
-
-npm run test      # execute test suite
+npm run test          # execute test suite
+npm run test:data     # deploy test data migration
+npm run test:update   # update test fixtures
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
@@ -44,9 +39,9 @@ After setup, you can inspect and test GraphQL queries and mutations using Graphi
 
 ## 📚 Documentation
 
-### 🧭 Onboarding
+To fully understand the quick start commands above and Vibetype's database concepts, check out the onboarding and in-depth guides below.
 
-Kick off your journey with the fundamentals:
+### 🧭 Onboarding
 
 1. **Project**
     1. [Code Structure](./docs/onboarding/project.md)
@@ -58,11 +53,15 @@ Kick off your journey with the fundamentals:
 
 ### 🔍 In-Depth Guides
 
-Explore advanced topics and deeper insights:
-
 1. **Project**
     1. [Code Structure](./docs/advanced/project.md)
     1. [Changelog](./CHANGELOG.md)
 1. **Database concepts**
     1. [Row Level Security](./docs/advanced/database/row_level_security.md)
     1. [Vacuuming](./docs/advanced/database/vacuum.md)
+
+## 🚀 Preview
+
+Here’s a visual overview of what Sqitch creates ([click here to zoom in](https://raw.githubusercontent.com/maevsi/sqitch/refs/heads/main/docs/resources/graph.png)):
+
+[<img src="./docs/resources/graph.png" alt="Database Schema" width="1000"/>](./docs/resources/graph.png)
