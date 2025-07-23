@@ -17,7 +17,8 @@
     "revert": "pnpm run sqitch revert",
     "sqitch": "./src/sqitch",
     "test": "./test/test.sh",
-    "test:data": "pnpm run test --data",
+    "test:data:add": "pnpm run test data add",
+    "test:data:remove": "pnpm run test data remove",
     "test:update": "pnpm run test --update"
   },
   "type": "module",
