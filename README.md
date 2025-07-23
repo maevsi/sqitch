@@ -21,19 +21,20 @@ To get started, follow the [Vibetype fullstack setup guide](https://github.com/m
 Once your development environment is running, use these commands to manage database migrations:
 
 ```sh
-npx nypm install      # initial project setup & update
+npx nypm install          # initial project setup & update
 
-npm run deploy        # apply database migrations
-npm run revert        # roll back database migrations
+npm run deploy            # apply database migrations
+npm run revert            # roll back database migrations
 
-npm run test          # execute test suite
-npm run test:data     # deploy test data migration
-npm run test:update   # update test fixtures
+npm run test              # execute test suite
+npm run test:data:add     # add test data migration
+npm run test:data:remove  # remove test data migration
+npm run test:update       # update test fixtures
 ```
 
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
 
-> 💡 Tip: You can run `npm run sqitch <command> [options]` to access full Sqitch functionality.
+> 💡 You can run `npm run sqitch <command> [options]` to access full Sqitch functionality.
 
 <!-- TODO: Add a way to inspect the schema without launching the full maevsi/stack. -->
 

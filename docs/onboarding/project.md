@@ -33,14 +33,12 @@ All tests run in a containerized environment.
 
 ### Data for Development
 
-The `npm run test:data` command adds basic test data to your working directory.
-It applies a git patch of a database migration that includes test data, waits for merge conflict resolution if applicable and then deploys the added migration.
+The `npm run test:data:add` command adds basic test data to your working directory.
+It copies the `/test/data/*.sql` files to the `/src` subdirectories and appends a line pointing to the test data migration to Sqitch's plan if not added already.
 
-To persist changes to the test data migration, stage them and run:
+The `npm run test:data:remove` command does the inverse.
 
-```sh
-git diff --staged > test/development/data.patch
-```
+> 💡 Adding or removing the test data migration in code does **not** deploy it to or revert it from the database.
 
 ### Schema Fixture
 
