@@ -13,6 +13,8 @@ jobs:
   prepare_jobs:
     name: "Prepare: job optimization"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       pr_found: ${{ steps.pr.outputs.pr_found }}
     steps:
