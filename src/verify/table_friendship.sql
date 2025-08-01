@@ -2,8 +2,9 @@ BEGIN;
 
 SELECT
   id,
-  a_account_id,
-  b_account_id,
+  account_id,
+  friend_account_id,
+  is_close_friend,
   status,
   created_at,
   created_by,
