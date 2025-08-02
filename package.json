@@ -22,5 +22,5 @@
     "test:update": "pnpm run test --update"
   },
   "type": "module",
-  "version": "9.7.0"
+  "version": "9.7.1"
 }
