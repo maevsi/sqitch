@@ -15,6 +15,10 @@ BEGIN
     RAISE EXCEPTION 'Test failed: vibetype_account does not have EXECUTE privilege for vibetype.friendship_notify_request(UUID, TEXT).';
   END IF;
 
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.friendship_reject(UUID)', 'EXECUTE')) THEN
+    RAISE EXCEPTION 'Test failed: vibetype_account does not have EXECUTE privilege for vibetype.friendship_reject(UUID).';
+  END IF;
+
   IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.friendship_request(UUID, TEXT)', 'EXECUTE')) THEN
     RAISE EXCEPTION 'Test failed: vibetype_account does not have EXECUTE privilege for vibetype.friendship_request(UUID, TEXT).';
   END IF;
