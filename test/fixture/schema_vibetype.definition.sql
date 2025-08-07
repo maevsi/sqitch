@@ -1998,6 +1998,31 @@ COMMENT ON FUNCTION vibetype_private.account_email_address_verification_valid_un
 
 
 --
+-- Name: account_ids_blocking_the_current_account(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.account_ids_blocking_the_current_account() RETURNS TABLE(id uuid)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    SELECT created_by
+    FROM vibetype.account_block
+    WHERE blocked_account_id = vibetype.invoker_account_id();
+END
+$$;
+
+
+ALTER FUNCTION vibetype_private.account_ids_blocking_the_current_account() OWNER TO ci;
+
+--
+-- Name: FUNCTION account_ids_blocking_the_current_account(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() IS 'Returns all ids of accounts blocking the invoker account.';
+
+
+--
 -- Name: account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -5479,8 +5504,8 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id)))));
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_ids_blocking_the_current_account.id
+   FROM vibetype_private.account_ids_blocking_the_current_account() account_ids_blocking_the_current_account(id)))));
 
 
 --
@@ -6346,6 +6371,15 @@ GRANT ALL ON FUNCTION vibetype_private.account_block_ids() TO vibetype_anonymous
 
 REVOKE ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION account_ids_blocking_the_current_account(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() TO vibetype_anonymous;
 
 
 --

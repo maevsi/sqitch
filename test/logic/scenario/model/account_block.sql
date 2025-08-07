@@ -35,6 +35,8 @@ DECLARE
 
   rec RECORD;
 
+  account_row vibetype.account%ROWTYPE;
+
 BEGIN
 
   -- remove accounts (if exist)
@@ -55,6 +57,15 @@ BEGIN
 
   -- A blocks B
   PERFORM vibetype_test.account_block_create(accountA, accountB);
+
+  -- B should still be a visible account to A
+  PERFORM vibetype_test.account_check('after A blocks B (1)', accountA, accountB, true);
+
+  -- C should also be visible to A because C is not involved in any blocking
+  PERFORM vibetype_test.account_check('after A blocks B (2)', accountA, accountC, true);
+
+  -- A should not be a visible account to B
+  PERFORM vibetype_test.account_check('after A blocks B (3)', accountB, accountA, false);
 
   BEGIN
      contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
