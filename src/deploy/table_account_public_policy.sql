@@ -9,7 +9,7 @@ ALTER TABLE vibetype.account ENABLE ROW LEVEL SECURITY;
 CREATE POLICY account_select ON vibetype.account FOR SELECT
 USING (
   id NOT IN (
-    SELECT id FROM vibetype_private.account_ids_blocking_the_current_account()
+    SELECT id FROM vibetype_private.account_block_ids()
   )
 );
 

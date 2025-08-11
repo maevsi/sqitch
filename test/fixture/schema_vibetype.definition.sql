@@ -236,6 +236,34 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 
 
 --
+-- Name: account_blocked_accounts(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_blocked_accounts() RETURNS TABLE(id uuid, description text, imprint text, username text, storage_key text)
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY
+    SELECT a.id, a.description, a.imprint, a.username, u.storage_key
+    FROM vibetype.account a
+      JOIN vibetype.account_block b ON a.id = b.created_by
+      LEFT JOIN vibetype.profile_picture p ON p.account_id = a.id
+      LEFT JOIN vibetype.upload u ON p.upload_id = u.id
+    WHERE a.id = vibetype.invoker_account_id();
+END
+$$;
+
+
+ALTER FUNCTION vibetype.account_blocked_accounts() OWNER TO ci;
+
+--
+-- Name: FUNCTION account_blocked_accounts(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_blocked_accounts() IS 'Returns the id, description, imprint, username, and storage key (of profile picture, if it exists) of all accounts blocked by the invoker account.';
+
+
+--
 -- Name: account_delete(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1995,31 +2023,6 @@ ALTER FUNCTION vibetype_private.account_email_address_verification_valid_until()
 --
 
 COMMENT ON FUNCTION vibetype_private.account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
-
-
---
--- Name: account_ids_blocking_the_current_account(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.account_ids_blocking_the_current_account() RETURNS TABLE(id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  RETURN QUERY
-    SELECT created_by
-    FROM vibetype.account_block
-    WHERE blocked_account_id = vibetype.invoker_account_id();
-END
-$$;
-
-
-ALTER FUNCTION vibetype_private.account_ids_blocking_the_current_account() OWNER TO ci;
-
---
--- Name: FUNCTION account_ids_blocking_the_current_account(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() IS 'Returns all ids of accounts blocking the invoker account.';
 
 
 --
@@ -5504,8 +5507,8 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_ids_blocking_the_current_account.id
-   FROM vibetype_private.account_ids_blocking_the_current_account() account_ids_blocking_the_current_account(id)))));
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id)))));
 
 
 --
@@ -6046,6 +6049,14 @@ GRANT USAGE ON SCHEMA vibetype_private TO grafana;
 
 
 --
+-- Name: FUNCTION account_blocked_accounts(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_blocked_accounts() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_blocked_accounts() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION account_delete(password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6371,15 +6382,6 @@ GRANT ALL ON FUNCTION vibetype_private.account_block_ids() TO vibetype_anonymous
 
 REVOKE ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() TO vibetype_account;
-
-
---
--- Name: FUNCTION account_ids_blocking_the_current_account(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.account_ids_blocking_the_current_account() TO vibetype_anonymous;
 
 
 --
