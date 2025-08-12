@@ -16,31 +16,35 @@ BEGIN
   accountB := vibetype_test.account_registration_verified('username-b', 'email+b@example.com');
   accountC := vibetype_test.account_registration_verified('username-c', 'email+c@example.com');
 
-  PERFORM vibetype_test.friendship_request_test('before A sends request to B', accountA, accountB, false);
+  PERFORM vibetype_test.friendship_request_test('before A sends request to B', accountA, accountA, accountB, false);
 
   -- friendship request from user A to B
   PERFORM vibetype_test.friendship_request(accountA, accountB, 'de');
 
-  PERFORM vibetype_test.friendship_request_test('after A sends request to B (1)', accountA, accountB, true);
-  PERFORM vibetype_test.friendship_test('after A sends request to B (2)', accountA, accountB, null, 0);
-  PERFORM vibetype_test.friendship_test('after A sends request to B (3)', accountB, accountA, null, 0);
+  PERFORM vibetype_test.friendship_request_test('after A sends request to B (1)', accountA, accountA, accountB, true);
+  PERFORM vibetype_test.friendship_request_test('after A sends request to B (2)', accountB, accountA, accountB, true);
+  PERFORM vibetype_test.friendship_test('after A sends request to B (3)', accountA, accountA, accountB, null, 0);
+  PERFORM vibetype_test.friendship_test('after A sends request to B (4)', accountB, accountB, accountA, null, 0);
+  PERFORM vibetype_test.friendship_request_test('C cannot seen the friendship request from A to B', accountC, accountA, accountB, false);
 
   -- B accepts A's friendship request
   PERFORM vibetype_test.friendship_accept(accountB, accountA);
 
-  PERFORM vibetype_test.friendship_request_test('B accepts friendship request from A (1)', accountA, accountB, false);
-  PERFORM vibetype_test.friendship_test('B accepts friendship request from A (2)', accountA, accountB, false, 1);
-  PERFORM vibetype_test.friendship_test('B accepts friendship request from A (3)', accountB, accountA, false, 1);
+  PERFORM vibetype_test.friendship_request_test('B accepts friendship request from A (1)', accountA, accountA, accountB, false);
+  PERFORM vibetype_test.friendship_test('B accepts friendship request from A (2)', accountA, accountA, accountB, false, 1);
+  PERFORM vibetype_test.friendship_test('B accepts friendship request from A (3)', accountB, accountB, accountA, false, 1);
+  PERFORM vibetype_test.friendship_test('C cannot seen the friendship between A and B (1)', accountC, accountA, accountB, null, 0);
+  PERFORM vibetype_test.friendship_test('C cannot seen the friendship between A and B (2)', accountC, accountB, accountA, null, 0);
 
   -- friendship request from user C to A
   PERFORM vibetype_test.friendship_request(accountC, accountA, 'de');
 
-  PERFORM vibetype_test.friendship_request_test('after C sends request to A (1)', accountC, accountA, true);
-  PERFORM vibetype_test.friendship_test('after C sends request to A (2)', accountC, accountA, null, 0);
-  PERFORM vibetype_test.friendship_test('after A sends request to B (3)', accountA, accountC, null, 0);
-  PERFORM vibetype_test.friendship_test('User B is still a friend of user A (1)', accountA, accountB, null, 1);
-  PERFORM vibetype_test.friendship_test('User A is still a friend of user B (2)', accountB, accountA, null, 1);
-  PERFORM vibetype_test.friendship_test('User C has no friends', accountC, null, null, 0);
+  PERFORM vibetype_test.friendship_request_test('after C sends request to A (1)', accountC, accountC, accountA, true);
+  PERFORM vibetype_test.friendship_test('after C sends request to A (2)', accountC, accountC, accountA, null, 0);
+  PERFORM vibetype_test.friendship_test('after A sends request to B (3)', accountA, accountA, accountC, null, 0);
+  PERFORM vibetype_test.friendship_test('User B is still a friend of user A (1)', accountA, accountA, accountB, null, 1);
+  PERFORM vibetype_test.friendship_test('User A is still a friend of user B (2)', accountB, accountB, accountA, null, 1);
+  PERFORM vibetype_test.friendship_test('User C has no friends', accountC, accountC, null, null, 0);
 
   BEGIN
     -- C sends another request to A, should lead to exception VTREQ
@@ -88,19 +92,20 @@ BEGIN
 
   -- A rejects friendship request from C
   PERFORM vibetype_test.friendship_reject(accountA, accountC);
-  PERFORM vibetype_test.friendship_test('After A rejected C''s friendship request (1)', accountC, accountA, null, 0);
-  PERFORM vibetype_test.friendship_test('After A rejected C''s friendship request (2)', accountA, accountC, null, 0);
+  PERFORM vibetype_test.friendship_test('After A rejected C''s friendship request (1)', accountA, accountC, accountA, null, 0);
+  PERFORM vibetype_test.friendship_test('After A rejected C''s friendship request (2)', accountC, accountC, accountA, null, 0);
 
   -- a new friendship request from user C to A, this time accepted by A
   PERFORM vibetype_test.friendship_request(accountC, accountA, 'de');
   PERFORM vibetype_test.friendship_accept(accountA, accountC);
-  PERFORM vibetype_test.friendship_test('Count the number of A''s friends', accountA, null, null, 2);
-  PERFORM vibetype_test.friendship_test('C is a friend of A (1)', accountA, accountC, null, 1);
-  PERFORM vibetype_test.friendship_test('C is a friend of A (2)', accountC, accountA, null, 1);
+  PERFORM vibetype_test.friendship_test('Count the number of A''s friends', accountA, accountA, null, null, 2);
+  PERFORM vibetype_test.friendship_test('C is a friend of A (1)', accountA, accountA, accountC, null, 1);
+  PERFORM vibetype_test.friendship_test('C is a friend of A (2)', accountA, accountC, accountA, null, 1);
+  PERFORM vibetype_test.friendship_test('C is a friend of A (3)', accountC, accountA, accountC, null, 1);
+  PERFORM vibetype_test.friendship_test('C is a friend of A (4)', accountC, accountC, accountA, null, 1);
 
-  -- friendship request from user B to A
+  -- friendship request from user B to C
   PERFORM vibetype_test.friendship_request(accountB, accountC, 'de');
-
 
   -- B marks A as a close friend
   PERFORM vibetype_test.friendship_toggle_closeness(accountB, accountA);
@@ -117,30 +122,34 @@ BEGIN
   END LOOP;
 */
 
-  PERFORM vibetype_test.friendship_test('B marks A as a close friend (1)', accountB, accountA, true, 1);
-  PERFORM vibetype_test.friendship_test('B marks A as a close friend (2)', accountA, accountB, false, 1);
+  PERFORM vibetype_test.friendship_test('B marks A as a close friend (1)', accountB, accountB, accountA, true, 1);
+  PERFORM vibetype_test.friendship_test('B marks A as a close friend (2)', accountB, accountA, accountB, false, 1);
+  PERFORM vibetype_test.friendship_test('B marks A as a close friend (3)', accountA, accountB, accountA, true, 1);
+  PERFORM vibetype_test.friendship_test('B marks A as a close friend (4)', accountA, accountA, accountB, false, 1);
+
+  -- A marks B as a close friend
+  PERFORM vibetype_test.friendship_toggle_closeness(accountA, accountB);
+
+  PERFORM vibetype_test.friendship_test('A marks B as a close friend (1)', accountB, accountB, accountA, true, 1);
+  PERFORM vibetype_test.friendship_test('A marks B as a close friend (2)', accountB, accountA, accountB, true, 1);
+  PERFORM vibetype_test.friendship_test('A marks B as a close friend (3)', accountA, accountB, accountA, true, 1);
+  PERFORM vibetype_test.friendship_test('A marks B as a close friend (4)', accountA, accountA, accountB, true, 1);
 
   -- B unmarks A as a close friend
   PERFORM vibetype_test.friendship_toggle_closeness(accountB, accountA);
-  PERFORM vibetype_test.friendship_test('B marks A as a close friend (1)', accountB, accountA, false, 1);
 
-  -- C marks A as a close friend
-  PERFORM vibetype_test.friendship_toggle_closeness(accountC, accountA);
+  PERFORM vibetype_test.friendship_test('B unmarks A as a close friend (1)', accountB, accountB, accountA, false, 1);
+  PERFORM vibetype_test.friendship_test('B unmarks A as a close friend (2)', accountB, accountA, accountB, true, 1);
+  PERFORM vibetype_test.friendship_test('B unmarks A as a close friend (3)', accountA, accountB, accountA, false, 1);
+  PERFORM vibetype_test.friendship_test('B unmarks A as a close friend (4)', accountA, accountA, accountB, true, 1);
 
-  -- A wants to find out, if A is a close friend of C. The result should be NULL.
+  -- A cancels friendship with C
+  PERFORM vibetype_test.friendship_cancel(accountA, accountC);
 
-  SET LOCAL role = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || accountA || '''';
-
-  SELECT is_close_friend INTO _is_close_friend
-  FROM vibetype.friendship
-  WHERE account_id = accountC and friend_account_id = accountA;
-
-  IF _is_close_friend IS NOT NULL THEN
-  	RAISE EXCEPTION 'Closeness should not be disclosed to A.';
-  END IF;
-
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.friendship_test('A cancels friendship with C (1)', accountA, accountC, accountA, null, 0);
+  PERFORM vibetype_test.friendship_test('A cancels friendship with C (2)', accountA, accountA, accountC, null, 0);
+  PERFORM vibetype_test.friendship_test('A cancels friendship with C (3)', accountC, accountC, accountA, null, 0);
+  PERFORM vibetype_test.friendship_test('A cancels friendship with C (4)', accountC, accountA, accountC, null, 0);
 
 END $$;
 

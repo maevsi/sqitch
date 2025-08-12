@@ -6072,7 +6072,7 @@ CREATE POLICY friendship_request_insert ON vibetype.friendship_request FOR INSER
 -- Name: friendship_request friendship_request_not_blocked; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_request_not_blocked ON vibetype.friendship_request USING (((NOT (account_id IN ( SELECT account_block_ids.id
+CREATE POLICY friendship_request_not_blocked ON vibetype.friendship_request AS RESTRICTIVE USING (((NOT (account_id IN ( SELECT account_block_ids.id
    FROM vibetype_private.account_block_ids() account_block_ids(id)))) AND (NOT (friend_account_id IN ( SELECT account_block_ids.id
    FROM vibetype_private.account_block_ids() account_block_ids(id))))));
 
@@ -6088,7 +6088,7 @@ CREATE POLICY friendship_request_select ON vibetype.friendship_request FOR SELEC
 -- Name: friendship friendship_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (friend_account_id = vibetype.invoker_account_id())));
 
 
 --

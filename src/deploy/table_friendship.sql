@@ -18,7 +18,7 @@ GRANT SELECT, INSERT, DELETE ON TABLE vibetype.friendship_request TO vibetype_ac
 
 ALTER TABLE vibetype.friendship_request ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY friendship_request_not_blocked ON vibetype.friendship_request FOR ALL
+CREATE POLICY friendship_request_not_blocked ON vibetype.friendship_request AS RESTRICTIVE FOR ALL
 USING (
   account_id NOT IN (SELECT id FROM vibetype_private.account_block_ids())
   AND friend_account_id NOT IN (SELECT id FROM vibetype_private.account_block_ids())
@@ -101,6 +101,8 @@ USING (
 CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT
 USING (
   account_id = vibetype.invoker_account_id()
+  OR
+  friend_account_id = vibetype.invoker_account_id()
 );
 
 -- Only allow creation by the current user and only if a friendship request is present.
