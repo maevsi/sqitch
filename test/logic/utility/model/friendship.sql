@@ -84,6 +84,7 @@ GRANT EXECUTE ON FUNCTION vibetype_test.friendship_toggle_closeness(UUID, UUID) 
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_test (
   _test_case TEXT,
   _invoker_account_id UUID,
+  _account_id UUID,
   _friend_account_id UUID,  -- _friend_account_id IS NULL means "any friend"
   _is_close_friend BOOLEAN, -- _is_close_friend IS NULL means "any boolean value"
   _expected_count INTEGER
@@ -96,7 +97,7 @@ BEGIN
 
   SELECT count(*) INTO _result
   FROM vibetype.friendship
-  WHERE account_id = _invoker_account_id
+  WHERE account_id = _account_id
     AND (_friend_account_id IS NULL OR friend_account_id = _friend_account_id)
     AND (_is_close_friend IS NULL OR is_close_friend = _is_close_friend);
 
@@ -107,12 +108,13 @@ BEGIN
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, UUID, BOOLEAN, INTEGER) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, UUID, UUID, BOOLEAN, INTEGER) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_request_test (
   _test_case TEXT,
   _invoker_account_id UUID,
+  _account_id UUID,
   _friend_account_id UUID,
   _expected_to_exist BOOLEAN
 ) RETURNS VOID AS $$
@@ -124,7 +126,7 @@ BEGIN
 
   SELECT id INTO _id
   FROM vibetype.friendship_request
-  WHERE account_id = _invoker_account_id
+  WHERE account_id = _account_id
     AND friend_account_id = _friend_account_id;
 
   IF _id IS NULL AND _expected_to_exist THEN
@@ -138,4 +140,4 @@ BEGIN
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request_test(TEXT, UUID, UUID, BOOLEAN) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request_test(TEXT, UUID, UUID, UUID, BOOLEAN) TO vibetype_account;
