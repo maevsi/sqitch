@@ -61,7 +61,7 @@ BEGIN
   -- B should not be a visible account to A if selected from table account
   PERFORM vibetype_test.account_check('after A blocks B (1)', accountA, accountB, false);
 
-  -- B should be in the result of function account_accounts_blocked when called by A
+  -- B should be in the result of function account_blocked_accounts when called by A
   PERFORM vibetype_test.account_blocked_accounts_check('after A blocks B (2)', accountA, accountB, true);
 
   -- C should also be visible to A because C is not involved in any blocking
@@ -70,7 +70,7 @@ BEGIN
   -- A should not be a visible account to B
   PERFORM vibetype_test.account_check('after A blocks B (4)', accountB, accountA, false);
 
-  -- A should not be in the result of function account_accounts_blocked when called by B
+  -- A should not be in the result of function account_blocked_accounts when called by B
   PERFORM vibetype_test.account_blocked_accounts_check('after A blocks B (5)', accountB, accountA, false);
 
   BEGIN
