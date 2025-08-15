@@ -137,26 +137,6 @@ COMMENT ON TYPE vibetype.event_visibility IS 'Possible visibilities of events an
 
 
 --
--- Name: friendship_status; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.friendship_status AS ENUM (
-    'accepted',
-    'requested'
-);
-
-
-ALTER TYPE vibetype.friendship_status OWNER TO ci;
-
---
--- Name: TYPE friendship_status; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TYPE vibetype.friendship_status IS 'Possible status values of a friend relation.
-There is no status `rejected` because friendship records will be deleted when a friendship request is rejected.';
-
-
---
 -- Name: invitation_feedback; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -1308,6 +1288,239 @@ ALTER FUNCTION vibetype.events_organized() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
+
+
+--
+-- Name: friendship_accept(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.friendship_accept(requestor_account_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _friend_account_id UUID;
+  _id UUID;
+BEGIN
+
+  _friend_account_id := vibetype.invoker_account_id();
+
+  SELECT id INTO _id
+  FROM vibetype.friendship_request
+  WHERE account_id = requestor_account_id AND friend_account_id = _friend_account_id;
+
+  IF _id IS NULL THEN
+    RAISE EXCEPTION 'Friendship request does not exist' USING ERRCODE = 'VTFAC';
+  END IF;
+
+  INSERT INTO vibetype.friendship(account_id, friend_account_id, created_by)
+  VALUES (requestor_account_id, _friend_account_id, requestor_account_id);
+
+  INSERT INTO vibetype.friendship(account_id, friend_account_id, created_by)
+  VALUES (_friend_account_id, requestor_account_id, _friend_account_id);
+
+  DELETE FROM vibetype.friendship_request
+  WHERE account_id = requestor_account_id AND friend_account_id = vibetype.invoker_account_id();
+
+END; $$;
+
+
+ALTER FUNCTION vibetype.friendship_accept(requestor_account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION friendship_accept(requestor_account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.friendship_accept(requestor_account_id uuid) IS 'Accepts a friendship request.
+
+Error codes:
+- **VTFAC** when a corresponding friendship request does not exist.';
+
+
+--
+-- Name: friendship_cancel(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.friendship_cancel(friend_account_id uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _account_id UUID;
+BEGIN
+
+  _account_id := vibetype.invoker_account_id();
+
+  DELETE FROM vibetype.friendship f
+  WHERE (account_id = _account_id AND f.friend_account_id = friendship_cancel.friend_account_id)
+    OR (account_id = friendship_cancel.friend_account_id AND f.friend_account_id = _account_id);
+
+END; $$;
+
+
+ALTER FUNCTION vibetype.friendship_cancel(friend_account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION friendship_cancel(friend_account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.friendship_cancel(friend_account_id uuid) IS 'Cancels a friendship (in both directions) if it exists.';
+
+
+--
+-- Name: friendship_notify_request(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+
+  INSERT INTO vibetype_private.notification (channel, payload)
+  VALUES (
+    'friendship_request',
+    jsonb_pretty(jsonb_build_object(
+      'data', jsonb_build_object(
+        'requestor_account_id', vibetype.invoker_account_id(),
+        'requestee_account_id', friendship_notify_request.friend_account_id
+      ),
+      'template', jsonb_build_object('language', friendship_notify_request.language)
+    ))
+  );
+
+END; $$;
+
+
+ALTER FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) OWNER TO ci;
+
+--
+-- Name: FUNCTION friendship_notify_request(friend_account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) IS 'Creates a notification for a friendship_request';
+
+
+--
+-- Name: friendship_reject(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.friendship_reject(requestor_account_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+
+  DELETE FROM vibetype.friendship_request
+  WHERE account_id = requestor_account_id AND friend_account_id = vibetype.invoker_account_id();
+
+END; $$;
+
+
+ALTER FUNCTION vibetype.friendship_reject(requestor_account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION friendship_reject(requestor_account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.friendship_reject(requestor_account_id uuid) IS 'Rejects a friendship request';
+
+
+--
+-- Name: friendship_request(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _account_id UUID;
+BEGIN
+
+  _account_id := vibetype.invoker_account_id();
+
+  IF EXISTS(
+    SELECT 1
+    FROM vibetype.friendship f
+    WHERE (f.account_id = _account_id AND f.friend_account_id = friendship_request.friend_account_id)
+  )
+  THEN
+    RAISE EXCEPTION 'Friendship already exists.' USING ERRCODE = 'VTFEX';
+  END IF;
+
+  IF EXISTS(
+    SELECT 1
+    FROM vibetype.friendship_request r
+    WHERE (r.account_id = _account_id AND r.friend_account_id = friendship_request.friend_account_id)
+      OR (r.account_id = friendship_request.friend_account_id AND r.friend_account_id = _account_id)
+  )
+  THEN
+    RAISE EXCEPTION 'There is already a friendship request.' USING ERRCODE = 'VTREQ';
+  END IF;
+
+  INSERT INTO vibetype.friendship_request(account_id, friend_account_id, created_by)
+  VALUES (_account_id, friendship_request.friend_account_id, _account_id);
+
+  PERFORM vibetype.friendship_notify_request(friendship_request.friend_account_id, friendship_request.language);
+
+END; $$;
+
+
+ALTER FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) OWNER TO ci;
+
+--
+-- Name: FUNCTION friendship_request(friend_account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) IS 'Starts a new friendship request.
+
+Error codes:
+- **VTFEX** when the friendship already exists.
+- **VTREQ** when there is already a friendship request.';
+
+
+--
+-- Name: friendship_toggle_closeness(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.friendship_toggle_closeness(friend_account_id uuid) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  _account_id UUID;
+  _id UUID;
+  _is_close_friend BOOLEAN;
+BEGIN
+
+  _account_id := vibetype.invoker_account_id();
+
+  SELECT f.id
+  INTO _id
+  FROM vibetype.friendship f
+  WHERE f.account_id = _account_id
+    AND f.friend_account_id = friendship_toggle_closeness.friend_account_id;
+
+  IF _id IS NULL THEN
+    RAISE EXCEPTION 'Friendship does not exist' USING ERRCODE = 'VTFTC';
+  END IF;
+
+  UPDATE vibetype.friendship f
+  SET is_close_friend = NOT is_close_friend
+  WHERE account_id = vibetype.invoker_account_id()
+    AND f.friend_account_id = friendship_toggle_closeness.friend_account_id
+  RETURNING is_close_friend INTO _is_close_friend;
+
+  RETURN _is_close_friend;
+
+END; $$;
+
+
+ALTER FUNCTION vibetype.friendship_toggle_closeness(friend_account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION friendship_toggle_closeness(friend_account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.friendship_toggle_closeness(friend_account_id uuid) IS 'Toggles a friendship relation between ''not a close friend'' and ''close friend''.
+
+Error codes:
+- **VTFTC** when the friendship does not exist.';
 
 
 --
@@ -3313,17 +3526,15 @@ Reference to the uploaded file.';
 
 CREATE TABLE vibetype.friendship (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    a_account_id uuid NOT NULL,
-    b_account_id uuid NOT NULL,
-    status vibetype.friendship_status DEFAULT 'requested'::vibetype.friendship_status NOT NULL,
+    account_id uuid NOT NULL,
+    friend_account_id uuid NOT NULL,
+    is_close_friend boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    CONSTRAINT friendship_creator_participant CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
-    CONSTRAINT friendship_creator_updater_difference CHECK ((created_by <> updated_by)),
-    CONSTRAINT friendship_ordering CHECK ((a_account_id < b_account_id)),
-    CONSTRAINT friendship_updater_participant CHECK (((updated_by IS NULL) OR (updated_by = a_account_id) OR (updated_by = b_account_id)))
+    CONSTRAINT friendship_creator_friend CHECK ((account_id <> friend_account_id)),
+    CONSTRAINT friendship_creator_participant CHECK ((created_by = account_id))
 );
 
 
@@ -3345,27 +3556,27 @@ The friend relation''s internal id.';
 
 
 --
--- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.a_account_id IS '@omit update
-The ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
-
-
---
--- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.friendship.b_account_id IS '@omit update
-The ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
+COMMENT ON COLUMN vibetype.friendship.account_id IS '@omit update
+The one side of the friend relation. If the status is ''requested'' then it is the requestor account.';
 
 
 --
--- Name: COLUMN friendship.status; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship.friend_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.status IS '@omit create
-The status of the friend relation.';
+COMMENT ON COLUMN vibetype.friendship.friend_account_id IS '@omit update
+The other side of the friend relation. If the status is ''requested'' then it is the requestee account.';
+
+
+--
+-- Name: COLUMN friendship.is_close_friend; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship.is_close_friend IS '@omit create
+The flag indicating whether account_id considers friend_account_id as a close friend or not.';
 
 
 --
@@ -3399,6 +3610,23 @@ The timestamp when the friend relation''s status was updated.';
 COMMENT ON COLUMN vibetype.friendship.updated_by IS '@omit create,update
 The account that updated the friend relation''s status.';
 
+
+--
+-- Name: friendship_request; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.friendship_request (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    friend_account_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT friendship_creator_friend CHECK ((account_id <> friend_account_id)),
+    CONSTRAINT friendship_creator_participant CHECK ((created_by = account_id))
+);
+
+
+ALTER TABLE vibetype.friendship_request OWNER TO ci;
 
 --
 -- Name: guest_flat; Type: VIEW; Schema: vibetype; Owner: ci
@@ -4604,11 +4832,11 @@ ALTER TABLE ONLY vibetype.event_upload
 
 
 --
--- Name: friendship friendship_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_account_id_friend_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_a_account_id_b_account_id_key UNIQUE (a_account_id, b_account_id);
+    ADD CONSTRAINT friendship_account_id_friend_account_id_key UNIQUE (account_id, friend_account_id);
 
 
 --
@@ -4617,6 +4845,22 @@ ALTER TABLE ONLY vibetype.friendship
 
 ALTER TABLE ONLY vibetype.friendship
     ADD CONSTRAINT friendship_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: friendship_request friendship_request_account_id_friend_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_request
+    ADD CONSTRAINT friendship_request_account_id_friend_account_id_key UNIQUE (account_id, friend_account_id);
+
+
+--
+-- Name: friendship_request friendship_request_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_request
+    ADD CONSTRAINT friendship_request_pkey PRIMARY KEY (id);
 
 
 --
@@ -5281,19 +5525,11 @@ ALTER TABLE ONLY vibetype.event_upload
 
 
 --
--- Name: friendship friendship_a_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
-
-
---
--- Name: friendship friendship_b_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT friendship_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -5302,6 +5538,38 @@ ALTER TABLE ONLY vibetype.friendship
 
 ALTER TABLE ONLY vibetype.friendship
     ADD CONSTRAINT friendship_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: friendship friendship_friend_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship
+    ADD CONSTRAINT friendship_friend_account_id_fkey FOREIGN KEY (friend_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: friendship_request friendship_request_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_request
+    ADD CONSTRAINT friendship_request_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: friendship_request friendship_request_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_request
+    ADD CONSTRAINT friendship_request_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: friendship_request friendship_request_friend_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_request
+    ADD CONSTRAINT friendship_request_friend_account_id_fkey FOREIGN KEY (friend_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -5750,26 +6018,84 @@ CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING ((ev
 ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: friendship friendship_existing; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))))) WITH CHECK (false);
+CREATE POLICY friendship_delete ON vibetype.friendship FOR DELETE USING (((account_id = vibetype.invoker_account_id()) OR (friend_account_id = vibetype.invoker_account_id())));
 
 
 --
 -- Name: friendship friendship_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_insert ON vibetype.friendship FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
+CREATE POLICY friendship_insert ON vibetype.friendship FOR INSERT WITH CHECK ((((account_id, friend_account_id, created_by) IN ( SELECT friendship_request.account_id,
+    friendship_request.friend_account_id,
+    friendship_request.account_id
+   FROM vibetype.friendship_request
+  WHERE (friendship_request.friend_account_id = vibetype.invoker_account_id()))) OR ((account_id, friend_account_id, created_by) IN ( SELECT friendship_request.friend_account_id,
+    friendship_request.account_id,
+    friendship_request.friend_account_id
+   FROM vibetype.friendship_request
+  WHERE (friendship_request.friend_account_id = vibetype.invoker_account_id())))));
+
+
+--
+-- Name: friendship friendship_not_blocked; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_not_blocked ON vibetype.friendship AS RESTRICTIVE USING (((NOT (account_id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id)))) AND (NOT (friend_account_id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id))))));
+
+
+--
+-- Name: friendship_request; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.friendship_request ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: friendship_request friendship_request_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_request_delete ON vibetype.friendship_request FOR DELETE USING ((friend_account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: friendship_request friendship_request_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_request_insert ON vibetype.friendship_request FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: friendship_request friendship_request_not_blocked; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_request_not_blocked ON vibetype.friendship_request AS RESTRICTIVE USING (((NOT (account_id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id)))) AND (NOT (friend_account_id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id))))));
+
+
+--
+-- Name: friendship_request friendship_request_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_request_select ON vibetype.friendship_request FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (friend_account_id = vibetype.invoker_account_id())));
+
+
+--
+-- Name: friendship friendship_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (friend_account_id = vibetype.invoker_account_id())));
 
 
 --
 -- Name: friendship friendship_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_update ON vibetype.friendship FOR UPDATE USING ((status = 'requested'::vibetype.friendship_status)) WITH CHECK (((status = 'accepted'::vibetype.friendship_status) AND (updated_by = vibetype.invoker_account_id())));
+CREATE POLICY friendship_update ON vibetype.friendship FOR UPDATE USING ((account_id = vibetype.invoker_account_id())) WITH CHECK ((updated_by = vibetype.invoker_account_id()));
 
 
 --
@@ -6198,6 +6524,54 @@ GRANT ALL ON FUNCTION vibetype.events_organized() TO vibetype_anonymous;
 
 
 --
+-- Name: FUNCTION friendship_accept(requestor_account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.friendship_accept(requestor_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_accept(requestor_account_id uuid) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION friendship_cancel(friend_account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.friendship_cancel(friend_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_cancel(friend_account_id uuid) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION friendship_notify_request(friend_account_id uuid, language text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION friendship_reject(requestor_account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.friendship_reject(requestor_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_reject(requestor_account_id uuid) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION friendship_request(friend_account_id uuid, language text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION friendship_toggle_closeness(friend_account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.friendship_toggle_closeness(friend_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_toggle_closeness(friend_account_id uuid) TO vibetype_account;
+
+
+--
 -- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6552,6 +6926,13 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: TABLE friendship_request; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.friendship_request TO vibetype_account;
 
 
 --
