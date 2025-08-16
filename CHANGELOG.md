@@ -1,3 +1,9 @@
+## [9.7.2](https://github.com/maevsi/sqitch/compare/9.7.1...9.7.2) (2025-08-16)
+
+### Bug Fixes
+
+* schedule release ([6b4a556](https://github.com/maevsi/sqitch/commit/6b4a55646f9a5f6676ec5a1e868149430ef204be))
+
 ## [9.7.1](https://github.com/maevsi/sqitch/compare/9.7.0...9.7.1) (2025-08-02)
 
 ### Bug Fixes
