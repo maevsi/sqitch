@@ -21,8 +21,6 @@ To get started, follow the [Vibetype fullstack setup guide](https://github.com/m
 Once your development environment is running, use these commands to manage database migrations:
 
 ```sh
-npx nypm install          # initial project setup & update
-
 npm run deploy            # apply database migrations
 npm run revert            # roll back database migrations
 
