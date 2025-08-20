@@ -1372,39 +1372,6 @@ COMMENT ON FUNCTION vibetype.friendship_cancel(friend_account_id uuid) IS 'Cance
 
 
 --
--- Name: friendship_notify_request(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-BEGIN
-
-  INSERT INTO vibetype_private.notification (channel, payload)
-  VALUES (
-    'friendship_request',
-    jsonb_pretty(jsonb_build_object(
-      'data', jsonb_build_object(
-        'requestor_account_id', vibetype.invoker_account_id(),
-        'requestee_account_id', friendship_notify_request.friend_account_id
-      ),
-      'template', jsonb_build_object('language', friendship_notify_request.language)
-    ))
-  );
-
-END; $$;
-
-
-ALTER FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) OWNER TO ci;
-
---
--- Name: FUNCTION friendship_notify_request(friend_account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) IS 'Creates a notification for a friendship_request';
-
-
---
 -- Name: friendship_reject(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1429,17 +1396,23 @@ COMMENT ON FUNCTION vibetype.friendship_reject(requestor_account_id uuid) IS 'Re
 
 
 --
--- Name: friendship_request(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: friendship_request(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) RETURNS void
-    LANGUAGE plpgsql
+CREATE FUNCTION vibetype.friendship_request(friend_account_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
   _account_id UUID;
+  _language TEXT;
 BEGIN
 
   _account_id := vibetype.invoker_account_id();
+
+  IF _account_id IN (SELECT id FROM vibetype_private.account_block_ids())
+    OR friend_account_id IN (SELECT id FROM vibetype_private.account_block_ids()) THEN
+    RETURN;
+  END IF;
 
   IF EXISTS(
     SELECT 1
@@ -1463,18 +1436,32 @@ BEGIN
   INSERT INTO vibetype.friendship_request(account_id, friend_account_id, created_by)
   VALUES (_account_id, friendship_request.friend_account_id, _account_id);
 
-  PERFORM vibetype.friendship_notify_request(friendship_request.friend_account_id, friendship_request.language);
+  SELECT COALESCE(language::TEXT, 'de') INTO _language
+  FROM vibetype.contact
+  WHERE account_id = _account_id AND created_by = _account_id;
+
+  INSERT INTO vibetype_private.notification (channel, payload)
+  VALUES (
+    'friendship_request',
+    jsonb_pretty(jsonb_build_object(
+      'data', jsonb_build_object(
+        'requestor_account_id', vibetype.invoker_account_id(),
+        'requestee_account_id', friendship_request.friend_account_id
+      ),
+      'template', jsonb_build_object('language', _language)
+    ))
+  );
 
 END; $$;
 
 
-ALTER FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) OWNER TO ci;
+ALTER FUNCTION vibetype.friendship_request(friend_account_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION friendship_request(friend_account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION friendship_request(friend_account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) IS 'Starts a new friendship request.
+COMMENT ON FUNCTION vibetype.friendship_request(friend_account_id uuid) IS 'Starts a new friendship request.
 
 Error codes:
 - **VTFEX** when the friendship already exists.
@@ -6678,14 +6665,6 @@ GRANT ALL ON FUNCTION vibetype.friendship_cancel(friend_account_id uuid) TO vibe
 
 
 --
--- Name: FUNCTION friendship_notify_request(friend_account_id uuid, language text); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.friendship_notify_request(friend_account_id uuid, language text) TO vibetype_account;
-
-
---
 -- Name: FUNCTION friendship_reject(requestor_account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6694,11 +6673,11 @@ GRANT ALL ON FUNCTION vibetype.friendship_reject(requestor_account_id uuid) TO v
 
 
 --
--- Name: FUNCTION friendship_request(friend_account_id uuid, language text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION friendship_request(friend_account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.friendship_request(friend_account_id uuid, language text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.friendship_request(friend_account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.friendship_request(friend_account_id uuid) TO vibetype_account;
 
 
 --

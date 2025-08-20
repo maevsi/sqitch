@@ -19,7 +19,7 @@ BEGIN
   PERFORM vibetype_test.friendship_request_test('before A sends request to B', accountA, accountA, accountB, false);
 
   -- friendship request from user A to B
-  PERFORM vibetype_test.friendship_request(accountA, accountB, 'de');
+  PERFORM vibetype_test.friendship_request(accountA, accountB);
 
   PERFORM vibetype_test.friendship_request_test('after A sends request to B (1)', accountA, accountA, accountB, true);
   PERFORM vibetype_test.friendship_request_test('after A sends request to B (2)', accountB, accountA, accountB, true);
@@ -37,7 +37,7 @@ BEGIN
   PERFORM vibetype_test.friendship_test('C can also see the friendship between A and B (2)', accountC, accountB, accountA, true);
 
   -- friendship request from user C to A
-  PERFORM vibetype_test.friendship_request(accountC, accountA, 'de');
+  PERFORM vibetype_test.friendship_request(accountC, accountA);
 
   PERFORM vibetype_test.friendship_request_test('after C sends request to A (1)', accountC, accountC, accountA, true);
   PERFORM vibetype_test.friendship_test('after C sends request to A (2)', accountC, accountC, accountA, false);
@@ -48,7 +48,7 @@ BEGIN
   PERFORM vibetype_test.friendship_test('User C is not a friend of B', accountC, accountC, accountA, false);
   BEGIN
     -- C sends another request to A, should lead to exception VTREQ
-    PERFORM vibetype_test.friendship_request(accountA, accountC, 'de');
+    PERFORM vibetype_test.friendship_request(accountA, accountC);
     RAISE 'C sends another request to A: it was possible to request a friendship more than once.';
   EXCEPTION
     WHEN OTHERS THEN
@@ -59,7 +59,7 @@ BEGIN
 
   BEGIN
     -- A sends a request to C, should lead to exception VTREQ
-    PERFORM vibetype_test.friendship_request(accountA, accountC, 'de');
+    PERFORM vibetype_test.friendship_request(accountA, accountC);
     RAISE 'A sends a request to C: it was possible to request a friendship more than once.';
   EXCEPTION
     WHEN OTHERS THEN
@@ -70,7 +70,7 @@ BEGIN
 
   BEGIN
     -- A sends a new request to B, should lead to exception VTFEX
-    PERFORM vibetype_test.friendship_request(accountA, accountB, 'de');
+    PERFORM vibetype_test.friendship_request(accountA, accountB);
     RAISE 'A sends a new request to B: it was possible to request for an already existing friendship.';
   EXCEPTION
     WHEN OTHERS THEN
@@ -81,7 +81,7 @@ BEGIN
 
   BEGIN
     -- B sends a new request to A, should lead to exception VTFEX
-    PERFORM vibetype_test.friendship_request(accountB, accountA, 'de');
+    PERFORM vibetype_test.friendship_request(accountB, accountA);
     RAISE 'It was possible to request for an already existing friendship.';
   EXCEPTION
     WHEN OTHERS THEN
@@ -96,7 +96,7 @@ BEGIN
   PERFORM vibetype_test.friendship_test('After A rejected C''s friendship request (2)', accountC, accountC, accountA, false);
 
   -- a new friendship request from user C to A, this time accepted by A
-  PERFORM vibetype_test.friendship_request(accountC, accountA, 'de');
+  PERFORM vibetype_test.friendship_request(accountC, accountA);
   PERFORM vibetype_test.friendship_accept(accountA, accountC);
   PERFORM vibetype_test.friendship_test('C is a friend of A (1)', accountA, accountA, accountC, true);
   PERFORM vibetype_test.friendship_test('C is a friend of A (2)', accountA, accountC, accountA, true);
@@ -104,7 +104,7 @@ BEGIN
   PERFORM vibetype_test.friendship_test('C is a friend of A (4)', accountC, accountC, accountA, true);
 
   -- friendship request from user B to C
-  PERFORM vibetype_test.friendship_request(accountB, accountC, 'de');
+  PERFORM vibetype_test.friendship_request(accountB, accountC);
 
   -- B marks A as a close friend
   PERFORM vibetype_test.friendship_toggle_closeness(accountB, accountA);

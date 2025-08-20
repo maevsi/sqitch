@@ -62,32 +62,6 @@ COMMENT ON FUNCTION vibetype.friendship_cancel(UUID) IS 'Cancels a friendship (i
 
 GRANT EXECUTE ON FUNCTION vibetype.friendship_cancel(UUID) TO vibetype_account;
 
--- create notification for a request
-
-CREATE FUNCTION vibetype.friendship_notify_request(
-  friend_account_id UUID,
-  language TEXT
-) RETURNS VOID AS $$
-BEGIN
-
-  INSERT INTO vibetype_private.notification (channel, payload)
-  VALUES (
-    'friendship_request',
-    jsonb_pretty(jsonb_build_object(
-      'data', jsonb_build_object(
-        'requestor_account_id', vibetype.invoker_account_id(),
-        'requestee_account_id', friendship_notify_request.friend_account_id
-      ),
-      'template', jsonb_build_object('language', friendship_notify_request.language)
-    ))
-  );
-
-END; $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-COMMENT ON FUNCTION vibetype.friendship_notify_request(UUID, TEXT) IS 'Creates a notification for a friendship_request';
-
-GRANT EXECUTE ON FUNCTION vibetype.friendship_notify_request(UUID, TEXT) TO vibetype_account;
-
 -- reject friendship request
 
 CREATE FUNCTION vibetype.friendship_reject(
@@ -107,14 +81,19 @@ GRANT EXECUTE ON FUNCTION vibetype.friendship_reject(UUID) TO vibetype_account;
 -- request friendship
 
 CREATE FUNCTION vibetype.friendship_request(
-  friend_account_id UUID,
-  language TEXT
+  friend_account_id UUID
 ) RETURNS VOID AS $$
 DECLARE
   _account_id UUID;
+  _language TEXT;
 BEGIN
 
   _account_id := vibetype.invoker_account_id();
+
+  IF _account_id IN (SELECT id FROM vibetype_private.account_block_ids())
+    OR friend_account_id IN (SELECT id FROM vibetype_private.account_block_ids()) THEN
+    RETURN;
+  END IF;
 
   IF EXISTS(
     SELECT 1
@@ -138,13 +117,27 @@ BEGIN
   INSERT INTO vibetype.friendship_request(account_id, friend_account_id, created_by)
   VALUES (_account_id, friendship_request.friend_account_id, _account_id);
 
-  PERFORM vibetype.friendship_notify_request(friendship_request.friend_account_id, friendship_request.language);
+  SELECT COALESCE(language::TEXT, 'de') INTO _language
+  FROM vibetype.contact
+  WHERE account_id = _account_id AND created_by = _account_id;
 
-END; $$ LANGUAGE plpgsql SECURITY INVOKER;
+  INSERT INTO vibetype_private.notification (channel, payload)
+  VALUES (
+    'friendship_request',
+    jsonb_pretty(jsonb_build_object(
+      'data', jsonb_build_object(
+        'requestor_account_id', vibetype.invoker_account_id(),
+        'requestee_account_id', friendship_request.friend_account_id
+      ),
+      'template', jsonb_build_object('language', _language)
+    ))
+  );
 
-COMMENT ON FUNCTION vibetype.friendship_request(UUID, TEXT) IS E'Starts a new friendship request.\n\nError codes:\n- **VTFEX** when the friendship already exists.\n- **VTREQ** when there is already a friendship request.';
+END; $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION vibetype.friendship_request(UUID, TEXT) TO vibetype_account;
+COMMENT ON FUNCTION vibetype.friendship_request(UUID) IS E'Starts a new friendship request.\n\nError codes:\n- **VTFEX** when the friendship already exists.\n- **VTREQ** when there is already a friendship request.';
+
+GRANT EXECUTE ON FUNCTION vibetype.friendship_request(UUID) TO vibetype_account;
 
 
 -- toggle closeness of friendship

@@ -51,19 +51,19 @@ GRANT EXECUTE ON FUNCTION vibetype_test.friendship_reject(UUID, UUID) TO vibetyp
 
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_request (
   _invoker_account_id UUID,
-  _friend_account_id UUID,
-  _language TEXT
+  _friend_account_id UUID
 ) RETURNS VOID AS $$
 BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  PERFORM vibetype.friendship_request(_friend_account_id, _language);
+  PERFORM vibetype.friendship_request(_friend_account_id);
 
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request(UUID, UUID, TEXT) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request(UUID, UUID) TO vibetype_account;
+
 
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_toggle_closeness (
   _invoker_account_id UUID,
