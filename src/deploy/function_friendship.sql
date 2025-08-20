@@ -26,6 +26,12 @@ BEGIN
   INSERT INTO vibetype.friendship(account_id, friend_account_id, created_by)
   VALUES (_friend_account_id, requestor_account_id, _friend_account_id);
 
+  INSERT INTO vibetype.friendship_closeness(account_id, friend_account_id, created_by)
+  VALUES (requestor_account_id, _friend_account_id, requestor_account_id);
+
+  INSERT INTO vibetype.friendship_closeness(account_id, friend_account_id, created_by)
+  VALUES (_friend_account_id, requestor_account_id, _friend_account_id);
+
   DELETE FROM vibetype.friendship_request
   WHERE account_id = requestor_account_id AND friend_account_id = vibetype.invoker_account_id();
 
@@ -148,23 +154,23 @@ CREATE FUNCTION vibetype.friendship_toggle_closeness(
 ) RETURNS BOOLEAN AS $$
 DECLARE
   _account_id UUID;
-  _id UUID;
+  _result BOOLEAN;
   _is_close_friend BOOLEAN;
 BEGIN
 
   _account_id := vibetype.invoker_account_id();
 
-  SELECT f.id
-  INTO _id
+  SELECT TRUE
+  INTO _result
   FROM vibetype.friendship f
   WHERE f.account_id = _account_id
     AND f.friend_account_id = friendship_toggle_closeness.friend_account_id;
 
-  IF _id IS NULL THEN
+  IF _result IS NULL THEN
     RAISE EXCEPTION 'Friendship does not exist' USING ERRCODE = 'VTFTC';
   END IF;
 
-  UPDATE vibetype.friendship f
+  UPDATE vibetype.friendship_closeness f
   SET is_close_friend = NOT is_close_friend
   WHERE account_id = vibetype.invoker_account_id()
     AND f.friend_account_id = friendship_toggle_closeness.friend_account_id

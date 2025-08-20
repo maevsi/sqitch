@@ -1318,6 +1318,12 @@ BEGIN
   INSERT INTO vibetype.friendship(account_id, friend_account_id, created_by)
   VALUES (_friend_account_id, requestor_account_id, _friend_account_id);
 
+  INSERT INTO vibetype.friendship_closeness(account_id, friend_account_id, created_by)
+  VALUES (requestor_account_id, _friend_account_id, requestor_account_id);
+
+  INSERT INTO vibetype.friendship_closeness(account_id, friend_account_id, created_by)
+  VALUES (_friend_account_id, requestor_account_id, _friend_account_id);
+
   DELETE FROM vibetype.friendship_request
   WHERE account_id = requestor_account_id AND friend_account_id = vibetype.invoker_account_id();
 
@@ -1484,23 +1490,23 @@ CREATE FUNCTION vibetype.friendship_toggle_closeness(friend_account_id uuid) RET
     AS $$
 DECLARE
   _account_id UUID;
-  _id UUID;
+  _result BOOLEAN;
   _is_close_friend BOOLEAN;
 BEGIN
 
   _account_id := vibetype.invoker_account_id();
 
-  SELECT f.id
-  INTO _id
+  SELECT TRUE
+  INTO _result
   FROM vibetype.friendship f
   WHERE f.account_id = _account_id
     AND f.friend_account_id = friendship_toggle_closeness.friend_account_id;
 
-  IF _id IS NULL THEN
+  IF _result IS NULL THEN
     RAISE EXCEPTION 'Friendship does not exist' USING ERRCODE = 'VTFTC';
   END IF;
 
-  UPDATE vibetype.friendship f
+  UPDATE vibetype.friendship_closeness f
   SET is_close_friend = NOT is_close_friend
   WHERE account_id = vibetype.invoker_account_id()
     AND f.friend_account_id = friendship_toggle_closeness.friend_account_id
@@ -3528,11 +3534,8 @@ CREATE TABLE vibetype.friendship (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
     friend_account_id uuid NOT NULL,
-    is_close_friend boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid,
     CONSTRAINT friendship_creator_friend CHECK ((account_id <> friend_account_id)),
     CONSTRAINT friendship_creator_participant CHECK ((created_by = account_id))
 );
@@ -3560,7 +3563,7 @@ The friend relation''s internal id.';
 --
 
 COMMENT ON COLUMN vibetype.friendship.account_id IS '@omit update
-The one side of the friend relation. If the status is ''requested'' then it is the requestor account.';
+One side of the friend relation.';
 
 
 --
@@ -3568,15 +3571,7 @@ The one side of the friend relation. If the status is ''requested'' then it is t
 --
 
 COMMENT ON COLUMN vibetype.friendship.friend_account_id IS '@omit update
-The other side of the friend relation. If the status is ''requested'' then it is the requestee account.';
-
-
---
--- Name: COLUMN friendship.is_close_friend; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.friendship.is_close_friend IS '@omit create
-The flag indicating whether account_id considers friend_account_id as a close friend or not.';
+The other side of the friend relation.';
 
 
 --
@@ -3596,19 +3591,94 @@ The account that created the friend relation was created.';
 
 
 --
--- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: friendship_closeness; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.updated_at IS '@omit create,update
-The timestamp when the friend relation''s status was updated.';
+CREATE TABLE vibetype.friendship_closeness (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    friend_account_id uuid NOT NULL,
+    is_close_friend boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid,
+    CONSTRAINT friendship_closeness_creator CHECK ((created_by = account_id)),
+    CONSTRAINT friendship_closeness_updater CHECK ((updated_by = account_id))
+);
+
+
+ALTER TABLE vibetype.friendship_closeness OWNER TO ci;
+
+--
+-- Name: TABLE friendship_closeness; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.friendship_closeness IS 'The presence of a row in this tables indicates that account_id considers friend_account_id as a close friend.';
 
 
 --
--- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship_closeness.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.updated_by IS '@omit create,update
-The account that updated the friend relation''s status.';
+COMMENT ON COLUMN vibetype.friendship_closeness.id IS '@omit create,update
+The friend relation''s internal id.';
+
+
+--
+-- Name: COLUMN friendship_closeness.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.account_id IS '@omit update
+The one side of the friend relation. If the status is ''requested'' then it is the requestor account.';
+
+
+--
+-- Name: COLUMN friendship_closeness.friend_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.friend_account_id IS '@omit update
+The other side of the friend relation. If the status is ''requested'' then it is the requestee account.';
+
+
+--
+-- Name: COLUMN friendship_closeness.is_close_friend; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.is_close_friend IS '@omit create
+The flag indicating whether account_id considers friend_account_id as a close friend or not.';
+
+
+--
+-- Name: COLUMN friendship_closeness.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.created_at IS '@omit create,update
+The timestamp when the friend relation was created.';
+
+
+--
+-- Name: COLUMN friendship_closeness.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.created_by IS '@omit update
+The account that created the friend relation was created.';
+
+
+--
+-- Name: COLUMN friendship_closeness.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.updated_at IS '@omit create,update
+The timestamp when the friend relation''s closeness status was updated.';
+
+
+--
+-- Name: COLUMN friendship_closeness.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.friendship_closeness.updated_by IS '@omit create,update
+The account that updated the friend relation''s closeness status.';
 
 
 --
@@ -4840,6 +4910,22 @@ ALTER TABLE ONLY vibetype.friendship
 
 
 --
+-- Name: friendship_closeness friendship_closeness_account_id_friend_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_closeness
+    ADD CONSTRAINT friendship_closeness_account_id_friend_account_id_key UNIQUE (account_id, friend_account_id);
+
+
+--
+-- Name: friendship_closeness friendship_closeness_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_closeness
+    ADD CONSTRAINT friendship_closeness_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: friendship friendship_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5193,6 +5279,20 @@ COMMENT ON INDEX vibetype.idx_event_upload_is_header_image_unique IS 'Ensures th
 
 
 --
+-- Name: idx_friendship_closeness_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_friendship_closeness_created_by ON vibetype.friendship_closeness USING btree (created_by);
+
+
+--
+-- Name: idx_friendship_closeness_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_friendship_closeness_updated_by ON vibetype.friendship_closeness USING btree (updated_by);
+
+
+--
 -- Name: idx_friendship_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5204,20 +5304,6 @@ CREATE INDEX idx_friendship_created_by ON vibetype.friendship USING btree (creat
 --
 
 COMMENT ON INDEX vibetype.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
-
-
---
--- Name: idx_friendship_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_friendship_updated_by ON vibetype.friendship USING btree (updated_by);
-
-
---
--- Name: INDEX idx_friendship_updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON INDEX vibetype.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 
 --
@@ -5305,10 +5391,10 @@ CREATE TRIGGER vibetype_trigger_event_search_vector BEFORE INSERT OR UPDATE OF n
 
 
 --
--- Name: friendship vibetype_trigger_friendship_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: friendship_closeness vibetype_trigger_friendship_closeness_update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_friendship_update BEFORE UPDATE ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+CREATE TRIGGER vibetype_trigger_friendship_closeness_update BEFORE UPDATE ON vibetype.friendship_closeness FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
@@ -5525,11 +5611,35 @@ ALTER TABLE ONLY vibetype.event_upload
 
 
 --
+-- Name: friendship_closeness fk_friendship_closeness; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_closeness
+    ADD CONSTRAINT fk_friendship_closeness FOREIGN KEY (account_id, friend_account_id) REFERENCES vibetype.friendship(account_id, friend_account_id) ON DELETE CASCADE;
+
+
+--
 -- Name: friendship friendship_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.friendship
     ADD CONSTRAINT friendship_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: friendship_closeness friendship_closeness_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_closeness
+    ADD CONSTRAINT friendship_closeness_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: friendship_closeness friendship_closeness_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.friendship_closeness
+    ADD CONSTRAINT friendship_closeness_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -5570,14 +5680,6 @@ ALTER TABLE ONLY vibetype.friendship_request
 
 ALTER TABLE ONLY vibetype.friendship_request
     ADD CONSTRAINT friendship_request_friend_account_id_fkey FOREIGN KEY (friend_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
-
-
---
--- Name: friendship friendship_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -6018,6 +6120,49 @@ CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING ((ev
 ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: friendship_closeness; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.friendship_closeness ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: friendship_closeness friendship_closeness_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_closeness_delete ON vibetype.friendship_closeness FOR DELETE USING ((account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: friendship_closeness friendship_closeness_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_closeness_insert ON vibetype.friendship_closeness FOR INSERT WITH CHECK (((account_id = vibetype.invoker_account_id()) OR (friend_account_id = vibetype.invoker_account_id())));
+
+
+--
+-- Name: friendship_closeness friendship_closeness_not_blocked; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_closeness_not_blocked ON vibetype.friendship_closeness AS RESTRICTIVE USING (((NOT (account_id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id)))) AND (NOT (friend_account_id IN ( SELECT account_block_ids.id
+   FROM vibetype_private.account_block_ids() account_block_ids(id))))));
+
+
+--
+-- Name: friendship_closeness friendship_closeness_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_closeness_select ON vibetype.friendship_closeness FOR SELECT USING ((account_id = vibetype.invoker_account_id()));
+
+
+--
+-- Name: friendship_closeness friendship_closeness_update; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_closeness_update ON vibetype.friendship_closeness FOR UPDATE USING ((account_id = vibetype.invoker_account_id())) WITH CHECK ((updated_by = vibetype.invoker_account_id()));
+
+
+--
 -- Name: friendship friendship_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
@@ -6088,14 +6233,7 @@ CREATE POLICY friendship_request_select ON vibetype.friendship_request FOR SELEC
 -- Name: friendship friendship_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT USING (((account_id = vibetype.invoker_account_id()) OR (friend_account_id = vibetype.invoker_account_id())));
-
-
---
--- Name: friendship friendship_update; Type: POLICY; Schema: vibetype; Owner: ci
---
-
-CREATE POLICY friendship_update ON vibetype.friendship FOR UPDATE USING ((account_id = vibetype.invoker_account_id())) WITH CHECK ((updated_by = vibetype.invoker_account_id()));
+CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT USING (true);
 
 
 --
@@ -6925,7 +7063,14 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 -- Name: TABLE friendship; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.friendship TO vibetype_account;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: TABLE friendship_closeness; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.friendship_closeness TO vibetype_account;
 
 
 --

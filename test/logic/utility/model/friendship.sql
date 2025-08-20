@@ -86,29 +86,58 @@ CREATE OR REPLACE FUNCTION vibetype_test.friendship_test (
   _invoker_account_id UUID,
   _account_id UUID,
   _friend_account_id UUID,  -- _friend_account_id IS NULL means "any friend"
-  _is_close_friend BOOLEAN, -- _is_close_friend IS NULL means "any boolean value"
-  _expected_count INTEGER
+  _expected_result BOOLEAN
 ) RETURNS VOID AS $$
 DECLARE
-  _result INTEGER;
+  _result BOOLEAN;
 BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  SELECT count(*) INTO _result
+  SELECT TRUE INTO _result
   FROM vibetype.friendship
   WHERE account_id = _account_id
-    AND (_friend_account_id IS NULL OR friend_account_id = _friend_account_id)
-    AND (_is_close_friend IS NULL OR is_close_friend = _is_close_friend);
+    AND friend_account_id = _friend_account_id;
 
-  IF _result != _expected_count THEN
-    RAISE EXCEPTION '%: expected count was % but result is %.', _test_case, _expected_count, _result USING ERRCODE = 'VTTST';
+  IF _result IS NULL THEN
+    _result := FALSE;
+  END IF;
+
+  IF _result != _expected_result THEN
+    RAISE EXCEPTION '%: expected result was % but result is %.', _test_case, _expected_result, _result USING ERRCODE = 'VTTST';
   END IF;
 
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, UUID, UUID, BOOLEAN, INTEGER) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, UUID, UUID, BOOLEAN) TO vibetype_account;
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_closeness_test (
+  _test_case TEXT,
+  _invoker_account_id UUID,
+  _account_id UUID,
+  _friend_account_id UUID,
+  _expected_result BOOLEAN
+) RETURNS VOID AS $$
+DECLARE
+  _result BOOLEAN;
+BEGIN
+  SET LOCAL role = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  SELECT is_close_friend INTO _result
+  FROM vibetype.friendship_closeness
+  WHERE account_id = _account_id
+    AND friend_account_id = _friend_account_id;
+
+  IF _result != _expected_result THEN
+    RAISE EXCEPTION '%: expected result was % but result is %.', _test_case, _expected_result, _result USING ERRCODE = 'VTFCT';
+  END IF;
+
+  SET LOCAL ROLE NONE;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_closeness_test(TEXT, UUID, UUID, UUID, BOOLEAN) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_request_test (

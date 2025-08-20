@@ -153,7 +153,11 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['idx_friendship_created_by', 'idx_friendship_updated_by']
+  ARRAY ['idx_friendship_created_by']
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_friendship_closeness_created_by', 'idx_friendship_closeness_updated_by']
 );
 
 SELECT vibetype_test.index_existence(
