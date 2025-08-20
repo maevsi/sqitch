@@ -1,6 +1,6 @@
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_accept (
   _invoker_account_id UUID,
-  _id UUID
+  _requestor_account_id UUID
 ) RETURNS VOID AS $$
 DECLARE
   rec RECORD;
@@ -9,9 +9,7 @@ BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  UPDATE vibetype.friendship
-    SET "status" = 'accepted'::vibetype.friendship_status
-    WHERE id = _id;
+  PERFORM vibetype.friendship_accept(_requestor_account_id);
 
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
@@ -19,16 +17,31 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_accept(UUID, UUID) TO vibetype_account;
 
 
-CREATE OR REPLACE FUNCTION vibetype_test.friendship_reject (
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_cancel (
   _invoker_account_id UUID,
-  _id UUID
+  _friend_account_id UUID
 ) RETURNS VOID AS $$
 BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  DELETE FROM vibetype.friendship
-    WHERE id = _id;
+  PERFORM vibetype.friendship_cancel(_friend_account_id);
+
+  SET LOCAL ROLE NONE;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_cancel(UUID, UUID) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_reject (
+  _invoker_account_id UUID,
+  _friend_account_id UUID
+) RETURNS VOID AS $$
+BEGIN
+  SET LOCAL role = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  PERFORM vibetype.friendship_reject(_friend_account_id);
 
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
@@ -39,129 +52,121 @@ GRANT EXECUTE ON FUNCTION vibetype_test.friendship_reject(UUID, UUID) TO vibetyp
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_request (
   _invoker_account_id UUID,
   _friend_account_id UUID
-) RETURNS UUID AS $$
-DECLARE
-  _id UUID;
-  _a_account_id UUID;
-  _b_account_id UUID;
+) RETURNS VOID AS $$
 BEGIN
   SET LOCAL role = 'vibetype_account';
   EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
 
-  IF _invoker_account_id < _friend_account_id THEN
-    _a_account_id := _invoker_account_id;
-    _b_account_id := _friend_account_id;
-  ELSE
-    _a_account_id := _friend_account_id;
-    _b_account_id := _invoker_account_id;
-  END IF;
-
-  INSERT INTO vibetype.friendship(a_account_id, b_account_id, created_by)
-    VALUES (_a_account_id, _b_account_id, _invoker_account_id)
-    RETURNING id INTO _id;
+  PERFORM vibetype.friendship_request(_friend_account_id);
 
   SET LOCAL ROLE NONE;
-
-  RETURN _id;
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request(UUID, UUID) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_toggle_closeness (
+  _invoker_account_id UUID,
+  _friend_account_id UUID
+) RETURNS VOID AS $$
+BEGIN
+  SET LOCAL role = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  PERFORM vibetype.friendship_toggle_closeness(_friend_account_id);
+
+  SET LOCAL ROLE NONE;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_toggle_closeness(UUID, UUID) TO vibetype_account;
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_test (
   _test_case TEXT,
   _invoker_account_id UUID,
-  _status TEXT, -- status IS NULL means "any status"
-  _expected_result UUID[]
+  _account_id UUID,
+  _friend_account_id UUID,  -- _friend_account_id IS NULL means "any friend"
+  _expected_result BOOLEAN
 ) RETURNS VOID AS $$
 DECLARE
-  rec RECORD;
+  _result BOOLEAN;
 BEGIN
-  IF _invoker_account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    SET LOCAL role = 'vibetype_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  SET LOCAL role = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  SELECT TRUE INTO _result
+  FROM vibetype.friendship
+  WHERE account_id = _account_id
+    AND friend_account_id = _friend_account_id;
+
+  IF _result IS NULL THEN
+    _result := FALSE;
   END IF;
 
-  IF EXISTS (
-    SELECT id FROM vibetype.friendship WHERE _status IS NULL OR status = _status::vibetype.friendship_status
-    EXCEPT
-    SELECT * FROM unnest(_expected_result)
-  ) THEN
-    RAISE EXCEPTION 'some accounts should not appear in the query result';
-  END IF;
-
-  IF EXISTS (
-    SELECT * FROM unnest(_expected_result)
-    EXCEPT
-    SELECT id FROM vibetype.friendship WHERE _status IS NULL OR status = _status::vibetype.friendship_status
-  ) THEN
-    RAISE EXCEPTION 'some account is missing in the query result';
+  IF _result != _expected_result THEN
+    RAISE EXCEPTION '%: expected result was % but result is %.', _test_case, _expected_result, _result USING ERRCODE = 'VTTST';
   END IF;
 
   SET LOCAL ROLE NONE;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, TEXT, UUID[]) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, UUID, UUID, BOOLEAN) TO vibetype_account;
 
-
-CREATE OR REPLACE FUNCTION vibetype_test.friendship_account_ids_test (
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_closeness_test (
   _test_case TEXT,
   _invoker_account_id UUID,
-  _expected_result UUID[]
+  _account_id UUID,
+  _friend_account_id UUID,
+  _expected_result BOOLEAN
 ) RETURNS VOID AS $$
 DECLARE
-  rec RECORD;
+  _result BOOLEAN;
 BEGIN
-  IF _invoker_account_id IS NULL THEN
-    SET LOCAL jwt.claims.account_id = '';
-  ELSE
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  SET LOCAL role = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  SELECT is_close_friend INTO _result
+  FROM vibetype.friendship_closeness
+  WHERE account_id = _account_id
+    AND friend_account_id = _friend_account_id;
+
+  IF _result != _expected_result THEN
+    RAISE EXCEPTION '%: expected result was % but result is %.', _test_case, _expected_result, _result USING ERRCODE = 'VTFCT';
   END IF;
 
-  IF EXISTS (
-    WITH friendship_account_ids_test AS (
-      SELECT b_account_id as account_id
-      FROM vibetype.friendship
-      WHERE a_account_id = _invoker_account_id
-        and status = 'accepted'::vibetype.friendship_status
-      UNION ALL
-      SELECT a_account_id as account_id
-      FROM vibetype.friendship
-      WHERE b_account_id = _invoker_account_id
-        and status = 'accepted'::vibetype.friendship_status
-    )
-    SELECT account_id as id
-    FROM friendship_account_ids_test
-    WHERE account_id NOT IN (SELECT b.id FROM vibetype_private.account_block_ids() b)
-    EXCEPT
-    SELECT * FROM unnest(_expected_result)
-  ) THEN
-    RAISE EXCEPTION 'some accounts should not appear in the list of friends';
+  SET LOCAL ROLE NONE;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_closeness_test(TEXT, UUID, UUID, UUID, BOOLEAN) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_request_test (
+  _test_case TEXT,
+  _invoker_account_id UUID,
+  _account_id UUID,
+  _friend_account_id UUID,
+  _expected_to_exist BOOLEAN
+) RETURNS VOID AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  SET LOCAL role = 'vibetype_account';
+  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+
+  SELECT id INTO _id
+  FROM vibetype.friendship_request
+  WHERE account_id = _account_id
+    AND friend_account_id = _friend_account_id;
+
+  IF _id IS NULL AND _expected_to_exist THEN
+    RAISE EXCEPTION '%: friendship request expected to exist but not present.', _test_case USING ERRCODE = 'VTFRT';
   END IF;
 
-  IF EXISTS (
-    WITH friendship_account_ids_test AS (
-      SELECT b_account_id as account_id
-      FROM vibetype.friendship
-      WHERE a_account_id = vibetype.invoker_account_id()
-        and status = 'accepted'::vibetype.friendship_status
-      UNION ALL
-      SELECT a_account_id as account_id
-      FROM vibetype.friendship
-      WHERE b_account_id = vibetype.invoker_account_id()
-        and status = 'accepted'::vibetype.friendship_status
-    )
-    SELECT * FROM unnest(_expected_result)
-    EXCEPT
-    SELECT account_id as id
-    FROM friendship_account_ids_test
-    WHERE account_id NOT IN (SELECT b.id FROM vibetype_private.account_block_ids() b)
-  ) THEN
-    RAISE EXCEPTION 'some account is missing in the list of friends';
+  IF _id IS NOT NULL AND NOT _expected_to_exist THEN
+    RAISE EXCEPTION '%: friendship request exists but is not expected to exist.', _test_case USING ERRCODE = 'VTFRT';
   END IF;
-END $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_account_ids_test(TEXT, UUID, UUID[]) TO vibetype_account;
+  SET LOCAL ROLE NONE;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request_test(TEXT, UUID, UUID, UUID, BOOLEAN) TO vibetype_account;
