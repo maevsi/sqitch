@@ -2,7 +2,7 @@
 # check=skip=SecretsUsedInArgOrEnv
 
 ##############################
-FROM sqitch/sqitch:v1.5.2.0 AS prepare
+FROM sqitch/sqitch:v1.5.2.1 AS prepare
 
 WORKDIR /srv/app
 
