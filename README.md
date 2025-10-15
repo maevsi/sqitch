@@ -30,6 +30,8 @@ npm run test:data:remove  # remove test data migration
 npm run test:update       # update test fixtures
 ```
 
+> ❗ If `npm run deploy` breaks the terminal, try to check for IPv6 incompatibility with `nmcli dev show | grep DNS`. In such a case, commenting out  `::1   localhost` in `/etc/hosts` should allow for a connection with an older protocol.
+
 After setup, you can inspect and test GraphQL queries and mutations using GraphiQL at https://postgraphile.localhost/graphiql.
 
 > 💡 You can run `npm run sqitch <command> [options]` to access full Sqitch functionality.
