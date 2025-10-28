@@ -3,7 +3,7 @@
     "conventional-changelog-conventionalcommits": "9.1.0"
   },
   "engines": {
-    "node": "22"
+    "node": "24"
   },
   "name": "@maevsi/sqitch",
   "packageManager": "pnpm@10.19.0",
