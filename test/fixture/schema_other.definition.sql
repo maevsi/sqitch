@@ -2,6 +2,8 @@
 -- PostgreSQL database dump
 --
 
+\restrict restrictkey
+
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -854,6 +856,13 @@ REVOKE ALL ON FUNCTION public.encrypt_iv(bytea, bytea, bytea, text) FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION fips_mode(); Type: ACL; Schema: public; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION public.fips_mode() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION gen_random_bytes(integer); Type: ACL; Schema: public; Owner: ci
 --
 
@@ -1248,4 +1257,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE ci REVOKE ALL ON FUNCTIONS FROM PUBLIC;
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict restrictkey
 
