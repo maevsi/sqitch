@@ -2,6 +2,8 @@
 -- PostgreSQL database dump
 --
 
+\restrict restrictkey
+
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -6649,4 +6651,6 @@ GRANT SELECT ON TABLE vibetype_private.notification TO grafana;
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict restrictkey
 
