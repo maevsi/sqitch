@@ -34,6 +34,8 @@ After setup, you can inspect and test GraphQL queries and mutations using Graphi
 
 > 💡 You can run `npm run sqitch <command> [options]` to access full Sqitch functionality.
 
+> 🧊 If your terminal hangs while running the commands above, it may be related to IPv6 DNS configuration. To check if IPv6 DNS addresses are in use, run `nmcli dev show | grep DNS` and look for lines labeled `IP6.DNS`. Disabling IPv6, e.g. by commenting out `::1 localhost` in your `/etc/hosts` file, may resolve the issue.
+
 <!-- TODO: Add a way to inspect the schema without launching the full maevsi/stack. -->
 
 ## 📚 Documentation
