@@ -43,15 +43,6 @@ CREATE SCHEMA tiger;
 ALTER SCHEMA tiger OWNER TO ci;
 
 --
--- Name: tiger_data; Type: SCHEMA; Schema: -; Owner: ci
---
-
-CREATE SCHEMA tiger_data;
-
-
-ALTER SCHEMA tiger_data OWNER TO ci;
-
---
 -- Name: topology; Type: SCHEMA; Schema: -; Owner: ci
 --
 
