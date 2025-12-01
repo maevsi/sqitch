@@ -58,6 +58,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/friendship.sql
 \i scenario/model/guest_claim_array.sql
 \i scenario/model/guest_contact_ids.sql
+\i scenario/model/guest_count.sql
 \i scenario/model/guest_create_multiple.sql
 \i scenario/model/guest.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
