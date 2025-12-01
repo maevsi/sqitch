@@ -37,15 +37,21 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \c - postgraphile
 
-\i scenario/model/account_block.sql
+\i scenario/model/account/location.sql
+\i scenario/model/account/policy.sql
+\i scenario/model/event/location.sql
+\i scenario/model/event/policy.sql
+\i scenario/model/account_block_accounts.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql
 \i scenario/model/account_social_network.sql
-\i scenario/model/account.sql
 \i scenario/model/authenticate.sql
-\i scenario/model/event.sql
+\i scenario/model/contact.sql
+\i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
 \i scenario/model/friendship.sql
+\i scenario/model/guest_claim_array.sql
+\i scenario/model/guest_create_multiple.sql
 \i scenario/model/guest.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
