@@ -242,17 +242,14 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 --
 
 CREATE FUNCTION vibetype.account_block_accounts() RETURNS TABLE(id uuid, username text, storage_key text)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    SELECT a.id, a.username, u.storage_key
-    FROM vibetype.account a
-      JOIN vibetype.account_block b ON a.id = b.blocked_account_id
-      LEFT JOIN vibetype.profile_picture p ON a.id = p.account_id
-      LEFT JOIN vibetype.upload u ON p.upload_id = u.id
-    WHERE b.created_by = vibetype.invoker_account_id();
-END
+  SELECT a.id, a.username, u.storage_key
+  FROM vibetype.account AS a
+    JOIN vibetype.account_block AS b ON a.id = b.blocked_account_id
+    LEFT JOIN vibetype.profile_picture AS p ON a.id = p.account_id
+    LEFT JOIN vibetype.upload AS u ON p.upload_id = u.id
+  WHERE b.created_by = vibetype.invoker_account_id()
 $$;
 
 
