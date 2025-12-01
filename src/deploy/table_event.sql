@@ -6,7 +6,7 @@ CREATE TABLE vibetype.event (
   address_id               UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") < 1000000),
   "end"                    TIMESTAMP WITH TIME ZONE,
-  guest_count_maximum    INTEGER CHECK (guest_count_maximum > 0),
+  guest_count_maximum      INTEGER CHECK (guest_count_maximum > 0),
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,
   is_remote                BOOLEAN,
