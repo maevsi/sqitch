@@ -136,6 +136,12 @@
 * **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
 * **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
 
+## [9.8.0](https://github.com/maevsi/sqitch/compare/9.7.9...9.8.0) (2025-12-01)
+
+### Features
+
+* **account:** enable selecting accounts blocked by current user ([#248](https://github.com/maevsi/sqitch/issues/248)) ([26c39a0](https://github.com/maevsi/sqitch/commit/26c39a086296d36d212e69a7b7495aa94dd9dfc9))
+
 ## [9.7.9](https://github.com/maevsi/sqitch/compare/9.7.8...9.7.9) (2025-11-15)
 
 ### Bug Fixes

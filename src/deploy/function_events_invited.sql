@@ -1,5 +1,6 @@
 BEGIN;
 
+-- TODO: compare to guest_select, guest_update policy
 CREATE FUNCTION vibetype_private.events_invited()
 RETURNS TABLE(event_id uuid) AS $$
 BEGIN
