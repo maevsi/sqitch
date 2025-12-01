@@ -1,3 +1,45 @@
+## [9.7.9](https://github.com/maevsi/sqitch/compare/9.7.8...9.7.9) (2025-11-15)
+
+### Bug Fixes
+
+* schedule release ([684242e](https://github.com/maevsi/sqitch/commit/684242ea1b80224825562c783c0577b9057c50b2))
+
+## [9.7.8](https://github.com/maevsi/sqitch/compare/9.7.7...9.7.8) (2025-11-01)
+
+### Bug Fixes
+
+* schedule release ([946d81c](https://github.com/maevsi/sqitch/commit/946d81cab6ac2b2ef44e1792efb8a374641daf85))
+
+## [9.7.7](https://github.com/maevsi/sqitch/compare/9.7.6...9.7.7) (2025-10-25)
+
+### Bug Fixes
+
+* schedule release ([9f11da4](https://github.com/maevsi/sqitch/commit/9f11da479b51c8819aba69e798348aaae87094c2))
+
+## [9.7.6](https://github.com/maevsi/sqitch/compare/9.7.5...9.7.6) (2025-10-11)
+
+### Bug Fixes
+
+* schedule release ([22dc514](https://github.com/maevsi/sqitch/commit/22dc514b8c680ec5578f28a709f34ff05d418b76))
+
+## [9.7.5](https://github.com/maevsi/sqitch/compare/9.7.4...9.7.5) (2025-09-27)
+
+### Bug Fixes
+
+* schedule release ([1b14e9f](https://github.com/maevsi/sqitch/commit/1b14e9f5030d6f3551d7b8437119b6fe4a5bd402))
+
+## [9.7.4](https://github.com/maevsi/sqitch/compare/9.7.3...9.7.4) (2025-09-13)
+
+### Bug Fixes
+
+* schedule release ([b1fccc8](https://github.com/maevsi/sqitch/commit/b1fccc81ec5141a99d46a807bc08e7807dabae99))
+
+## [9.7.3](https://github.com/maevsi/sqitch/compare/9.7.2...9.7.3) (2025-08-30)
+
+### Bug Fixes
+
+* schedule release ([8ddde75](https://github.com/maevsi/sqitch/commit/8ddde7581f7ecdfb4761b9d72bb53e118167b83f))
+
 ## [9.7.2](https://github.com/maevsi/sqitch/compare/9.7.1...9.7.2) (2025-08-16)
 
 ### Bug Fixes
