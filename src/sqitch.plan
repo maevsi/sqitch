@@ -95,3 +95,4 @@ table_preference_event_location [schema_public table_account_public role_account
 role_zammad 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add role zammad.
 database_zammad [role_zammad] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Add the database for zammad.
 function_account_search [schema_public table_account_public role_account] 1970-01-01T00:00:00Z Svens Thelemann <sven.thelemann@t-online.de> # Add a function for searching accounts based on a substring query.
+function_account_block_accounts [schema_public table_account_public table_account_block table_profile_picture table_upload function_invoker_account_id role_account] 1970-01-01T00:00:00Z Sven Thelemann <sven.thelemann@t-online.de> # Function returning data of all accounts blocked by the current user.

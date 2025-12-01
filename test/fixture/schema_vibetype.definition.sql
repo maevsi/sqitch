@@ -2,6 +2,8 @@
 -- PostgreSQL database dump
 --
 
+\restrict restrictkey
+
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -233,6 +235,31 @@ ALTER TYPE vibetype.social_network OWNER TO ci;
 --
 
 COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
+
+
+--
+-- Name: account_block_accounts(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_block_accounts() RETURNS TABLE(id uuid, username text, storage_key text)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT a.id, a.username, u.storage_key
+  FROM vibetype.account AS a
+    JOIN vibetype.account_block AS b ON a.id = b.blocked_account_id
+    LEFT JOIN vibetype.profile_picture AS p ON a.id = p.account_id
+    LEFT JOIN vibetype.upload AS u ON p.upload_id = u.id
+  WHERE b.created_by = vibetype.invoker_account_id()
+$$;
+
+
+ALTER FUNCTION vibetype.account_block_accounts() OWNER TO ci;
+
+--
+-- Name: FUNCTION account_block_accounts(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_block_accounts() IS 'Returns the id, username, and storage key of the profile picture, if it exists, of all accounts blocked by the invoker account.';
 
 
 --
@@ -6021,6 +6048,14 @@ GRANT USAGE ON SCHEMA vibetype_private TO grafana;
 
 
 --
+-- Name: FUNCTION account_block_accounts(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_block_accounts() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_block_accounts() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION account_delete(password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6654,4 +6689,6 @@ GRANT SELECT ON TABLE vibetype_private.notification TO grafana;
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict restrictkey
 
