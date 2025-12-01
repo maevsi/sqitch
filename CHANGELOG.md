@@ -1,3 +1,29 @@
+## [10.0.0-beta.12](https://github.com/maevsi/sqitch/compare/10.0.0-beta.11...10.0.0-beta.12) (2025-12-01)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** correct indentation
+
+### Features
+
+* **account:** enable selecting accounts blocked by current user ([#248](https://github.com/maevsi/sqitch/issues/248)) ([26c39a0](https://github.com/maevsi/sqitch/commit/26c39a086296d36d212e69a7b7495aa94dd9dfc9))
+
+### Bug Fixes
+
+* schedule release ([684242e](https://github.com/maevsi/sqitch/commit/684242ea1b80224825562c783c0577b9057c50b2))
+* schedule release ([946d81c](https://github.com/maevsi/sqitch/commit/946d81cab6ac2b2ef44e1792efb8a374641daf85))
+* schedule release ([9f11da4](https://github.com/maevsi/sqitch/commit/9f11da479b51c8819aba69e798348aaae87094c2))
+* schedule release ([22dc514](https://github.com/maevsi/sqitch/commit/22dc514b8c680ec5578f28a709f34ff05d418b76))
+* schedule release ([1b14e9f](https://github.com/maevsi/sqitch/commit/1b14e9f5030d6f3551d7b8437119b6fe4a5bd402))
+* schedule release ([b1fccc8](https://github.com/maevsi/sqitch/commit/b1fccc81ec5141a99d46a807bc08e7807dabae99))
+* schedule release ([8ddde75](https://github.com/maevsi/sqitch/commit/8ddde7581f7ecdfb4761b9d72bb53e118167b83f))
+* schedule release ([6b4a556](https://github.com/maevsi/sqitch/commit/6b4a55646f9a5f6676ec5a1e868149430ef204be))
+* schedule release ([f33fdf1](https://github.com/maevsi/sqitch/commit/f33fdf120dc0f8e9eb144272fe09415c9e0c2ae8))
+
+### Code Refactoring
+
+* **event:** correct indentation ([d2f23c8](https://github.com/maevsi/sqitch/commit/d2f23c8e9a092b8f7bdce894ae5d5182d70a42ab))
+
 ## [10.0.0-beta.11](https://github.com/maevsi/sqitch/compare/10.0.0-beta.10...10.0.0-beta.11) (2025-07-20)
 
 ### Features
