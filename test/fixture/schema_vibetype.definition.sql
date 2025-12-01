@@ -677,17 +677,14 @@ The account''s username.';
 --
 
 CREATE FUNCTION vibetype.account_search(search_string text) RETURNS SETOF vibetype.account
-    LANGUAGE plpgsql STABLE
+    LANGUAGE sql STABLE
     AS $$
-BEGIN
-  RETURN QUERY
   SELECT *
   FROM vibetype.account
   WHERE
     username ILIKE '%' || account_search.search_string || '%'
   ORDER BY
     username;
-END;
 $$;
 
 
@@ -705,11 +702,9 @@ COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all 
 --
 
 CREATE FUNCTION vibetype.account_upload_quota_bytes() RETURNS bigint
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN (SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.account_id')::UUID);
-END;
+  SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.account_id')::UUID;
 $$;
 
 
@@ -937,26 +932,12 @@ The id of the account which last updated the guest. `NULL` if the guest was upda
 --
 
 CREATE FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) RETURNS SETOF vibetype.guest
-    LANGUAGE plpgsql STRICT
+    LANGUAGE sql STRICT
     AS $$
-DECLARE
-  _contact_id UUID;
-  _id UUID;
-  _id_array UUID[] := ARRAY[]::UUID[];
-BEGIN
-  FOREACH _contact_id IN ARRAY create_guests.contact_ids LOOP
-    INSERT INTO vibetype.guest(event_id, contact_id)
-      VALUES (create_guests.event_id, _contact_id)
-      RETURNING id INTO _id;
-
-    _id_array := array_append(_id_array, _id);
-  END LOOP;
-
-  RETURN QUERY
-    SELECT *
-    FROM vibetype.guest
-    WHERE id = ANY (_id_array);
-END $$;
+  INSERT INTO vibetype.guest(event_id, contact_id)
+  SELECT event_id, unnest(contact_ids)
+  RETURNING *
+$$;
 
 
 ALTER FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) OWNER TO ci;
@@ -1169,33 +1150,29 @@ COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to 
 --
 
 CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN (
-    SELECT guest_count_maximum
-    FROM vibetype.event
-    WHERE
-      id = event_guest_count_maximum.event_id
-      AND ( -- Copied from `event_select` POLICY.
+  SELECT guest_count_maximum
+  FROM vibetype.event
+  WHERE
+    id = event_guest_count_maximum.event_id
+    AND ( -- Copied from `event_select` POLICY.
+      (
+        visibility = 'public'
+        AND
         (
-          visibility = 'public'
-          AND
-          (
-            guest_count_maximum IS NULL
-            OR
-            guest_count_maximum > (vibetype.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
-          )
+          guest_count_maximum IS NULL
+          OR
+          guest_count_maximum > (vibetype.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
         )
-        OR (
-          vibetype.invoker_account_id() IS NOT NULL
-          AND
-          created_by = vibetype.invoker_account_id()
-        )
-        OR id IN (SELECT vibetype_private.events_invited())
       )
-  );
-END
+      OR (
+        vibetype.invoker_account_id() IS NOT NULL
+        AND
+        created_by = vibetype.invoker_account_id()
+      )
+      OR id IN (SELECT vibetype_private.events_invited())
+    );
 $$;
 
 
@@ -1213,23 +1190,16 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 --
 
 CREATE FUNCTION vibetype.event_search(query text, language vibetype.language) RETURNS SETOF vibetype.event
-    LANGUAGE plpgsql STABLE
+    LANGUAGE sql STABLE
     AS $$
-DECLARE
-  ts_config regconfig;
-BEGIN
-  ts_config := vibetype.language_iso_full_text_search(event_search.language);
-
-  RETURN QUERY
-  SELECT
-    *
+  SELECT e.*
   FROM
-    vibetype.event
+    vibetype.event e,
+    (SELECT vibetype.language_iso_full_text_search(event_search.language) AS ts_config) t
   WHERE
-    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+    e.search_vector @@ websearch_to_tsquery(t.ts_config, event_search.query)
   ORDER BY
-    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
-END;
+    ts_rank_cd(e.search_vector, websearch_to_tsquery(t.ts_config, event_search.query)) DESC;
 $$;
 
 
@@ -1316,15 +1286,11 @@ COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim 
 --
 
 CREATE FUNCTION vibetype.events_organized() RETURNS TABLE(event_id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-
-  RETURN QUERY
-    SELECT id FROM vibetype.event
-    WHERE
-      created_by = vibetype.invoker_account_id();
-END
+  SELECT id FROM vibetype.event
+  WHERE
+    created_by = vibetype.invoker_account_id();
 $$;
 
 
@@ -1395,37 +1361,34 @@ COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest c
 --
 
 CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    -- get all contacts of guests
-    SELECT g.contact_id
-    FROM vibetype.guest g
-    WHERE
-      (
-        -- that are known through a guest claim
-        g.id = ANY (vibetype.guest_claim_array())
-      OR
-        -- or for events organized by the invoker
-        g.event_id IN (SELECT vibetype.events_organized())
-        and g.contact_id IN (
-          SELECT id
-          FROM vibetype.contact
-          WHERE
-            created_by NOT IN (
+  -- get all contacts of guests
+  SELECT g.contact_id
+  FROM vibetype.guest g
+  WHERE
+    (
+      -- that are known through a guest claim
+      g.id = ANY (vibetype.guest_claim_array())
+    OR
+      -- or for events organized by the invoker
+      g.event_id IN (SELECT vibetype.events_organized())
+      and g.contact_id IN (
+        SELECT id
+        FROM vibetype.contact
+        WHERE
+          created_by NOT IN (
+            SELECT id FROM vibetype_private.account_block_ids()
+          )
+          AND (
+            account_id IS NULL
+            OR
+            account_id NOT IN (
               SELECT id FROM vibetype_private.account_block_ids()
             )
-            AND (
-              account_id IS NULL
-              OR
-              account_id NOT IN (
-                SELECT id FROM vibetype_private.account_block_ids()
-              )
-            )
-        )
-      );
-END;
+          )
+      )
+    );
 $$;
 
 
@@ -1443,11 +1406,9 @@ COMMENT ON FUNCTION vibetype.guest_contact_ids() IS 'Returns contact ids that ar
 --
 
 CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN (SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id);
-END;
+  SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
 $$;
 
 
@@ -1573,11 +1534,9 @@ COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a not
 --
 
 CREATE FUNCTION vibetype.invoker_account_id() RETURNS uuid
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
-END;
+  SELECT NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
 $$;
 
 
@@ -1643,41 +1602,40 @@ COMMENT ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 --
 
 CREATE FUNCTION vibetype.language_iso_full_text_search(language vibetype.language) RETURNS regconfig
-    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    LANGUAGE sql STABLE SECURITY DEFINER
     AS $$
-BEGIN
-  CASE language
-    -- WHEN 'ar' THEN RETURN 'arabic';
-    -- WHEN 'ca' THEN RETURN 'catalan';
-    -- WHEN 'da' THEN RETURN 'danish';
-    WHEN 'de' THEN RETURN 'german';
-    -- WHEN 'el' THEN RETURN 'greek';
-    WHEN 'en' THEN RETURN 'english';
-    -- WHEN 'es' THEN RETURN 'spanish';
-    -- WHEN 'eu' THEN RETURN 'basque';
-    -- WHEN 'fi' THEN RETURN 'finnish';
-    -- WHEN 'fr' THEN RETURN 'french';
-    -- WHEN 'ga' THEN RETURN 'irish';
-    -- WHEN 'hi' THEN RETURN 'hindi';
-    -- WHEN 'hu' THEN RETURN 'hungarian';
-    -- WHEN 'hy' THEN RETURN 'armenian';
-    -- WHEN 'id' THEN RETURN 'indonesian';
-    -- WHEN 'it' THEN RETURN 'italian';
-    -- WHEN 'lt' THEN RETURN 'lithuanian';
-    -- WHEN 'ne' THEN RETURN 'nepali';
-    -- WHEN 'nl' THEN RETURN 'dutch';
-    -- WHEN 'no' THEN RETURN 'norwegian';
-    -- WHEN 'pt' THEN RETURN 'portuguese';
-    -- WHEN 'ro' THEN RETURN 'romanian';
-    -- WHEN 'ru' THEN RETURN 'russian';
-    -- WHEN 'sr' THEN RETURN 'serbian';
-    -- WHEN 'sv' THEN RETURN 'swedish';
-    -- WHEN 'ta' THEN RETURN 'tamil';
-    -- WHEN 'tr' THEN RETURN 'turkish';
-    -- WHEN 'yi' THEN RETURN 'yiddish';
-    ELSE RETURN 'simple';
-  END CASE;
-END;
+  SELECT
+    CASE language
+      -- WHEN 'ar' THEN 'arabic'
+      -- WHEN 'ca' THEN 'catalan'
+      -- WHEN 'da' THEN 'danish'
+      WHEN 'de' THEN 'german'
+      -- WHEN 'el' THEN 'greek'
+      WHEN 'en' THEN 'english'
+      -- WHEN 'es' THEN 'spanish'
+      -- WHEN 'eu' THEN 'basque'
+      -- WHEN 'fi' THEN 'finnish'
+      -- WHEN 'fr' THEN 'french'
+      -- WHEN 'ga' THEN 'irish'
+      -- WHEN 'hi' THEN 'hindi'
+      -- WHEN 'hu' THEN 'hungarian'
+      -- WHEN 'hy' THEN 'armenian'
+      -- WHEN 'id' THEN 'indonesian'
+      -- WHEN 'it' THEN 'italian'
+      -- WHEN 'lt' THEN 'lithuanian'
+      -- WHEN 'ne' THEN 'nepali'
+      -- WHEN 'nl' THEN 'dutch'
+      -- WHEN 'no' THEN 'norwegian'
+      -- WHEN 'pt' THEN 'portuguese'
+      -- WHEN 'ro' THEN 'romanian'
+      -- WHEN 'ru' THEN 'russian'
+      -- WHEN 'sr' THEN 'serbian'
+      -- WHEN 'sv' THEN 'swedish'
+      -- WHEN 'ta' THEN 'tamil'
+      -- WHEN 'tr' THEN 'turkish'
+      -- WHEN 'yi' THEN 'yiddish'
+      ELSE 'simple'
+    END::regconfig;
 $$;
 
 
@@ -1968,20 +1926,17 @@ ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
 --
 
 CREATE FUNCTION vibetype_private.account_block_ids() RETURNS TABLE(id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    -- users blocked by the current user
-    SELECT blocked_account_id
-    FROM vibetype.account_block
-    WHERE created_by = vibetype.invoker_account_id()
-    UNION ALL
-    -- users who blocked the current user
-    SELECT created_by
-    FROM vibetype.account_block
-    WHERE blocked_account_id = vibetype.invoker_account_id();
-END
+  -- users blocked by the current user
+  SELECT blocked_account_id
+  FROM vibetype.account_block
+  WHERE created_by = vibetype.invoker_account_id()
+  UNION ALL
+  -- users who blocked the current user
+  SELECT created_by
+  FROM vibetype.account_block
+  WHERE blocked_account_id = vibetype.invoker_account_id();
 $$;
 
 
@@ -2090,29 +2045,26 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 --
 
 CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.event
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    SELECT * FROM vibetype.event e
-    WHERE (
-      (
-        e.visibility = 'public'
-        AND (
-          e.guest_count_maximum IS NULL
-          OR e.guest_count_maximum > vibetype.guest_count(e.id)
-        )
-        AND e.created_by NOT IN (
-          SELECT id FROM vibetype_private.account_block_ids()
-        )
+  SELECT * FROM vibetype.event e
+  WHERE (
+    (
+      e.visibility = 'public'
+      AND (
+        e.guest_count_maximum IS NULL
+        OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      OR (
-        e.id IN (
-          SELECT * FROM vibetype_private.events_invited()
-        )
+      AND e.created_by NOT IN (
+        SELECT id FROM vibetype_private.account_block_ids()
       )
-    );
-END
+    )
+    OR (
+      e.id IN (
+        SELECT * FROM vibetype_private.events_invited()
+      )
+    )
+  );
 $$;
 
 
@@ -2123,11 +2075,8 @@ ALTER FUNCTION vibetype_private.event_policy_select() OWNER TO ci;
 --
 
 CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-
   -- get all events for guests
   SELECT g.event_id FROM vibetype.guest g
   WHERE
@@ -2160,7 +2109,6 @@ BEGIN
     OR
       -- for which the requesting user knows the id
       g.id = ANY (vibetype.guest_claim_array());
-END
 $$;
 
 
