@@ -65,7 +65,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
 
-\echo all tests completed sucessfully.
+\echo all tests completed successfully.
 
 \c - :USER_INITIAL
 
