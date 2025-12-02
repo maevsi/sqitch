@@ -1,7 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.guest_claim_array()
-RETURNS UUID[] AS $$
+CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
+    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _guest_ids UUID[];
   _guest_ids_unblocked UUID[] := ARRAY[]::UUID[];
@@ -36,7 +37,7 @@ BEGIN
   END IF;
   RETURN _guest_ids_unblocked;
 END
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest claims as UUID array.';
 

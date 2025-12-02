@@ -1,7 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.guest_contact_ids()
-RETURNS TABLE (contact_id UUID) AS $$
+CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
   -- get all contacts of guests
   SELECT g.contact_id
   FROM vibetype.guest g
@@ -28,7 +29,7 @@ RETURNS TABLE (contact_id UUID) AS $$
           )
       )
     );
-$$ LANGUAGE sql STRICT STABLE SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
 

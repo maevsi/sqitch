@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.jwt_refresh(
-  jwt_id UUID
-) RETURNS vibetype.jwt AS $$
+CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
   _jwt vibetype.jwt;
@@ -32,7 +32,7 @@ BEGIN
     );
   END IF;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.jwt_refresh(UUID) IS 'Refreshes a JWT.';
 

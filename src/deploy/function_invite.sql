@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.invite(
-  guest_id UUID,
-  language TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
@@ -93,7 +92,7 @@ BEGIN
       ))
     );
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 

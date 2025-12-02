@@ -1,5 +1,6 @@
-CREATE FUNCTION vibetype.language_iso_full_text_search(language vibetype.language)
-RETURNS regconfig AS $$
+CREATE FUNCTION vibetype.language_iso_full_text_search(language vibetype.language) RETURNS regconfig
+    LANGUAGE sql STABLE SECURITY DEFINER
+    AS $$
   SELECT
     CASE language
       -- WHEN 'ar' THEN 'arabic'
@@ -32,7 +33,7 @@ RETURNS regconfig AS $$
       -- WHEN 'yi' THEN 'yiddish'
       ELSE 'simple'
     END::regconfig;
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.language_iso_full_text_search(vibetype.language) IS 'Maps an ISO language code to the corresponding PostgreSQL text search configuration. This function returns the appropriate text search configuration for supported languages, such as "german" for "de" and "english" for "en". If the language code is not explicitly handled, the function defaults to the "simple" configuration, which is a basic tokenizer that does not perform stemming or handle stop words. This ensures that full-text search can work with a wide range of languages even if specific optimizations are not available for some.';
 

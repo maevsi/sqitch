@@ -46,7 +46,7 @@ BEGIN
 
   RETURN ARRAY[_latitude, _longitude];
 END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.event_select_address_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
 
@@ -76,7 +76,7 @@ RETURNS TABLE (
     vibetype.address addr ON e.address_id = addr.id
   WHERE
     ST_DWithin(a.location, addr.location, _distance_max * 1000);
-$$ LANGUAGE sql STRICT STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.event_select_by_account_distance(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
 
@@ -129,7 +129,7 @@ BEGIN
   WHERE
     id = (SELECT address_id FROM event);
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 

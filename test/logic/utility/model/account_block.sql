@@ -58,6 +58,6 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set_empty();
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY INVOKER;
+$$ LANGUAGE plpgsql STRICT SECURITY INVOKER;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_accounts_test(TEXT, UUID, UUID, BOOLEAN) TO vibetype_account;

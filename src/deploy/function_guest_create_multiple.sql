@@ -1,13 +1,12 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.create_guests(
-  event_id UUID,
-  contact_ids UUID[]
-) RETURNS SETOF vibetype.guest AS $$
+CREATE FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) RETURNS SETOF vibetype.guest
+    LANGUAGE sql STRICT
+    AS $$
   INSERT INTO vibetype.guest(event_id, contact_id)
   SELECT event_id, unnest(contact_ids)
   RETURNING *
-$$ LANGUAGE sql STRICT SECURITY INVOKER;
+$$;
 
 COMMENT ON FUNCTION vibetype.create_guests(UUID, UUID[]) IS 'Function for inserting multiple guest records.';
 

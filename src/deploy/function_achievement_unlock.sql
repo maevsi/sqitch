@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.achievement_unlock(
-  code UUID,
-  alias TEXT
-) RETURNS UUID AS $$
+CREATE FUNCTION vibetype.achievement_unlock(code uuid, alias text) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _account_id UUID;
   _achievement vibetype.achievement_type;
@@ -37,7 +36,7 @@ BEGIN
 
   RETURN _achievement_id;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.achievement_unlock(UUID, TEXT) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.\n\nError codes:\n- **P0002** when the achievement or the account is unknown.';
 

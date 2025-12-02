@@ -166,7 +166,7 @@ BEGIN
     NEW.updated_by = vibetype.invoker_account_id();
     RETURN NEW;
   END IF;
-END $$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;
+END $$ LANGUAGE plpgsql STRICT VOLATILE SECURITY INVOKER;
 
 COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 

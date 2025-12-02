@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.event_delete(
-  id UUID,
-  password TEXT
-) RETURNS vibetype.event AS $$
+CREATE FUNCTION vibetype.event_delete(id uuid, password text) RETURNS vibetype.event
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _current_account_id UUID;
   _event_deleted vibetype.event;
@@ -27,7 +26,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.event_delete(UUID, TEXT) IS 'Allows to delete an event.\n\nError codes:\n- **P0002** when the event was not found.\n- **28P01** when the account with the given password was not found.';
 

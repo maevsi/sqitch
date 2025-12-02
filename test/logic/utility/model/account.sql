@@ -33,7 +33,7 @@ RETURNS DOUBLE PRECISION[] AS $$
     vibetype_private.account
   WHERE
     id = _account_id;
-$$ LANGUAGE sql STRICT STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.account_select_address_coordinates(UUID) IS 'Returns an array with latitude and longitude of the account''s current location data';
 
@@ -83,7 +83,7 @@ RETURNS TABLE (
     vibetype_private.account a
   WHERE
     ST_DWithin(e.location, a.location, _distance_max * 1000);
-$$ LANGUAGE sql STRICT STABLE SECURITY DEFINER;
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.account_select_by_event_distance(UUID, DOUBLE PRECISION) IS 'Returns account locations within a given radius around the location of an event.';
 
@@ -133,6 +133,6 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set_empty();
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY INVOKER;
+$$ LANGUAGE plpgsql STRICT SECURITY INVOKER;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_test(TEXT, UUID, UUID, BOOLEAN) TO vibetype_account;

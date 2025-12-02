@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_password_reset_request(
-  email_address TEXT,
-  language TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _notify_data RECORD;
 BEGIN
@@ -33,7 +32,7 @@ BEGIN
     );
   END IF;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.account_password_reset_request(TEXT, TEXT) IS 'Sets a new password reset verification code for an account.';
 

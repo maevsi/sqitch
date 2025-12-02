@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_password_change(
-  password_current TEXT,
-  password_new TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_password_change(password_current text, password_new text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _current_account_id UUID;
 BEGIN
@@ -19,7 +18,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.account_password_change(TEXT, TEXT) IS 'Allows to change an account''s password.\n\nError codes:\n- **22023** when the new password is too short.\n- **28P01** when an account with the given password is not found.';
 
