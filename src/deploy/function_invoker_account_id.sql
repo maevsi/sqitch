@@ -4,7 +4,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.invoker_account_id() RETURNS UUID AS $$
   SELECT NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
-$$ LANGUAGE sql STRICT SECURITY DEFINER STABLE;
+$$ LANGUAGE sql STRICT SECURITY INVOKER STABLE;
 
 COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s account id.';
 
