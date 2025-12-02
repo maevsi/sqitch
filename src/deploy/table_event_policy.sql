@@ -15,28 +15,25 @@ USING (
 -- Only display events to which oneself is invited, but not by a guest created by a blocked account.
 CREATE FUNCTION vibetype_private.event_policy_select()
 RETURNS SETOF vibetype.event AS $$
-BEGIN
-  RETURN QUERY
-    SELECT * FROM vibetype.event e
-    WHERE (
-      (
-        e.visibility = 'public'
-        AND (
-          e.guest_count_maximum IS NULL
-          OR e.guest_count_maximum > vibetype.guest_count(e.id)
-        )
-        AND e.created_by NOT IN (
-          SELECT id FROM vibetype_private.account_block_ids()
-        )
+  SELECT * FROM vibetype.event e
+  WHERE (
+    (
+      e.visibility = 'public'
+      AND (
+        e.guest_count_maximum IS NULL
+        OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      OR (
-        e.id IN (
-          SELECT * FROM vibetype_private.events_invited()
-        )
+      AND e.created_by NOT IN (
+        SELECT id FROM vibetype_private.account_block_ids()
       )
-    );
-END
-$$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
+    )
+    OR (
+      e.id IN (
+        SELECT * FROM vibetype_private.events_invited()
+      )
+    )
+  );
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account, vibetype_anonymous;
 

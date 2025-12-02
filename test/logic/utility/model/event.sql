@@ -61,25 +61,22 @@ RETURNS TABLE (
   event_id UUID,
   distance DOUBLE PRECISION
 ) AS $$
-BEGIN
-  RETURN QUERY
-    WITH account AS (
-      SELECT location
-      FROM vibetype_private.account
-      WHERE id = _account_id
-    )
-    SELECT
-      e.id AS event_id,
-      ST_Distance(a.location, addr.location) AS distance
-    FROM
-      account a,
-      vibetype.event e
-    JOIN
-      vibetype.address addr ON e.address_id = addr.id
-    WHERE
-      ST_DWithin(a.location, addr.location, _distance_max * 1000);
-END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+  WITH account AS (
+    SELECT location
+    FROM vibetype_private.account
+    WHERE id = _account_id
+  )
+  SELECT
+    e.id AS event_id,
+    ST_Distance(a.location, addr.location) AS distance
+  FROM
+    account a,
+    vibetype.event e
+  JOIN
+    vibetype.address addr ON e.address_id = addr.id
+  WHERE
+    ST_DWithin(a.location, addr.location, _distance_max * 1000);
+$$ LANGUAGE sql STRICT STABLE SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.event_select_by_account_distance(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
 
