@@ -57,7 +57,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
 

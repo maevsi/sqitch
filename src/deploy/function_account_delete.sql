@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_delete(
-  password TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_delete(password text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _current_account_id UUID;
 BEGIN
@@ -14,7 +14,7 @@ BEGIN
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.account_delete(TEXT) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
 

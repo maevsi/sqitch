@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.event_guest_count_maximum(
-  event_id UUID
-) RETURNS INTEGER AS $$
+CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
   SELECT guest_count_maximum
   FROM vibetype.event
   WHERE
@@ -24,7 +24,7 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(
       )
       OR id IN (SELECT vibetype_private.events_invited())
     );
-$$ LANGUAGE sql STRICT STABLE SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.event_guest_count_maximum(UUID) IS 'Add a function that returns the maximum guest count of an accessible event.';
 

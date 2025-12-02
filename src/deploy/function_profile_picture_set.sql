@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.profile_picture_set(
-  upload_id UUID
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.profile_picture_set(upload_id uuid) RETURNS void
+    LANGUAGE plpgsql STRICT
+    AS $$
 BEGIN
   INSERT INTO vibetype.profile_picture(account_id, upload_id)
   VALUES (
@@ -13,7 +13,7 @@ BEGIN
   DO UPDATE
   SET upload_id = profile_picture_set.upload_id;
 END;
-$$ LANGUAGE PLPGSQL STRICT VOLATILE SECURITY INVOKER;
+$$;
 
 COMMENT ON FUNCTION vibetype.profile_picture_set(UUID) IS 'Sets the picture with the given upload id as the invoker''s profile picture.';
 

@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.event_unlock(
-  guest_id UUID
-) RETURNS vibetype.event_unlock_response AS $$
+CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS vibetype.event_unlock_response
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _jwt_id UUID;
   _jwt vibetype.jwt;
@@ -53,7 +53,7 @@ BEGIN
   END IF;
 
   RETURN (_event_creator_account_username, _event.slug, _jwt)::vibetype.event_unlock_response;
-END $$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+END $$;
 
 COMMENT ON FUNCTION vibetype.event_unlock(UUID) IS 'Adds a guest claim to the current session.\n\nError codes:\n- **P0002** when no guest, no event, or no event creator username was found for this guest id.';
 

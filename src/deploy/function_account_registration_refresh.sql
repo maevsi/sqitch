@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_registration_refresh(
-  account_id UUID,
-  language TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _new_account_notify RECORD;
 BEGIN
@@ -35,7 +34,7 @@ BEGIN
     ))
   );
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 

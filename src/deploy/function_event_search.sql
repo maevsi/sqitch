@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.event_search(
-  query TEXT,
-  language vibetype.language
-) RETURNS SETOF vibetype.event AS $$
+CREATE FUNCTION vibetype.event_search(query text, language vibetype.language) RETURNS SETOF vibetype.event
+    LANGUAGE sql STABLE
+    AS $$
   SELECT e.*
   FROM
     vibetype.event e,
@@ -12,7 +11,7 @@ CREATE FUNCTION vibetype.event_search(
     e.search_vector @@ websearch_to_tsquery(t.ts_config, event_search.query)
   ORDER BY
     ts_rank_cd(e.search_vector, websearch_to_tsquery(t.ts_config, event_search.query)) DESC;
-$$ LANGUAGE sql STABLE SECURITY INVOKER;
+$$;
 
 COMMENT ON FUNCTION vibetype.event_search(TEXT, vibetype.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
 

@@ -1,7 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype_private.trigger_audit_log()
-RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype_private.trigger_audit_log() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
 DECLARE
   _account_id UUID;
   _data_new JSONB;
@@ -63,7 +64,7 @@ BEGIN
     RETURN OLD;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log() IS 'Generic audit trigger function creating records in table vibetype_private.audit_log.
 inspired by https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit-log-fd9d9d5e412c';

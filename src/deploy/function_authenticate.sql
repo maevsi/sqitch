@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.authenticate(
-  username TEXT,
-  password TEXT
-) RETURNS vibetype.jwt AS $$
+CREATE FUNCTION vibetype.authenticate(username text, password text) RETURNS vibetype.jwt
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _account_id UUID;
   _jwt_id UUID := gen_random_uuid();
@@ -58,7 +57,7 @@ BEGIN
   INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
   RETURN _jwt;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype.authenticate(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
 
