@@ -24,14 +24,14 @@ BEGIN
 
   PERFORM vibetype_private.trigger_audit_log_create_multiple();
 
-  -- check that no audit log triggers were created for vibetype_private.audit_log and vibetype_private.jwt
+  -- check that no audit log triggers were created for vibetype_private.audit_log and vibetype_private.session
 
   SELECT COUNT(*) INTO _count
     FROM vibetype_private.audit_log_trigger
-    WHERE schema_name = 'vibetype_private' AND table_name in ('audit_log', 'jwt');
+    WHERE schema_name = 'vibetype_private' AND table_name in ('audit_log', 'session');
 
   IF _count != 0 THEN
-    RAISE EXCEPTION 'There must not be audit log triggers for vibetype_private.audit_log and vibetype_private.jwt';
+    RAISE EXCEPTION 'There must not be audit log triggers for vibetype_private.audit_log and vibetype_private.session';
   END IF;
 
   -- check that for all other tables with id column there is an audit log trigger
@@ -46,7 +46,7 @@ BEGIN
     EXCEPT
       SELECT 'vibetype_private', 'audit_log' -- no audit log trigger for this table
     EXCEPT
-      SELECT 'vibetype_private', 'jwt' -- no audit log trigger for this table
+      SELECT 'vibetype_private', 'session' -- no audit log trigger for this table
     EXCEPT
       SELECT schema_name, table_name
         FROM vibetype_private.audit_log_trigger

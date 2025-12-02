@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TYPE vibetype.jwt;
+DROP TYPE vibetype.session;
 
 COMMIT;

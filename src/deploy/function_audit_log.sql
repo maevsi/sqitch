@@ -86,7 +86,7 @@ BEGIN
         -- negative list, make sure that at least audit_log table is not audited
         AND (n.nspname, c.relname) NOT IN (
           ('vibetype_private', 'audit_log'),
-          ('vibetype_private', 'jwt')
+          ('vibetype_private', 'session')
         )
   LOOP
      EXECUTE 'CREATE TRIGGER ' || _trigger_name ||
@@ -118,7 +118,7 @@ BEGIN
         -- negative list, make sure that at least audit_log table is not audited
         AND (n.nspname, c.relname) not in (
           ('vibetype_private', 'audit_log'),
-          ('vibetype_private', 'jwt')
+          ('vibetype_private', 'session')
         )
   ) THEN
     EXECUTE 'CREATE TRIGGER ' || _trigger_name ||

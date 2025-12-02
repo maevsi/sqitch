@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION vibetype.jwt_refresh(UUID);
+DROP FUNCTION vibetype.session_update(UUID);
 
 COMMIT;

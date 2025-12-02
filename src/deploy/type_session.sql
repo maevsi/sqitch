@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TYPE vibetype.jwt AS (
+CREATE TYPE vibetype.session AS (
   id UUID,
   account_id UUID,
   account_username TEXT,
