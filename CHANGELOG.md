@@ -1,3 +1,20 @@
+## [10.0.0-beta.14](https://github.com/maevsi/sqitch/compare/10.0.0-beta.13...10.0.0-beta.14) (2025-12-02)
+
+### ⚠ BREAKING CHANGES
+
+* align function definitions with dump
+* **account-social-network:** reindent
+* **invoker-account-id:** set security invoker
+
+### Bug Fixes
+
+* **invoker-account-id:** set security invoker ([4656f5a](https://github.com/maevsi/sqitch/commit/4656f5a1b751cdaf432bb0774d38b1a86e944c3c))
+
+### Code Refactoring
+
+* **account-social-network:** reindent ([bf33a15](https://github.com/maevsi/sqitch/commit/bf33a15c67547aec189881ed7d53c05e539eb094))
+* align function definitions with dump ([aea220a](https://github.com/maevsi/sqitch/commit/aea220ac5291b5f92e8e172c72a603b016f2dc1f))
+
 ## [10.0.0-beta.13](https://github.com/maevsi/sqitch/compare/10.0.0-beta.12...10.0.0-beta.13) (2025-12-02)
 
 ### ⚠ BREAKING CHANGES
