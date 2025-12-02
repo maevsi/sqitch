@@ -1,3 +1,13 @@
+## [10.0.0-beta.13](https://github.com/maevsi/sqitch/compare/10.0.0-beta.12...10.0.0-beta.13) (2025-12-02)
+
+### ⚠ BREAKING CHANGES
+
+* rewrite language plpgsql as sql
+
+### Performance Improvements
+
+* rewrite language plpgsql as sql ([6123982](https://github.com/maevsi/sqitch/commit/6123982ece7f07627b7fee698bc5bc4ed886b15d))
+
 ## [10.0.0-beta.12](https://github.com/maevsi/sqitch/compare/10.0.0-beta.11...10.0.0-beta.12) (2025-12-01)
 
 ### ⚠ BREAKING CHANGES
