@@ -10,7 +10,7 @@ BEGIN
   PERFORM set_config('jwt.claims.account_id', _invoker_id::TEXT, true);
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set(UUID) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set(UUID) TO vibetype_account, vibetype_anonymous;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.invoker_set_anonymous()
