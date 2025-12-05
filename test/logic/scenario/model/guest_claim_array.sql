@@ -24,7 +24,6 @@ DECLARE
   guestCA UUID;
   guestCB UUID;
   guestClaimArray UUID[];
-  guestClaimArrayNew UUID[];
   rec RECORD;
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
@@ -59,13 +58,11 @@ BEGIN
     END IF;
   END LOOP;
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM vibetype_test.guest_claim_set(accountA);
 
-  guestClaimArray := vibetype_test.guest_claim_from_account_guest(accountA);
-  PERFORM vibetype_test.uuid_array_test('guest claim was added without block', guestClaimArray, ARRAY[guestBA, guestCA]);
-
-  guestClaimArrayNew := vibetype.guest_claim_array();
-  PERFORM vibetype_test.uuid_array_test('guest claim includes data without block', guestClaimArrayNew, guestClaimArray);
+  guestClaimArray := vibetype.guest_claim_array();
+  PERFORM vibetype_test.uuid_array_test('guest claim includes data without block', guestClaimArray, ARRAY[guestBA, guestCA]);
 END $$;
 ROLLBACK TO SAVEPOINT guest_claim_array;
 
@@ -91,7 +88,6 @@ DECLARE
   guestCA UUID;
   guestCB UUID;
   guestClaimArray UUID[];
-  guestClaimArrayNew UUID[];
   rec RECORD;
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
@@ -115,7 +111,6 @@ BEGIN
   guestBC := vibetype_test.guest_create(accountB, eventB, contactBC);
 
   PERFORM vibetype_test.invoker_set(accountC);
-
   FOR rec IN
     SELECT * FROM vibetype.create_guests(eventC, ARRAY[contactCA, contactCB])
   LOOP
@@ -125,15 +120,13 @@ BEGIN
       guestCB := rec.id;
     END IF;
   END LOOP;
+  PERFORM vibetype_test.invoker_set_previous();
 
-  PERFORM vibetype_test.invoker_set_empty();
-
-  guestClaimArray := vibetype_test.guest_claim_from_account_guest(accountA);
-
+  PERFORM vibetype_test.invoker_set(accountA);
+  PERFORM vibetype_test.guest_claim_set(accountA);
   PERFORM vibetype_test.account_block_create(accountA, accountB);
-
-  guestClaimArrayNew := vibetype.guest_claim_array();
-  PERFORM vibetype_test.uuid_array_test('guest claim excludes blocked data', guestClaimArrayNew, ARRAY[guestCA]);
+  guestClaimArray := vibetype.guest_claim_array();
+  PERFORM vibetype_test.uuid_array_test('guest claim excludes blocked data', guestClaimArray, ARRAY[guestCA]);
 END $$;
 ROLLBACK TO SAVEPOINT guest_claim_array_block;
 

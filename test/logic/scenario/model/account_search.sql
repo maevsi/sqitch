@@ -22,8 +22,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  SET LOCAL ROLE = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _user_account_id || '''';
+  PERFORM vibetype_test.invoker_set(_user_account_id);
 
   _search_strings := ARRAY['A', 'a', 'c', 'f' , 'fg', 'fh'];
 

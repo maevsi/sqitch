@@ -127,7 +127,7 @@ BEGIN
   END IF;
 */
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 
 END $$;
 ROLLBACK TO SAVEPOINT notification;

@@ -24,6 +24,8 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/event_category.sql
 \i utility/model/event.sql
 \i utility/model/friendship.sql
+\i utility/model/guest_claim_array.sql
+\i utility/model/guest_create_multiple.sql
 \i utility/model/guest.sql
 \i utility/model/legal_term.sql
 

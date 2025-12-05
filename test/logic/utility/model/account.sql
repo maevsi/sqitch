@@ -14,7 +14,7 @@ BEGIN
 
     PERFORM vibetype.account_delete('password');
 
-    PERFORM vibetype_test.invoker_set_empty();
+    PERFORM vibetype_test.invoker_set_previous();
   END IF;
 END $$ LANGUAGE plpgsql;
 
@@ -145,7 +145,7 @@ BEGIN
     RAISE EXCEPTION '%: account % is visible but should not.', _test_case, _account_id;
   END IF;
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 END;
 $$ LANGUAGE PLPGSQL STRICT SECURITY INVOKER;
 

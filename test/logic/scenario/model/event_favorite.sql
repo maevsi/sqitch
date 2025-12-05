@@ -14,10 +14,11 @@ BEGIN
   _account_other := vibetype_test.account_registration_verified('other', 'email+b@example.com');
   _event := vibetype_test.event_create(_account_favorite_owner, 'Name', 'slug', '1970-01-01 00:00', 'public');
 
+  PERFORM vibetype_test.invoker_set(_account_favorite_owner);
+
   INSERT INTO vibetype.event_favorite (event_id, created_by)
     VALUES (_event, _account_favorite_owner);
 
-  PERFORM vibetype_test.invoker_set(_account_favorite_owner);
   SELECT COUNT(1) INTO _count FROM vibetype.event_favorite;
 
   IF _count <> 1 THEN
@@ -25,6 +26,7 @@ BEGIN
   END IF;
 
   PERFORM vibetype_test.invoker_set(_account_other);
+
   SELECT COUNT(1) INTO _count FROM vibetype.event_favorite;
 
   IF _count <> 0 THEN
@@ -42,6 +44,8 @@ DECLARE
 BEGIN
   _account := vibetype_test.account_registration_verified('username', 'email@example.com');
   _event := vibetype_test.event_create(_account, 'Name', 'slug', '1970-01-01 00:00', 'public');
+
+  PERFORM vibetype_test.invoker_set(_account);
 
   INSERT INTO vibetype.event_favorite (event_id, created_by) VALUES (_event, _account);
 

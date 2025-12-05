@@ -23,7 +23,7 @@ BEGIN
   BEGIN
     PERFORM vibetype_test.invoker_set(accountC);
     PERFORM vibetype.create_guests(eventC, ARRAY[contactCA, contactCB]);
-    PERFORM vibetype_test.invoker_set_empty();
+    PERFORM vibetype_test.invoker_set_previous();
     RAISE EXCEPTION 'Test failed: User should not be able to add users as guests if one of the users is blocked';
   EXCEPTION
     WHEN insufficient_privilege THEN
@@ -32,7 +32,7 @@ BEGIN
       RAISE;
   END;
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 END $$;
 ROLLBACK TO SAVEPOINT guest_create_block;
 
@@ -119,7 +119,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.guest_test('guest visibility without block (perspective A)', accountA, ARRAY[guestAB, guestAC, guestBA, guestCA]::UUID[]);
   PERFORM vibetype_test.guest_test('guest visibility without block (perspective B)', accountB, ARRAY[guestBA, guestBC, guestAB, guestCB]::UUID[]);
@@ -181,7 +181,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.account_block_create(accountA, accountB);
 
