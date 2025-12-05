@@ -8,14 +8,13 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_create (
 DECLARE
   _id UUID;
 BEGIN
-  SET LOCAL ROLE = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
+  PERFORM vibetype_test.invoker_set(_created_by);
 
   INSERT INTO vibetype.event(created_by, name, slug, start, visibility)
   VALUES (_created_by, _name, _slug, _start::TIMESTAMP WITH TIME ZONE, _visibility::vibetype.event_visibility)
   RETURNING id INTO _id;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -93,11 +92,9 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_test (
 ) RETURNS VOID AS $$
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL ROLE = 'vibetype_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
+    PERFORM vibetype_test.invoker_set_anonymous();
   ELSE
-    SET LOCAL ROLE = 'vibetype_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+    PERFORM vibetype_test.invoker_set(_account_id);
   END IF;
 
   IF EXISTS (SELECT id FROM vibetype.event EXCEPT SELECT * FROM unnest(_expected_result)) THEN
@@ -108,7 +105,7 @@ BEGIN
     RAISE EXCEPTION '%: some event is missing in the query result', _test_case;
   END IF;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_test(TEXT, UUID, UUID[]) TO vibetype_account;

@@ -32,7 +32,7 @@ BEGIN
 
   guest_ids := ARRAY(SELECT id FROM vibetype.create_guests(eventA, ARRAY[contactAB, contactAC]));
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.guest_create_multiple_test('create multiple guest records', accountA, eventA, ARRAY[contactAB, contactAC], guest_ids);
 
