@@ -38,7 +38,6 @@ DECLARE
   eventA UUID;
   guestAB UUID;
   contactIds UUID[];
-  guestClaimArray UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
@@ -48,9 +47,8 @@ BEGIN
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
   -- Simulate guest claim
-  guestClaimArray := vibetype_test.guest_claim_from_account_guest(accountB);
-
   PERFORM vibetype_test.invoker_set(accountB);
+  PERFORM vibetype_test.guest_claim_set(accountB);
 
   -- Get contact IDs for account B (guest with claim)
   contactIds := ARRAY(SELECT contact_id FROM vibetype.guest_contact_ids());

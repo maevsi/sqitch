@@ -107,7 +107,6 @@ DECLARE
   eventA UUID;
   guestAB UUID;
   invitedEventIds UUID[];
-  guestClaimArray UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
@@ -116,10 +115,8 @@ BEGIN
   eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
-  -- Simulate guest claim by adding to array
-  guestClaimArray := vibetype_test.guest_claim_from_account_guest(accountB);
-
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || accountB || '''';
+  PERFORM vibetype_test.guest_claim_set(accountB);
+  PERFORM set_config('jwt.claims.account_id', accountB::TEXT, true);
 
   -- Get invited events for account B (should include via guest claim)
   invitedEventIds := ARRAY(SELECT event_id FROM vibetype_private.events_invited());
