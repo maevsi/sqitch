@@ -1,3 +1,13 @@
+## [10.0.0-beta.21](https://github.com/maevsi/sqitch/compare/10.0.0-beta.20...10.0.0-beta.21) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* deduplicate select policies
+
+### Bug Fixes
+
+* deduplicate select policies ([eeb5a31](https://github.com/maevsi/sqitch/commit/eeb5a312bef69f8bf1ad571566797eda4212943c))
+
 ## [10.0.0-beta.20](https://github.com/maevsi/sqitch/compare/10.0.0-beta.19...10.0.0-beta.20) (2025-12-06)
 
 ### ⚠ BREAKING CHANGES
