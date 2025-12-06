@@ -1138,11 +1138,7 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
       -- Or event is accessible via policy (public, invited, etc.)
-      OR EXISTS (
-        SELECT 1
-        FROM vibetype_private.event_policy_select() ep
-        WHERE ep.id = e.id
-      )
+      OR vibetype_private.event_policy_select(e)
     );
 $$;
 
@@ -1987,14 +1983,14 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 
 
 --
--- Name: event_policy_select(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+-- Name: event_policy_select(vibetype.event); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.event
+CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT * FROM vibetype.event e
-  WHERE (
+  SELECT
+  (
     (
       e.visibility = 'public'
       AND (
@@ -2002,21 +1998,21 @@ CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.ev
         OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
       AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+        SELECT 1
+        FROM vibetype_private.account_block_ids() b
+        WHERE b.id = e.created_by
       )
     )
-    OR (
-      EXISTS (
-        SELECT 1
-        FROM vibetype_private.events_invited() ei(event_id)
-        WHERE ei.event_id = e.id
-      )
+    OR EXISTS (
+      SELECT 1
+      FROM vibetype_private.events_invited() ei(event_id)
+      WHERE ei.event_id = e.id
     )
   );
 $$;
 
 
-ALTER FUNCTION vibetype_private.event_policy_select() OWNER TO ci;
+ALTER FUNCTION vibetype_private.event_policy_select(e vibetype.event) OWNER TO ci;
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -2025,14 +2021,14 @@ ALTER FUNCTION vibetype_private.event_policy_select() OWNER TO ci;
 CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  -- get all events for guests
+  -- Return event IDs for events the invoker is invited to.
   SELECT g.event_id FROM vibetype.guest g
   WHERE
-      -- for which the requesting user knows the id
+      -- Guest records explicitly known to the invoker (via guest claim).
       g.id = ANY (vibetype.guest_claim_array())
     OR
     (
-      -- whose contact refers to the invoker's account, and is not created by a blocked account
+      -- Guest whose contact belongs to the invoker and the contact wasn't created by a blocked account.
       EXISTS (
         SELECT 1
         FROM vibetype.contact c
@@ -2043,7 +2039,7 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
           )
       )
       AND
-      -- whose event is not created by a blocked account
+      -- And the corresponding event wasn't created by a blocked account.
       EXISTS (
         SELECT 1
         FROM vibetype.event e
@@ -2064,6 +2060,61 @@ ALTER FUNCTION vibetype_private.events_invited() OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
 
+
+--
+-- Name: guest_policy_select(vibetype.guest); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    AS $$
+  SELECT (
+    -- Display guests accessible through guest claims.
+    g.id = ANY (vibetype.guest_claim_array())
+  OR
+  (
+    -- Display guests where the contact is the invoker account.
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = g.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
+      -- omit contacts created by a user who is blocked by the invoker
+      -- omit contacts created by a user who blocked the invoker.
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+      )
+    )
+  )
+  OR
+  (
+    -- Display guests to events organized by the invoker,
+    -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
+    -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
+    EXISTS (
+      SELECT 1
+      FROM vibetype.event e
+      WHERE e.id = g.event_id
+        AND e.created_by = vibetype.invoker_account_id()
+    )
+    AND
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = g.contact_id
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+        )
+    )
+  )
+);
+$$;
+
+
+ALTER FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) OWNER TO ci;
 
 --
 -- Name: trigger_audit_log(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -5454,7 +5505,7 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
-   FROM vibetype_private.event_policy_select() e(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)
+   FROM vibetype.event e
   WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( SELECT 1
    FROM vibetype_private.account_block_ids() b(id)
   WHERE (b.id = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
@@ -5633,9 +5684,7 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((EXISTS ( SELECT 1
-   FROM vibetype_private.event_policy_select() ep(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)
-  WHERE (ep.id = event.id))));
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING (vibetype_private.event_policy_select(event.*));
 
 
 --
@@ -5736,38 +5785,14 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( S
 -- Name: guest guest_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((id = ANY (vibetype.guest_claim_array())) OR (EXISTS ( SELECT 1
-   FROM vibetype.contact c
-  WHERE ((c.id = guest.contact_id) AND (c.account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by))))))) OR ((EXISTS ( SELECT 1
-   FROM vibetype.event e
-  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND (EXISTS ( SELECT 1
-   FROM vibetype.contact c
-  WHERE ((c.id = guest.contact_id) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.account_id)))) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by))))))))));
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (vibetype_private.guest_policy_select(guest.*));
 
 
 --
 -- Name: guest guest_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((id = ANY (vibetype.guest_claim_array())) OR (EXISTS ( SELECT 1
-   FROM vibetype.contact c
-  WHERE ((c.id = guest.contact_id) AND (c.account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by))))))) OR ((EXISTS ( SELECT 1
-   FROM vibetype.event e
-  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND (EXISTS ( SELECT 1
-   FROM vibetype.contact c
-  WHERE ((c.id = guest.contact_id) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.account_id)))) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by))))))))));
+CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (vibetype_private.guest_policy_select(guest.*));
 
 
 --
@@ -6303,12 +6328,12 @@ REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_policy_select(); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION event_policy_select(e vibetype.event); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.event_policy_select() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) TO vibetype_anonymous;
 
 
 --
@@ -6318,6 +6343,15 @@ GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_anonymo
 REVOKE ALL ON FUNCTION vibetype_private.events_invited() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guest_policy_select(g vibetype.guest); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_anonymous;
 
 
 --

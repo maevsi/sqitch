@@ -5,17 +5,18 @@ GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
 
 ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT
-USING (
+CREATE FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) RETURNS boolean
+AS $$
+  SELECT (
     -- Display guests accessible through guest claims.
-    guest.id = ANY (vibetype.guest_claim_array())
+    g.id = ANY (vibetype.guest_claim_array())
   OR
   (
     -- Display guests where the contact is the invoker account.
     EXISTS (
       SELECT 1
       FROM vibetype.contact c
-      WHERE c.id = guest.contact_id
+      WHERE c.id = g.contact_id
       AND c.account_id = vibetype.invoker_account_id()
       -- omit contacts created by a user who is blocked by the invoker
       -- omit contacts created by a user who blocked the invoker.
@@ -32,14 +33,14 @@ USING (
     EXISTS (
       SELECT 1
       FROM vibetype.event e
-      WHERE e.id = guest.event_id
+      WHERE e.id = g.event_id
         AND e.created_by = vibetype.invoker_account_id()
     )
     AND
     EXISTS (
       SELECT 1
       FROM vibetype.contact c
-      WHERE c.id = guest.contact_id
+      WHERE c.id = g.contact_id
         AND NOT EXISTS (
           SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
         )
@@ -49,6 +50,12 @@ USING (
     )
   )
 );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION vibetype_private.guest_policy_select(vibetype.guest) TO vibetype_account, vibetype_anonymous;
+
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT
+USING (vibetype_private.guest_policy_select(guest));
 
 -- Only allow inserts for guests of events organized by oneself.
 -- Only allow inserts for guests of events for which the maximum guest count is not yet reached.
@@ -80,47 +87,8 @@ WITH CHECK (
     )
 );
 
--- Only allow updates to guests accessible through guest claims.
--- Only allow updates to guests accessible through the account, but not guests auhored by a blocked account.
--- Only allow updates to guests to events organized by oneself, but not guests referencing a blocked account or authored by a blocked account.
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE
-USING (
-    guest.id = ANY (vibetype.guest_claim_array())
-  OR
-  (
-    EXISTS (
-      SELECT 1
-      FROM vibetype.contact c
-      WHERE c.id = guest.contact_id
-      AND c.account_id = vibetype.invoker_account_id()
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-      )
-    )
-  )
-  OR
-  (
-    EXISTS (
-      SELECT 1
-      FROM vibetype.event e
-      WHERE e.id = guest.event_id
-        AND e.created_by = vibetype.invoker_account_id()
-    )
-    AND
-    -- omit contacts created by a blocked account or referring to a blocked account
-    EXISTS (
-      SELECT 1
-      FROM vibetype.contact c
-      WHERE c.id = guest.contact_id
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-      )
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-      )
-    )
-  )
-);
+USING (vibetype_private.guest_policy_select(guest));
 
 -- Only allow deletes for guests of events organized by oneself.
 CREATE POLICY guest_delete ON vibetype.guest FOR DELETE
