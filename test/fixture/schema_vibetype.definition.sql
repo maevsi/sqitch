@@ -1253,28 +1253,6 @@ COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim 
 
 
 --
--- Name: events_organized(); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.events_organized() RETURNS TABLE(event_id uuid)
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT id FROM vibetype.event
-  WHERE
-    created_by = vibetype.invoker_account_id();
-$$;
-
-
-ALTER FUNCTION vibetype.events_organized() OWNER TO ci;
-
---
--- Name: FUNCTION events_organized(); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
-
-
---
 -- Name: guest_claim_array(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1337,8 +1315,9 @@ CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
       (
         EXISTS (
           SELECT 1
-          FROM vibetype.events_organized() eo(event_id)
-          WHERE eo.event_id = g.event_id
+          FROM vibetype.event e
+          WHERE e.id = g.event_id
+            AND e.created_by = vibetype.invoker_account_id()
         )
         AND
         EXISTS (
@@ -1410,8 +1389,9 @@ BEGIN
     OR
     NOT EXISTS ( -- Initial validation, every query below is expected to be secure.
       SELECT 1
-      FROM vibetype.events_organized() eo(event_id)
-      WHERE eo.event_id = _guest.event_id
+      FROM vibetype.event e
+      WHERE e.id = _guest.event_id
+        AND e.created_by = vibetype.invoker_account_id()
     )
   ) THEN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
@@ -2048,18 +2028,11 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
   -- get all events for guests
   SELECT g.event_id FROM vibetype.guest g
   WHERE
+      -- for which the requesting user knows the id
+      g.id = ANY (vibetype.guest_claim_array())
+    OR
     (
-      -- whose event ...
-      EXISTS (
-        SELECT 1
-        FROM vibetype.event e
-        WHERE e.id = g.event_id
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
-          )
-      )
-      AND
-      -- whose invitee
+      -- whose contact refers to the invoker's account, and is not created by a blocked account
       EXISTS (
         SELECT 1
         FROM vibetype.contact c
@@ -2069,10 +2042,17 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
             SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
           )
       )
-    )
-    OR
-      -- for which the requesting user knows the id
-      g.id = ANY (vibetype.guest_claim_array());
+      AND
+      -- whose event is not created by a blocked account
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = g.event_id
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+          )
+      )
+    );
 $$;
 
 
@@ -5498,8 +5478,8 @@ CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((created_by 
 --
 
 CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM vibetype.account_block b
-  WHERE ((b.created_by = vibetype.invoker_account_id()) AND (b.blocked_account_id = contact.account_id)))))));
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = contact.account_id))))));
 
 
 --
@@ -5520,8 +5500,8 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id
 --
 
 CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM vibetype.account_block b
-  WHERE ((b.created_by = vibetype.invoker_account_id()) AND (b.blocked_account_id = contact.account_id)))))));
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = contact.account_id))))));
 
 
 --
@@ -5735,8 +5715,8 @@ ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((EXISTS ( SELECT 1
-   FROM vibetype.events_organized() eo(event_id)
-  WHERE (eo.event_id = guest.event_id))));
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))));
 
 
 --
@@ -5744,12 +5724,12 @@ CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((EXISTS ( SELECT 
 --
 
 CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
-   FROM vibetype.events_organized() eo(event_id)
-  WHERE (eo.event_id = guest.event_id))) AND ((vibetype.event_guest_count_maximum(event_id) IS NULL) OR (vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id))) AND (EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND ((vibetype.event_guest_count_maximum(event_id) IS NULL) OR (vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id))) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype.account_block b
-          WHERE ((c.account_id = b.blocked_account_id) AND (c.created_by = b.created_by))))))))));
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.account_id)))))))));
 
 
 --
@@ -5761,8 +5741,8 @@ CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((id = ANY (vibet
   WHERE ((c.id = guest.contact_id) AND (c.account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
            FROM vibetype_private.account_block_ids() b(id)
           WHERE (b.id = c.created_by))))))) OR ((EXISTS ( SELECT 1
-   FROM vibetype.events_organized() eo(event_id)
-  WHERE (eo.event_id = guest.event_id))) AND (EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (NOT (EXISTS ( SELECT 1
            FROM vibetype_private.account_block_ids() b(id)
@@ -5778,16 +5758,16 @@ CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((id = ANY (vibet
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((id = ANY (vibetype.guest_claim_array())) OR (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype.account_block b
-          WHERE ((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id)))))))) OR ((EXISTS ( SELECT 1
-   FROM vibetype.events_organized() eo(event_id)
-  WHERE (eo.event_id = guest.event_id))) AND (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.created_by))))))) OR ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (NOT (EXISTS ( SELECT 1
            FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by)))) AND (NOT (EXISTS ( SELECT 1
+          WHERE (b.id = c.account_id)))) AND (NOT (EXISTS ( SELECT 1
            FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.account_id))))))))));
+          WHERE (b.id = c.created_by))))))))));
 
 
 --
@@ -6154,15 +6134,6 @@ GRANT ALL ON FUNCTION vibetype.event_search(query text, language vibetype.langua
 REVOKE ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION events_organized(); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.events_organized() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.events_organized() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.events_organized() TO vibetype_anonymous;
 
 
 --

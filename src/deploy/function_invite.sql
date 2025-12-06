@@ -20,8 +20,9 @@ BEGIN
     OR
     NOT EXISTS ( -- Initial validation, every query below is expected to be secure.
       SELECT 1
-      FROM vibetype.events_organized() eo(event_id)
-      WHERE eo.event_id = _guest.event_id
+      FROM vibetype.event e
+      WHERE e.id = _guest.event_id
+        AND e.created_by = vibetype.invoker_account_id()
     )
   ) THEN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
