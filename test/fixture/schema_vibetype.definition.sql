@@ -449,37 +449,28 @@ COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS
 --
 
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _notify_data RECORD;
-BEGIN
   WITH updated AS (
     UPDATE vibetype_private.account
-      SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = account_password_reset_request.email_address
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.password_reset_verification,
-    updated.password_reset_verification_valid_until
-    INTO _notify_data
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id;
-
-  IF (_notify_data IS NULL) THEN
-    -- noop
-  ELSE
-    INSERT INTO vibetype_private.notification (channel, payload) VALUES (
-      'account_password_reset_request',
-      jsonb_pretty(jsonb_build_object(
-        'account', _notify_data,
-        'template', jsonb_build_object('language', account_password_reset_request.language)
-      ))
-    );
-  END IF;
-END;
+    SET password_reset_verification = gen_random_uuid()
+    WHERE email_address = account_password_reset_request.email_address
+    RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
+  )
+  INSERT INTO vibetype_private.notification (channel, payload)
+  SELECT
+    'account_password_reset_request',
+    jsonb_pretty(jsonb_build_object(
+    'account', jsonb_build_object(
+      'username', a.username,
+      'email_address', u.email_address,
+      'password_reset_verification', u.password_reset_verification,
+      'password_reset_verification_valid_until', u.password_reset_verification_valid_until
+    ),
+    'template', jsonb_build_object('language', account_password_reset_request.language)
+    ))
+  FROM updated u
+  JOIN vibetype.account a ON a.id = u.id;
 $$;
 
 
@@ -1308,36 +1299,33 @@ COMMENT ON FUNCTION vibetype.events_organized() IS 'Add a function that returns 
 --
 
 CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _guest_ids UUID[];
-  _guest_ids_unblocked UUID[] := ARRAY[]::UUID[];
-BEGIN
-  _guest_ids := string_to_array(replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''), ',')::UUID[];
-
-  IF _guest_ids IS NOT NULL THEN
-    _guest_ids_unblocked := ARRAY (
-      SELECT g.id
-      FROM vibetype.guest g
-        JOIN vibetype.event e ON g.event_id = e.id
-        JOIN vibetype.contact c ON g.contact_id = c.id
-      WHERE g.id = ANY(_guest_ids)
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-        )
-    );
-  ELSE
-    _guest_ids_unblocked := ARRAY[]::UUID[];
-  END IF;
-  RETURN _guest_ids_unblocked;
-END
+  WITH guest_ids AS (
+    SELECT unnest(
+      string_to_array(
+        replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''),
+        ','
+      )::UUID[]
+    ) AS id
+  ),
+  blocked_account_ids AS (
+    SELECT id FROM vibetype_private.account_block_ids()
+  )
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM guest_ids gi
+    JOIN vibetype.guest g ON g.id = gi.id
+    JOIN vibetype.event e ON g.event_id = e.id
+    JOIN vibetype.contact c ON g.contact_id = c.id
+  WHERE NOT EXISTS (
+      SELECT 1 FROM blocked_account_ids b WHERE b.id = e.created_by
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
+    )
 $$;
 
 
@@ -1544,37 +1532,40 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 --
 
 CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
-  _jwt vibetype.jwt;
-BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role
-  INTO _jwt
-  FROM vibetype_private.jwt
-  WHERE   id = jwt_refresh.jwt_id
-  AND     (token)."exp" >= _epoch_now;
-
-  IF (_jwt IS NULL) THEN
-    RETURN NULL;
-  ELSE
+  WITH params AS (
+    SELECT
+    EXTRACT(EPOCH FROM date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE))::bigint AS epoch_now,
+    COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::interval AS expiry_interval
+  ),
+  found AS (
+    SELECT j.id, (j.token).account_id AS account_id
+    FROM vibetype_private.jwt j, params p
+    WHERE j.id = jwt_refresh.jwt_id
+    AND (j.token)."exp" >= p.epoch_now
+    LIMIT 1
+  ),
+  u AS (
     UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE id = jwt_refresh.jwt_id;
-
+    SET token.exp = EXTRACT(
+    EPOCH FROM (
+      date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)
+      + (SELECT expiry_interval FROM params)
+    )
+    )
+    WHERE id IN (SELECT id FROM found)
+    RETURNING *
+  ),
+  account_update AS (
     UPDATE vibetype_private.account
     SET last_activity = DEFAULT
-    WHERE account.id = _jwt.account_id;
-
-    RETURN (
-      SELECT token
-      FROM vibetype_private.jwt
-      WHERE   id = jwt_refresh.jwt_id
-      AND     (token)."exp" >= _epoch_now
-    );
-  END IF;
-END;
+    WHERE id = (SELECT account_id FROM found)
+    RETURNING id
+  )
+  SELECT token
+  FROM u
+  WHERE (token)."exp" >= (SELECT epoch_now FROM params);
 $$;
 
 
@@ -1685,18 +1676,15 @@ COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged b
 --
 
 CREATE FUNCTION vibetype.profile_picture_set(upload_id uuid) RETURNS void
-    LANGUAGE plpgsql STRICT
+    LANGUAGE sql STRICT
     AS $$
-BEGIN
   INSERT INTO vibetype.profile_picture(account_id, upload_id)
   VALUES (
     current_setting('jwt.claims.account_id')::UUID,
-    profile_picture_set.upload_id
+    upload_id
   )
   ON CONFLICT (account_id)
-  DO UPDATE
-  SET upload_id = profile_picture_set.upload_id;
-END;
+  DO UPDATE SET upload_id = EXCLUDED.upload_id;
 $$;
 
 
