@@ -1,3 +1,9 @@
+## [9.8.2](https://github.com/maevsi/sqitch/compare/9.8.1...9.8.2) (2025-12-06)
+
+### Bug Fixes
+
+* **contact:** correct account id trigger function for null check ([97f7e15](https://github.com/maevsi/sqitch/commit/97f7e15612553153abd08aa47fb93db8c1ba2abc))
+
 ## [9.8.1](https://github.com/maevsi/sqitch/compare/9.8.0...9.8.1) (2025-12-06)
 
 ### Bug Fixes
