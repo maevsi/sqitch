@@ -6,14 +6,13 @@ DECLARE
   rec RECORD;
   _count INTEGER;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  PERFORM vibetype_test.invoker_set(_invoker_account_id);
 
   UPDATE vibetype.friendship
     SET "status" = 'accepted'::vibetype.friendship_status
     WHERE id = _id;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_accept(UUID, UUID) TO vibetype_account;
@@ -24,13 +23,12 @@ CREATE OR REPLACE FUNCTION vibetype_test.friendship_reject (
   _id UUID
 ) RETURNS VOID AS $$
 BEGIN
-  SET LOCAL role = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  PERFORM vibetype_test.invoker_set(_invoker_account_id);
 
   DELETE FROM vibetype.friendship
     WHERE id = _id;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_reject(UUID, UUID) TO vibetype_account;
@@ -45,8 +43,7 @@ DECLARE
   _a_account_id UUID;
   _b_account_id UUID;
 BEGIN
-  SET LOCAL role = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+  PERFORM vibetype_test.invoker_set(_invoker_account_id);
 
   IF _invoker_account_id < _friend_account_id THEN
     _a_account_id := _invoker_account_id;
@@ -60,7 +57,7 @@ BEGIN
     VALUES (_a_account_id, _b_account_id, _invoker_account_id)
     RETURNING id INTO _id;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -78,11 +75,9 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _invoker_account_id IS NULL THEN
-    SET LOCAL role = 'vibetype_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
+    PERFORM vibetype_test.invoker_set_anonymous();
   ELSE
-    SET LOCAL role = 'vibetype_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+    PERFORM vibetype_test.invoker_set(_invoker_account_id);
   END IF;
 
   IF EXISTS (
@@ -101,7 +96,7 @@ BEGIN
     RAISE EXCEPTION 'some account is missing in the query result';
   END IF;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, TEXT, UUID[]) TO vibetype_account;
@@ -116,9 +111,9 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _invoker_account_id IS NULL THEN
-    SET LOCAL jwt.claims.account_id = '';
+    PERFORM set_config('jwt.claims.account_id', '', true);
   ELSE
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _invoker_account_id || '''';
+    PERFORM set_config('jwt.claims.account_id', _invoker_account_id::TEXT, true);
   END IF;
 
   IF EXISTS (

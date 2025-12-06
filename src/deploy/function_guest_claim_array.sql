@@ -16,20 +16,14 @@ BEGIN
         JOIN vibetype.event e ON g.event_id = e.id
         JOIN vibetype.contact c ON g.contact_id = c.id
       WHERE g.id = ANY(_guest_ids)
-        AND e.created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
-          )
-        AND (
-          c.created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
-          )
-          AND (
-            c.account_id IS NULL
-            OR
-            c.account_id NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
-            )
-          )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
         )
     );
   ELSE

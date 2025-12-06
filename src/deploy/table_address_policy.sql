@@ -8,17 +8,17 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 CREATE POLICY address_all ON vibetype.address FOR ALL
 USING (
   (
-    created_by = vibetype.invoker_account_id()
+    address.created_by = vibetype.invoker_account_id()
     OR
-    id IN (SELECT address_id FROM vibetype_private.event_policy_select())
+    address.id IN (SELECT address_id FROM vibetype_private.event_policy_select())
   )
   AND
-  created_by NOT IN (
-    SELECT id FROM vibetype_private.account_block_ids()
+  NOT EXISTS (
+    SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = address.created_by
   )
 )
 WITH CHECK (
-  created_by = vibetype.invoker_account_id()
+  address.created_by = vibetype.invoker_account_id()
 );
 
 COMMIT;

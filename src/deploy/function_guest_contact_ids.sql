@@ -17,15 +17,11 @@ CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
         SELECT id
         FROM vibetype.contact
         WHERE
-          created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
+          NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
           )
-          AND (
-            account_id IS NULL
-            OR
-            account_id NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
-            )
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
           )
       )
     );

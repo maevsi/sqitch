@@ -23,8 +23,8 @@ RETURNS SETOF vibetype.event AS $$
         e.guest_count_maximum IS NULL
         OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      AND e.created_by NOT IN (
-        SELECT id FROM vibetype_private.account_block_ids()
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
       )
     )
     OR (

@@ -4,16 +4,14 @@ CREATE OR REPLACE FUNCTION vibetype_test.contact_select_by_account_id (
 DECLARE
   _id UUID;
 BEGIN
+  PERFORM vibetype_test.invoker_set(_account_id);
 
-  SET LOCAL ROLE = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
-  
   SELECT id INTO _id
   FROM vibetype.contact
   WHERE created_by = _account_id AND account_id = _account_id;
 
-  SET LOCAL ROLE NONE;
-  
+  PERFORM vibetype_test.invoker_set_previous();
+
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
@@ -21,28 +19,26 @@ GRANT EXECUTE ON FUNCTION vibetype_test.contact_select_by_account_id(UUID) TO vi
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.contact_create (
-  _created_by UUID,
+  _invoker_id UUID,
   _email_address TEXT
 ) RETURNS UUID AS $$
 DECLARE
   _id UUID;
   _account_id UUID;
 BEGIN
-
-  SET LOCAL ROLE = 'vibetype_account';
-  EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _created_by || '''';
-
-  _account_id := vibetype_test.account_select_by_email_address(_email_address);
+  PERFORM vibetype_test.invoker_set(_invoker_id);
 
   INSERT INTO vibetype.contact(created_by, email_address)
-  VALUES (_created_by, _email_address)
+  VALUES (_invoker_id, _email_address)
   RETURNING id INTO _id;
+
+  _account_id := vibetype_test.account_select_by_email_address(_email_address);
 
   IF (_account_id IS NOT NULL) THEN
     UPDATE vibetype.contact SET account_id = _account_id WHERE id = _id;
   END IF;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -59,11 +55,9 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _account_id IS NULL THEN
-    SET LOCAL ROLE = 'vibetype_anonymous';
-    SET LOCAL jwt.claims.account_id = '';
+    PERFORM vibetype_test.invoker_set_anonymous();
   ELSE
-    SET LOCAL ROLE = 'vibetype_account';
-    EXECUTE 'SET LOCAL jwt.claims.account_id = ''' || _account_id || '''';
+    PERFORM vibetype_test.invoker_set(_account_id);
   END IF;
 
   IF EXISTS (SELECT id FROM vibetype.contact EXCEPT SELECT * FROM unnest(_expected_result)) THEN
@@ -74,8 +68,7 @@ BEGIN
     RAISE EXCEPTION '%: some contact is missing in the query result', _test_case;
   END IF;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_test(TEXT, UUID, UUID[]) TO vibetype_account;
-

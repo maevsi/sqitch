@@ -14,4 +14,4 @@ BEGIN
   END IF;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.uuid_array_test(TEXT, UUID[], UUID[]) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.uuid_array_test(TEXT, UUID[], UUID[]) TO vibetype_account, vibetype_anonymous;

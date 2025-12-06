@@ -8,18 +8,18 @@ ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 CREATE POLICY guest_select ON vibetype.guest FOR SELECT
 USING (
     -- Display guests accessible through guest claims.
-    id = ANY (vibetype.guest_claim_array())
+    guest.id = ANY (vibetype.guest_claim_array())
   OR
   (
     -- Display guests where the contact is the invoker account.
-    contact_id IN (
+    guest.contact_id IN (
       SELECT id
       FROM vibetype.contact
       WHERE account_id = vibetype.invoker_account_id()
         -- omit contacts created by a user who is blocked by the invoker
         -- omit contacts created by a user who blocked the invoker.
-        AND created_by NOT IN (
-          SELECT id FROM vibetype_private.account_block_ids()
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
         )
     )
   )
@@ -28,22 +28,18 @@ USING (
     -- Display guests to events organized by the invoker,
     -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
     -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
-    event_id IN (SELECT vibetype.events_organized())
+    guest.event_id IN (SELECT vibetype.events_organized())
     AND
-      contact_id IN (
+      guest.contact_id IN (
         SELECT c.id
         FROM vibetype.contact c
         WHERE
-          (
-            c.account_id IS NULL
-            OR
-            c.account_id NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
-            )
+          NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
           )
           AND
-          c.created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
+          NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
           )
       )
   )
@@ -55,15 +51,15 @@ USING (
 -- Do not allow inserts for guests for a contact referring a blocked account.
 CREATE POLICY guest_insert ON vibetype.guest FOR INSERT
 WITH CHECK (
-    event_id IN (SELECT vibetype.events_organized())
+    guest.event_id IN (SELECT vibetype.events_organized())
   AND
   (
-    vibetype.event_guest_count_maximum(event_id) IS NULL
+    vibetype.event_guest_count_maximum(guest.event_id) IS NULL
     OR
-    vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id)
+    vibetype.event_guest_count_maximum(guest.event_id) > vibetype.guest_count(guest.event_id)
   )
   AND
-    contact_id IN (
+    guest.contact_id IN (
       SELECT id
       FROM vibetype.contact
       WHERE created_by = vibetype.invoker_account_id()
@@ -87,10 +83,10 @@ WITH CHECK (
 -- Only allow updates to guests to events organized by oneself, but not guests referencing a blocked account or authored by a blocked account.
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE
 USING (
-    id = ANY (vibetype.guest_claim_array())
+    guest.id = ANY (vibetype.guest_claim_array())
   OR
   (
-    contact_id IN (
+    guest.contact_id IN (
       SELECT id
       FROM vibetype.contact
       WHERE account_id = vibetype.invoker_account_id()
@@ -99,29 +95,24 @@ USING (
 
       SELECT c.id
       FROM vibetype.contact c
-        JOIN vibetype.account_block b ON c.account_id = b.created_by and c.created_by = b.blocked_account_id
+        JOIN vibetype.account_block b ON c.account_id = b.created_by AND c.created_by = b.blocked_account_id
       WHERE c.account_id = vibetype.invoker_account_id()
     )
   )
   OR
   (
-    event_id IN (SELECT vibetype.events_organized())
+    guest.event_id IN (SELECT vibetype.events_organized())
     AND
     -- omit contacts created by a blocked account or referring to a blocked account
-    contact_id IN (
+    guest.contact_id IN (
       SELECT c.id
       FROM vibetype.contact c
       WHERE
-        c.created_by NOT IN (
-          SELECT id FROM vibetype_private.account_block_ids()
+        NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
         )
-        AND
-        (
-          c.account_id IS NULL
-          OR
-          c.account_id NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
-          )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
         )
     )
   )

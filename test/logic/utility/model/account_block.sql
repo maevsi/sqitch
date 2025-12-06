@@ -11,7 +11,7 @@ BEGIN
   VALUES (_created_by, _blocked_Account_id)
   RETURNING id INTO _id;
 
-  SET LOCAL ROLE NONE;
+  PERFORM vibetype_test.invoker_set_previous();
 
   RETURN _id;
 END $$ LANGUAGE plpgsql;
@@ -56,7 +56,7 @@ BEGIN
     RAISE EXCEPTION '%: account % is visible but should not.', _test_case, _account_id;
   END IF;
 
-  PERFORM vibetype_test.invoker_set_empty();
+  PERFORM vibetype_test.invoker_set_previous();
 END;
 $$ LANGUAGE plpgsql STRICT SECURITY INVOKER;
 

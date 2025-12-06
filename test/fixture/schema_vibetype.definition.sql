@@ -1323,20 +1323,14 @@ BEGIN
         JOIN vibetype.event e ON g.event_id = e.id
         JOIN vibetype.contact c ON g.contact_id = c.id
       WHERE g.id = ANY(_guest_ids)
-        AND e.created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
-          )
-        AND (
-          c.created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
-          )
-          AND (
-            c.account_id IS NULL
-            OR
-            c.account_id NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
-            )
-          )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
         )
     );
   ELSE
@@ -1377,15 +1371,11 @@ CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
         SELECT id
         FROM vibetype.contact
         WHERE
-          created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
+          NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
           )
-          AND (
-            account_id IS NULL
-            OR
-            account_id NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
-            )
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
           )
       )
     );
@@ -2055,8 +2045,8 @@ CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.ev
         e.guest_count_maximum IS NULL
         OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      AND e.created_by NOT IN (
-        SELECT id FROM vibetype_private.account_block_ids()
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
       )
     )
     OR (
@@ -2087,8 +2077,8 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
         FROM vibetype.event
         WHERE
           -- is not created by ...
-          created_by NOT IN (
-            SELECT id FROM vibetype_private.account_block_ids()
+          NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = event.created_by
           )
       )
       AND
@@ -2101,8 +2091,8 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
             account_id = vibetype.invoker_account_id()
           AND
             -- who is not invited by
-            created_by NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
+            NOT EXISTS (
+              SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
             )
       )
     )
@@ -5454,8 +5444,9 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id)))));
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (EXISTS ( SELECT 1
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = account.id)))));
 
 
 --
@@ -5509,8 +5500,9 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT event_policy_select.address_id
-   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (created_by IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
+   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -5530,27 +5522,29 @@ CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((vibetype.in
 -- Name: contact contact_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
-   FROM vibetype.account_block
-  WHERE (account_block.created_by = vibetype.invoker_account_id()))))));
+CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype.account_block b
+  WHERE ((b.created_by = vibetype.invoker_account_id()) AND (b.blocked_account_id = contact.account_id)))))));
 
 
 --
 -- Name: contact contact_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (created_by IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR ((created_by = vibetype.invoker_account_id()) AND ((account_id IS NULL) OR (NOT (account_id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id)))))) OR (id IN ( SELECT vibetype.guest_contact_ids() AS guest_contact_ids))));
+CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = contact.account_id))))) OR (id IN ( SELECT vibetype.guest_contact_ids() AS guest_contact_ids))));
 
 
 --
 -- Name: contact contact_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by = vibetype.invoker_account_id()) AND (NOT (account_id IN ( SELECT account_block.blocked_account_id
-   FROM vibetype.account_block
-  WHERE (account_block.created_by = vibetype.invoker_account_id()))))));
+CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype.account_block b
+  WHERE ((b.created_by = vibetype.invoker_account_id()) AND (b.blocked_account_id = contact.account_id)))))));
 
 
 --
@@ -5728,9 +5722,11 @@ ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 -- Name: friendship friendship_existing; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (b_account_id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (a_account_id IN ( SELECT account_block_ids.id
-   FROM vibetype_private.account_block_ids() account_block_ids(id))))))) WITH CHECK (false);
+CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = friendship.b_account_id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (EXISTS ( SELECT 1
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = friendship.a_account_id))))))) WITH CHECK (false);
 
 
 --
@@ -5780,12 +5776,15 @@ EXCEPT
 
 CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((id = ANY (vibetype.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
    FROM vibetype.contact
-  WHERE ((contact.account_id = vibetype.invoker_account_id()) AND (NOT (contact.created_by IN ( SELECT account_block_ids.id
-           FROM vibetype_private.account_block_ids() account_block_ids(id))))))) OR ((event_id IN ( SELECT vibetype.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
+  WHERE ((contact.account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = contact.created_by))))))) OR ((event_id IN ( SELECT vibetype.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM vibetype.contact c
-  WHERE (((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
-           FROM vibetype_private.account_block_ids() account_block_ids(id))))) AND (NOT (c.created_by IN ( SELECT account_block_ids.id
-           FROM vibetype_private.account_block_ids() account_block_ids(id))))))))));
+  WHERE ((NOT (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.account_id)))) AND (NOT (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.created_by))))))))));
 
 
 --
@@ -5801,9 +5800,11 @@ EXCEPT
      JOIN vibetype.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
   WHERE (c.account_id = vibetype.invoker_account_id()))) OR ((event_id IN ( SELECT vibetype.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
    FROM vibetype.contact c
-  WHERE ((NOT (c.created_by IN ( SELECT account_block_ids.id
-           FROM vibetype_private.account_block_ids() account_block_ids(id)))) AND ((c.account_id IS NULL) OR (NOT (c.account_id IN ( SELECT account_block_ids.id
-           FROM vibetype_private.account_block_ids() account_block_ids(id)))))))))));
+  WHERE ((NOT (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.created_by)))) AND (NOT (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.account_id))))))))));
 
 
 --
