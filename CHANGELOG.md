@@ -1,3 +1,9 @@
+## [10.0.0-beta.16](https://github.com/maevsi/sqitch/compare/10.0.0-beta.15...10.0.0-beta.16) (2025-12-06)
+
+### Bug Fixes
+
+* **contact:** correct account id trigger function for null check ([97f7e15](https://github.com/maevsi/sqitch/commit/97f7e15612553153abd08aa47fb93db8c1ba2abc))
+
 ## [10.0.0-beta.15](https://github.com/maevsi/sqitch/compare/10.0.0-beta.14...10.0.0-beta.15) (2025-12-06)
 
 ### Bug Fixes
