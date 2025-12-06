@@ -1,3 +1,13 @@
+## [10.0.0-beta.17](https://github.com/maevsi/sqitch/compare/10.0.0-beta.16...10.0.0-beta.17) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **language-iso-full-text-search:** use invoker security
+
+### Performance Improvements
+
+* **language-iso-full-text-search:** use invoker security ([a4f20a8](https://github.com/maevsi/sqitch/commit/a4f20a8c908f9be50e4efc82b062878807520f1e))
+
 ## [10.0.0-beta.16](https://github.com/maevsi/sqitch/compare/10.0.0-beta.15...10.0.0-beta.16) (2025-12-06)
 
 ### Bug Fixes
