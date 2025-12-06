@@ -1,3 +1,13 @@
+## [10.0.0-beta.20](https://github.com/maevsi/sqitch/compare/10.0.0-beta.19...10.0.0-beta.20) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **events-invited:** drop
+
+### Features
+
+* **events-invited:** drop ([b3af8d4](https://github.com/maevsi/sqitch/commit/b3af8d467e6f3eba8fb64ed745898462b7ea4678))
+
 ## [10.0.0-beta.19](https://github.com/maevsi/sqitch/compare/10.0.0-beta.18...10.0.0-beta.19) (2025-12-06)
 
 ### ⚠ BREAKING CHANGES
