@@ -1,3 +1,15 @@
+## [10.0.0-beta.18](https://github.com/maevsi/sqitch/compare/10.0.0-beta.17...10.0.0-beta.18) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* replace `in` with `exists`
+* convert plpgsql functions to sql
+
+### Code Refactoring
+
+* convert plpgsql functions to sql ([548e12a](https://github.com/maevsi/sqitch/commit/548e12a06e1f1560557c63f22b8de902252c782a))
+* replace `in` with `exists` ([374080a](https://github.com/maevsi/sqitch/commit/374080ab6a4c43680e0ef201bcde0a6534368e91))
+
 ## [10.0.0-beta.17](https://github.com/maevsi/sqitch/compare/10.0.0-beta.16...10.0.0-beta.17) (2025-12-06)
 
 ### ⚠ BREAKING CHANGES
