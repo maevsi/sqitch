@@ -1,5 +1,5 @@
 BEGIN;
 
--- in /test/logic/scenario/model/authenticate.sql
+-- in /test/logic/scenario/model/jwt_create.sql
 
 ROLLBACK;

@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
+CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
   WITH params AS (
@@ -11,7 +11,7 @@ CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
   found AS (
     SELECT j.id, (j.token).account_id AS account_id
     FROM vibetype_private.jwt j, params p
-    WHERE j.id = jwt_refresh.jwt_id
+    WHERE j.id = jwt_update.jwt_id
     AND (j.token)."exp" >= p.epoch_now
     LIMIT 1
   ),
@@ -37,8 +37,8 @@ CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
   WHERE (token)."exp" >= (SELECT epoch_now FROM params);
 $$;
 
-COMMENT ON FUNCTION vibetype.jwt_refresh(UUID) IS 'Refreshes a JWT.';
+COMMENT ON FUNCTION vibetype.jwt_update(UUID) IS 'Refreshes a JWT.';
 
-GRANT EXECUTE ON FUNCTION vibetype.jwt_refresh(UUID) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.jwt_update(UUID) TO vibetype_account, vibetype_anonymous;
 
 COMMIT;

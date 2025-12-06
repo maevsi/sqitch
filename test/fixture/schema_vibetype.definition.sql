@@ -748,79 +748,6 @@ COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inser
 
 
 --
--- Name: authenticate(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.authenticate(username text, password text) RETURNS vibetype.jwt
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _account_id UUID;
-  _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL));
-  _jwt vibetype.jwt;
-  _username TEXT;
-BEGIN
-  IF (authenticate.username = '' AND authenticate.password = '') THEN
-    -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
-  ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
-    -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
-    IF (strpos(authenticate.username, '@') = 0) THEN
-      SELECT id FROM vibetype.account WHERE account.username = authenticate.username INTO _account_id;
-    ELSE
-      SELECT id FROM vibetype_private.account WHERE account.email_address = authenticate.username INTO _account_id;
-    END IF;
-
-    IF (_account_id IS NULL) THEN
-      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
-    END IF;
-
-    SELECT account.username INTO _username FROM vibetype.account WHERE id = _account_id;
-
-    IF ((
-        SELECT account.email_address_verification
-        FROM vibetype_private.account
-        WHERE
-              account.id = _account_id
-          AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
-      ) IS NOT NULL) THEN
-      RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
-    END IF;
-
-    WITH updated AS (
-      UPDATE vibetype_private.account
-      SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
-      WHERE
-            account.id = _account_id
-        AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
-      RETURNING *
-    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
-      FROM updated
-      INTO _jwt;
-
-    IF (_jwt IS NULL) THEN
-      RAISE 'Could not get token!' USING ERRCODE = 'no_data_found';
-    END IF;
-  END IF;
-
-  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
-  RETURN _jwt;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.authenticate(username text, password text) OWNER TO ci;
-
---
--- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
-
-
---
 -- Name: guest; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -1495,10 +1422,83 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 
 
 --
--- Name: jwt_refresh(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: jwt_create(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
+CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _account_id UUID;
+  _jwt_id UUID := gen_random_uuid();
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL));
+  _jwt vibetype.jwt;
+  _username TEXT;
+BEGIN
+  IF (jwt_create.username = '' AND jwt_create.password = '') THEN
+    -- Authenticate as guest.
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
+  ELSIF (jwt_create.username IS NOT NULL AND jwt_create.password IS NOT NULL) THEN
+    -- if jwt_create.username contains @ then treat it as an email address otherwise as a user name
+    IF (strpos(jwt_create.username, '@') = 0) THEN
+      SELECT id FROM vibetype.account WHERE account.username = jwt_create.username INTO _account_id;
+    ELSE
+      SELECT id FROM vibetype_private.account WHERE account.email_address = jwt_create.username INTO _account_id;
+    END IF;
+
+    IF (_account_id IS NULL) THEN
+      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
+    END IF;
+
+    SELECT account.username INTO _username FROM vibetype.account WHERE id = _account_id;
+
+    IF ((
+        SELECT account.email_address_verification
+        FROM vibetype_private.account
+        WHERE
+              account.id = _account_id
+          AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
+      ) IS NOT NULL) THEN
+      RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+
+    WITH updated AS (
+      UPDATE vibetype_private.account
+      SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
+      WHERE
+            account.id = _account_id
+        AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
+        AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
+      RETURNING *
+    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
+      FROM updated
+      INTO _jwt;
+
+    IF (_jwt IS NULL) THEN
+      RAISE 'Could not get token!' USING ERRCODE = 'no_data_found';
+    END IF;
+  END IF;
+
+  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
+  RETURN _jwt;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
+
+--
+-- Name: FUNCTION jwt_create(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
+
+
+--
+-- Name: jwt_update(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
   WITH params AS (
@@ -1509,7 +1509,7 @@ CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
   found AS (
     SELECT j.id, (j.token).account_id AS account_id
     FROM vibetype_private.jwt j, params p
-    WHERE j.id = jwt_refresh.jwt_id
+    WHERE j.id = jwt_update.jwt_id
     AND (j.token)."exp" >= p.epoch_now
     LIMIT 1
   ),
@@ -1536,13 +1536,13 @@ CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
 $$;
 
 
-ALTER FUNCTION vibetype.jwt_refresh(jwt_id uuid) OWNER TO ci;
+ALTER FUNCTION vibetype.jwt_update(jwt_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION jwt_update(jwt_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
+COMMENT ON FUNCTION vibetype.jwt_update(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
@@ -6094,15 +6094,6 @@ GRANT ALL ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) TO vibe
 
 
 --
--- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.authenticate(username text, password text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.authenticate(username text, password text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.authenticate(username text, password text) TO vibetype_anonymous;
-
-
---
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6207,12 +6198,21 @@ GRANT ALL ON FUNCTION vibetype.invoker_account_id() TO vibetype;
 
 
 --
--- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION jwt_create(username text, password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.jwt_create(username text, password text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.jwt_create(username text, password text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.jwt_create(username text, password text) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION jwt_update(jwt_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) TO vibetype_anonymous;
 
 
 --

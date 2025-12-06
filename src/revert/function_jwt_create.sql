@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION vibetype.authenticate(TEXT, TEXT);
+DROP FUNCTION vibetype.jwt_create(TEXT, TEXT);
 
 COMMIT;
