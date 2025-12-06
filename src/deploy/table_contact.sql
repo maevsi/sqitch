@@ -58,9 +58,9 @@ CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER AS 
         AND
         (
           -- trying to detach from account
-          NEW.account_id != OLD.account_id
+          NEW.account_id IS DISTINCT FROM OLD.account_id
           OR
-          NEW.created_by != OLD.created_by
+          NEW.created_by IS DISTINCT FROM OLD.created_by
         )
       )
     ) THEN

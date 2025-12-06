@@ -169,6 +169,18 @@
 * **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
 * **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
 
+## [9.8.2](https://github.com/maevsi/sqitch/compare/9.8.1...9.8.2) (2025-12-06)
+
+### Bug Fixes
+
+* **contact:** correct account id trigger function for null check ([97f7e15](https://github.com/maevsi/sqitch/commit/97f7e15612553153abd08aa47fb93db8c1ba2abc))
+
+## [9.8.1](https://github.com/maevsi/sqitch/compare/9.8.0...9.8.1) (2025-12-06)
+
+### Bug Fixes
+
+* **account-block:** improve existence check ([5b6f877](https://github.com/maevsi/sqitch/commit/5b6f877eecada313d4bca591b979e497b4bcb30e))
+
 ## [9.8.0](https://github.com/maevsi/sqitch/compare/9.7.9...9.8.0) (2025-12-01)
 
 ### Features
