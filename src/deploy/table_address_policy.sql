@@ -10,7 +10,11 @@ USING (
   (
     address.created_by = vibetype.invoker_account_id()
     OR
-    address.id IN (SELECT address_id FROM vibetype_private.event_policy_select())
+    EXISTS (
+      SELECT 1
+      FROM vibetype_private.event_policy_select() e
+      WHERE e.address_id = address.id
+    )
   )
   AND
   NOT EXISTS (

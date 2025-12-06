@@ -12,15 +12,16 @@ USING (
   OR
   (
     -- Display guests where the contact is the invoker account.
-    guest.contact_id IN (
-      SELECT id
-      FROM vibetype.contact
-      WHERE account_id = vibetype.invoker_account_id()
-        -- omit contacts created by a user who is blocked by the invoker
-        -- omit contacts created by a user who blocked the invoker.
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
-        )
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = guest.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
+      -- omit contacts created by a user who is blocked by the invoker
+      -- omit contacts created by a user who blocked the invoker.
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+      )
     )
   )
   OR
@@ -28,17 +29,20 @@ USING (
     -- Display guests to events organized by the invoker,
     -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
     -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
-    guest.event_id IN (SELECT vibetype.events_organized())
+    EXISTS (
+      SELECT 1
+      FROM vibetype.events_organized() eo(event_id)
+      WHERE eo.event_id = guest.event_id
+    )
     AND
-      guest.contact_id IN (
-        SELECT c.id
+      EXISTS (
+        SELECT 1
         FROM vibetype.contact c
-        WHERE
-          NOT EXISTS (
+        WHERE c.id = guest.contact_id
+          AND NOT EXISTS (
             SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
           )
-          AND
-          NOT EXISTS (
+          AND NOT EXISTS (
             SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
           )
       )
@@ -51,7 +55,11 @@ USING (
 -- Do not allow inserts for guests for a contact referring a blocked account.
 CREATE POLICY guest_insert ON vibetype.guest FOR INSERT
 WITH CHECK (
-    guest.event_id IN (SELECT vibetype.events_organized())
+  EXISTS (
+    SELECT 1
+    FROM vibetype.events_organized() eo(event_id)
+    WHERE eo.event_id = guest.event_id
+  )
   AND
   (
     vibetype.event_guest_count_maximum(guest.event_id) IS NULL
@@ -59,22 +67,17 @@ WITH CHECK (
     vibetype.event_guest_count_maximum(guest.event_id) > vibetype.guest_count(guest.event_id)
   )
   AND
-    guest.contact_id IN (
-      SELECT id
-      FROM vibetype.contact
-      WHERE created_by = vibetype.invoker_account_id()
-
-      EXCEPT
-
-      SELECT c.id
+    EXISTS (
+      SELECT 1
       FROM vibetype.contact c
-        JOIN vibetype.account_block b
-        ON
-          c.account_id = b.blocked_account_id
-          AND
-          c.created_by = b.created_by
-      WHERE
-        c.created_by = vibetype.invoker_account_id()
+      WHERE c.id = guest.contact_id
+      AND c.created_by = vibetype.invoker_account_id()
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype.account_block b
+        WHERE c.account_id = b.blocked_account_id
+        AND c.created_by = b.created_by
+      )
     )
 );
 
@@ -86,34 +89,38 @@ USING (
     guest.id = ANY (vibetype.guest_claim_array())
   OR
   (
-    guest.contact_id IN (
-      SELECT id
-      FROM vibetype.contact
-      WHERE account_id = vibetype.invoker_account_id()
-
-      EXCEPT
-
-      SELECT c.id
+    EXISTS (
+      SELECT 1
       FROM vibetype.contact c
-        JOIN vibetype.account_block b ON c.account_id = b.created_by AND c.created_by = b.blocked_account_id
-      WHERE c.account_id = vibetype.invoker_account_id()
+      WHERE c.id = guest.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype.account_block b
+        WHERE c.account_id = b.created_by
+        AND c.created_by = b.blocked_account_id
+      )
     )
   )
   OR
   (
-    guest.event_id IN (SELECT vibetype.events_organized())
+    EXISTS (
+      SELECT 1
+      FROM vibetype.events_organized() eo(event_id)
+      WHERE eo.event_id = guest.event_id
+    )
     AND
     -- omit contacts created by a blocked account or referring to a blocked account
-    guest.contact_id IN (
-      SELECT c.id
+    EXISTS (
+      SELECT 1
       FROM vibetype.contact c
-      WHERE
-        NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-        )
+      WHERE c.id = guest.contact_id
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
+      )
     )
   )
 );
@@ -121,7 +128,11 @@ USING (
 -- Only allow deletes for guests of events organized by oneself.
 CREATE POLICY guest_delete ON vibetype.guest FOR DELETE
 USING (
-  event_id IN (SELECT vibetype.events_organized())
+  EXISTS (
+    SELECT 1
+    FROM vibetype.events_organized() eo(event_id)
+    WHERE eo.event_id = guest.event_id
+  )
 );
 
 CREATE FUNCTION vibetype.trigger_guest_update() RETURNS TRIGGER AS $$
@@ -133,14 +144,11 @@ BEGIN
     AND ( -- Invited.
       OLD.id = ANY (vibetype.guest_claim_array())
       OR
-      (
-        vibetype.invoker_account_id() IS NOT NULL
-        AND
-        OLD.contact_id IN (
-          SELECT id
-          FROM vibetype.contact
-          WHERE contact.account_id = vibetype.invoker_account_id()
-        )
+      EXISTS (
+        SELECT 1
+        FROM vibetype.contact c
+        WHERE c.id = OLD.contact_id
+        AND c.account_id = vibetype.invoker_account_id()
       )
     )
     AND

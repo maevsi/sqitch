@@ -18,7 +18,11 @@ BEGIN
   IF (
     _guest IS NULL
     OR
-    _guest.event_id NOT IN (SELECT vibetype.events_organized()) -- Initial validation, every query below is expected to be secure.
+    NOT EXISTS ( -- Initial validation, every query below is expected to be secure.
+      SELECT 1
+      FROM vibetype.events_organized() eo(event_id)
+      WHERE eo.event_id = _guest.event_id
+    )
   ) THEN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;

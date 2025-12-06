@@ -28,8 +28,10 @@ RETURNS SETOF vibetype.event AS $$
       )
     )
     OR (
-      e.id IN (
-        SELECT * FROM vibetype_private.events_invited()
+      EXISTS (
+        SELECT 1
+        FROM vibetype_private.events_invited() ei(event_id)
+        WHERE ei.event_id = e.id
       )
     )
   );
@@ -39,7 +41,11 @@ GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select() TO vibetype_acc
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT
 USING (
-  id IN (SELECT id FROM vibetype_private.event_policy_select())
+  EXISTS (
+    SELECT 1
+    FROM vibetype_private.event_policy_select() ep
+    WHERE ep.id = event.id
+  )
 );
 
 COMMIT;

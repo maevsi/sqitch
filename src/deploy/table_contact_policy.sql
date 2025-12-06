@@ -27,7 +27,11 @@ USING (
       SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
     )
   )
-  OR contact.id IN (SELECT vibetype.guest_contact_ids())
+  OR EXISTS (
+    SELECT 1
+    FROM vibetype.guest_contact_ids() gci(contact_id)
+    WHERE gci.contact_id = contact.id
+  )
 );
 
 -- Only allow inserts for contacts created by the invoker's account.
@@ -59,8 +63,6 @@ USING (
 -- Only allow deletes for contacts created by the invoker's account except for the own account's contact.
 CREATE POLICY contact_delete ON vibetype.contact FOR DELETE
 USING (
-  vibetype.invoker_account_id() IS NOT NULL
-  AND
   created_by = vibetype.invoker_account_id()
   AND
   account_id IS DISTINCT FROM vibetype.invoker_account_id()

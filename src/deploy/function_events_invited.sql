@@ -9,28 +9,24 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
   WHERE
     (
       -- whose event ...
-      g.event_id IN (
-        SELECT id
-        FROM vibetype.event
-        WHERE
-          -- is not created by ...
-          NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = event.created_by
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = g.event_id
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
           )
       )
       AND
       -- whose invitee
-      g.contact_id IN (
-        SELECT id
-        FROM vibetype.contact
-        WHERE
-            -- is the requesting user
-            account_id = vibetype.invoker_account_id()
-          AND
-            -- who is not invited by
-            NOT EXISTS (
-              SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
-            )
+      EXISTS (
+        SELECT 1
+        FROM vibetype.contact c
+        WHERE c.id = g.contact_id
+          AND c.account_id = vibetype.invoker_account_id()
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+          )
       )
     )
     OR
