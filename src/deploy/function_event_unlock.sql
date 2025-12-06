@@ -4,25 +4,25 @@ CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS vibetype.event_unlo
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _jwt_id UUID;
-  _jwt vibetype.jwt;
+  _session_id UUID;
+  _session vibetype.session;
   _event vibetype.event;
   _event_creator_account_username TEXT;
   _event_id UUID;
 BEGIN
-  _jwt_id := current_setting('jwt.claims.id', true)::UUID;
-  _jwt := (
-    _jwt_id,
+  _session_id := current_setting('jwt.claims.id', true)::UUID;
+  _session := (
+    _session_id,
     vibetype.invoker_account_id(), -- prevent empty string cast to UUID
     current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
     current_setting('jwt.claims.role', true)::TEXT
-  )::vibetype.jwt;
+  )::vibetype.session;
 
-  UPDATE vibetype_private.jwt
-  SET token = _jwt
-  WHERE id = _jwt_id;
+  UPDATE vibetype_private.session
+  SET token = _session
+  WHERE id = _session_id;
 
   _event_id := (
     SELECT event_id FROM vibetype.guest
@@ -52,7 +52,7 @@ BEGIN
     RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  RETURN (_event_creator_account_username, _event.slug, _jwt)::vibetype.event_unlock_response;
+  RETURN (_event_creator_account_username, _event.slug, _session)::vibetype.event_unlock_response;
 END $$;
 
 COMMENT ON FUNCTION vibetype.event_unlock(UUID) IS 'Adds a guest claim to the current session.\n\nError codes:\n- **P0002** when no guest, no event, or no event creator username was found for this guest id.';
