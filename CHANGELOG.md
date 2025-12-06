@@ -1,3 +1,13 @@
+## [10.0.0-beta.19](https://github.com/maevsi/sqitch/compare/10.0.0-beta.18...10.0.0-beta.19) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **event-unlock-response:** remove
+
+### Features
+
+* **event-unlock-response:** remove ([a2c36ea](https://github.com/maevsi/sqitch/commit/a2c36eadd9ca0f03733943b76a48d943f4350af3))
+
 ## [10.0.0-beta.18](https://github.com/maevsi/sqitch/compare/10.0.0-beta.17...10.0.0-beta.18) (2025-12-06)
 
 ### ⚠ BREAKING CHANGES
