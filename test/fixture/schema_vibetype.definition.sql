@@ -90,35 +90,6 @@ COMMENT ON TYPE vibetype.event_size IS 'Possible event sizes: small, medium, lar
 
 
 --
--- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.jwt AS (
-	id uuid,
-	account_id uuid,
-	account_username text,
-	exp bigint,
-	guests uuid[],
-	role text
-);
-
-
-ALTER TYPE vibetype.jwt OWNER TO ci;
-
---
--- Name: event_unlock_response; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.event_unlock_response AS (
-	creator_username text,
-	event_slug text,
-	jwt vibetype.jwt
-);
-
-
-ALTER TYPE vibetype.event_unlock_response OWNER TO ci;
-
---
 -- Name: event_visibility; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -196,6 +167,22 @@ ALTER TYPE vibetype.invitation_feedback_paper OWNER TO ci;
 
 COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
 
+
+--
+-- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.jwt AS (
+	id uuid,
+	account_id uuid,
+	account_username text,
+	exp bigint,
+	guests uuid[],
+	role text
+);
+
+
+ALTER TYPE vibetype.jwt OWNER TO ci;
 
 --
 -- Name: language; Type: TYPE; Schema: vibetype; Owner: ci
@@ -1200,7 +1187,7 @@ COMMENT ON FUNCTION vibetype.event_search(query text, language vibetype.language
 -- Name: event_unlock(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS vibetype.event_unlock_response
+CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS TABLE(creator_username text, event_slug text, jwt vibetype.jwt)
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -1252,7 +1239,7 @@ BEGIN
     RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  RETURN (_event_creator_account_username, _event.slug, _jwt)::vibetype.event_unlock_response;
+  RETURN QUERY SELECT _event_creator_account_username, _event.slug, _jwt;
 END $$;
 
 
