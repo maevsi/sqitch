@@ -1,3 +1,9 @@
+## [10.0.0-beta.15](https://github.com/maevsi/sqitch/compare/10.0.0-beta.14...10.0.0-beta.15) (2025-12-06)
+
+### Bug Fixes
+
+* **account-block:** improve existence check ([5b6f877](https://github.com/maevsi/sqitch/commit/5b6f877eecada313d4bca591b979e497b4bcb30e))
+
 ## [10.0.0-beta.14](https://github.com/maevsi/sqitch/compare/10.0.0-beta.13...10.0.0-beta.14) (2025-12-02)
 
 ### ⚠ BREAKING CHANGES
