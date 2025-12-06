@@ -9,10 +9,9 @@ CREATE POLICY address_all ON vibetype.address FOR ALL
 USING (
   (
     address.created_by = vibetype.invoker_account_id()
-    OR
-    EXISTS (
+    OR EXISTS (
       SELECT 1
-      FROM vibetype_private.event_policy_select() e
+      FROM vibetype.event e
       WHERE e.address_id = address.id
     )
   )

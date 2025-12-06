@@ -1,17 +1,16 @@
 BEGIN;
 
--- TODO: compare to guest_select, guest_update policy
 CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  -- get all events for guests
+  -- Return event IDs for events the invoker is invited to.
   SELECT g.event_id FROM vibetype.guest g
   WHERE
-      -- for which the requesting user knows the id
+      -- Guest records explicitly known to the invoker (via guest claim).
       g.id = ANY (vibetype.guest_claim_array())
     OR
     (
-      -- whose contact refers to the invoker's account, and is not created by a blocked account
+      -- Guest whose contact belongs to the invoker and the contact wasn't created by a blocked account.
       EXISTS (
         SELECT 1
         FROM vibetype.contact c
@@ -22,7 +21,7 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
           )
       )
       AND
-      -- whose event is not created by a blocked account
+      -- And the corresponding event wasn't created by a blocked account.
       EXISTS (
         SELECT 1
         FROM vibetype.event e

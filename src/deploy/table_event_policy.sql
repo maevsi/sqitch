@@ -13,10 +13,10 @@ USING (
 
 -- Only display events that are public and not full and not organized by a blocked account.
 -- Only display events to which oneself is invited, but not by a guest created by a blocked account.
-CREATE FUNCTION vibetype_private.event_policy_select()
-RETURNS SETOF vibetype.event AS $$
-  SELECT * FROM vibetype.event e
-  WHERE (
+CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event)
+RETURNS boolean AS $$
+  SELECT
+  (
     (
       e.visibility = 'public'
       AND (
@@ -24,28 +24,22 @@ RETURNS SETOF vibetype.event AS $$
         OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
       AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+        SELECT 1
+        FROM vibetype_private.account_block_ids() b
+        WHERE b.id = e.created_by
       )
     )
-    OR (
-      EXISTS (
-        SELECT 1
-        FROM vibetype_private.events_invited() ei(event_id)
-        WHERE ei.event_id = e.id
-      )
+    OR EXISTS (
+      SELECT 1
+      FROM vibetype_private.events_invited() ei(event_id)
+      WHERE ei.event_id = e.id
     )
   );
 $$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select(vibetype.event) TO vibetype_account, vibetype_anonymous;
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1
-    FROM vibetype_private.event_policy_select() ep
-    WHERE ep.id = event.id
-  )
-);
+USING (vibetype_private.event_policy_select(event));
 
 COMMIT;

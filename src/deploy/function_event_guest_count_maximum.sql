@@ -11,11 +11,7 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
       -- Or event is accessible via policy (public, invited, etc.)
-      OR EXISTS (
-        SELECT 1
-        FROM vibetype_private.event_policy_select() ep
-        WHERE ep.id = e.id
-      )
+      OR vibetype_private.event_policy_select(e)
     );
 $$;
 
