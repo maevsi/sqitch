@@ -1,3 +1,15 @@
+## [10.0.0-beta.22](https://github.com/maevsi/sqitch/compare/10.0.0-beta.21...10.0.0-beta.22) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** align function names session – contents
+* **jwt:** align function names – files
+
+### Features
+
+* **jwt:** align function names – files ([e48b48c](https://github.com/maevsi/sqitch/commit/e48b48c367d838d4eae435483d05aa016dd9aad9))
+* **jwt:** align function names session – contents ([22f3bb5](https://github.com/maevsi/sqitch/commit/22f3bb5ccbf9db8add8e744a3c413a10905ace11))
+
 ## [10.0.0-beta.21](https://github.com/maevsi/sqitch/compare/10.0.0-beta.20...10.0.0-beta.21) (2025-12-06)
 
 ### ⚠ BREAKING CHANGES
