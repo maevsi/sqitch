@@ -3,26 +3,19 @@ BEGIN;
 CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT guest_count_maximum
-  FROM vibetype.event
+  SELECT e.guest_count_maximum
+  FROM vibetype.event e
   WHERE
-    id = event_guest_count_maximum.event_id
-    AND ( -- Copied from `event_select` POLICY.
-      (
-        visibility = 'public'
-        AND
-        (
-          guest_count_maximum IS NULL
-          OR
-          guest_count_maximum > (vibetype.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
-        )
+    e.id = event_guest_count_maximum.event_id
+    AND (
+      -- Event organized by invoker
+      e.created_by = vibetype.invoker_account_id()
+      -- Or event is accessible via policy (public, invited, etc.)
+      OR EXISTS (
+        SELECT 1
+        FROM vibetype_private.event_policy_select() ep
+        WHERE ep.id = e.id
       )
-      OR (
-        vibetype.invoker_account_id() IS NOT NULL
-        AND
-        created_by = vibetype.invoker_account_id()
-      )
-      OR id IN (SELECT vibetype_private.events_invited())
     );
 $$;
 
