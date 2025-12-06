@@ -1,8 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_email_address_verification(
-  code UUID
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_email_address_verification(code uuid) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _account vibetype_private.account;
 BEGIN
@@ -23,9 +23,9 @@ BEGIN
     SET email_address_verification = NULL
     WHERE email_address_verification = account_email_address_verification.code;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
-COMMENT ON FUNCTION vibetype.account_email_address_verification(UUID) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
+COMMENT ON FUNCTION vibetype.account_email_address_verification(UUID) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.\n\nError codes:\n- **P0002** when the verification code is unknown.\n- **55000** when the verification code has expired.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_email_address_verification(UUID) TO vibetype_account, vibetype_anonymous;
 

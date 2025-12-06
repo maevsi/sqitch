@@ -1,7 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype_private.trigger_audit_log()
-RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype_private.trigger_audit_log() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
 DECLARE
   _account_id UUID;
   _data_new JSONB;
@@ -63,7 +64,7 @@ BEGIN
     RETURN OLD;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log() IS 'Generic audit trigger function creating records in table vibetype_private.audit_log.
 inspired by https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit-log-fd9d9d5e412c';
@@ -126,12 +127,13 @@ BEGIN
       ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
   ELSE
     RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
-      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name;
+      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name
+      USING ERRCODE = 'VTALT';
   END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(TEXT, TEXT) IS 'Function creating an audit log trigger for a single table.';
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(TEXT, TEXT) IS 'Function creating an audit log trigger for a single table.\n\nError codes:\n- **VTALT** when a table cannot have an audit log trigger.';
 
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_drop_multiple()

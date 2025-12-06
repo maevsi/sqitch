@@ -18,6 +18,7 @@ COMMENT ON COLUMN vibetype.event_favorite.created_at IS E'@omit create\nTimestam
 COMMENT ON COLUMN vibetype.event_favorite.created_by IS 'Reference to the account that created the event favorite.';
 COMMENT ON CONSTRAINT event_favorite_created_by_event_id_key ON vibetype.event_favorite IS 'Ensures that each user can mark an event as a favorite only once.';
 
+GRANT SELECT ON TABLE vibetype.event_favorite TO vibetype_anonymous;
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
 
 ALTER TABLE vibetype.event_favorite ENABLE ROW LEVEL SECURITY;

@@ -1,11 +1,10 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.guest_count(event_id UUID)
-RETURNS INTEGER AS $$
-BEGIN
-  RETURN (SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id);
-END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
+$$;
 
 COMMENT ON FUNCTION vibetype.guest_count(UUID) IS 'Returns the guest count for an event.';
 

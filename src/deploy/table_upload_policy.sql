@@ -54,9 +54,13 @@ CREATE TRIGGER vibetype_trigger_upload_insert
 -- - the uploads which are used as profile picture.
 CREATE POLICY upload_select ON vibetype.upload FOR SELECT
 USING (
-    created_by = vibetype.invoker_account_id()
+  created_by = vibetype.invoker_account_id()
   OR
-    id IN (SELECT upload_id FROM vibetype.profile_picture)
+  EXISTS (
+    SELECT 1
+    FROM vibetype.profile_picture p
+    WHERE p.upload_id = upload.id
+  )
 );
 
 -- Allow accounts to update their own uploads.

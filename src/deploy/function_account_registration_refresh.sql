@@ -1,16 +1,15 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_registration_refresh(
-  account_id UUID,
-  language TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _new_account_notify RECORD;
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
   IF (NOT EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
-    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
@@ -23,9 +22,9 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
+    INTO _new_account_notify
     FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _new_account_notify;
+    WHERE updated.id = account.id;
 
   INSERT INTO vibetype_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -35,9 +34,9 @@ BEGIN
     ))
   );
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
-COMMENT ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) IS 'Refreshes an account''s email address verification validity period.';
+COMMENT ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) TO vibetype_anonymous;
 

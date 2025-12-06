@@ -1,37 +1,39 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.guest_contact_ids()
-RETURNS TABLE (contact_id UUID) AS $$
-BEGIN
-  RETURN QUERY
-    -- get all contacts of guests
-    SELECT g.contact_id
-    FROM vibetype.guest g
-    WHERE
+CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  -- get all contacts of guests
+  SELECT g.contact_id
+  FROM vibetype.guest g
+  WHERE
+    (
+      -- that are known through a guest claim
+      g.id = ANY (vibetype.guest_claim_array())
+    OR
+      -- or for events organized by the invoker
       (
-        -- that are known through a guest claim
-        g.id = ANY (vibetype.guest_claim_array())
-      OR
-        -- or for events organized by the invoker
-        g.event_id IN (SELECT vibetype.events_organized())
-        and g.contact_id IN (
-          SELECT id
-          FROM vibetype.contact
-          WHERE
-            created_by NOT IN (
-              SELECT id FROM vibetype_private.account_block_ids()
-            )
-            AND (
-              account_id IS NULL
-              OR
-              account_id NOT IN (
-                SELECT id FROM vibetype_private.account_block_ids()
-              )
-            )
+        EXISTS (
+          SELECT 1
+          FROM vibetype.event e
+          WHERE e.id = g.event_id
+            AND e.created_by = vibetype.invoker_account_id()
         )
-      );
-END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+        AND
+        EXISTS (
+          SELECT 1
+          FROM vibetype.contact c
+          WHERE c.id = g.contact_id
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
+          )
+        )
+      )
+    );
+$$;
 
 COMMENT ON FUNCTION vibetype.guest_contact_ids() IS 'Returns contact ids that are accessible through guests.';
 

@@ -49,13 +49,17 @@ ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 CREATE POLICY friendship_existing ON vibetype.friendship FOR ALL
 USING (
   (
-    vibetype.invoker_account_id() = a_account_id
-    AND b_account_id NOT IN (SELECT id FROM vibetype_private.account_block_ids())
+    vibetype.invoker_account_id() = friendship.a_account_id
+    AND NOT EXISTS (
+      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = friendship.b_account_id
+    )
   )
   OR
   (
-    vibetype.invoker_account_id() = b_account_id
-    AND a_account_id NOT IN (SELECT id FROM vibetype_private.account_block_ids())
+    vibetype.invoker_account_id() = friendship.b_account_id
+    AND NOT EXISTS (
+      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = friendship.a_account_id
+    )
   )
 )
 WITH CHECK (FALSE);
