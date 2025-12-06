@@ -27,7 +27,7 @@ DECLARE
   _id UUID;
 BEGIN
   DELETE FROM vibetype.account_block
-  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
+  WHERE created_by = _created_by AND blocked_account_id = _blocked_account_id;
 END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_delete(UUID, UUID) TO vibetype_account;

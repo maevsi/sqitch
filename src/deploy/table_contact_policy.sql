@@ -40,10 +40,7 @@ CREATE POLICY contact_insert ON vibetype.contact FOR INSERT
 WITH CHECK (
   contact.created_by = vibetype.invoker_account_id()
   AND NOT EXISTS (
-    SELECT 1
-    FROM vibetype.account_block b
-    WHERE b.created_by = vibetype.invoker_account_id()
-      AND b.blocked_account_id = contact.account_id
+    SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
   )
 );
 
@@ -53,10 +50,7 @@ CREATE POLICY contact_update ON vibetype.contact FOR UPDATE
 USING (
   contact.created_by = vibetype.invoker_account_id()
   AND NOT EXISTS (
-    SELECT 1
-    FROM vibetype.account_block b
-    WHERE b.created_by = vibetype.invoker_account_id()
-      AND b.blocked_account_id = contact.account_id
+    SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
   )
 );
 

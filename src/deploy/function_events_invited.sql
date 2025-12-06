@@ -7,18 +7,11 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
   -- get all events for guests
   SELECT g.event_id FROM vibetype.guest g
   WHERE
+      -- for which the requesting user knows the id
+      g.id = ANY (vibetype.guest_claim_array())
+    OR
     (
-      -- whose event ...
-      EXISTS (
-        SELECT 1
-        FROM vibetype.event e
-        WHERE e.id = g.event_id
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
-          )
-      )
-      AND
-      -- whose invitee
+      -- whose contact refers to the invoker's account, and is not created by a blocked account
       EXISTS (
         SELECT 1
         FROM vibetype.contact c
@@ -28,10 +21,17 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
             SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
           )
       )
-    )
-    OR
-      -- for which the requesting user knows the id
-      g.id = ANY (vibetype.guest_claim_array());
+      AND
+      -- whose event is not created by a blocked account
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = g.event_id
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+          )
+      )
+    );
 $$;
 
 COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
