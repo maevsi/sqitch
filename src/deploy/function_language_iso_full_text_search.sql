@@ -1,5 +1,5 @@
 CREATE FUNCTION vibetype.language_iso_full_text_search(language vibetype.language) RETURNS regconfig
-    LANGUAGE sql STABLE SECURITY DEFINER
+    LANGUAGE sql STABLE
     AS $$
   SELECT
     CASE language
