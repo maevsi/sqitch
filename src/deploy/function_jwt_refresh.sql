@@ -1,37 +1,40 @@
 BEGIN;
 
 CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
-  _jwt vibetype.jwt;
-BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role
-  INTO _jwt
-  FROM vibetype_private.jwt
-  WHERE   id = jwt_refresh.jwt_id
-  AND     (token)."exp" >= _epoch_now;
-
-  IF (_jwt IS NULL) THEN
-    RETURN NULL;
-  ELSE
+  WITH params AS (
+    SELECT
+    EXTRACT(EPOCH FROM date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE))::bigint AS epoch_now,
+    COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::interval AS expiry_interval
+  ),
+  found AS (
+    SELECT j.id, (j.token).account_id AS account_id
+    FROM vibetype_private.jwt j, params p
+    WHERE j.id = jwt_refresh.jwt_id
+    AND (j.token)."exp" >= p.epoch_now
+    LIMIT 1
+  ),
+  u AS (
     UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE id = jwt_refresh.jwt_id;
-
+    SET token.exp = EXTRACT(
+    EPOCH FROM (
+      date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)
+      + (SELECT expiry_interval FROM params)
+    )
+    )
+    WHERE id IN (SELECT id FROM found)
+    RETURNING *
+  ),
+  account_update AS (
     UPDATE vibetype_private.account
     SET last_activity = DEFAULT
-    WHERE account.id = _jwt.account_id;
-
-    RETURN (
-      SELECT token
-      FROM vibetype_private.jwt
-      WHERE   id = jwt_refresh.jwt_id
-      AND     (token)."exp" >= _epoch_now
-    );
-  END IF;
-END;
+    WHERE id = (SELECT account_id FROM found)
+    RETURNING id
+  )
+  SELECT token
+  FROM u
+  WHERE (token)."exp" >= (SELECT epoch_now FROM params);
 $$;
 
 COMMENT ON FUNCTION vibetype.jwt_refresh(UUID) IS 'Refreshes a JWT.';
