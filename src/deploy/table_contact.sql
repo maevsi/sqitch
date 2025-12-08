@@ -13,7 +13,7 @@ CREATE TABLE vibetype.contact (
   nickname              TEXT CHECK (char_length(nickname) > 0 AND char_length(nickname) <= 100),
   note                  TEXT CHECK (char_length(note) > 0 AND char_length(note) <= 1000),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
-  timezone              TEXT CHECK (timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'),
+  time_zone             TEXT CHECK (time_zone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'),
   url                   TEXT CHECK (char_length("url") <= 300 AND "url" ~ '^https:\/\/'),
 
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -34,7 +34,7 @@ COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must 
 COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
 COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
-COMMENT ON COLUMN vibetype.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
 COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
 COMMENT ON COLUMN vibetype.contact.created_at IS E'@omit create,update\nTimestamp when the contact was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';

@@ -11,7 +11,7 @@ SELECT id,
        nickname,
        note,
        phone_number,
-       timezone,
+       time_zone,
        url,
        created_at,
        created_by
