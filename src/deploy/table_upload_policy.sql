@@ -48,7 +48,7 @@ $$;
 COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enforce upload quota limits per account when inserting new uploads.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
 
-CREATE TRIGGER vibetype_trigger_upload_insert
+CREATE TRIGGER insert
   BEFORE INSERT ON vibetype.upload
   FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
 

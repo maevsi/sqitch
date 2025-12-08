@@ -137,7 +137,7 @@ END $$;
 COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_guest_update() TO vibetype_account, vibetype_anonymous;
 
-CREATE TRIGGER vibetype_guest_update
+CREATE TRIGGER update
   BEFORE UPDATE
   ON vibetype.guest
   FOR EACH ROW

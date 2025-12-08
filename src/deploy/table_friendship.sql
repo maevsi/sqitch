@@ -34,7 +34,7 @@ COMMENT ON COLUMN vibetype.friendship.updated_by IS E'@omit create,update\nThe a
 COMMENT ON INDEX vibetype.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
 COMMENT ON INDEX vibetype.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
-CREATE TRIGGER vibetype_trigger_friendship_update
+CREATE TRIGGER update
   BEFORE
     UPDATE
   ON vibetype.friendship

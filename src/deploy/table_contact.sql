@@ -60,7 +60,7 @@ $$;
 COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates that the time zone provided in the contact is a valid IANA time zone.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_account;
 
-CREATE TRIGGER vibetype_trigger_contact_check_time_zone
+CREATE TRIGGER time_zone
   BEFORE INSERT OR UPDATE OF time_zone
   ON vibetype.contact
   FOR EACH ROW
@@ -100,7 +100,7 @@ $$;
 COMMENT ON FUNCTION vibetype.trigger_contact_update_account_id() IS 'Prevents invalid updates to contacts.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_account;
 
-CREATE TRIGGER vibetype_trigger_contact_update_account_id
+CREATE TRIGGER update_account_id
   BEFORE
     UPDATE OF account_id, created_by
   ON vibetype.contact

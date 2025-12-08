@@ -41,7 +41,7 @@ COMMENT ON INDEX vibetype.idx_address_created_by IS 'B-Tree index to optimize lo
 COMMENT ON INDEX vibetype.idx_address_updated_by IS 'B-Tree index to optimize lookups by updater.';
 -- GRANTs, RLS and POLICYs are specified in `table_address_policy`.
 
-CREATE TRIGGER vibetype_trigger_address_update
+CREATE TRIGGER update
   BEFORE
     UPDATE
   ON vibetype.address

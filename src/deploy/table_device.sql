@@ -26,7 +26,7 @@ COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize loo
 
 -- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.
 
-CREATE TRIGGER vibetype_trigger_device_update
+CREATE TRIGGER update
   BEFORE
     UPDATE
   ON vibetype.device
@@ -34,7 +34,7 @@ CREATE TRIGGER vibetype_trigger_device_update
   EXECUTE PROCEDURE vibetype.trigger_metadata_update();
 
 
-CREATE FUNCTION vibetype.trigger_metadata_update_fcm() RETURNS TRIGGER
+CREATE FUNCTION vibetype.trigger_device_update_fcm_token() RETURNS TRIGGER
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -45,15 +45,15 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-COMMENT ON FUNCTION vibetype.trigger_metadata_update_fcm() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
-GRANT EXECUTE ON FUNCTION vibetype.trigger_metadata_update_fcm() TO vibetype_account;
+COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
+GRANT EXECUTE ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_account;
 
-CREATE TRIGGER vibetype_trigger_device_update_fcm
+CREATE TRIGGER update_fcm
   BEFORE
     UPDATE
   ON vibetype.device
   FOR EACH ROW
-  EXECUTE FUNCTION vibetype.trigger_metadata_update_fcm();
+  EXECUTE FUNCTION vibetype.trigger_device_update_fcm_token();
 
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
 

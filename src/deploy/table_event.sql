@@ -63,7 +63,7 @@ $$;
 COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_event_search_vector() TO vibetype_account, vibetype_anonymous;
 
-CREATE TRIGGER vibetype_trigger_event_search_vector
+CREATE TRIGGER search_vector
   BEFORE
        INSERT
     OR UPDATE OF name, description, language
