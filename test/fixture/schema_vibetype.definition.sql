@@ -1665,6 +1665,36 @@ COMMENT ON FUNCTION vibetype.profile_picture_set(upload_id uuid) IS 'Sets the pi
 
 
 --
+-- Name: trigger_contact_check_time_zone(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF NEW.time_zone IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_timezone_names WHERE name = NEW.time_zone
+      ) THEN
+        RAISE EXCEPTION 'Invalid time zone: %', NEW.time_zone;
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_contact_check_time_zone() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_contact_check_time_zone(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates that the time zone provided in the contact is a valid IANA time zone.';
+
+
+--
 -- Name: trigger_contact_update_account_id(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -2797,7 +2827,6 @@ CREATE TABLE vibetype.contact (
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_time_zone_check CHECK ((time_zone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -2894,7 +2923,7 @@ COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone numb
 -- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
 
 
 --
@@ -5003,6 +5032,13 @@ CREATE TRIGGER vibetype_trigger_address_update BEFORE UPDATE ON vibetype.address
 
 
 --
+-- Name: contact vibetype_trigger_contact_check_time_zone; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER vibetype_trigger_contact_check_time_zone BEFORE INSERT OR UPDATE OF time_zone ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
+
+
+--
 -- Name: contact vibetype_trigger_contact_update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6245,6 +6281,14 @@ GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged
 
 REVOKE ALL ON FUNCTION vibetype.profile_picture_set(upload_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.profile_picture_set(upload_id uuid) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_contact_check_time_zone(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_account;
 
 
 --
