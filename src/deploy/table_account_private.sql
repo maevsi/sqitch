@@ -36,7 +36,9 @@ COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the
 COMMENT ON COLUMN vibetype_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
 COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
-CREATE FUNCTION vibetype_private.account_email_address_verification_valid_until() RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
   BEGIN
     IF (NEW.email_address_verification IS NULL) THEN
       NEW.email_address_verification_valid_until = NULL;
@@ -48,13 +50,21 @@ CREATE FUNCTION vibetype_private.account_email_address_verification_valid_until(
 
     RETURN NEW;
   END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+$$;
+COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to its default value.';
+GRANT EXECUTE ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() TO vibetype_account;
 
-COMMENT ON FUNCTION vibetype_private.account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
+CREATE TRIGGER email_address_verification
+  BEFORE
+       INSERT
+    OR UPDATE OF email_address_verification
+  ON vibetype_private.account
+  FOR EACH ROW
+  EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
 
-GRANT EXECUTE ON FUNCTION vibetype_private.account_email_address_verification_valid_until() TO vibetype_account;
-
-CREATE FUNCTION vibetype_private.account_password_reset_verification_valid_until() RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
   BEGIN
     IF (NEW.password_reset_verification IS NULL) THEN
       NEW.password_reset_verification_valid_until = NULL;
@@ -66,27 +76,17 @@ CREATE FUNCTION vibetype_private.account_password_reset_verification_valid_until
 
     RETURN NEW;
   END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+$$;
+COMMENT ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() IS 'Sets the valid until column of the password reset verification to its default value.';
+GRANT EXECUTE ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() TO vibetype_account;
 
-COMMENT ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
-
-GRANT EXECUTE ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() TO vibetype_account;
-
-CREATE TRIGGER vibetype_private_account_email_address_verification_valid_until
-  BEFORE
-       INSERT
-    OR UPDATE OF email_address_verification
-  ON vibetype_private.account
-  FOR EACH ROW
-  EXECUTE PROCEDURE vibetype_private.account_email_address_verification_valid_until();
-
-CREATE TRIGGER vibetype_private_account_password_reset_verification_valid_until
+CREATE TRIGGER password_reset_verification
   BEFORE
        INSERT
     OR UPDATE OF password_reset_verification
   ON vibetype_private.account
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype_private.account_password_reset_verification_valid_until();
+  EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
 
 GRANT SELECT ON TABLE vibetype_private.account TO :role_service_grafana_username;
 

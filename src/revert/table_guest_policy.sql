@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP TRIGGER vibetype_guest_update ON vibetype.guest;
+DROP TRIGGER update ON vibetype.guest;
 
 DROP FUNCTION vibetype.trigger_guest_update();
 

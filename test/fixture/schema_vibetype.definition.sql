@@ -1745,6 +1745,32 @@ COMMENT ON FUNCTION vibetype.trigger_contact_update_account_id() IS 'Prevents in
 
 
 --
+-- Name: trigger_device_update_fcm_token(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_device_update_fcm_token() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
+    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_device_update_fcm_token() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_device_update_fcm_token(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
+
+
+--
 -- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1848,25 +1874,6 @@ COMMENT ON FUNCTION vibetype.trigger_metadata_update() IS 'Trigger function to a
 
 
 --
--- Name: trigger_metadata_update_fcm(); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.trigger_metadata_update_fcm() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
-    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
-      USING ERRCODE = 'integrity_constraint_violation';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.trigger_metadata_update_fcm() OWNER TO ci;
-
---
 -- Name: trigger_upload_insert(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1899,6 +1906,13 @@ $$;
 ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
 
 --
+-- Name: FUNCTION trigger_upload_insert(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enforce upload quota limits per account when inserting new uploads.';
+
+
+--
 -- Name: account_block_ids(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -1924,66 +1938,6 @@ ALTER FUNCTION vibetype_private.account_block_ids() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.account_block_ids() IS 'Returns all account ids being blocked by the invoker and all accounts that blocked the invoker.';
-
-
---
--- Name: account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.account_email_address_verification_valid_until() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-  BEGIN
-    IF (NEW.email_address_verification IS NULL) THEN
-      NEW.email_address_verification_valid_until = NULL;
-    ELSE
-      IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
-      END IF;
-    END IF;
-
-    RETURN NEW;
-  END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.account_email_address_verification_valid_until() OWNER TO ci;
-
---
--- Name: FUNCTION account_email_address_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
-
-
---
--- Name: account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.account_password_reset_verification_valid_until() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-  BEGIN
-    IF (NEW.password_reset_verification IS NULL) THEN
-      NEW.password_reset_verification_valid_until = NULL;
-    ELSE
-      IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
-      END IF;
-    END IF;
-
-    RETURN NEW;
-  END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.account_password_reset_verification_valid_until() OWNER TO ci;
-
---
--- Name: FUNCTION account_password_reset_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
 
 
 --
@@ -2150,6 +2104,66 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) OWNER TO ci;
+
+--
+-- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF (NEW.email_address_verification IS NULL) THEN
+      NEW.email_address_verification_valid_until = NULL;
+    ELSE
+      IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to its default value.';
+
+
+--
+-- Name: trigger_account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF (NEW.password_reset_verification IS NULL) THEN
+      NEW.password_reset_verification_valid_until = NULL;
+    ELSE
+      IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_password_reset_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() IS 'Sets the valid until column of the password reset verification to its default value.';
+
 
 --
 -- Name: trigger_audit_log(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -5009,94 +5023,94 @@ COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on
 
 
 --
--- Name: guest vibetype_guest_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: legal_term delete; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_guest_update BEFORE UPDATE ON vibetype.guest FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_guest_update();
-
-
---
--- Name: legal_term vibetype_legal_term_delete; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_legal_term_delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
+CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
 
 
 --
--- Name: legal_term vibetype_legal_term_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: upload insert; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_legal_term_update BEFORE UPDATE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
-
-
---
--- Name: address vibetype_trigger_address_update; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_address_update BEFORE UPDATE ON vibetype.address FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
 
 
 --
--- Name: contact vibetype_trigger_contact_check_time_zone; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_contact_check_time_zone BEFORE INSERT OR UPDATE OF time_zone ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
-
-
---
--- Name: contact vibetype_trigger_contact_update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
+CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE OF name, description, language ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
 
 
 --
--- Name: device vibetype_trigger_device_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: contact time_zone; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_device_update BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
-
-
---
--- Name: device vibetype_trigger_device_update_fcm; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_device_update_fcm BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update_fcm();
+CREATE TRIGGER time_zone BEFORE INSERT OR UPDATE OF time_zone ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
 
 
 --
--- Name: event vibetype_trigger_event_search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: address update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
-
-
---
--- Name: friendship vibetype_trigger_friendship_update; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_friendship_update BEFORE UPDATE ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.address FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
--- Name: upload vibetype_trigger_upload_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: device update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_upload_insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
-
-
---
--- Name: account vibetype_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: vibetype_private; Owner: ci
---
-
-CREATE TRIGGER vibetype_private_account_email_address_verification_valid_until BEFORE INSERT OR UPDATE OF email_address_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.account_email_address_verification_valid_until();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
--- Name: account vibetype_private_account_password_reset_verification_valid_unti; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+-- Name: friendship update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_private_account_password_reset_verification_valid_unti BEFORE INSERT OR UPDATE OF password_reset_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.account_password_reset_verification_valid_until();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+
+
+--
+-- Name: guest update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.guest FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_guest_update();
+
+
+--
+-- Name: legal_term update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
+
+
+--
+-- Name: contact update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update_account_id BEFORE UPDATE OF account_id, created_by ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
+
+
+--
+-- Name: device update_fcm; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update_fcm BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_device_update_fcm_token();
+
+
+--
+-- Name: account email_address_verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER email_address_verification BEFORE INSERT OR UPDATE OF email_address_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
+
+
+--
+-- Name: account password_reset_verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER password_reset_verification BEFORE INSERT OR UPDATE OF password_reset_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
 
 
 --
@@ -6305,6 +6319,14 @@ GRANT ALL ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_a
 
 
 --
+-- Name: FUNCTION trigger_device_update_fcm_token(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6331,17 +6353,11 @@ GRANT ALL ON FUNCTION vibetype.trigger_metadata_update() TO vibetype_account;
 
 
 --
--- Name: FUNCTION trigger_metadata_update_fcm(); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() FROM PUBLIC;
-
-
---
 -- Name: FUNCTION trigger_upload_insert(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
 
 
 --
@@ -6351,22 +6367,6 @@ REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
 REVOKE ALL ON FUNCTION vibetype_private.account_block_ids() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.account_block_ids() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.account_block_ids() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION account_email_address_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() TO vibetype_account;
-
-
---
--- Name: FUNCTION account_password_reset_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() TO vibetype_account;
 
 
 --
@@ -6401,6 +6401,22 @@ GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_account_password_reset_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() TO vibetype_account;
 
 
 --

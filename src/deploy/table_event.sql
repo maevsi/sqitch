@@ -45,7 +45,9 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 COMMENT ON COLUMN vibetype.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
 COMMENT ON INDEX vibetype.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
-CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   ts_config regconfig;
 BEGIN
@@ -57,13 +59,11 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
-
+$$;
 COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
-
 GRANT EXECUTE ON FUNCTION vibetype.trigger_event_search_vector() TO vibetype_account, vibetype_anonymous;
 
-CREATE TRIGGER vibetype_trigger_event_search_vector
+CREATE TRIGGER search_vector
   BEFORE
        INSERT
     OR UPDATE OF name, description, language

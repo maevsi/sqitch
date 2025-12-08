@@ -42,7 +42,9 @@ COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS '
 
 -- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.
 
-CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
   BEGIN
     IF NEW.time_zone IS NOT NULL THEN
       IF NOT EXISTS (
@@ -54,18 +56,20 @@ CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER AS $$
 
     RETURN NEW;
   END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+$$;
 COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates that the time zone provided in the contact is a valid IANA time zone.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_account;
 
-CREATE TRIGGER vibetype_trigger_contact_check_time_zone
+CREATE TRIGGER time_zone
   BEFORE INSERT OR UPDATE OF time_zone
   ON vibetype.contact
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_contact_check_time_zone();
+  EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
 
 
-CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER AS $$
+CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
   BEGIN
     IF (
       -- invoked without account id
@@ -92,15 +96,15 @@ CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER AS 
 
     RETURN NEW;
   END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+$$;
 COMMENT ON FUNCTION vibetype.trigger_contact_update_account_id() IS 'Prevents invalid updates to contacts.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_account;
 
-CREATE TRIGGER vibetype_trigger_contact_update_account_id
+CREATE TRIGGER update_account_id
   BEFORE
     UPDATE OF account_id, created_by
   ON vibetype.contact
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_contact_update_account_id();
+  EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
 
 COMMIT;

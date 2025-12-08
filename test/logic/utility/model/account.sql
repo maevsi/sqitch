@@ -41,7 +41,9 @@ GRANT EXECUTE ON FUNCTION vibetype_test.account_select_address_coordinates(UUID)
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_email_address(_email_address text)
-RETURNS UUID AS $$
+RETURNS UUID
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _account_id UUID;
 BEGIN
@@ -52,7 +54,7 @@ BEGIN
 
   RETURN _account_id;
 END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+$$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_select_by_email_address(TEXT) TO vibetype_account;
 
@@ -113,7 +115,9 @@ CREATE OR REPLACE FUNCTION vibetype_test.account_test(
   _invoker_account_id UUID,
   _account_id UUID,
   _assert_is_visible BOOLEAN
-) RETURNS VOID AS $$
+) RETURNS VOID
+    LANGUAGE plpgsql STRICT SECURITY INVOKER
+    AS $$
 DECLARE
   _result BOOLEAN;
 BEGIN
@@ -133,6 +137,6 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set_previous();
 END;
-$$ LANGUAGE plpgsql STRICT SECURITY INVOKER;
+$$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_test(TEXT, UUID, UUID, BOOLEAN) TO vibetype_account;
