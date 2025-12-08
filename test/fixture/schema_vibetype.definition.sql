@@ -1867,6 +1867,13 @@ $$;
 ALTER FUNCTION vibetype.trigger_metadata_update_fcm() OWNER TO ci;
 
 --
+-- Name: FUNCTION trigger_metadata_update_fcm(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_metadata_update_fcm() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
+
+
+--
 -- Name: trigger_upload_insert(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1897,6 +1904,13 @@ $$;
 
 
 ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_upload_insert(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enforce upload quota limits per account when inserting new uploads.';
+
 
 --
 -- Name: account_block_ids(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -6335,6 +6349,7 @@ GRANT ALL ON FUNCTION vibetype.trigger_metadata_update() TO vibetype_account;
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() TO vibetype_account;
 
 
 --
@@ -6342,6 +6357,7 @@ REVOKE ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
 
 
 --

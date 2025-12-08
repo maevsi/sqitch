@@ -113,7 +113,9 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_update_address_coordinates(
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
 )
-RETURNS VOID AS $$
+RETURNS VOID
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 BEGIN
   WITH event AS (
     SELECT address_id
@@ -126,7 +128,7 @@ BEGIN
   WHERE
     id = (SELECT address_id FROM event);
 END;
-$$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 

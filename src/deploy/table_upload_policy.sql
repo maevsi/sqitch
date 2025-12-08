@@ -21,8 +21,9 @@ WITH CHECK (
   created_by = vibetype.invoker_account_id()
 );
 
-CREATE FUNCTION vibetype.trigger_upload_insert()
-RETURNS trigger AS $$
+CREATE FUNCTION vibetype.trigger_upload_insert() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
 DECLARE
   _current_usage BIGINT;
   _quota BIGINT;
@@ -43,7 +44,9 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
+COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enforce upload quota limits per account when inserting new uploads.';
+GRANT EXECUTE ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
 
 CREATE TRIGGER vibetype_trigger_upload_insert
   BEFORE INSERT ON vibetype.upload
