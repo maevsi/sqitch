@@ -85,3 +85,5 @@ BEGIN
   PERFORM vibetype_test.event_category_mapping_test('event_category_mapping visibility with block (perspective B)', accountB, ARRAY[eventB, eventC]::UUID[]);
 END $$;
 ROLLBACK TO SAVEPOINT event_category_mapping_select_block;
+
+ROLLBACK;
