@@ -31,7 +31,7 @@ CREATE TRIGGER update
     UPDATE
   ON vibetype.device
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_metadata_update();
+  EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 CREATE FUNCTION vibetype.trigger_device_update_fcm_token() RETURNS TRIGGER

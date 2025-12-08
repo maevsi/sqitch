@@ -60,7 +60,7 @@ CREATE TRIGGER email_address_verification
     OR UPDATE OF email_address_verification
   ON vibetype_private.account
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype_private.trigger_account_email_address_verification_valid_until();
+  EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
 
 CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
@@ -86,7 +86,7 @@ CREATE TRIGGER password_reset_verification
     OR UPDATE OF password_reset_verification
   ON vibetype_private.account
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype_private.trigger_account_password_reset_verification_valid_until();
+  EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
 
 GRANT SELECT ON TABLE vibetype_private.account TO :role_service_grafana_username;
 

@@ -46,6 +46,6 @@ CREATE TRIGGER update
     UPDATE
   ON vibetype.address
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_metadata_update();
+  EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 COMMIT;

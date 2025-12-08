@@ -39,7 +39,7 @@ CREATE TRIGGER update
     UPDATE
   ON vibetype.friendship
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_metadata_update();
+  EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.friendship TO vibetype_account;
 

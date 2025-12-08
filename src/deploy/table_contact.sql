@@ -64,7 +64,7 @@ CREATE TRIGGER time_zone
   BEFORE INSERT OR UPDATE OF time_zone
   ON vibetype.contact
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_contact_check_time_zone();
+  EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
 
 
 CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER
@@ -105,6 +105,6 @@ CREATE TRIGGER update_account_id
     UPDATE OF account_id, created_by
   ON vibetype.contact
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_contact_update_account_id();
+  EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
 
 COMMIT;

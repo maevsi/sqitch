@@ -141,6 +141,6 @@ CREATE TRIGGER update
   BEFORE UPDATE
   ON vibetype.guest
   FOR EACH ROW
-  EXECUTE PROCEDURE vibetype.trigger_guest_update();
+  EXECUTE FUNCTION vibetype.trigger_guest_update();
 
 COMMIT;
