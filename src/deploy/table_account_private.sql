@@ -54,6 +54,14 @@ $$;
 COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to its default value.';
 GRANT EXECUTE ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() TO vibetype_account;
 
+CREATE TRIGGER email_address_verification
+  BEFORE
+       INSERT
+    OR UPDATE OF email_address_verification
+  ON vibetype_private.account
+  FOR EACH ROW
+  EXECUTE PROCEDURE vibetype_private.trigger_account_email_address_verification_valid_until();
+
 CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
@@ -71,14 +79,6 @@ CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_val
 $$;
 COMMENT ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() IS 'Sets the valid until column of the password reset verification to its default value.';
 GRANT EXECUTE ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() TO vibetype_account;
-
-CREATE TRIGGER email_address_verification
-  BEFORE
-       INSERT
-    OR UPDATE OF email_address_verification
-  ON vibetype_private.account
-  FOR EACH ROW
-  EXECUTE PROCEDURE vibetype_private.trigger_account_email_address_verification_valid_until();
 
 CREATE TRIGGER password_reset_verification
   BEFORE
