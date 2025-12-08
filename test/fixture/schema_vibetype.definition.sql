@@ -919,7 +919,7 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description.';
 -- Name: COLUMN event."end"; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with timezone.';
+COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
 
 
 --
@@ -968,7 +968,7 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified.';
 -- Name: COLUMN event.start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with timezone.';
+COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 
 
 --
@@ -1346,7 +1346,7 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_id, email_address INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address, language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1379,13 +1379,18 @@ BEGIN
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
-          'emailAddress', _email_address,
+          'contact', jsonb_build_object(
+            'emailAddress', _email_address,
+            'timeZone', _contact.time_zone
+          ),
           'event', _event,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
-          'guestId', _guest.id
+          'guest', jsonb_build_object(
+            'id', _guest.id
+          )
         ),
-        'template', jsonb_build_object('language', invite.language)
+        'template', jsonb_build_object('language', COALESCE(_contact.language, language))
       ))
     );
 END;
@@ -1662,6 +1667,36 @@ ALTER FUNCTION vibetype.profile_picture_set(upload_id uuid) OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.profile_picture_set(upload_id uuid) IS 'Sets the picture with the given upload id as the invoker''s profile picture.';
+
+
+--
+-- Name: trigger_contact_check_time_zone(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF NEW.time_zone IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_timezone_names WHERE name = NEW.time_zone
+      ) THEN
+        RAISE EXCEPTION 'Invalid time zone: %', NEW.time_zone;
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_contact_check_time_zone() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_contact_check_time_zone(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates that the time zone provided in the contact is a valid IANA time zone.';
 
 
 --
@@ -2787,7 +2822,7 @@ CREATE TABLE vibetype.contact (
     nickname text,
     note text,
     phone_number text,
-    timezone text,
+    time_zone text,
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
@@ -2797,7 +2832,6 @@ CREATE TABLE vibetype.contact (
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -2891,10 +2925,10 @@ COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone numb
 
 
 --
--- Name: COLUMN contact.timezone; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
 
 
 --
@@ -5003,6 +5037,13 @@ CREATE TRIGGER vibetype_trigger_address_update BEFORE UPDATE ON vibetype.address
 
 
 --
+-- Name: contact vibetype_trigger_contact_check_time_zone; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER vibetype_trigger_contact_check_time_zone BEFORE INSERT OR UPDATE OF time_zone ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
+
+
+--
 -- Name: contact vibetype_trigger_contact_update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6245,6 +6286,14 @@ GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged
 
 REVOKE ALL ON FUNCTION vibetype.profile_picture_set(upload_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.profile_picture_set(upload_id uuid) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_contact_check_time_zone(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_account;
 
 
 --
