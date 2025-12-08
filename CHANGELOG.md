@@ -1,3 +1,22 @@
+## [10.0.0-beta.24](https://github.com/maevsi/sqitch/compare/10.0.0-beta.23...10.0.0-beta.24) (2025-12-08)
+
+### ⚠ BREAKING CHANGES
+
+* rename trigger procedures to functions
+* **account-private:** reorder trigger definitions
+* rename trigger functions
+* reformat function definitions
+
+### Features
+
+* reformat function definitions ([94a6155](https://github.com/maevsi/sqitch/commit/94a61555229ce833e5a21b905a8c773a609e1efe))
+* rename trigger functions ([4c31db5](https://github.com/maevsi/sqitch/commit/4c31db51631f594a4b726b5b808c7d3b7f4d8bc4))
+
+### Code Refactoring
+
+* **account-private:** reorder trigger definitions ([316460a](https://github.com/maevsi/sqitch/commit/316460a518746e2c8edd879d3f680141de1468cb))
+* rename trigger procedures to functions ([307040e](https://github.com/maevsi/sqitch/commit/307040ec9f090ab04a90e00f2ec55c33ea0da3b1))
+
 ## [10.0.0-beta.23](https://github.com/maevsi/sqitch/compare/10.0.0-beta.22...10.0.0-beta.23) (2025-12-08)
 
 ### ⚠ BREAKING CHANGES
