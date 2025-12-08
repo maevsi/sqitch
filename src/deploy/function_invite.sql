@@ -54,7 +54,7 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_id, email_address, language INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address, language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -87,11 +87,16 @@ BEGIN
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
-          'emailAddress', _email_address,
+          'contact', jsonb_build_object(
+            'emailAddress', _email_address,
+            'timeZone', _contact.time_zone
+          ),
           'event', _event,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
-          'guestId', _guest.id
+          'guest', jsonb_build_object(
+            'id', _guest.id
+          )
         ),
         'template', jsonb_build_object('language', COALESCE(_contact.language, language))
       ))
