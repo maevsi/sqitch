@@ -1,3 +1,17 @@
+## [10.0.0-beta.23](https://github.com/maevsi/sqitch/compare/10.0.0-beta.22...10.0.0-beta.23) (2025-12-08)
+
+### ⚠ BREAKING CHANGES
+
+* **contact:** validate time zone using iana
+* **contact:** rename time zone
+
+### Features
+
+* **contact:** rename time zone ([35cd855](https://github.com/maevsi/sqitch/commit/35cd85520bac0314e5ede91585d4cb0ee855d8cb))
+* **contact:** validate time zone using iana ([5cfc35a](https://github.com/maevsi/sqitch/commit/5cfc35af07133ed9105511ff89d36f17fbfe3cb4))
+* **invite:** add contact's time zone ([ea386e2](https://github.com/maevsi/sqitch/commit/ea386e2d5b9bd3fe403b17f188cb4286d311a6e1))
+* **invite:** prefer contact's language ([8ead9d9](https://github.com/maevsi/sqitch/commit/8ead9d9fd89b64bf9ee94ead300645c1372ded4e))
+
 ## [10.0.0-beta.22](https://github.com/maevsi/sqitch/compare/10.0.0-beta.21...10.0.0-beta.22) (2025-12-06)
 
 ### ⚠ BREAKING CHANGES
