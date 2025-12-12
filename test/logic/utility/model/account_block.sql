@@ -22,13 +22,15 @@ GRANT EXECUTE ON FUNCTION vibetype_test.account_block_create(UUID, UUID) TO vibe
 CREATE OR REPLACE FUNCTION vibetype_test.account_block_delete (
   _created_by UUID,
   _blocked_account_id UUID
-) RETURNS VOID AS $$
+) RETURNS VOID
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _id UUID;
 BEGIN
   DELETE FROM vibetype.account_block
-  WHERE created_by = _created_by  and blocked_account_id = _blocked_account_id;
-END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+  WHERE created_by = _created_by AND blocked_account_id = _blocked_account_id;
+END $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_delete(UUID, UUID) TO vibetype_account;
 
@@ -38,7 +40,9 @@ CREATE OR REPLACE FUNCTION vibetype_test.account_block_accounts_test(
   _invoker_account_id UUID,
   _account_id UUID,
   _assert_is_visible BOOLEAN
-) RETURNS VOID AS $$
+) RETURNS VOID
+    LANGUAGE plpgsql STRICT SECURITY INVOKER
+    AS $$
 DECLARE
   _result BOOLEAN;
 BEGIN
@@ -58,6 +62,6 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set_previous();
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY INVOKER;
+$$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_accounts_test(TEXT, UUID, UUID, BOOLEAN) TO vibetype_account;

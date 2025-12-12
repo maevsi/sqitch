@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP EXTENSION pg_trgm;
+
+COMMIT;

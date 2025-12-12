@@ -18,7 +18,9 @@ ALTER TABLE vibetype.event_format_mapping ENABLE ROW LEVEL SECURITY;
 
 -- Only allow selects for accessible events.
 CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR SELECT USING (
-  event_id IN (SELECT id FROM vibetype.event)
+  EXISTS (
+    SELECT 1 FROM vibetype.event e WHERE e.id = event_format_mapping.event_id
+  )
 );
 
 -- Only allow inserts for events created by user.

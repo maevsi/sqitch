@@ -43,12 +43,12 @@ BEGIN
 END;
 $$;
 
-CREATE TRIGGER vibetype_legal_term_update
+CREATE TRIGGER update
 BEFORE UPDATE ON vibetype.legal_term
 FOR EACH ROW
 EXECUTE FUNCTION vibetype.legal_term_change();
 
-CREATE TRIGGER vibetype_legal_term_delete
+CREATE TRIGGER delete
 BEFORE DELETE ON vibetype.legal_term
 FOR EACH ROW
 EXECUTE FUNCTION vibetype.legal_term_change();

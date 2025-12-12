@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_password_reset(
-  code UUID,
-  password TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.account_password_reset(code uuid, password text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _account vibetype_private.account;
 BEGIN
@@ -30,9 +29,10 @@ BEGIN
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
-COMMENT ON FUNCTION vibetype.account_password_reset(UUID, TEXT) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.';
+COMMENT ON FUNCTION vibetype.account_password_reset(UUID, TEXT) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.\n\nError codes:\n- **22023** when the password is too short.\n- **P0002** when the reset code is unknown.\n- **55000** when the reset code has expired.
+';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_password_reset(UUID, TEXT) TO vibetype_anonymous, vibetype_account;
 

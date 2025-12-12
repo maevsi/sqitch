@@ -19,7 +19,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype_test.index_existence(TEXT[], TEXT) IS 'Checks whether the given indexes exist in the specified schema. Returns 1 if all exist, fails otherwise.';;
+COMMENT ON FUNCTION vibetype_test.index_existence(TEXT[], TEXT) IS 'Checks whether the given indexes exist in the specified schema. Raises an exception if any are missing.';
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.index_on_foreign_key_check()

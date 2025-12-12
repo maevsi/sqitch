@@ -1,7 +1,9 @@
 CREATE FUNCTION vibetype_test.account_registration_verified (
   _username TEXT,
   _email_address TEXT
-) RETURNS UUID AS $$
+) RETURNS UUID
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _account_id UUID;
   _legal_term_id UUID;
@@ -21,6 +23,6 @@ BEGIN
   PERFORM vibetype.account_email_address_verification(_verification);
 
   RETURN _account_id;
-END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+END $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_registration_verified(TEXT, TEXT) TO vibetype_account;

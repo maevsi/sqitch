@@ -1,9 +1,8 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.invite(
-  guest_id UUID,
-  language TEXT
-) RETURNS VOID AS $$
+CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
@@ -14,12 +13,17 @@ DECLARE
   _guest RECORD;
 BEGIN
   -- Guest UUID
-  SELECT * FROM vibetype.guest INTO _guest WHERE guest.id = invite.guest_id;
+  SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
     OR
-    _guest.event_id NOT IN (SELECT vibetype.events_organized()) -- Initial validation, every query below is expected to be secure.
+    NOT EXISTS ( -- Initial validation, every query below is expected to be secure.
+      SELECT 1
+      FROM vibetype.event e
+      WHERE e.id = _guest.event_id
+        AND e.created_by = vibetype.invoker_account_id()
+    )
   ) THEN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
@@ -41,14 +45,16 @@ BEGIN
     visibility,
     created_at,
     created_by
-  FROM vibetype.event INTO _event WHERE "event".id = _guest.event_id;
+  INTO _event
+  FROM vibetype.event
+  WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM vibetype.contact INTO _contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address, language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -62,7 +68,7 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM vibetype_private.account INTO _email_address WHERE account.id = _contact.account_id;
+    SELECT email_address INTO _email_address FROM vibetype_private.account WHERE account.id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -70,30 +76,35 @@ BEGIN
   END IF;
 
   -- Event creator username
-  SELECT username FROM vibetype.account INTO _event_creator_username WHERE account.id = _event.created_by;
+  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
 
   -- Event creator profile picture storage key
-  SELECT upload_id FROM vibetype.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key FROM vibetype.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
+  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO vibetype_private.notification (channel, payload)
     VALUES (
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
-          'emailAddress', _email_address,
+          'contact', jsonb_build_object(
+            'emailAddress', _email_address,
+            'timeZone', _contact.time_zone
+          ),
           'event', _event,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
-          'guestId', _guest.id
+          'guest', jsonb_build_object(
+            'id', _guest.id
+          )
         ),
-        'template', jsonb_build_object('language', invite.language)
+        'template', jsonb_build_object('language', COALESCE(_contact.language, language))
       ))
     );
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 

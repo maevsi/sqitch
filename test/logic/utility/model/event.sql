@@ -45,7 +45,7 @@ BEGIN
 
   RETURN ARRAY[_latitude, _longitude];
 END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+$$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.event_select_address_coordinates(UUID) IS 'Returns an array with latitude and longitude of the event''s current location data.';
 
@@ -60,25 +60,22 @@ RETURNS TABLE (
   event_id UUID,
   distance DOUBLE PRECISION
 ) AS $$
-BEGIN
-  RETURN QUERY
-    WITH account AS (
-      SELECT location
-      FROM vibetype_private.account
-      WHERE id = _account_id
-    )
-    SELECT
-      e.id AS event_id,
-      ST_Distance(a.location, addr.location) AS distance
-    FROM
-      account a,
-      vibetype.event e
-    JOIN
-      vibetype.address addr ON e.address_id = addr.id
-    WHERE
-      ST_DWithin(a.location, addr.location, _distance_max * 1000);
-END;
-$$ LANGUAGE PLPGSQL STRICT STABLE SECURITY DEFINER;
+  WITH account AS (
+    SELECT location
+    FROM vibetype_private.account
+    WHERE id = _account_id
+  )
+  SELECT
+    e.id AS event_id,
+    ST_Distance(a.location, addr.location) AS distance
+  FROM
+    account a,
+    vibetype.event e
+  JOIN
+    vibetype.address addr ON e.address_id = addr.id
+  WHERE
+    ST_DWithin(a.location, addr.location, _distance_max * 1000);
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
 COMMENT ON FUNCTION vibetype_test.event_select_by_account_distance(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
 
@@ -116,7 +113,9 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_update_address_coordinates(
   _latitude DOUBLE PRECISION,
   _longitude DOUBLE PRECISION
 )
-RETURNS VOID AS $$
+RETURNS VOID
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 BEGIN
   WITH event AS (
     SELECT address_id
@@ -129,7 +128,7 @@ BEGIN
   WHERE
     id = (SELECT address_id FROM event);
 END;
-$$ LANGUAGE PLPGSQL STRICT SECURITY DEFINER;
+$$;
 
 COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
 

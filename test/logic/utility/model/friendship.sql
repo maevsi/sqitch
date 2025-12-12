@@ -118,19 +118,21 @@ BEGIN
 
   IF EXISTS (
     WITH friendship_account_ids_test AS (
-      SELECT b_account_id as account_id
+      SELECT b_account_id AS account_id
       FROM vibetype.friendship
       WHERE a_account_id = _invoker_account_id
-        and status = 'accepted'::vibetype.friendship_status
+        AND status = 'accepted'::vibetype.friendship_status
       UNION ALL
-      SELECT a_account_id as account_id
+      SELECT a_account_id AS account_id
       FROM vibetype.friendship
       WHERE b_account_id = _invoker_account_id
-        and status = 'accepted'::vibetype.friendship_status
+        AND status = 'accepted'::vibetype.friendship_status
     )
-    SELECT account_id as id
-    FROM friendship_account_ids_test
-    WHERE account_id NOT IN (SELECT b.id FROM vibetype_private.account_block_ids() b)
+    SELECT account_id AS id
+    FROM friendship_account_ids_test f
+    WHERE NOT EXISTS (
+      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = f.account_id
+    )
     EXCEPT
     SELECT * FROM unnest(_expected_result)
   ) THEN
@@ -139,21 +141,23 @@ BEGIN
 
   IF EXISTS (
     WITH friendship_account_ids_test AS (
-      SELECT b_account_id as account_id
+      SELECT b_account_id AS account_id
       FROM vibetype.friendship
       WHERE a_account_id = vibetype.invoker_account_id()
-        and status = 'accepted'::vibetype.friendship_status
+        AND status = 'accepted'::vibetype.friendship_status
       UNION ALL
-      SELECT a_account_id as account_id
+      SELECT a_account_id AS account_id
       FROM vibetype.friendship
       WHERE b_account_id = vibetype.invoker_account_id()
-        and status = 'accepted'::vibetype.friendship_status
+        AND status = 'accepted'::vibetype.friendship_status
     )
     SELECT * FROM unnest(_expected_result)
     EXCEPT
-    SELECT account_id as id
-    FROM friendship_account_ids_test
-    WHERE account_id NOT IN (SELECT b.id FROM vibetype_private.account_block_ids() b)
+    SELECT account_id AS id
+    FROM friendship_account_ids_test f
+    WHERE NOT EXISTS (
+      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = f.account_id
+    )
   ) THEN
     RAISE EXCEPTION 'some account is missing in the list of friends';
   END IF;

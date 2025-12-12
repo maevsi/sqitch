@@ -1,15 +1,15 @@
-\echo test_authenticate...
+\echo test_jwt_create...
 
 BEGIN;
 
 SAVEPOINT privileges;
 DO $$
 BEGIN
-  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.jwt_create(TEXT, TEXT)', 'EXECUTE')) THEN
     RAISE EXCEPTION 'Test privileges failed: vibetype_account does not have EXECUTE privilege';
   END IF;
 
-  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype.authenticate(TEXT, TEXT)', 'EXECUTE')) THEN
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype.jwt_create(TEXT, TEXT)', 'EXECUTE')) THEN
     RAISE EXCEPTION 'Test privileges failed: vibetype_anonymous does not have EXECUTE privilege';
   END IF;
 END $$;
@@ -22,7 +22,7 @@ DECLARE
 BEGIN
   PERFORM vibetype_test.account_registration_verified ('username', 'email@example.com');
 
-  _jwt := vibetype.authenticate('username', 'password');
+  _jwt := vibetype.jwt_create('username', 'password');
 
   IF _jwt IS NULL THEN
     RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
@@ -43,7 +43,7 @@ BEGIN
   PERFORM vibetype_test.account_registration_verified ('username', 'email@example.com');
 
   BEGIN
-    _jwt := vibetype.authenticate('username_incorrect', 'password');
+    _jwt := vibetype.jwt_create('username_incorrect', 'password');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;
@@ -58,7 +58,7 @@ BEGIN
   PERFORM vibetype_test.account_registration_verified ('username', 'email@example.com');
 
   BEGIN
-    _jwt := vibetype.authenticate('username', 'password_incorrect');
+    _jwt := vibetype.jwt_create('username', 'password_incorrect');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;
@@ -75,7 +75,7 @@ DECLARE
   _jwt vibetype.jwt;
 BEGIN
   PERFORM vibetype_test.account_registration_verified ('username', 'email@example.com');
-  _jwt := vibetype.authenticate('email@example.com', 'password');
+  _jwt := vibetype.jwt_create('email@example.com', 'password');
 
   IF _jwt IS NULL THEN
     RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
@@ -95,7 +95,7 @@ BEGIN
   PERFORM vibetype_test.account_registration_verified ('username', 'email@example.com');
 
   BEGIN
-    _jwt := vibetype.authenticate('email_incorrect@example.com', 'password');
+    _jwt := vibetype.jwt_create('email_incorrect@example.com', 'password');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;
@@ -114,7 +114,7 @@ BEGIN
   PERFORM vibetype_test.account_registration_verified ('username', 'email@example.com');
 
   BEGIN
-    _jwt := vibetype.authenticate('email@example.com', 'password_incorrect');
+    _jwt := vibetype.jwt_create('email@example.com', 'password_incorrect');
   EXCEPTION WHEN no_data_found THEN
     NULL;
   END;

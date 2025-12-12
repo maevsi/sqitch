@@ -106,6 +106,41 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT contact_create_self;
 
+SAVEPOINT contact_create_time_zone;
+DO $$
+DECLARE
+  accountA UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.contact(created_by, time_zone)
+    VALUES (accountA, 'Europe/Berlin');
+END $$;
+ROLLBACK TO SAVEPOINT contact_create_time_zone;
+
+SAVEPOINT contact_create_time_zone_invalid;
+DO $$
+DECLARE
+  accountA UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  BEGIN
+    INSERT INTO vibetype.contact(created_by, time_zone)
+      VALUES (accountA, 'Invalid/Zone');
+  EXCEPTION
+    WHEN raise_exception THEN
+      NULL; -- expected
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT contact_create_time_zone_invalid;
+
 SAVEPOINT contact_select;
 DO $$
 DECLARE

@@ -90,35 +90,6 @@ COMMENT ON TYPE vibetype.event_size IS 'Possible event sizes: small, medium, lar
 
 
 --
--- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.jwt AS (
-	id uuid,
-	account_id uuid,
-	account_username text,
-	exp bigint,
-	guests uuid[],
-	role text
-);
-
-
-ALTER TYPE vibetype.jwt OWNER TO ci;
-
---
--- Name: event_unlock_response; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.event_unlock_response AS (
-	creator_username text,
-	event_slug text,
-	jwt vibetype.jwt
-);
-
-
-ALTER TYPE vibetype.event_unlock_response OWNER TO ci;
-
---
 -- Name: event_visibility; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -196,6 +167,22 @@ ALTER TYPE vibetype.invitation_feedback_paper OWNER TO ci;
 
 COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
 
+
+--
+-- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.jwt AS (
+	id uuid,
+	account_id uuid,
+	account_username text,
+	exp bigint,
+	guests uuid[],
+	role text
+);
+
+
+ALTER TYPE vibetype.jwt OWNER TO ci;
 
 --
 -- Name: language; Type: TYPE; Schema: vibetype; Owner: ci
@@ -289,7 +276,7 @@ ALTER FUNCTION vibetype.account_delete(password text) OWNER TO ci;
 -- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.';
+COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
 
 
 --
@@ -328,7 +315,7 @@ ALTER FUNCTION vibetype.account_email_address_verification(code uuid) OWNER TO c
 -- Name: FUNCTION account_email_address_verification(code uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.';
+COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.\n\nError codes:\n- **P0002** when the verification code is unknown.\n- **55000** when the verification code has expired.';
 
 
 --
@@ -361,7 +348,7 @@ COMMENT ON FUNCTION vibetype.account_location_update(latitude double precision, 
 Sets the location for the invoker''s account.
 
 Error codes:
-- **P0002** when no record was updated.';
+- **P0002** when the account is not found.';
 
 
 --
@@ -395,7 +382,7 @@ ALTER FUNCTION vibetype.account_password_change(password_current text, password_
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_change(password_current text, password_new text) IS 'Allows to change an account''s password.';
+COMMENT ON FUNCTION vibetype.account_password_change(password_current text, password_new text) IS 'Allows to change an account''s password.\n\nError codes:\n- **22023** when the new password is too short.\n- **28P01** when an account with the given password is not found.';
 
 
 --
@@ -440,7 +427,8 @@ ALTER FUNCTION vibetype.account_password_reset(code uuid, password text) OWNER T
 -- Name: FUNCTION account_password_reset(code uuid, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.';
+COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.\n\nError codes:\n- **22023** when the password is too short.\n- **P0002** when the reset code is unknown.\n- **55000** when the reset code has expired.
+';
 
 
 --
@@ -448,37 +436,28 @@ COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS
 --
 
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _notify_data RECORD;
-BEGIN
   WITH updated AS (
     UPDATE vibetype_private.account
-      SET password_reset_verification = gen_random_uuid()
-      WHERE account.email_address = account_password_reset_request.email_address
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.password_reset_verification,
-    updated.password_reset_verification_valid_until
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _notify_data;
-
-  IF (_notify_data IS NULL) THEN
-    -- noop
-  ELSE
-    INSERT INTO vibetype_private.notification (channel, payload) VALUES (
-      'account_password_reset_request',
-      jsonb_pretty(jsonb_build_object(
-        'account', _notify_data,
-        'template', jsonb_build_object('language', account_password_reset_request.language)
-      ))
-    );
-  END IF;
-END;
+    SET password_reset_verification = gen_random_uuid()
+    WHERE email_address = account_password_reset_request.email_address
+    RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
+  )
+  INSERT INTO vibetype_private.notification (channel, payload)
+  SELECT
+    'account_password_reset_request',
+    jsonb_pretty(jsonb_build_object(
+    'account', jsonb_build_object(
+      'username', a.username,
+      'email_address', u.email_address,
+      'password_reset_verification', u.password_reset_verification,
+      'password_reset_verification_valid_until', u.password_reset_verification_valid_until
+    ),
+    'template', jsonb_build_object('language', account_password_reset_request.language)
+    ))
+  FROM updated u
+  JOIN vibetype.account a ON a.id = u.id;
 $$;
 
 
@@ -575,7 +554,7 @@ BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
   IF (NOT EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
-    RAISE 'An account with this account id does not exists!' USING ERRCODE = 'invalid_parameter_value';
+    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
   WITH updated AS (
@@ -588,9 +567,9 @@ BEGIN
     updated.email_address,
     updated.email_address_verification,
     updated.email_address_verification_valid_until
+    INTO _new_account_notify
     FROM updated, vibetype.account
-    WHERE updated.id = account.id
-    INTO _new_account_notify;
+    WHERE updated.id = account.id;
 
   INSERT INTO vibetype_private.notification (channel, payload) VALUES (
     'account_registration',
@@ -609,7 +588,7 @@ ALTER FUNCTION vibetype.account_registration_refresh(account_id uuid, language t
 -- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.';
+COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 
 SET default_tablespace = '';
@@ -676,17 +655,14 @@ The account''s username.';
 --
 
 CREATE FUNCTION vibetype.account_search(search_string text) RETURNS SETOF vibetype.account
-    LANGUAGE plpgsql STABLE
+    LANGUAGE sql STABLE
     AS $$
-BEGIN
-  RETURN QUERY
   SELECT *
   FROM vibetype.account
   WHERE
     username ILIKE '%' || account_search.search_string || '%'
   ORDER BY
     username;
-END;
 $$;
 
 
@@ -704,11 +680,9 @@ COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all 
 --
 
 CREATE FUNCTION vibetype.account_upload_quota_bytes() RETURNS bigint
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN (SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.account_id')::UUID);
-END;
+  SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.account_id')::UUID;
 $$;
 
 
@@ -770,80 +744,7 @@ ALTER FUNCTION vibetype.achievement_unlock(code uuid, alias text) OWNER TO ci;
 -- Name: FUNCTION achievement_unlock(code uuid, alias text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.';
-
-
---
--- Name: authenticate(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.authenticate(username text, password text) RETURNS vibetype.jwt
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _account_id UUID;
-  _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL));
-  _jwt vibetype.jwt;
-  _username TEXT;
-BEGIN
-  IF (authenticate.username = '' AND authenticate.password = '') THEN
-    -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
-  ELSIF (authenticate.username IS NOT NULL AND authenticate.password IS NOT NULL) THEN
-    -- if authenticate.username contains @ then treat it as an email adress otherwise as a user name
-    IF (strpos(authenticate.username, '@') = 0) THEN
-      SELECT id FROM vibetype.account WHERE account.username = authenticate.username INTO _account_id;
-    ELSE
-      SELECT id FROM vibetype_private.account WHERE account.email_address = authenticate.username INTO _account_id;
-    END IF;
-
-    IF (_account_id IS NULL) THEN
-      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
-    END IF;
-
-    SELECT account.username INTO _username FROM vibetype.account WHERE id = _account_id;
-
-    IF ((
-        SELECT account.email_address_verification
-        FROM vibetype_private.account
-        WHERE
-              account.id = _account_id
-          AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
-      ) IS NOT NULL) THEN
-      RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
-    END IF;
-
-    WITH updated AS (
-      UPDATE vibetype_private.account
-      SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
-      WHERE
-            account.id = _account_id
-        AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = public.crypt(authenticate.password, account.password_hash)
-      RETURNING *
-    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
-      FROM updated
-      INTO _jwt;
-
-    IF (_jwt IS NULL) THEN
-      RAISE 'Could not get token!' USING ERRCODE = 'no_data_found';
-    END IF;
-  END IF;
-
-  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
-  RETURN _jwt;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.authenticate(username text, password text) OWNER TO ci;
-
---
--- Name: FUNCTION authenticate(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.authenticate(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inserts an achievement unlock for the user that gave an existing achievement code.\n\nError codes:\n- **P0002** when the achievement or the account is unknown.';
 
 
 --
@@ -936,26 +837,12 @@ The id of the account which last updated the guest. `NULL` if the guest was upda
 --
 
 CREATE FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) RETURNS SETOF vibetype.guest
-    LANGUAGE plpgsql STRICT
+    LANGUAGE sql STRICT
     AS $$
-DECLARE
-  _contact_id UUID;
-  _id UUID;
-  _id_array UUID[] := ARRAY[]::UUID[];
-BEGIN
-  FOREACH _contact_id IN ARRAY create_guests.contact_ids LOOP
-    INSERT INTO vibetype.guest(event_id, contact_id)
-      VALUES (create_guests.event_id, _contact_id)
-      RETURNING id INTO _id;
-
-    _id_array := array_append(_id_array, _id);
-  END LOOP;
-
-  RETURN QUERY
-    SELECT *
-    FROM vibetype.guest
-    WHERE id = ANY (_id_array);
-END $$;
+  INSERT INTO vibetype.guest(event_id, contact_id)
+  SELECT event_id, unnest(contact_ids)
+  RETURNING *
+$$;
 
 
 ALTER FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) OWNER TO ci;
@@ -1032,7 +919,7 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description.';
 -- Name: COLUMN event."end"; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with timezone.';
+COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
 
 
 --
@@ -1081,7 +968,7 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified.';
 -- Name: COLUMN event.start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with timezone.';
+COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 
 
 --
@@ -1160,7 +1047,7 @@ ALTER FUNCTION vibetype.event_delete(id uuid, password text) OWNER TO ci;
 -- Name: FUNCTION event_delete(id uuid, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to delete an event.';
+COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to delete an event.\n\nError codes:\n- **P0002** when the event was not found.\n- **28P01** when the account with the given password was not found.';
 
 
 --
@@ -1168,33 +1055,18 @@ COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to 
 --
 
 CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN (
-    SELECT guest_count_maximum
-    FROM vibetype.event
-    WHERE
-      id = event_guest_count_maximum.event_id
-      AND ( -- Copied from `event_select` POLICY.
-        (
-          visibility = 'public'
-          AND
-          (
-            guest_count_maximum IS NULL
-            OR
-            guest_count_maximum > (vibetype.guest_count(id)) -- Using the function here is required as there would otherwise be infinite recursion.
-          )
-        )
-        OR (
-          vibetype.invoker_account_id() IS NOT NULL
-          AND
-          created_by = vibetype.invoker_account_id()
-        )
-        OR id IN (SELECT vibetype_private.events_invited())
-      )
-  );
-END
+  SELECT e.guest_count_maximum
+  FROM vibetype.event e
+  WHERE
+    e.id = event_guest_count_maximum.event_id
+    AND (
+      -- Event organized by invoker
+      e.created_by = vibetype.invoker_account_id()
+      -- Or event is accessible via policy (public, invited, etc.)
+      OR vibetype_private.event_policy_select(e)
+    );
 $$;
 
 
@@ -1212,23 +1084,16 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 --
 
 CREATE FUNCTION vibetype.event_search(query text, language vibetype.language) RETURNS SETOF vibetype.event
-    LANGUAGE plpgsql STABLE
+    LANGUAGE sql STABLE
     AS $$
-DECLARE
-  ts_config regconfig;
-BEGIN
-  ts_config := vibetype.language_iso_full_text_search(event_search.language);
-
-  RETURN QUERY
-  SELECT
-    *
+  SELECT e.*
   FROM
-    vibetype.event
+    vibetype.event e,
+    (SELECT vibetype.language_iso_full_text_search(event_search.language) AS ts_config) t
   WHERE
-    search_vector @@ websearch_to_tsquery(ts_config, event_search.query)
+    e.search_vector @@ websearch_to_tsquery(t.ts_config, event_search.query)
   ORDER BY
-    ts_rank_cd(search_vector, websearch_to_tsquery(ts_config, event_search.query)) DESC;
-END;
+    ts_rank_cd(e.search_vector, websearch_to_tsquery(t.ts_config, event_search.query)) DESC;
 $$;
 
 
@@ -1245,7 +1110,7 @@ COMMENT ON FUNCTION vibetype.event_search(query text, language vibetype.language
 -- Name: event_unlock(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS vibetype.event_unlock_response
+CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS TABLE(creator_username text, event_slug text, jwt vibetype.jwt)
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -1279,9 +1144,9 @@ BEGIN
   END IF;
 
   SELECT *
+    INTO _event
     FROM vibetype.event
-    WHERE id = _event_id
-    INTO _event;
+    WHERE id = _event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
@@ -1297,7 +1162,7 @@ BEGIN
     RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  RETURN (_event_creator_account_username, _event.slug, _jwt)::vibetype.event_unlock_response;
+  RETURN QUERY SELECT _event_creator_account_username, _event.slug, _jwt;
 END $$;
 
 
@@ -1307,33 +1172,7 @@ ALTER FUNCTION vibetype.event_unlock(guest_id uuid) OWNER TO ci;
 -- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.';
-
-
---
--- Name: events_organized(); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.events_organized() RETURNS TABLE(event_id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-
-  RETURN QUERY
-    SELECT id FROM vibetype.event
-    WHERE
-      created_by = vibetype.invoker_account_id();
-END
-$$;
-
-
-ALTER FUNCTION vibetype.events_organized() OWNER TO ci;
-
---
--- Name: FUNCTION events_organized(); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.events_organized() IS 'Add a function that returns all event ids for which the invoker is the creator.';
+COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.\n\nError codes:\n- **P0002** when no guest, no event, or no event creator username was found for this guest id.';
 
 
 --
@@ -1341,36 +1180,33 @@ COMMENT ON FUNCTION vibetype.events_organized() IS 'Add a function that returns 
 --
 
 CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _guest_ids UUID[];
-  _guest_ids_unblocked UUID[] := ARRAY[]::UUID[];
-BEGIN
-  _guest_ids := string_to_array(replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''), ',')::UUID[];
-
-  IF _guest_ids IS NOT NULL THEN
-    _guest_ids_unblocked := ARRAY (
-      SELECT g.id
-      FROM vibetype.guest g
-        JOIN vibetype.event e ON g.event_id = e.id
-        JOIN vibetype.contact c ON g.contact_id = c.id
-      WHERE g.id = ANY(_guest_ids)
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-        )
-    );
-  ELSE
-    _guest_ids_unblocked := ARRAY[]::UUID[];
-  END IF;
-  RETURN _guest_ids_unblocked;
-END
+  WITH guest_ids AS (
+    SELECT unnest(
+      string_to_array(
+        replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''),
+        ','
+      )::UUID[]
+    ) AS id
+  ),
+  blocked_account_ids AS (
+    SELECT id FROM vibetype_private.account_block_ids()
+  )
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM guest_ids gi
+    JOIN vibetype.guest g ON g.id = gi.id
+    JOIN vibetype.event e ON g.event_id = e.id
+    JOIN vibetype.contact c ON g.contact_id = c.id
+  WHERE NOT EXISTS (
+      SELECT 1 FROM blocked_account_ids b WHERE b.id = e.created_by
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
+    )
 $$;
 
 
@@ -1388,33 +1224,38 @@ COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest c
 --
 
 CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    -- get all contacts of guests
-    SELECT g.contact_id
-    FROM vibetype.guest g
-    WHERE
+  -- get all contacts of guests
+  SELECT g.contact_id
+  FROM vibetype.guest g
+  WHERE
+    (
+      -- that are known through a guest claim
+      g.id = ANY (vibetype.guest_claim_array())
+    OR
+      -- or for events organized by the invoker
       (
-        -- that are known through a guest claim
-        g.id = ANY (vibetype.guest_claim_array())
-      OR
-        -- or for events organized by the invoker
-        g.event_id IN (SELECT vibetype.events_organized())
-        and g.contact_id IN (
-          SELECT id
-          FROM vibetype.contact
-          WHERE
-            NOT EXISTS (
-              SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
-            )
-            AND NOT EXISTS (
-              SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
-            )
+        EXISTS (
+          SELECT 1
+          FROM vibetype.event e
+          WHERE e.id = g.event_id
+            AND e.created_by = vibetype.invoker_account_id()
         )
-      );
-END;
+        AND
+        EXISTS (
+          SELECT 1
+          FROM vibetype.contact c
+          WHERE c.id = g.contact_id
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
+          )
+        )
+      )
+    );
 $$;
 
 
@@ -1432,11 +1273,9 @@ COMMENT ON FUNCTION vibetype.guest_contact_ids() IS 'Returns contact ids that ar
 --
 
 CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN (SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id);
-END;
+  SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
 $$;
 
 
@@ -1466,12 +1305,17 @@ DECLARE
   _guest RECORD;
 BEGIN
   -- Guest UUID
-  SELECT * FROM vibetype.guest INTO _guest WHERE guest.id = invite.guest_id;
+  SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;
 
   IF (
     _guest IS NULL
     OR
-    _guest.event_id NOT IN (SELECT vibetype.events_organized()) -- Initial validation, every query below is expected to be secure.
+    NOT EXISTS ( -- Initial validation, every query below is expected to be secure.
+      SELECT 1
+      FROM vibetype.event e
+      WHERE e.id = _guest.event_id
+        AND e.created_by = vibetype.invoker_account_id()
+    )
   ) THEN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
@@ -1493,14 +1337,16 @@ BEGIN
     visibility,
     created_at,
     created_by
-  FROM vibetype.event INTO _event WHERE "event".id = _guest.event_id;
+  INTO _event
+  FROM vibetype.event
+  WHERE "event".id = _guest.event_id;
 
   IF (_event IS NULL) THEN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
   -- Contact
-  SELECT account_id, email_address FROM vibetype.contact INTO _contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address, language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1514,7 +1360,7 @@ BEGIN
     END IF;
   ELSE
     -- Account
-    SELECT email_address FROM vibetype_private.account INTO _email_address WHERE account.id = _contact.account_id;
+    SELECT email_address INTO _email_address FROM vibetype_private.account WHERE account.id = _contact.account_id;
 
     IF (_email_address IS NULL) THEN
       RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
@@ -1522,24 +1368,29 @@ BEGIN
   END IF;
 
   -- Event creator username
-  SELECT username FROM vibetype.account INTO _event_creator_username WHERE account.id = _event.created_by;
+  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
 
   -- Event creator profile picture storage key
-  SELECT upload_id FROM vibetype.profile_picture INTO _event_creator_profile_picture_upload_id WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key FROM vibetype.upload INTO _event_creator_profile_picture_upload_storage_key WHERE upload.id = _event_creator_profile_picture_upload_id;
+  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO vibetype_private.notification (channel, payload)
     VALUES (
       'event_invitation',
       jsonb_pretty(jsonb_build_object(
         'data', jsonb_build_object(
-          'emailAddress', _email_address,
+          'contact', jsonb_build_object(
+            'emailAddress', _email_address,
+            'timeZone', _contact.time_zone
+          ),
           'event', _event,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
-          'guestId', _guest.id
+          'guest', jsonb_build_object(
+            'id', _guest.id
+          )
         ),
-        'template', jsonb_build_object('language', invite.language)
+        'template', jsonb_build_object('language', COALESCE(_contact.language, language))
       ))
     );
 END;
@@ -1552,7 +1403,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 
 --
@@ -1560,11 +1411,9 @@ COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a not
 --
 
 CREATE FUNCTION vibetype.invoker_account_id() RETURNS uuid
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT
     AS $$
-BEGIN
-  RETURN NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
-END;
+  SELECT NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
 $$;
 
 
@@ -1578,50 +1427,127 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 
 
 --
--- Name: jwt_refresh(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: jwt_create(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.jwt_refresh(jwt_id uuid) RETURNS vibetype.jwt
+CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _epoch_now BIGINT := EXTRACT(EPOCH FROM (SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)));
+  _account_id UUID;
+  _jwt_id UUID := gen_random_uuid();
+  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL));
   _jwt vibetype.jwt;
+  _username TEXT;
 BEGIN
-  SELECT (token).id, (token).account_id, (token).account_username, (token)."exp", (token).guests, (token).role INTO _jwt
-  FROM vibetype_private.jwt
-  WHERE   id = jwt_refresh.jwt_id
-  AND     (token)."exp" >= _epoch_now;
+  IF (jwt_create.username = '' AND jwt_create.password = '') THEN
+    -- Authenticate as guest.
+    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
+  ELSIF (jwt_create.username IS NOT NULL AND jwt_create.password IS NOT NULL) THEN
+    -- if jwt_create.username contains @ then treat it as an email address otherwise as a user name
+    IF (strpos(jwt_create.username, '@') = 0) THEN
+      SELECT id FROM vibetype.account WHERE account.username = jwt_create.username INTO _account_id;
+    ELSE
+      SELECT id FROM vibetype_private.account WHERE account.email_address = jwt_create.username INTO _account_id;
+    END IF;
 
-  IF (_jwt IS NULL) THEN
-    RETURN NULL;
-  ELSE
-    UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL))
-    WHERE id = jwt_refresh.jwt_id;
+    IF (_account_id IS NULL) THEN
+      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
+    END IF;
 
-    UPDATE vibetype_private.account
-    SET last_activity = DEFAULT
-    WHERE account.id = _jwt.account_id;
+    SELECT account.username INTO _username FROM vibetype.account WHERE id = _account_id;
 
-    RETURN (
-      SELECT token
-      FROM vibetype_private.jwt
-      WHERE   id = jwt_refresh.jwt_id
-      AND     (token)."exp" >= _epoch_now
-    );
+    IF ((
+        SELECT account.email_address_verification
+        FROM vibetype_private.account
+        WHERE
+              account.id = _account_id
+          AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
+      ) IS NOT NULL) THEN
+      RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
+    END IF;
+
+    WITH updated AS (
+      UPDATE vibetype_private.account
+      SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
+      WHERE
+            account.id = _account_id
+        AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
+        AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
+      RETURNING *
+    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
+      FROM updated
+      INTO _jwt;
+
+    IF (_jwt IS NULL) THEN
+      RAISE 'Could not get token!' USING ERRCODE = 'no_data_found';
+    END IF;
   END IF;
+
+  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
+  RETURN _jwt;
 END;
 $$;
 
 
-ALTER FUNCTION vibetype.jwt_refresh(jwt_id uuid) OWNER TO ci;
+ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
 
 --
--- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION jwt_create(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
+COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
+
+
+--
+-- Name: jwt_update(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  WITH params AS (
+    SELECT
+    EXTRACT(EPOCH FROM date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE))::bigint AS epoch_now,
+    COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::interval AS expiry_interval
+  ),
+  found AS (
+    SELECT j.id, (j.token).account_id AS account_id
+    FROM vibetype_private.jwt j, params p
+    WHERE j.id = jwt_update.jwt_id
+    AND (j.token)."exp" >= p.epoch_now
+    LIMIT 1
+  ),
+  u AS (
+    UPDATE vibetype_private.jwt
+    SET token.exp = EXTRACT(
+    EPOCH FROM (
+      date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)
+      + (SELECT expiry_interval FROM params)
+    )
+    )
+    WHERE id IN (SELECT id FROM found)
+    RETURNING *
+  ),
+  account_update AS (
+    UPDATE vibetype_private.account
+    SET last_activity = DEFAULT
+    WHERE id = (SELECT account_id FROM found)
+    RETURNING id
+  )
+  SELECT token
+  FROM u
+  WHERE (token)."exp" >= (SELECT epoch_now FROM params);
+$$;
+
+
+ALTER FUNCTION vibetype.jwt_update(jwt_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION jwt_update(jwt_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.jwt_update(jwt_id uuid) IS 'Refreshes a JWT.';
 
 
 --
@@ -1629,41 +1555,40 @@ COMMENT ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) IS 'Refreshes a JWT.';
 --
 
 CREATE FUNCTION vibetype.language_iso_full_text_search(language vibetype.language) RETURNS regconfig
-    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    LANGUAGE sql STABLE
     AS $$
-BEGIN
-  CASE language
-    -- WHEN 'ar' THEN RETURN 'arabic';
-    -- WHEN 'ca' THEN RETURN 'catalan';
-    -- WHEN 'da' THEN RETURN 'danish';
-    WHEN 'de' THEN RETURN 'german';
-    -- WHEN 'el' THEN RETURN 'greek';
-    WHEN 'en' THEN RETURN 'english';
-    -- WHEN 'es' THEN RETURN 'spanish';
-    -- WHEN 'eu' THEN RETURN 'basque';
-    -- WHEN 'fi' THEN RETURN 'finnish';
-    -- WHEN 'fr' THEN RETURN 'french';
-    -- WHEN 'ga' THEN RETURN 'irish';
-    -- WHEN 'hi' THEN RETURN 'hindi';
-    -- WHEN 'hu' THEN RETURN 'hungarian';
-    -- WHEN 'hy' THEN RETURN 'armenian';
-    -- WHEN 'id' THEN RETURN 'indonesian';
-    -- WHEN 'it' THEN RETURN 'italian';
-    -- WHEN 'lt' THEN RETURN 'lithuanian';
-    -- WHEN 'ne' THEN RETURN 'nepali';
-    -- WHEN 'nl' THEN RETURN 'dutch';
-    -- WHEN 'no' THEN RETURN 'norwegian';
-    -- WHEN 'pt' THEN RETURN 'portuguese';
-    -- WHEN 'ro' THEN RETURN 'romanian';
-    -- WHEN 'ru' THEN RETURN 'russian';
-    -- WHEN 'sr' THEN RETURN 'serbian';
-    -- WHEN 'sv' THEN RETURN 'swedish';
-    -- WHEN 'ta' THEN RETURN 'tamil';
-    -- WHEN 'tr' THEN RETURN 'turkish';
-    -- WHEN 'yi' THEN RETURN 'yiddish';
-    ELSE RETURN 'simple';
-  END CASE;
-END;
+  SELECT
+    CASE language
+      -- WHEN 'ar' THEN 'arabic'
+      -- WHEN 'ca' THEN 'catalan'
+      -- WHEN 'da' THEN 'danish'
+      WHEN 'de' THEN 'german'
+      -- WHEN 'el' THEN 'greek'
+      WHEN 'en' THEN 'english'
+      -- WHEN 'es' THEN 'spanish'
+      -- WHEN 'eu' THEN 'basque'
+      -- WHEN 'fi' THEN 'finnish'
+      -- WHEN 'fr' THEN 'french'
+      -- WHEN 'ga' THEN 'irish'
+      -- WHEN 'hi' THEN 'hindi'
+      -- WHEN 'hu' THEN 'hungarian'
+      -- WHEN 'hy' THEN 'armenian'
+      -- WHEN 'id' THEN 'indonesian'
+      -- WHEN 'it' THEN 'italian'
+      -- WHEN 'lt' THEN 'lithuanian'
+      -- WHEN 'ne' THEN 'nepali'
+      -- WHEN 'nl' THEN 'dutch'
+      -- WHEN 'no' THEN 'norwegian'
+      -- WHEN 'pt' THEN 'portuguese'
+      -- WHEN 'ro' THEN 'romanian'
+      -- WHEN 'ru' THEN 'russian'
+      -- WHEN 'sr' THEN 'serbian'
+      -- WHEN 'sv' THEN 'swedish'
+      -- WHEN 'ta' THEN 'tamil'
+      -- WHEN 'tr' THEN 'turkish'
+      -- WHEN 'yi' THEN 'yiddish'
+      ELSE 'simple'
+    END::regconfig;
 $$;
 
 
@@ -1715,7 +1640,7 @@ ALTER FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolea
 -- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.';
+COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.\n\nError codes:\n- **P0002** when no notification with the given id is found.';
 
 
 --
@@ -1723,18 +1648,15 @@ COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged b
 --
 
 CREATE FUNCTION vibetype.profile_picture_set(upload_id uuid) RETURNS void
-    LANGUAGE plpgsql STRICT
+    LANGUAGE sql STRICT
     AS $$
-BEGIN
   INSERT INTO vibetype.profile_picture(account_id, upload_id)
   VALUES (
     current_setting('jwt.claims.account_id')::UUID,
-    profile_picture_set.upload_id
+    upload_id
   )
   ON CONFLICT (account_id)
-  DO UPDATE
-  SET upload_id = profile_picture_set.upload_id;
-END;
+  DO UPDATE SET upload_id = EXCLUDED.upload_id;
 $$;
 
 
@@ -1745,6 +1667,36 @@ ALTER FUNCTION vibetype.profile_picture_set(upload_id uuid) OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.profile_picture_set(upload_id uuid) IS 'Sets the picture with the given upload id as the invoker''s profile picture.';
+
+
+--
+-- Name: trigger_contact_check_time_zone(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF NEW.time_zone IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_catalog.pg_timezone_names WHERE name = NEW.time_zone
+      ) THEN
+        RAISE EXCEPTION 'Invalid time zone: %', NEW.time_zone;
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_contact_check_time_zone() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_contact_check_time_zone(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates that the time zone provided in the contact is a valid IANA time zone.';
 
 
 --
@@ -1793,6 +1745,32 @@ COMMENT ON FUNCTION vibetype.trigger_contact_update_account_id() IS 'Prevents in
 
 
 --
+-- Name: trigger_device_update_fcm_token(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_device_update_fcm_token() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
+    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
+      USING ERRCODE = 'integrity_constraint_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_device_update_fcm_token() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_device_update_fcm_token(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
+
+
+--
 -- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1837,14 +1815,11 @@ BEGIN
     AND ( -- Invited.
       OLD.id = ANY (vibetype.guest_claim_array())
       OR
-      (
-        vibetype.invoker_account_id() IS NOT NULL
-        AND
-        OLD.contact_id IN (
-          SELECT id
-          FROM vibetype.contact
-          WHERE contact.account_id = vibetype.invoker_account_id()
-        )
+      EXISTS (
+        SELECT 1
+        FROM vibetype.contact c
+        WHERE c.id = OLD.contact_id
+        AND c.account_id = vibetype.invoker_account_id()
       )
     )
     AND
@@ -1899,25 +1874,6 @@ COMMENT ON FUNCTION vibetype.trigger_metadata_update() IS 'Trigger function to a
 
 
 --
--- Name: trigger_metadata_update_fcm(); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.trigger_metadata_update_fcm() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
-    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
-      USING ERRCODE = 'integrity_constraint_violation';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.trigger_metadata_update_fcm() OWNER TO ci;
-
---
 -- Name: trigger_upload_insert(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1950,24 +1906,28 @@ $$;
 ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
 
 --
+-- Name: FUNCTION trigger_upload_insert(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enforce upload quota limits per account when inserting new uploads.';
+
+
+--
 -- Name: account_block_ids(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
 CREATE FUNCTION vibetype_private.account_block_ids() RETURNS TABLE(id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    -- users blocked by the current user
-    SELECT blocked_account_id
-    FROM vibetype.account_block
-    WHERE created_by = vibetype.invoker_account_id()
-    UNION ALL
-    -- users who blocked the current user
-    SELECT created_by
-    FROM vibetype.account_block
-    WHERE blocked_account_id = vibetype.invoker_account_id();
-END
+  -- users blocked by the current user
+  SELECT blocked_account_id
+  FROM vibetype.account_block
+  WHERE created_by = vibetype.invoker_account_id()
+  UNION ALL
+  -- users who blocked the current user
+  SELECT created_by
+  FROM vibetype.account_block
+  WHERE blocked_account_id = vibetype.invoker_account_id();
 $$;
 
 
@@ -1978,66 +1938,6 @@ ALTER FUNCTION vibetype_private.account_block_ids() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.account_block_ids() IS 'Returns all account ids being blocked by the invoker and all accounts that blocked the invoker.';
-
-
---
--- Name: account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.account_email_address_verification_valid_until() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-  BEGIN
-    IF (NEW.email_address_verification IS NULL) THEN
-      NEW.email_address_verification_valid_until = NULL;
-    ELSE
-      IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
-      END IF;
-    END IF;
-
-    RETURN NEW;
-  END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.account_email_address_verification_valid_until() OWNER TO ci;
-
---
--- Name: FUNCTION account_email_address_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
-
-
---
--- Name: account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.account_password_reset_verification_valid_until() RETURNS trigger
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-  BEGIN
-    IF (NEW.password_reset_verification IS NULL) THEN
-      NEW.password_reset_verification_valid_until = NULL;
-    ELSE
-      IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
-        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
-      END IF;
-    END IF;
-
-    RETURN NEW;
-  END;
-$$;
-
-
-ALTER FUNCTION vibetype_private.account_password_reset_verification_valid_until() OWNER TO ci;
-
---
--- Name: FUNCTION account_password_reset_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() IS 'Sets the valid until column of the email address verification to it''s default value.';
 
 
 --
@@ -2072,81 +1972,72 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 
 
 --
--- Name: event_policy_select(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+-- Name: event_policy_select(vibetype.event); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE FUNCTION vibetype_private.event_policy_select() RETURNS SETOF vibetype.event
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-    SELECT * FROM vibetype.event e
-    WHERE (
-      (
-        e.visibility = 'public'
-        AND (
-          e.guest_count_maximum IS NULL
-          OR e.guest_count_maximum > vibetype.guest_count(e.id)
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
-        )
+  SELECT
+  (
+    (
+      e.visibility = 'public'
+      AND (
+        e.guest_count_maximum IS NULL
+        OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      OR (
-        e.id IN (
-          SELECT * FROM vibetype_private.events_invited()
-        )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype_private.account_block_ids() b
+        WHERE b.id = e.created_by
       )
-    );
-END
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM vibetype_private.events_invited() ei(event_id)
+      WHERE ei.event_id = e.id
+    )
+  );
 $$;
 
 
-ALTER FUNCTION vibetype_private.event_policy_select() OWNER TO ci;
+ALTER FUNCTION vibetype_private.event_policy_select(e vibetype.event) OWNER TO ci;
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
 CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
-    LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  RETURN QUERY
-
-  -- get all events for guests
+  -- Return event IDs for events the invoker is invited to.
   SELECT g.event_id FROM vibetype.guest g
   WHERE
+      -- Guest records explicitly known to the invoker (via guest claim).
+      g.id = ANY (vibetype.guest_claim_array())
+    OR
     (
-      -- whose event ...
-      g.event_id IN (
-        SELECT id
-        FROM vibetype.event
-        WHERE
-          -- is not created by ...
-          NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = event.created_by
+      -- Guest whose contact belongs to the invoker and the contact wasn't created by a blocked account.
+      EXISTS (
+        SELECT 1
+        FROM vibetype.contact c
+        WHERE c.id = g.contact_id
+          AND c.account_id = vibetype.invoker_account_id()
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
           )
       )
       AND
-      -- whose invitee
-      g.contact_id IN (
-        SELECT id
-        FROM vibetype.contact
-        WHERE
-            -- is the requesting user
-            account_id = vibetype.invoker_account_id()
-          AND
-            -- who is not invited by
-            NOT EXISTS (
-              SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
-            )
+      -- And the corresponding event wasn't created by a blocked account.
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = g.event_id
+          AND NOT EXISTS (
+            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
+          )
       )
-    )
-    OR
-      -- for which the requesting user knows the id
-      g.id = ANY (vibetype.guest_claim_array());
-END
+    );
 $$;
 
 
@@ -2157,6 +2048,121 @@ ALTER FUNCTION vibetype_private.events_invited() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
+
+
+--
+-- Name: guest_policy_select(vibetype.guest); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) RETURNS boolean
+    LANGUAGE sql STABLE SECURITY DEFINER
+    AS $$
+  SELECT (
+    -- Display guests accessible through guest claims.
+    g.id = ANY (vibetype.guest_claim_array())
+  OR
+  (
+    -- Display guests where the contact is the invoker account.
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = g.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
+      -- omit contacts created by a user who is blocked by the invoker
+      -- omit contacts created by a user who blocked the invoker.
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+      )
+    )
+  )
+  OR
+  (
+    -- Display guests to events organized by the invoker,
+    -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
+    -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
+    EXISTS (
+      SELECT 1
+      FROM vibetype.event e
+      WHERE e.id = g.event_id
+        AND e.created_by = vibetype.invoker_account_id()
+    )
+    AND
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = g.contact_id
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+        )
+    )
+  )
+);
+$$;
+
+
+ALTER FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) OWNER TO ci;
+
+--
+-- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF (NEW.email_address_verification IS NULL) THEN
+      NEW.email_address_verification_valid_until = NULL;
+    ELSE
+      IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
+        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to its default value.';
+
+
+--
+-- Name: trigger_account_password_reset_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+  BEGIN
+    IF (NEW.password_reset_verification IS NULL) THEN
+      NEW.password_reset_verification_valid_until = NULL;
+    ELSE
+      IF ((OLD IS NULL) OR (OLD.password_reset_verification IS DISTINCT FROM NEW.password_reset_verification)) THEN
+        NEW.password_reset_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '2 hours')::TIMESTAMP WITH TIME ZONE);
+      END IF;
+    END IF;
+
+    RETURN NEW;
+  END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_password_reset_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() IS 'Sets the valid until column of the password reset verification to its default value.';
 
 
 --
@@ -2270,7 +2276,8 @@ BEGIN
       ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
   ELSE
     RAISE EXCEPTION 'Table %.% cannot have an audit log trigger.',
-      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name;
+      trigger_audit_log_create.schema_name, trigger_audit_log_create.table_name
+      USING ERRCODE = 'VTALT';
   END IF;
 END;
 $$;
@@ -2282,7 +2289,7 @@ ALTER FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table
 -- Name: FUNCTION trigger_audit_log_create(schema_name text, table_name text); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) IS 'Function creating an audit log trigger for a single table.';
+COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) IS 'Function creating an audit log trigger for a single table.\n\nError codes:\n- **VTALT** when a table cannot have an audit log trigger.';
 
 
 --
@@ -2829,7 +2836,7 @@ CREATE TABLE vibetype.contact (
     nickname text,
     note text,
     phone_number text,
-    timezone text,
+    time_zone text,
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
@@ -2839,7 +2846,6 @@ CREATE TABLE vibetype.contact (
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_timezone_check CHECK ((timezone ~ '^([+-](0[0-9]|1[0-4]):[0-5][0-9]|Z)$'::text)),
     CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
 );
 
@@ -2933,10 +2939,10 @@ COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone numb
 
 
 --
--- Name: COLUMN contact.timezone; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.timezone IS 'Timezone of the contact in ISO 8601 format, e.g., `+02:00`, `-05:30`, or `Z`.';
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
 
 
 --
@@ -5017,87 +5023,94 @@ COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on
 
 
 --
--- Name: guest vibetype_guest_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: legal_term delete; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_guest_update BEFORE UPDATE ON vibetype.guest FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_guest_update();
-
-
---
--- Name: legal_term vibetype_legal_term_delete; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_legal_term_delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
+CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
 
 
 --
--- Name: legal_term vibetype_legal_term_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: upload insert; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_legal_term_update BEFORE UPDATE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
-
-
---
--- Name: address vibetype_trigger_address_update; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_address_update BEFORE UPDATE ON vibetype.address FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
 
 
 --
--- Name: contact vibetype_trigger_contact_update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_contact_update_account_id BEFORE UPDATE OF account_id, created_by ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
-
-
---
--- Name: device vibetype_trigger_device_update; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_device_update BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE OF name, description, language ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
 
 
 --
--- Name: device vibetype_trigger_device_update_fcm; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: contact time_zone; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_device_update_fcm BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update_fcm();
-
-
---
--- Name: event vibetype_trigger_event_search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_event_search_vector BEFORE INSERT OR UPDATE OF name, description, language ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
+CREATE TRIGGER time_zone BEFORE INSERT OR UPDATE OF time_zone ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_check_time_zone();
 
 
 --
--- Name: friendship vibetype_trigger_friendship_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+-- Name: address update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_trigger_friendship_update BEFORE UPDATE ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
-
-
---
--- Name: upload vibetype_trigger_upload_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER vibetype_trigger_upload_insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.address FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
--- Name: account vibetype_private_account_email_address_verification_valid_until; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+-- Name: device update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_private_account_email_address_verification_valid_until BEFORE INSERT OR UPDATE OF email_address_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.account_email_address_verification_valid_until();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
--- Name: account vibetype_private_account_password_reset_verification_valid_unti; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+-- Name: friendship update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER vibetype_private_account_password_reset_verification_valid_unti BEFORE INSERT OR UPDATE OF password_reset_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.account_password_reset_verification_valid_until();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+
+
+--
+-- Name: guest update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.guest FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_guest_update();
+
+
+--
+-- Name: legal_term update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update BEFORE UPDATE ON vibetype.legal_term FOR EACH ROW EXECUTE FUNCTION vibetype.legal_term_change();
+
+
+--
+-- Name: contact update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update_account_id BEFORE UPDATE OF account_id, created_by ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
+
+
+--
+-- Name: device update_fcm; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER update_fcm BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_device_update_fcm_token();
+
+
+--
+-- Name: account email_address_verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER email_address_verification BEFORE INSERT OR UPDATE OF email_address_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
+
+
+--
+-- Name: account password_reset_verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER password_reset_verification BEFORE INSERT OR UPDATE OF password_reset_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
 
 
 --
@@ -5546,8 +5559,9 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 -- Name: address address_all; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT event_policy_select.address_id
-   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (EXISTS ( SELECT 1
+CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( SELECT 1
    FROM vibetype_private.account_block_ids() b(id)
   WHERE (b.id = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
@@ -5562,7 +5576,7 @@ ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 -- Name: contact contact_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((vibetype.invoker_account_id() IS NOT NULL) AND (created_by = vibetype.invoker_account_id()) AND (account_id IS DISTINCT FROM vibetype.invoker_account_id())));
+CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((created_by = vibetype.invoker_account_id()) AND (account_id IS DISTINCT FROM vibetype.invoker_account_id())));
 
 
 --
@@ -5570,8 +5584,8 @@ CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((vibetype.in
 --
 
 CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM vibetype.account_block b
-  WHERE ((b.created_by = vibetype.invoker_account_id()) AND (b.blocked_account_id = contact.account_id)))))));
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = contact.account_id))))));
 
 
 --
@@ -5582,7 +5596,9 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id
    FROM vibetype_private.account_block_ids() b(id)
   WHERE (b.id = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
    FROM vibetype_private.account_block_ids() b(id)
-  WHERE (b.id = contact.account_id))))) OR (id IN ( SELECT vibetype.guest_contact_ids() AS guest_contact_ids))));
+  WHERE (b.id = contact.account_id))))) OR (EXISTS ( SELECT 1
+   FROM vibetype.guest_contact_ids() gci(contact_id)
+  WHERE (gci.contact_id = contact.id)))));
 
 
 --
@@ -5590,8 +5606,8 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id
 --
 
 CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM vibetype.account_block b
-  WHERE ((b.created_by = vibetype.invoker_account_id()) AND (b.blocked_account_id = contact.account_id)))))));
+   FROM vibetype_private.account_block_ids() b(id)
+  WHERE (b.id = contact.account_id))))));
 
 
 --
@@ -5655,8 +5671,9 @@ CREATE POLICY event_category_mapping_insert ON vibetype.event_category_mapping F
 -- Name: event_category_mapping event_category_mapping_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_category_mapping_select ON vibetype.event_category_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
-   FROM vibetype.event)));
+CREATE POLICY event_category_mapping_select ON vibetype.event_category_mapping FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE (e.id = event_category_mapping.event_id))));
 
 
 --
@@ -5700,8 +5717,9 @@ CREATE POLICY event_format_mapping_insert ON vibetype.event_format_mapping FOR I
 -- Name: event_format_mapping event_format_mapping_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR SELECT USING ((event_id IN ( SELECT event.id
-   FROM vibetype.event)));
+CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE (e.id = event_format_mapping.event_id))));
 
 
 --
@@ -5721,8 +5739,7 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((id IN ( SELECT event_policy_select.id
-   FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector))));
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING (vibetype_private.event_policy_select(event.*));
 
 
 --
@@ -5735,28 +5752,29 @@ ALTER TABLE vibetype.event_upload ENABLE ROW LEVEL SECURITY;
 -- Name: event_upload event_upload_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_upload_delete ON vibetype.event_upload FOR DELETE USING ((event_id IN ( SELECT event.id
-   FROM vibetype.event
-  WHERE (event.created_by = vibetype.invoker_account_id()))));
+CREATE POLICY event_upload_delete ON vibetype.event_upload FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = event_upload.event_id) AND (e.created_by = vibetype.invoker_account_id())))));
 
 
 --
 -- Name: event_upload event_upload_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK (((event_id IN ( SELECT event.id
-   FROM vibetype.event
-  WHERE (event.created_by = vibetype.invoker_account_id()))) AND (upload_id IN ( SELECT upload.id
-   FROM vibetype.upload
-  WHERE (upload.created_by = vibetype.invoker_account_id())))));
+CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = event_upload.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND (EXISTS ( SELECT 1
+   FROM vibetype.upload u
+  WHERE ((u.id = event_upload.upload_id) AND (u.created_by = vibetype.invoker_account_id()))))));
 
 
 --
 -- Name: event_upload event_upload_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING ((event_id IN ( SELECT event.id
-   FROM vibetype.event)));
+CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE (e.id = event_upload.event_id))));
 
 
 --
@@ -5800,58 +5818,36 @@ ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 -- Name: guest guest_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((event_id IN ( SELECT vibetype.events_organized() AS events_organized)));
+CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))));
 
 
 --
 -- Name: guest guest_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id IN ( SELECT vibetype.events_organized() AS events_organized)) AND ((vibetype.event_guest_count_maximum(event_id) IS NULL) OR (vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id))) AND (contact_id IN ( SELECT contact.id
-   FROM vibetype.contact
-  WHERE (contact.created_by = vibetype.invoker_account_id())
-EXCEPT
- SELECT c.id
-   FROM (vibetype.contact c
-     JOIN vibetype.account_block b ON (((c.account_id = b.blocked_account_id) AND (c.created_by = b.created_by))))
-  WHERE (c.created_by = vibetype.invoker_account_id())))));
+CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND ((vibetype.event_guest_count_maximum(event_id) IS NULL) OR (vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id))) AND (EXISTS ( SELECT 1
+   FROM vibetype.contact c
+  WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+           FROM vibetype_private.account_block_ids() b(id)
+          WHERE (b.id = c.account_id)))))))));
 
 
 --
 -- Name: guest guest_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((id = ANY (vibetype.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
-   FROM vibetype.contact
-  WHERE ((contact.account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = contact.created_by))))))) OR ((event_id IN ( SELECT vibetype.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
-   FROM vibetype.contact c
-  WHERE ((NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.account_id)))) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by))))))))));
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (vibetype_private.guest_policy_select(guest.*));
 
 
 --
 -- Name: guest guest_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((id = ANY (vibetype.guest_claim_array())) OR (contact_id IN ( SELECT contact.id
-   FROM vibetype.contact
-  WHERE (contact.account_id = vibetype.invoker_account_id())
-EXCEPT
- SELECT c.id
-   FROM (vibetype.contact c
-     JOIN vibetype.account_block b ON (((c.account_id = b.created_by) AND (c.created_by = b.blocked_account_id))))
-  WHERE (c.account_id = vibetype.invoker_account_id()))) OR ((event_id IN ( SELECT vibetype.events_organized() AS events_organized)) AND (contact_id IN ( SELECT c.id
-   FROM vibetype.contact c
-  WHERE ((NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.created_by)))) AND (NOT (EXISTS ( SELECT 1
-           FROM vibetype_private.account_block_ids() b(id)
-          WHERE (b.id = c.account_id))))))))));
+CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (vibetype_private.guest_policy_select(guest.*));
 
 
 --
@@ -5996,8 +5992,9 @@ CREATE POLICY upload_insert ON vibetype.upload FOR INSERT WITH CHECK ((created_b
 -- Name: upload upload_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((created_by = vibetype.invoker_account_id()) OR (id IN ( SELECT profile_picture.upload_id
-   FROM vibetype.profile_picture))));
+CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
+   FROM vibetype.profile_picture p
+  WHERE (p.upload_id = upload.id)))));
 
 
 --
@@ -6152,15 +6149,6 @@ GRANT ALL ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) TO vibe
 
 
 --
--- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.authenticate(username text, password text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.authenticate(username text, password text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.authenticate(username text, password text) TO vibetype_anonymous;
-
-
---
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6220,15 +6208,6 @@ GRANT ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) TO vibetype_anonymous
 
 
 --
--- Name: FUNCTION events_organized(); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.events_organized() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.events_organized() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.events_organized() TO vibetype_anonymous;
-
-
---
 -- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6274,12 +6253,21 @@ GRANT ALL ON FUNCTION vibetype.invoker_account_id() TO vibetype;
 
 
 --
--- Name: FUNCTION jwt_refresh(jwt_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION jwt_create(username text, password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.jwt_refresh(jwt_id uuid) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.jwt_create(username text, password text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.jwt_create(username text, password text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.jwt_create(username text, password text) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION jwt_update(jwt_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) TO vibetype_anonymous;
 
 
 --
@@ -6315,11 +6303,27 @@ GRANT ALL ON FUNCTION vibetype.profile_picture_set(upload_id uuid) TO vibetype_a
 
 
 --
+-- Name: FUNCTION trigger_contact_check_time_zone(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION trigger_contact_update_account_id(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_contact_update_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_device_update_fcm_token(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_account;
 
 
 --
@@ -6349,17 +6353,11 @@ GRANT ALL ON FUNCTION vibetype.trigger_metadata_update() TO vibetype_account;
 
 
 --
--- Name: FUNCTION trigger_metadata_update_fcm(); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.trigger_metadata_update_fcm() FROM PUBLIC;
-
-
---
 -- Name: FUNCTION trigger_upload_insert(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
 
 
 --
@@ -6372,22 +6370,6 @@ GRANT ALL ON FUNCTION vibetype_private.account_block_ids() TO vibetype_anonymous
 
 
 --
--- Name: FUNCTION account_email_address_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.account_email_address_verification_valid_until() TO vibetype_account;
-
-
---
--- Name: FUNCTION account_password_reset_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.account_password_reset_verification_valid_until() TO vibetype_account;
-
-
---
 -- Name: FUNCTION adjust_audit_log_id_seq(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -6395,12 +6377,12 @@ REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION event_policy_select(); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION event_policy_select(e vibetype.event); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.event_policy_select() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) TO vibetype_anonymous;
 
 
 --
@@ -6410,6 +6392,31 @@ GRANT ALL ON FUNCTION vibetype_private.event_policy_select() TO vibetype_anonymo
 REVOKE ALL ON FUNCTION vibetype_private.events_invited() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guest_policy_select(g vibetype.guest); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_account_password_reset_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() TO vibetype_account;
 
 
 --
@@ -6543,8 +6550,8 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_category_mapping TO vibetype_
 -- Name: TABLE event_favorite; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event_favorite TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
 
 
 --

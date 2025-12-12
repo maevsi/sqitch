@@ -15,7 +15,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   -- Get organized events for account A
-  organizedEventIds := ARRAY(SELECT event_id FROM vibetype.events_organized());
+  organizedEventIds := ARRAY(SELECT id FROM vibetype.event WHERE created_by = vibetype.invoker_account_id());
 
   -- Account A should see their event
   PERFORM vibetype_test.uuid_array_test('organized event appears in list', organizedEventIds, ARRAY[eventA]);
@@ -39,7 +39,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   -- Get organized events for account A
-  organizedEventIds := ARRAY(SELECT event_id FROM vibetype.events_organized());
+  organizedEventIds := ARRAY(SELECT id FROM vibetype.event WHERE created_by = vibetype.invoker_account_id());
 
   -- Account A should see all their events
   PERFORM vibetype_test.uuid_array_test('all organized events appear in list', organizedEventIds, ARRAY[eventA, eventB, eventC]);
@@ -61,7 +61,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountB);
 
   -- Get organized events for account B
-  organizedEventIds := ARRAY(SELECT event_id FROM vibetype.events_organized());
+  organizedEventIds := ARRAY(SELECT id FROM vibetype.event WHERE created_by = vibetype.invoker_account_id());
 
   -- Account B should not see event A (not the organizer)
   IF eventA = ANY(organizedEventIds) THEN
@@ -81,7 +81,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   -- Get organized events for account A (should be empty)
-  organizedEventIds := ARRAY(SELECT event_id FROM vibetype.events_organized());
+  organizedEventIds := ARRAY(SELECT id FROM vibetype.event WHERE created_by = vibetype.invoker_account_id());
 
   -- Should return empty array
   IF array_length(organizedEventIds, 1) IS NOT NULL THEN
