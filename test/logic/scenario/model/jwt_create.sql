@@ -28,7 +28,7 @@ BEGIN
     RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
   END IF;
 
-  IF _jwt.account_username <> 'username' THEN
+  IF _jwt.username <> 'username' THEN
     RAISE EXCEPTION 'Test failed: JWT contains an incorrect username';
   END IF;
 END $$;
@@ -81,7 +81,7 @@ BEGIN
     RAISE EXCEPTION 'Test failed: Authentication should have returned a JWT';
   END IF;
 
-  IF _jwt.account_username <> 'username' THEN
+  IF _jwt.username <> 'username' THEN
     RAISE EXCEPTION 'Test failed: JWT contains an incorrect user name';
   END IF;
 END $$;

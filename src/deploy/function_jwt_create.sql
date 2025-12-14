@@ -12,7 +12,7 @@ DECLARE
 BEGIN
   IF (jwt_create.username = '' AND jwt_create.password = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
+    _jwt := (_jwt_exp, vibetype.guest_claim_array(), _jwt_id, 'vibetype_anonymous', NULL, NULL)::vibetype.jwt;
   ELSIF (jwt_create.username IS NOT NULL AND jwt_create.password IS NOT NULL) THEN
     -- if jwt_create.username contains @ then treat it as an email address otherwise as a user name
     IF (strpos(jwt_create.username, '@') = 0) THEN
@@ -45,7 +45,7 @@ BEGIN
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
+    ) SELECT _jwt_exp, NULL, _jwt_id, 'vibetype_account', updated.id, _username
       FROM updated
       INTO _jwt;
 

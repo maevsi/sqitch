@@ -9,10 +9,10 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::interval AS expiry_interval
   ),
   found AS (
-    SELECT j.id, (j.token).account_id AS account_id
+    SELECT j.id, (j.token).sub AS account_id
     FROM vibetype_private.jwt j, params p
     WHERE j.id = jwt_update.jwt_id
-    AND (j.token)."exp" >= p.epoch_now
+    AND (j.token).exp >= p.epoch_now
     LIMIT 1
   ),
   u AS (
@@ -34,7 +34,7 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   )
   SELECT token
   FROM u
-  WHERE (token)."exp" >= (SELECT epoch_now FROM params);
+  WHERE (token).exp >= (SELECT epoch_now FROM params);
 $$;
 
 COMMENT ON FUNCTION vibetype.jwt_update(UUID) IS 'Refreshes a JWT.';
