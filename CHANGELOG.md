@@ -1,3 +1,18 @@
+## [10.0.0-beta.25](https://github.com/maevsi/sqitch/compare/10.0.0-beta.24...10.0.0-beta.25) (2025-12-14)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt-update:** correct indentation
+* **account:** swap imprint text with url
+
+### Features
+
+* **account:** swap imprint text with url ([4ee730c](https://github.com/maevsi/sqitch/commit/4ee730ce698ee88d5a2c46c24c30f8ab180cef90))
+
+### Code Refactoring
+
+* **jwt-update:** correct indentation ([48ec9b0](https://github.com/maevsi/sqitch/commit/48ec9b072ae8000e3ac6ead567e95a5129b4eef3))
+
 ## [10.0.0-beta.24](https://github.com/maevsi/sqitch/compare/10.0.0-beta.23...10.0.0-beta.24) (2025-12-08)
 
 ### ⚠ BREAKING CHANGES
