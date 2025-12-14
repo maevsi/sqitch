@@ -14,7 +14,7 @@ CREATE TABLE vibetype.event (
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") < 100),
   slug                     TEXT NOT NULL CHECK (char_length(slug) < 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
-  url                      TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https:\/\/'),
+  url                      TEXT CHECK (char_length("url") < 300 AND "url" ~ '^https://[^[:space:]]+$'),
   visibility               vibetype.event_visibility NOT NULL,
 
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,

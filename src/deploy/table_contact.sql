@@ -14,7 +14,7 @@ CREATE TABLE vibetype.contact (
   note                  TEXT CHECK (char_length(note) > 0 AND char_length(note) <= 1000),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
   time_zone             TEXT, -- validated via trigger
-  url                   TEXT CHECK (char_length("url") <= 300 AND "url" ~ '^https:\/\/'),
+  url                   TEXT CHECK (char_length("url") <= 300 AND "url" ~ '^https://[^[:space:]]+$'),
 
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by            UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,

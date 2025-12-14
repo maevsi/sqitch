@@ -2,7 +2,7 @@ BEGIN;
 
 SELECT id,
        description,
-       imprint,
+       imprint_url,
        username
 FROM vibetype.account WHERE FALSE;
 
