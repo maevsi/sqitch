@@ -1521,10 +1521,10 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   u AS (
     UPDATE vibetype_private.jwt
     SET token.exp = EXTRACT(
-    EPOCH FROM (
-      date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)
-      + (SELECT expiry_interval FROM params)
-    )
+      EPOCH FROM (
+        date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)
+        + (SELECT expiry_interval FROM params)
+      )
     )
     WHERE id IN (SELECT id FROM found)
     RETURNING *
