@@ -173,12 +173,12 @@ COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how t
 --
 
 CREATE TYPE vibetype.jwt AS (
-	id uuid,
-	account_id uuid,
-	account_username text,
 	exp bigint,
 	guests uuid[],
-	role text
+	jti uuid,
+	role text,
+	sub uuid,
+	username text
 );
 
 
@@ -1120,14 +1120,14 @@ DECLARE
   _event_creator_account_username TEXT;
   _event_id UUID;
 BEGIN
-  _jwt_id := current_setting('jwt.claims.id', true)::UUID;
+  _jwt_id := current_setting('jwt.claims.jti', true)::UUID;
   _jwt := (
-    _jwt_id,
-    vibetype.invoker_account_id(), -- prevent empty string cast to UUID
-    current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
-    current_setting('jwt.claims.role', true)::TEXT
+    _jwt_id,
+    current_setting('jwt.claims.role', true)::TEXT,
+    vibetype.invoker_account_id(),
+    current_setting('jwt.claims.username', true)::TEXT
   )::vibetype.jwt;
 
   UPDATE vibetype_private.jwt
@@ -1442,7 +1442,7 @@ DECLARE
 BEGIN
   IF (jwt_create.username = '' AND jwt_create.password = '') THEN
     -- Authenticate as guest.
-    _jwt := (_jwt_id, NULL, NULL, _jwt_exp, vibetype.guest_claim_array(), 'vibetype_anonymous')::vibetype.jwt;
+    _jwt := (_jwt_exp, vibetype.guest_claim_array(), _jwt_id, 'vibetype_anonymous', NULL, NULL)::vibetype.jwt;
   ELSIF (jwt_create.username IS NOT NULL AND jwt_create.password IS NOT NULL) THEN
     -- if jwt_create.username contains @ then treat it as an email address otherwise as a user name
     IF (strpos(jwt_create.username, '@') = 0) THEN
@@ -1475,7 +1475,7 @@ BEGIN
         AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
         AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
       RETURNING *
-    ) SELECT _jwt_id, updated.id, _username, _jwt_exp, NULL, 'vibetype_account'
+    ) SELECT _jwt_exp, NULL, _jwt_id, 'vibetype_account', updated.id, _username
       FROM updated
       INTO _jwt;
 
@@ -1512,10 +1512,10 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::interval AS expiry_interval
   ),
   found AS (
-    SELECT j.id, (j.token).account_id AS account_id
+    SELECT j.id, (j.token).sub AS account_id
     FROM vibetype_private.jwt j, params p
     WHERE j.id = jwt_update.jwt_id
-    AND (j.token)."exp" >= p.epoch_now
+    AND (j.token).exp >= p.epoch_now
     LIMIT 1
   ),
   u AS (
@@ -1537,7 +1537,7 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   )
   SELECT token
   FROM u
-  WHERE (token)."exp" >= (SELECT epoch_now FROM params);
+  WHERE (token).exp >= (SELECT epoch_now FROM params);
 $$;
 
 

@@ -10,14 +10,14 @@ DECLARE
   _event_creator_account_username TEXT;
   _event_id UUID;
 BEGIN
-  _jwt_id := current_setting('jwt.claims.id', true)::UUID;
+  _jwt_id := current_setting('jwt.claims.jti', true)::UUID;
   _jwt := (
-    _jwt_id,
-    vibetype.invoker_account_id(), -- prevent empty string cast to UUID
-    current_setting('jwt.claims.account_username', true)::TEXT,
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
-    current_setting('jwt.claims.role', true)::TEXT
+    _jwt_id,
+    current_setting('jwt.claims.role', true)::TEXT,
+    vibetype.invoker_account_id(),
+    current_setting('jwt.claims.username', true)::TEXT
   )::vibetype.jwt;
 
   UPDATE vibetype_private.jwt

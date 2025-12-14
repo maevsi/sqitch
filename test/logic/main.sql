@@ -64,6 +64,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/guest.sql
 \i scenario/model/invoker_account_id.sql
 \i scenario/model/jwt_create.sql
+\i scenario/model/jwt_update.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
 
