@@ -602,10 +602,10 @@ SET default_table_access_method = heap;
 CREATE TABLE vibetype.account (
     id uuid NOT NULL,
     description text,
-    imprint text,
+    imprint_url text,
     username text NOT NULL COLLATE pg_catalog.unicode,
     CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
-    CONSTRAINT account_imprint_check CHECK ((char_length(imprint) < 10000)),
+    CONSTRAINT account_imprint_url_check CHECK (((char_length(imprint_url) < 300) AND (imprint_url ~ '^https://[^[:space:]]+$'::text))),
     CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
 );
 
@@ -636,10 +636,10 @@ COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
 
 
 --
--- Name: COLUMN account.imprint; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN account.imprint_url; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.imprint IS 'The account''s imprint.';
+COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL.';
 
 
 --
@@ -880,7 +880,7 @@ CREATE TABLE vibetype.event (
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
     CONSTRAINT event_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text))),
-    CONSTRAINT event_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https:\/\/'::text)))
+    CONSTRAINT event_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https://[^[:space:]]+$'::text)))
 );
 
 
@@ -2846,7 +2846,7 @@ CREATE TABLE vibetype.contact (
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https:\/\/'::text)))
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https://[^[:space:]]+$'::text)))
 );
 
 
