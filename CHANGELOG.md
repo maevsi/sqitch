@@ -1,3 +1,13 @@
+## [10.0.0-beta.26](https://github.com/maevsi/sqitch/compare/10.0.0-beta.25...10.0.0-beta.26) (2025-12-14)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** standardize type properties
+
+### Features
+
+* **jwt:** standardize type properties ([c65416d](https://github.com/maevsi/sqitch/commit/c65416dc09bb9a4d05d90e6c73ccccf9ca1212b8))
+
 ## [10.0.0-beta.25](https://github.com/maevsi/sqitch/compare/10.0.0-beta.24...10.0.0-beta.25) (2025-12-14)
 
 ### ⚠ BREAKING CHANGES
