@@ -6,7 +6,7 @@ CREATE TABLE vibetype_private.account (
   id                                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   birth_date                                 DATE, -- TODO: evaluate if this should be `NOT NULL` for all new accounts
-  email_address                              TEXT NOT NULL CHECK (char_length(email_address) < 255) UNIQUE, -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
+  email_address                              TEXT NOT NULL CHECK (char_length(email_address) <= 254) UNIQUE, -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
   email_address_verification_valid_until     TIMESTAMP WITH TIME ZONE,
   location                                   GEOGRAPHY(Point, 4326),
@@ -24,7 +24,7 @@ CREATE INDEX idx_account_private_location ON vibetype_private.account USING gist
 COMMENT ON TABLE vibetype_private.account IS 'Private account data.';
 COMMENT ON COLUMN vibetype_private.account.id IS 'The account''s internal id.';
 COMMENT ON COLUMN vibetype_private.account.birth_date IS 'The account owner''s date of birth.';
-COMMENT ON COLUMN vibetype_private.account.email_address IS 'The account''s email address for account related information.';
+COMMENT ON COLUMN vibetype_private.account.email_address IS 'The account''s email address for account related information. Must not exceed 254 characters (RFC 5321).';
 COMMENT ON COLUMN vibetype_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';
 COMMENT ON COLUMN vibetype_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
 COMMENT ON COLUMN vibetype_private.account.location IS 'The account''s geometric location.';

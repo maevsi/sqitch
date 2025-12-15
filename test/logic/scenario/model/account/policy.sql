@@ -113,7 +113,7 @@ SAVEPOINT account_update_imprint_too_long;
 DO $$
 DECLARE
   accountA UUID;
-  long_url TEXT := 'https://enoughchars/' || repeat('a', 300);
+  long_url TEXT := 'https://enoughchars/' || repeat('a', 2000);
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   PERFORM vibetype_test.invoker_set(accountA);

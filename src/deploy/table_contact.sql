@@ -5,7 +5,7 @@ CREATE TABLE vibetype.contact (
 
   account_id            UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
   address_id            UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
-  email_address         TEXT CHECK (char_length(email_address) < 255), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
+  email_address         TEXT CHECK (char_length(email_address) <= 254), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
   language              vibetype.language,
@@ -14,7 +14,7 @@ CREATE TABLE vibetype.contact (
   note                  TEXT CHECK (char_length(note) > 0 AND char_length(note) <= 1000),
   phone_number          TEXT CHECK (phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'), -- E.164 format (https://wikipedia.org/wiki/E.164)
   time_zone             TEXT, -- validated via trigger
-  url                   TEXT CHECK (char_length("url") <= 300 AND "url" ~ '^https://[^[:space:]]+$'),
+  url                   TEXT CHECK (char_length("url") <= 2000 AND "url" ~ '^https://[^[:space:]]+$'),
 
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by            UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
@@ -26,16 +26,16 @@ COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to acco
 COMMENT ON COLUMN vibetype.contact.id IS E'@omit create,update\nPrimary key, uniquely identifies each contact.';
 COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
 COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
+COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
 COMMENT ON COLUMN vibetype.contact.email_address_hash IS E'@omit create,update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
 COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
 COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
-COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
+COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
 COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
-COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
+COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.contact.created_at IS E'@omit create,update\nTimestamp when the contact was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';

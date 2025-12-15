@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.report (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  reason              TEXT NOT NULL CHECK (char_length("reason") > 0 AND char_length("reason") < 2000),
+  reason              TEXT NOT NULL CHECK (char_length("reason") > 0 AND char_length("reason") <= 2000),
   target_account_id   UUID REFERENCES vibetype.account(id) ON DELETE CASCADE,
   target_event_id     UUID REFERENCES vibetype.event(id) ON DELETE CASCADE,
   target_upload_id    UUID REFERENCES vibetype.upload(id) ON DELETE CASCADE,
@@ -17,7 +17,7 @@ CREATE TABLE vibetype.report (
 
 COMMENT ON TABLE vibetype.report IS E'@omit update,delete\nStores reports made by users on other users, events, or uploads for moderation purposes.';
 COMMENT ON COLUMN vibetype.report.id IS E'@omit create\nUnique identifier for the report, generated randomly using UUIDs.';
-COMMENT ON COLUMN vibetype.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
+COMMENT ON COLUMN vibetype.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.report.target_account_id IS 'The ID of the account being reported, if applicable.';
 COMMENT ON COLUMN vibetype.report.target_event_id IS 'The ID of the event being reported, if applicable.';
 COMMENT ON COLUMN vibetype.report.target_upload_id IS 'The ID of the upload being reported, if applicable.';
