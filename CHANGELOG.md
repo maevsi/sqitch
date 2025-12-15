@@ -1,3 +1,13 @@
+## [10.0.0-beta.29](https://github.com/maevsi/sqitch/compare/10.0.0-beta.28...10.0.0-beta.29) (2025-12-15)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** extend table
+
+### Features
+
+* **jwt:** extend table ([cabc757](https://github.com/maevsi/sqitch/commit/cabc7570d2a841eafe7724eea2995c32be21f580))
+
 ## [10.0.0-beta.28](https://github.com/maevsi/sqitch/compare/10.0.0-beta.27...10.0.0-beta.28) (2025-12-15)
 
 ### ⚠ BREAKING CHANGES
