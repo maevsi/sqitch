@@ -13,7 +13,7 @@ CREATE TABLE vibetype_private.account (
   password_hash                              TEXT NOT NULL,
   password_reset_verification                UUID,
   password_reset_verification_valid_until    TIMESTAMP WITH TIME ZONE,
-  upload_quota_bytes                         BIGINT NOT NULL DEFAULT 10485760, -- 10 mebibyte
+  upload_quota_bytes                         BIGINT NOT NULL DEFAULT 104857600, -- 100 mebibytes
 
   created_at                                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
