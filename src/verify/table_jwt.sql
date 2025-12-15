@@ -1,7 +1,12 @@
 BEGIN;
 
 SELECT id,
-       token
+       expiry,
+       subject,
+       token,
+       created_at,
+       updated_at,
+       updated_by
 FROM vibetype_private.jwt WHERE FALSE;
 
 \set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`

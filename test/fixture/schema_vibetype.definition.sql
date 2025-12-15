@@ -1484,7 +1484,7 @@ BEGIN
     END IF;
   END IF;
 
-  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
+  INSERT INTO vibetype_private.jwt(token) VALUES (_jwt);
   RETURN _jwt;
 END;
 $$;
@@ -4308,8 +4308,13 @@ COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_function IS 'The na
 --
 
 CREATE TABLE vibetype_private.jwt (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    token vibetype.jwt NOT NULL
+    id uuid GENERATED ALWAYS AS ((token).jti) STORED NOT NULL,
+    expiry timestamp with time zone GENERATED ALWAYS AS (to_timestamp(((token).exp)::double precision)) STORED NOT NULL,
+    subject uuid GENERATED ALWAYS AS ((token).sub) STORED,
+    token vibetype.jwt NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
 );
 
 
@@ -4319,21 +4324,56 @@ ALTER TABLE vibetype_private.jwt OWNER TO ci;
 -- Name: TABLE jwt; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TABLE vibetype_private.jwt IS 'A list of tokens.';
+COMMENT ON TABLE vibetype_private.jwt IS 'Stored JWT and related metadata used for authentication and sessions.';
 
 
 --
 -- Name: COLUMN jwt.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.jwt.id IS 'The token''s id.';
+COMMENT ON COLUMN vibetype_private.jwt.id IS 'Unique token identifier (jti) used to reference this JWT.';
+
+
+--
+-- Name: COLUMN jwt.expiry; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.jwt.expiry IS 'When this token expires (UTC).';
+
+
+--
+-- Name: COLUMN jwt.subject; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.jwt.subject IS 'Account ID (UUID) this token belongs to.';
 
 
 --
 -- Name: COLUMN jwt.token; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.jwt.token IS 'The token.';
+COMMENT ON COLUMN vibetype_private.jwt.token IS 'The full JWT payload (claims such as jti, sub, username, exp, guests, role).';
+
+
+--
+-- Name: COLUMN jwt.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.jwt.created_at IS 'Timestamp when this token record was created.';
+
+
+--
+-- Name: COLUMN jwt.updated_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.jwt.updated_at IS 'Timestamp when this token record was last updated.';
+
+
+--
+-- Name: COLUMN jwt.updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.jwt.updated_by IS 'Account ID of the user who last updated this token.';
 
 
 --
@@ -5023,6 +5063,34 @@ COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on
 
 
 --
+-- Name: idx_jwt_subject; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_jwt_subject ON vibetype_private.jwt USING btree (subject);
+
+
+--
+-- Name: INDEX idx_jwt_subject; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_jwt_subject IS 'B-Tree index to optimize lookups by subject (account ID).';
+
+
+--
+-- Name: idx_jwt_updated_by; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_jwt_updated_by ON vibetype_private.jwt USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_jwt_updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_jwt_updated_by IS 'B-Tree index to optimize lookups by updater (account ID of last updater).';
+
+
+--
 -- Name: legal_term delete; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -5111,6 +5179,13 @@ CREATE TRIGGER email_address_verification BEFORE INSERT OR UPDATE OF email_addre
 --
 
 CREATE TRIGGER password_reset_verification BEFORE INSERT OR UPDATE OF password_reset_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
+
+
+--
+-- Name: jwt update; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER update BEFORE UPDATE ON vibetype_private.jwt FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
@@ -5479,6 +5554,22 @@ ALTER TABLE ONLY vibetype.report
 
 ALTER TABLE ONLY vibetype.upload
     ADD CONSTRAINT upload_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: jwt jwt_subject_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.jwt
+    ADD CONSTRAINT jwt_subject_fkey FOREIGN KEY (subject) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: jwt jwt_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.jwt
+    ADD CONSTRAINT jwt_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
