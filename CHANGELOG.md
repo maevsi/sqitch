@@ -1,3 +1,13 @@
+## [10.0.0-beta.28](https://github.com/maevsi/sqitch/compare/10.0.0-beta.27...10.0.0-beta.28) (2025-12-15)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** increase upload quota to 100 mebibytes
+
+### Features
+
+* **account:** increase upload quota to 100 mebibytes ([10b2d45](https://github.com/maevsi/sqitch/commit/10b2d4590c4311e9e99750a984a65c87f224eab7))
+
 ## [10.0.0-beta.27](https://github.com/maevsi/sqitch/compare/10.0.0-beta.26...10.0.0-beta.27) (2025-12-15)
 
 ### ⚠ BREAKING CHANGES
