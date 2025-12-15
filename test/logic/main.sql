@@ -30,6 +30,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/legal_term.sql
 
 \i scenario/database/account_block_ids.sql
+\i scenario/database/achievement_code/constraints.sql
 \i scenario/database/audit_log.sql
 \i scenario/database/events_invited.sql
 \i scenario/database/index_missing.sql
@@ -41,10 +42,16 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \c - postgraphile
 
+\i scenario/model/account/constraints.sql
 \i scenario/model/account/location.sql
 \i scenario/model/account/policy.sql
+\i scenario/model/contact/constraints.sql
+\i scenario/model/device/constraints.sql
+\i scenario/model/event/constraints.sql
 \i scenario/model/event/location.sql
 \i scenario/model/event/policy.sql
+\i scenario/model/report/constraints.sql
+\i scenario/model/upload/constraints.sql
 \i scenario/model/account_block_accounts.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql

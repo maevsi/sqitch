@@ -604,9 +604,9 @@ CREATE TABLE vibetype.account (
     description text,
     imprint_url text,
     username text NOT NULL COLLATE pg_catalog.unicode,
-    CONSTRAINT account_description_check CHECK ((char_length(description) < 1000)),
-    CONSTRAINT account_imprint_url_check CHECK (((char_length(imprint_url) < 300) AND (imprint_url ~ '^https://[^[:space:]]+$'::text))),
-    CONSTRAINT account_username_check CHECK (((char_length(username) < 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
+    CONSTRAINT account_description_check CHECK ((char_length(description) <= 1000)),
+    CONSTRAINT account_imprint_url_check CHECK (((char_length(imprint_url) <= 2000) AND (imprint_url ~ '^https://[^[:space:]]+$'::text))),
+    CONSTRAINT account_username_check CHECK (((char_length(username) <= 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
 );
 
 
@@ -632,14 +632,14 @@ The account''s internal id.';
 -- Name: COLUMN account.description; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.description IS 'The account''s description.';
+COMMENT ON COLUMN vibetype.account.description IS 'The account''s description. Must not exceed 1,000 characters.';
 
 
 --
 -- Name: COLUMN account.imprint_url; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL.';
+COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL. Must start with "https://" and not exceed 2,000 characters.';
 
 
 --
@@ -647,7 +647,7 @@ COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL.';
 --
 
 COMMENT ON COLUMN vibetype.account.username IS '@omit update
-The account''s username.';
+The account''s username. Must be alphanumeric with hyphens and not exceed 100 characters.';
 
 
 --
@@ -876,11 +876,11 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     search_vector tsvector,
-    CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) < 1000000))),
+    CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
-    CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 100))),
-    CONSTRAINT event_slug_check CHECK (((char_length(slug) < 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text))),
-    CONSTRAINT event_url_check CHECK (((char_length(url) < 300) AND (url ~ '^https://[^[:space:]]+$'::text)))
+    CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
+    CONSTRAINT event_slug_check CHECK (((char_length(slug) <= 100) AND (slug ~ '^[-A-Za-z0-9]+$'::text))),
+    CONSTRAINT event_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
 );
 
 
@@ -912,7 +912,7 @@ COMMENT ON COLUMN vibetype.event.address_id IS 'Optional reference to the physic
 -- Name: COLUMN event.description; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.description IS 'The event''s description.';
+COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must be non-empty and not exceed 10,000 characters.';
 
 
 --
@@ -926,7 +926,7 @@ COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with 
 -- Name: COLUMN event.guest_count_maximum; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.guest_count_maximum IS 'The event''s maximum guest count.';
+COMMENT ON COLUMN vibetype.event.guest_count_maximum IS 'The event''s maximum guest count. Must be greater than 0.';
 
 
 --
@@ -954,14 +954,14 @@ COMMENT ON COLUMN vibetype.event.is_remote IS 'Indicates whether the event takes
 -- Name: COLUMN event.name; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.name IS 'The event''s name.';
+COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty and not exceed 100 characters.';
 
 
 --
 -- Name: COLUMN event.slug; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified.';
+COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be alphanumeric with hyphens and not exceed 100 characters.';
 
 
 --
@@ -975,7 +975,7 @@ COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, wit
 -- Name: COLUMN event.url; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator.';
+COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. Must start with "https://" and not exceed 2,000 characters.';
 
 
 --
@@ -2840,13 +2840,13 @@ CREATE TABLE vibetype.contact (
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) < 255)),
+    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
     CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 300) AND (url ~ '^https://[^[:space:]]+$'::text)))
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
 );
 
 
@@ -2885,7 +2885,7 @@ COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the phys
 -- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must be shorter than 256 characters.';
+COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
 
 
 --
@@ -2928,7 +2928,7 @@ COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be
 -- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1.000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
+COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
 
 
 --
@@ -2949,7 +2949,7 @@ COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IAN
 -- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and be up to 300 characters.';
+COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
 
 
 --
@@ -2978,7 +2978,7 @@ CREATE TABLE vibetype.device (
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) < 300)))
+    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) <= 300)))
 );
 
 
@@ -3003,7 +3003,7 @@ The internal id of the device.';
 -- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications.';
+COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications. Must be non-empty and not exceed 300 characters.';
 
 
 --
@@ -3814,7 +3814,7 @@ CREATE TABLE vibetype.report (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     CONSTRAINT report_check CHECK ((num_nonnulls(target_account_id, target_event_id, target_upload_id) = 1)),
-    CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) < 2000)))
+    CONSTRAINT report_reason_check CHECK (((char_length(reason) > 0) AND (char_length(reason) <= 2000)))
 );
 
 
@@ -3840,7 +3840,7 @@ Unique identifier for the report, generated randomly using UUIDs.';
 -- Name: COLUMN report.reason; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and less than 2000 characters.';
+COMMENT ON COLUMN vibetype.report.reason IS 'The reason for the report, provided by the reporting user. Must be non-empty and not exceed 2,000 characters.';
 
 
 --
@@ -3905,7 +3905,7 @@ CREATE TABLE vibetype.upload (
     type text DEFAULT 'image'::text NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) < 300))),
+    CONSTRAINT upload_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 300))),
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
 
@@ -3933,7 +3933,7 @@ The upload''s internal id.';
 -- Name: COLUMN upload.name; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
+COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file. Must be non-empty and not exceed 300 characters.';
 
 
 --
@@ -3992,7 +3992,7 @@ CREATE TABLE vibetype_private.account (
     upload_quota_bytes bigint DEFAULT 10485760 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT account_email_address_check CHECK ((char_length(email_address) < 255))
+    CONSTRAINT account_email_address_check CHECK ((char_length(email_address) <= 254))
 );
 
 
@@ -4023,7 +4023,7 @@ COMMENT ON COLUMN vibetype_private.account.birth_date IS 'The account owner''s d
 -- Name: COLUMN account.email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.account.email_address IS 'The account''s email address for account related information.';
+COMMENT ON COLUMN vibetype_private.account.email_address IS 'The account''s email address for account related information. Must not exceed 254 characters (RFC 5321).';
 
 
 --
@@ -4097,7 +4097,7 @@ CREATE TABLE vibetype_private.achievement_code (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     alias text NOT NULL,
     achievement vibetype.achievement_type NOT NULL,
-    CONSTRAINT achievement_code_alias_check CHECK ((char_length(alias) < 1000))
+    CONSTRAINT achievement_code_alias_check CHECK ((char_length(alias) <= 1000))
 );
 
 
@@ -4121,7 +4121,7 @@ COMMENT ON COLUMN vibetype_private.achievement_code.id IS 'The code that unlocks
 -- Name: COLUMN achievement_code.alias; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.achievement_code.alias IS 'An alternative code, e.g. human readable, that unlocks an achievement.';
+COMMENT ON COLUMN vibetype_private.achievement_code.alias IS 'An alternative code, e.g. human readable, that unlocks an achievement. Must not exceed 1,000 characters.';
 
 
 --

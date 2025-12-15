@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.device (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  fcm_token   TEXT NOT NULL CHECK (char_length("fcm_token") > 0 AND char_length("fcm_token") < 300),
+  fcm_token   TEXT NOT NULL CHECK (char_length("fcm_token") > 0 AND char_length("fcm_token") <= 300),
 
   created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by  UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
@@ -17,7 +17,7 @@ CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
 
 COMMENT ON TABLE vibetype.device IS E'A device that''s assigned to an account.';
 COMMENT ON COLUMN vibetype.device.id IS E'@omit create,update\nThe internal id of the device.';
-COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications.';
+COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications. Must be non-empty and not exceed 300 characters.';
 COMMENT ON COLUMN vibetype.device.created_at IS E'@omit create,update\nTimestamp when the device was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.device.created_by IS E'@omit update\nReference to the account that created the device.';
 COMMENT ON COLUMN vibetype.device.updated_at IS E'@omit create,update\nTimestamp when the device was last updated.';
