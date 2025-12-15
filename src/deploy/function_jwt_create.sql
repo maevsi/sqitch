@@ -54,7 +54,7 @@ BEGIN
     END IF;
   END IF;
 
-  INSERT INTO vibetype_private.jwt(id, token) VALUES (_jwt_id, _jwt);
+  INSERT INTO vibetype_private.jwt(token) VALUES (_jwt);
   RETURN _jwt;
 END;
 $$;
