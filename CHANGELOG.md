@@ -1,3 +1,13 @@
+## [10.0.0-beta.27](https://github.com/maevsi/sqitch/compare/10.0.0-beta.26...10.0.0-beta.27) (2025-12-15)
+
+### ⚠ BREAKING CHANGES
+
+* tweak text constraints
+
+### Features
+
+* tweak text constraints ([671ab58](https://github.com/maevsi/sqitch/commit/671ab588f5e8289483c9aea6efde3b9281690bc3))
+
 ## [10.0.0-beta.26](https://github.com/maevsi/sqitch/compare/10.0.0-beta.25...10.0.0-beta.26) (2025-12-14)
 
 ### ⚠ BREAKING CHANGES
