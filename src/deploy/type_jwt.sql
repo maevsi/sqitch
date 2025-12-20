@@ -1,12 +1,13 @@
 BEGIN;
 
 CREATE TYPE vibetype.jwt AS (
-  id UUID,
-  account_id UUID,
-  account_username TEXT,
-  "exp" BIGINT,
+  attendances UUID[],
+  exp BIGINT, -- expiration time as epoch
   guests UUID[],
-  role TEXT
+  jti UUID, -- JWT ID
+  role TEXT,
+  sub UUID, -- subject (account id)
+  username TEXT -- subject username
 );
 
 COMMIT;

@@ -19,6 +19,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/account_block.sql
 \i utility/model/account_registration.sql
 \i utility/model/account.sql
+\i utility/model/attendance_claim_array.sql
 \i utility/model/contact.sql
 \i utility/model/event_category_mapping.sql
 \i utility/model/event_category.sql
@@ -29,6 +30,8 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/guest.sql
 \i utility/model/legal_term.sql
 
+\i scenario/database/achievement_code/constraints.sql
+\i scenario/database/jwt/generated_columns.sql
 \i scenario/database/account_block_ids.sql
 \i scenario/database/audit_log.sql
 \i scenario/database/events_invited.sql
@@ -41,16 +44,22 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \c - postgraphile
 
+\i scenario/model/account/constraints.sql
 \i scenario/model/account/location.sql
 \i scenario/model/account/policy.sql
+\i scenario/model/contact/constraints.sql
+\i scenario/model/device/constraints.sql
+\i scenario/model/event/constraints.sql
 \i scenario/model/event/location.sql
 \i scenario/model/event/policy.sql
+\i scenario/model/report/constraints.sql
+\i scenario/model/upload/constraints.sql
 \i scenario/model/account_block_accounts.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql
 \i scenario/model/account_social_network.sql
 \i scenario/model/account_upload_quota_bytes.sql
-\i scenario/model/authenticate.sql
+\i scenario/model/attendance_claim_array.sql
 \i scenario/model/contact.sql
 \i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
@@ -64,10 +73,13 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/guest_create_multiple.sql
 \i scenario/model/guest.sql
 \i scenario/model/invoker_account_id.sql
+\i scenario/model/jwt_create.sql
+\i scenario/model/jwt_update.sql
+\i scenario/model/jwt_update_attendance_add.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
 
-\echo all tests completed sucessfully.
+\echo all tests completed successfully.
 
 \c - :USER_INITIAL
 

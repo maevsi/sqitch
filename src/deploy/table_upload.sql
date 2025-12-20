@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE vibetype.upload (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  name          TEXT CHECK (char_length("name") > 0 AND char_length("name") < 300),
+  name          TEXT CHECK (char_length("name") > 0 AND char_length("name") <= 300),
   size_byte     BIGINT NOT NULL CHECK (size_byte > 0),
   storage_key   TEXT UNIQUE,
   type          TEXT NOT NULL DEFAULT 'image',
@@ -14,7 +14,7 @@ CREATE TABLE vibetype.upload (
 
 COMMENT ON TABLE vibetype.upload IS 'An upload.';
 COMMENT ON COLUMN vibetype.upload.id IS E'@omit create,update\nThe upload''s internal id.';
-COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file.';
+COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file. Must be non-empty and not exceed 300 characters.';
 COMMENT ON COLUMN vibetype.upload.size_byte IS E'@omit update\nThe upload''s size in bytes.';
 COMMENT ON COLUMN vibetype.upload.storage_key IS E'@omit create,update\nThe upload''s storage key.';
 COMMENT ON COLUMN vibetype.upload.type IS E'@omit create,update\nThe type of the uploaded file, default is ''image''.';

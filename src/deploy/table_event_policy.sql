@@ -13,36 +13,40 @@ USING (
 
 -- Only display events that are public and not full and not organized by a blocked account.
 -- Only display events to which oneself is invited, but not by a guest created by a blocked account.
-CREATE FUNCTION vibetype_private.event_policy_select()
-RETURNS SETOF vibetype.event AS $$
-BEGIN
-  RETURN QUERY
-    SELECT * FROM vibetype.event e
-    WHERE (
-      (
-        e.visibility = 'public'
-        AND (
-          e.guest_count_maximum IS NULL
-          OR e.guest_count_maximum > vibetype.guest_count(e.id)
-        )
-        AND e.created_by NOT IN (
-          SELECT id FROM vibetype_private.account_block_ids()
-        )
+CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event)
+RETURNS boolean AS $$
+  SELECT
+  (
+    (
+      e.visibility = 'public'
+      AND (
+        e.guest_count_maximum IS NULL
+        OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      OR (
-        e.id IN (
-          SELECT * FROM vibetype_private.events_invited()
-        )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype_private.account_block_ids() b
+        WHERE b.id = e.created_by
       )
-    );
-END
-$$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM vibetype_private.events_invited() ei(event_id)
+      WHERE ei.event_id = e.id
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM vibetype.attendance a
+      JOIN vibetype.guest g ON g.id = a.guest_id
+      WHERE a.id = ANY (vibetype.attendance_claim_array())
+        AND g.event_id = e.id
+    )
+  );
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
-GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select() TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select(vibetype.event) TO vibetype_account, vibetype_anonymous;
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT
-USING (
-  id IN (SELECT id FROM vibetype_private.event_policy_select())
-);
+USING (vibetype_private.event_policy_select(event));
 
 COMMIT;

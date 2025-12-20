@@ -1,3 +1,363 @@
+## [10.0.0-beta.31](https://github.com/maevsi/sqitch/compare/10.0.0-beta.30...10.0.0-beta.31) (2025-12-20)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** update claims
+* **attendance:** show with claim
+
+### Features
+
+* **attendance:** show with claim ([261c189](https://github.com/maevsi/sqitch/commit/261c1898c91c55c7d40fb3de7d7e4b988f27e3af))
+
+### Bug Fixes
+
+* **jwt:** update claims ([8f9fcc6](https://github.com/maevsi/sqitch/commit/8f9fcc6c35ceb7b70f8e8a675d57200e44a54669))
+
+## [10.0.0-beta.30](https://github.com/maevsi/sqitch/compare/10.0.0-beta.29...10.0.0-beta.30) (2025-12-20)
+
+### ⚠ BREAKING CHANGES
+
+* **guest:** add missing empty line to flat view
+
+### Features
+
+* add app ([dd7e25f](https://github.com/maevsi/sqitch/commit/dd7e25f7bf54550cc621d7e941807bf707de7cf9))
+* **event:** add attendance ([3d9b018](https://github.com/maevsi/sqitch/commit/3d9b018c3f02f9afcbaf1c940c9ed4b7d27603d0))
+* **event:** add getter function by attendance id ([879a2dd](https://github.com/maevsi/sqitch/commit/879a2ddd13046c3736076d7642a722bfd43027d1))
+
+### Code Refactoring
+
+* **guest:** add missing empty line to flat view ([2b15b75](https://github.com/maevsi/sqitch/commit/2b15b75bc52093464a3574466b8993db7ec48ddf))
+
+## [10.0.0-beta.29](https://github.com/maevsi/sqitch/compare/10.0.0-beta.28...10.0.0-beta.29) (2025-12-15)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** extend table
+
+### Features
+
+* **jwt:** extend table ([cabc757](https://github.com/maevsi/sqitch/commit/cabc7570d2a841eafe7724eea2995c32be21f580))
+
+## [10.0.0-beta.28](https://github.com/maevsi/sqitch/compare/10.0.0-beta.27...10.0.0-beta.28) (2025-12-15)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** increase upload quota to 100 mebibytes
+
+### Features
+
+* **account:** increase upload quota to 100 mebibytes ([10b2d45](https://github.com/maevsi/sqitch/commit/10b2d4590c4311e9e99750a984a65c87f224eab7))
+
+## [10.0.0-beta.27](https://github.com/maevsi/sqitch/compare/10.0.0-beta.26...10.0.0-beta.27) (2025-12-15)
+
+### ⚠ BREAKING CHANGES
+
+* tweak text constraints
+
+### Features
+
+* tweak text constraints ([671ab58](https://github.com/maevsi/sqitch/commit/671ab588f5e8289483c9aea6efde3b9281690bc3))
+
+## [10.0.0-beta.26](https://github.com/maevsi/sqitch/compare/10.0.0-beta.25...10.0.0-beta.26) (2025-12-14)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** standardize type properties
+
+### Features
+
+* **jwt:** standardize type properties ([c65416d](https://github.com/maevsi/sqitch/commit/c65416dc09bb9a4d05d90e6c73ccccf9ca1212b8))
+
+## [10.0.0-beta.25](https://github.com/maevsi/sqitch/compare/10.0.0-beta.24...10.0.0-beta.25) (2025-12-14)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt-update:** correct indentation
+* **account:** swap imprint text with url
+
+### Features
+
+* **account:** swap imprint text with url ([4ee730c](https://github.com/maevsi/sqitch/commit/4ee730ce698ee88d5a2c46c24c30f8ab180cef90))
+
+### Code Refactoring
+
+* **jwt-update:** correct indentation ([48ec9b0](https://github.com/maevsi/sqitch/commit/48ec9b072ae8000e3ac6ead567e95a5129b4eef3))
+
+## [10.0.0-beta.24](https://github.com/maevsi/sqitch/compare/10.0.0-beta.23...10.0.0-beta.24) (2025-12-08)
+
+### ⚠ BREAKING CHANGES
+
+* rename trigger procedures to functions
+* **account-private:** reorder trigger definitions
+* rename trigger functions
+* reformat function definitions
+
+### Features
+
+* reformat function definitions ([94a6155](https://github.com/maevsi/sqitch/commit/94a61555229ce833e5a21b905a8c773a609e1efe))
+* rename trigger functions ([4c31db5](https://github.com/maevsi/sqitch/commit/4c31db51631f594a4b726b5b808c7d3b7f4d8bc4))
+
+### Code Refactoring
+
+* **account-private:** reorder trigger definitions ([316460a](https://github.com/maevsi/sqitch/commit/316460a518746e2c8edd879d3f680141de1468cb))
+* rename trigger procedures to functions ([307040e](https://github.com/maevsi/sqitch/commit/307040ec9f090ab04a90e00f2ec55c33ea0da3b1))
+
+## [10.0.0-beta.23](https://github.com/maevsi/sqitch/compare/10.0.0-beta.22...10.0.0-beta.23) (2025-12-08)
+
+### ⚠ BREAKING CHANGES
+
+* **contact:** validate time zone using iana
+* **contact:** rename time zone
+
+### Features
+
+* **contact:** rename time zone ([35cd855](https://github.com/maevsi/sqitch/commit/35cd85520bac0314e5ede91585d4cb0ee855d8cb))
+* **contact:** validate time zone using iana ([5cfc35a](https://github.com/maevsi/sqitch/commit/5cfc35af07133ed9105511ff89d36f17fbfe3cb4))
+* **invite:** add contact's time zone ([ea386e2](https://github.com/maevsi/sqitch/commit/ea386e2d5b9bd3fe403b17f188cb4286d311a6e1))
+* **invite:** prefer contact's language ([8ead9d9](https://github.com/maevsi/sqitch/commit/8ead9d9fd89b64bf9ee94ead300645c1372ded4e))
+
+## [10.0.0-beta.22](https://github.com/maevsi/sqitch/compare/10.0.0-beta.21...10.0.0-beta.22) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** align function names session – contents
+* **jwt:** align function names – files
+
+### Features
+
+* **jwt:** align function names – files ([e48b48c](https://github.com/maevsi/sqitch/commit/e48b48c367d838d4eae435483d05aa016dd9aad9))
+* **jwt:** align function names session – contents ([22f3bb5](https://github.com/maevsi/sqitch/commit/22f3bb5ccbf9db8add8e744a3c413a10905ace11))
+
+## [10.0.0-beta.21](https://github.com/maevsi/sqitch/compare/10.0.0-beta.20...10.0.0-beta.21) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* deduplicate select policies
+
+### Bug Fixes
+
+* deduplicate select policies ([eeb5a31](https://github.com/maevsi/sqitch/commit/eeb5a312bef69f8bf1ad571566797eda4212943c))
+
+## [10.0.0-beta.20](https://github.com/maevsi/sqitch/compare/10.0.0-beta.19...10.0.0-beta.20) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **events-invited:** drop
+
+### Features
+
+* **events-invited:** drop ([b3af8d4](https://github.com/maevsi/sqitch/commit/b3af8d467e6f3eba8fb64ed745898462b7ea4678))
+
+## [10.0.0-beta.19](https://github.com/maevsi/sqitch/compare/10.0.0-beta.18...10.0.0-beta.19) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **event-unlock-response:** remove
+
+### Features
+
+* **event-unlock-response:** remove ([a2c36ea](https://github.com/maevsi/sqitch/commit/a2c36eadd9ca0f03733943b76a48d943f4350af3))
+
+## [10.0.0-beta.18](https://github.com/maevsi/sqitch/compare/10.0.0-beta.17...10.0.0-beta.18) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* replace `in` with `exists`
+* convert plpgsql functions to sql
+
+### Code Refactoring
+
+* convert plpgsql functions to sql ([548e12a](https://github.com/maevsi/sqitch/commit/548e12a06e1f1560557c63f22b8de902252c782a))
+* replace `in` with `exists` ([374080a](https://github.com/maevsi/sqitch/commit/374080ab6a4c43680e0ef201bcde0a6534368e91))
+
+## [10.0.0-beta.17](https://github.com/maevsi/sqitch/compare/10.0.0-beta.16...10.0.0-beta.17) (2025-12-06)
+
+### ⚠ BREAKING CHANGES
+
+* **language-iso-full-text-search:** use invoker security
+
+### Performance Improvements
+
+* **language-iso-full-text-search:** use invoker security ([a4f20a8](https://github.com/maevsi/sqitch/commit/a4f20a8c908f9be50e4efc82b062878807520f1e))
+
+## [10.0.0-beta.16](https://github.com/maevsi/sqitch/compare/10.0.0-beta.15...10.0.0-beta.16) (2025-12-06)
+
+### Bug Fixes
+
+* **contact:** correct account id trigger function for null check ([97f7e15](https://github.com/maevsi/sqitch/commit/97f7e15612553153abd08aa47fb93db8c1ba2abc))
+
+## [10.0.0-beta.15](https://github.com/maevsi/sqitch/compare/10.0.0-beta.14...10.0.0-beta.15) (2025-12-06)
+
+### Bug Fixes
+
+* **account-block:** improve existence check ([5b6f877](https://github.com/maevsi/sqitch/commit/5b6f877eecada313d4bca591b979e497b4bcb30e))
+
+## [10.0.0-beta.14](https://github.com/maevsi/sqitch/compare/10.0.0-beta.13...10.0.0-beta.14) (2025-12-02)
+
+### ⚠ BREAKING CHANGES
+
+* align function definitions with dump
+* **account-social-network:** reindent
+* **invoker-account-id:** set security invoker
+
+### Bug Fixes
+
+* **invoker-account-id:** set security invoker ([4656f5a](https://github.com/maevsi/sqitch/commit/4656f5a1b751cdaf432bb0774d38b1a86e944c3c))
+
+### Code Refactoring
+
+* **account-social-network:** reindent ([bf33a15](https://github.com/maevsi/sqitch/commit/bf33a15c67547aec189881ed7d53c05e539eb094))
+* align function definitions with dump ([aea220a](https://github.com/maevsi/sqitch/commit/aea220ac5291b5f92e8e172c72a603b016f2dc1f))
+
+## [10.0.0-beta.13](https://github.com/maevsi/sqitch/compare/10.0.0-beta.12...10.0.0-beta.13) (2025-12-02)
+
+### ⚠ BREAKING CHANGES
+
+* rewrite language plpgsql as sql
+
+### Performance Improvements
+
+* rewrite language plpgsql as sql ([6123982](https://github.com/maevsi/sqitch/commit/6123982ece7f07627b7fee698bc5bc4ed886b15d))
+
+## [10.0.0-beta.12](https://github.com/maevsi/sqitch/compare/10.0.0-beta.11...10.0.0-beta.12) (2025-12-01)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** correct indentation
+
+### Features
+
+* **account:** enable selecting accounts blocked by current user ([#248](https://github.com/maevsi/sqitch/issues/248)) ([26c39a0](https://github.com/maevsi/sqitch/commit/26c39a086296d36d212e69a7b7495aa94dd9dfc9))
+
+### Bug Fixes
+
+* schedule release ([684242e](https://github.com/maevsi/sqitch/commit/684242ea1b80224825562c783c0577b9057c50b2))
+* schedule release ([946d81c](https://github.com/maevsi/sqitch/commit/946d81cab6ac2b2ef44e1792efb8a374641daf85))
+* schedule release ([9f11da4](https://github.com/maevsi/sqitch/commit/9f11da479b51c8819aba69e798348aaae87094c2))
+* schedule release ([22dc514](https://github.com/maevsi/sqitch/commit/22dc514b8c680ec5578f28a709f34ff05d418b76))
+* schedule release ([1b14e9f](https://github.com/maevsi/sqitch/commit/1b14e9f5030d6f3551d7b8437119b6fe4a5bd402))
+* schedule release ([b1fccc8](https://github.com/maevsi/sqitch/commit/b1fccc81ec5141a99d46a807bc08e7807dabae99))
+* schedule release ([8ddde75](https://github.com/maevsi/sqitch/commit/8ddde7581f7ecdfb4761b9d72bb53e118167b83f))
+* schedule release ([6b4a556](https://github.com/maevsi/sqitch/commit/6b4a55646f9a5f6676ec5a1e868149430ef204be))
+* schedule release ([f33fdf1](https://github.com/maevsi/sqitch/commit/f33fdf120dc0f8e9eb144272fe09415c9e0c2ae8))
+
+### Code Refactoring
+
+* **event:** correct indentation ([d2f23c8](https://github.com/maevsi/sqitch/commit/d2f23c8e9a092b8f7bdce894ae5d5182d70a42ab))
+
+## [10.0.0-beta.11](https://github.com/maevsi/sqitch/compare/10.0.0-beta.10...10.0.0-beta.11) (2025-07-20)
+
+### Features
+
+* **account:** allow unblock ([ede85eb](https://github.com/maevsi/sqitch/commit/ede85ebdd11f21f8fe7d81dc522a78cf248434c8))
+* **account:** drop event check from deletion ([506e018](https://github.com/maevsi/sqitch/commit/506e01823886653073278d2b64ca8377d6b1a6f1))
+* **account:** search by username substring ([42abe71](https://github.com/maevsi/sqitch/commit/42abe719f7678f8f64d9fa1f58337299439beeb6))
+* **account:** specify unicode collation for username ([3c45a32](https://github.com/maevsi/sqitch/commit/3c45a323acbd31f5e364dbe339b442835f6aa82d))
+* **device:** add access control for service account ([baa9010](https://github.com/maevsi/sqitch/commit/baa901019596ebc8d6edfdbb952011e310b40c53))
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([c31ea39](https://github.com/maevsi/sqitch/commit/c31ea39547e360a5baf17a4b9e7a656904e8c51a))
+* schedule release ([45f6435](https://github.com/maevsi/sqitch/commit/45f6435e66cac829688f8d3ab71a41a4995a09a2))
+
+## [10.0.0-beta.10](https://github.com/maevsi/sqitch/compare/10.0.0-beta.9...10.0.0-beta.10) (2025-07-20)
+
+### ⚠ BREAKING CHANGES
+
+* **device:** add access control for service account (#238)
+
+### Features
+
+* **device:** add access control for service account ([#238](https://github.com/maevsi/sqitch/issues/238)) ([0e7c719](https://github.com/maevsi/sqitch/commit/0e7c7194bccf7f4247c66f88632d3e7b6eea2b8a))
+
+## [10.0.0-beta.9](https://github.com/maevsi/sqitch/compare/10.0.0-beta.8...10.0.0-beta.9) (2025-07-20)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** search by username substring (#237)
+
+### Features
+
+* **account:** search by username substring ([#237](https://github.com/maevsi/sqitch/issues/237)) ([ec3ded3](https://github.com/maevsi/sqitch/commit/ec3ded36a9d91affa9659e714490f9fb86528012))
+
+## [10.0.0-beta.8](https://github.com/maevsi/sqitch/compare/10.0.0-beta.7...10.0.0-beta.8) (2025-07-10)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** allow unblocking
+
+### Features
+
+* **account:** allow unblocking ([f98c115](https://github.com/maevsi/sqitch/commit/f98c115f113acf914056c7d4634118906171c73d))
+
+## [10.0.0-beta.7](https://github.com/maevsi/sqitch/compare/10.0.0-beta.6...10.0.0-beta.7) (2025-07-09)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** disallow selecting blocked
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([320e019](https://github.com/maevsi/sqitch/commit/320e0192d25c508f2f1d32c53a79945cd8ca11dd))
+
+## [10.0.0-beta.6](https://github.com/maevsi/sqitch/compare/10.0.0-beta.5...10.0.0-beta.6) (2025-07-09)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** drop event check from deletion
+* **account:** specify unicode collation for username
+
+### Features
+
+* **account:** drop event check from deletion ([00fb035](https://github.com/maevsi/sqitch/commit/00fb0354b6addfc388f3cdbb70536be9419bff43))
+* **account:** specify unicode collation for username ([83b9f35](https://github.com/maevsi/sqitch/commit/83b9f35cfce25a6af9d1fa746295c288378de17f))
+
+## [10.0.0-beta.5](https://github.com/maevsi/sqitch/compare/10.0.0-beta.4...10.0.0-beta.5) (2025-07-03)
+
+### ⚠ BREAKING CHANGES
+
+* document function error codes
+
+### Documentation
+
+* document function error codes ([04beea8](https://github.com/maevsi/sqitch/commit/04beea8aa368e8bed363c138daeee48a584ca74c))
+
+## [10.0.0-beta.4](https://github.com/maevsi/sqitch/compare/10.0.0-beta.3...10.0.0-beta.4) (2025-07-03)
+
+### ⚠ BREAKING CHANGES
+
+* reposition `INTO` clauses (#227)
+
+### Code Refactoring
+
+* reposition `INTO` clauses ([#227](https://github.com/maevsi/sqitch/issues/227)) ([5f9a60a](https://github.com/maevsi/sqitch/commit/5f9a60a0b7751550beacfb39250ad146545dffde))
+
+## [10.0.0-beta.3](https://github.com/maevsi/sqitch/compare/10.0.0-beta.2...10.0.0-beta.3) (2025-06-28)
+
+### Features
+
+* **account:** correct comment and policy permissions ([648fe40](https://github.com/maevsi/sqitch/commit/648fe402f5a39005d512612e70b4b3ba4b0e69b2))
+* **account:** edit description ([ec38f4d](https://github.com/maevsi/sqitch/commit/ec38f4d51c4386e33087954fb15ca07d3b01099b))
+* **account:** edit imprint ([f3178a7](https://github.com/maevsi/sqitch/commit/f3178a75820b5c16c02d419fa0b05ac878aeadd2))
+
+## [10.0.0-beta.2](https://github.com/maevsi/sqitch/compare/10.0.0-beta.1...10.0.0-beta.2) (2025-06-26)
+
+### Bug Fixes
+
+* schedule release ([c6c99dc](https://github.com/maevsi/sqitch/commit/c6c99dce2943f12bccd99369af554b8b10d0d3ad))
+
+## [10.0.0-beta.1](https://github.com/maevsi/sqitch/compare/9.0.0...10.0.0-beta.1) (2025-06-13)
+
+### ⚠ BREAKING CHANGES
+
+* **event-favorite:** grant select for anonymous
+
+### Features
+
+* **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
+* **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
+
 ## [9.10.0](https://github.com/maevsi/sqitch/compare/9.9.0...9.10.0) (2025-12-20)
 
 ### Features

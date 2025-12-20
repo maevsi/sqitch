@@ -1,5 +1,7 @@
 CREATE FUNCTION vibetype_test.legal_term_select_by_singleton ()
-RETURNS UUID AS $$
+RETURNS UUID
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
 DECLARE
   _id UUID;
   _verification UUID;
@@ -12,6 +14,6 @@ BEGIN
   END IF;
 
   RETURN _id;
-END $$ LANGUAGE plpgsql STRICT SECURITY DEFINER;
+END $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.legal_term_select_by_singleton() TO vibetype_account, vibetype_anonymous;

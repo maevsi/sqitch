@@ -1,4 +1,5 @@
 BEGIN;
+
 CREATE VIEW vibetype.guest_flat WITH (security_invoker) AS
   SELECT
     guest.id                    AS guest_id,

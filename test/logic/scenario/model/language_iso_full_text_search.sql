@@ -31,7 +31,7 @@ BEGIN
     END CASE;
 
     IF vibetype.language_iso_full_text_search(_language) != _result THEN
-      RAISE EXCEPTION 'Test failed for input %: Expected % but got %', _language, _result, vibetype.language_iso_full_text_search(lang_code);
+      RAISE EXCEPTION 'Test failed for input %: Expected % but got %', _language, _result, vibetype.language_iso_full_text_search(_language);
     END IF;
   END LOOP;
 END $$;

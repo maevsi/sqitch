@@ -33,11 +33,11 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.account', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.account', 'DELETE'));
 
-  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_private.account_email_address_verification_valid_until()', 'EXECUTE'));
-  ASSERT NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype_private.account_email_address_verification_valid_until()', 'EXECUTE'));
+  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_private.trigger_account_email_address_verification_valid_until()', 'EXECUTE'));
+  ASSERT NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype_private.trigger_account_email_address_verification_valid_until()', 'EXECUTE'));
 
-  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_private.account_password_reset_verification_valid_until()', 'EXECUTE'));
-  ASSERT NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype_private.account_password_reset_verification_valid_until()', 'EXECUTE'));
+  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_private.trigger_account_password_reset_verification_valid_until()', 'EXECUTE'));
+  ASSERT NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype_private.trigger_account_password_reset_verification_valid_until()', 'EXECUTE'));
 END $$;
 
 ROLLBACK;

@@ -6,10 +6,13 @@ GRANT SELECT, UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
 ALTER TABLE vibetype.attendance ENABLE ROW LEVEL SECURITY;
 
 -- Only the organizer can view all attendance for their events;
+-- anyone with an attendance claim can view that specific attendance.
 -- guests can view their own attendance via guest claims;
 -- signed-in guests can view attendance linked to a contact that refers to them.
 CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT
 USING (
+  id = ANY (vibetype.attendance_claim_array())
+  OR
   EXISTS (
     SELECT 1
     FROM vibetype.guest g

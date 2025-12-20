@@ -19,7 +19,9 @@ ALTER TABLE vibetype.event_category_mapping ENABLE ROW LEVEL SECURITY;
 CREATE POLICY event_category_mapping_select ON vibetype.event_category_mapping FOR SELECT
 USING (
   -- same policy as for table event
-  event_id IN (SELECT id FROM vibetype.event)
+  EXISTS (
+    SELECT 1 FROM vibetype.event e WHERE e.id = event_category_mapping.event_id
+  )
 );
 
 CREATE POLICY event_category_mapping_insert ON vibetype.event_category_mapping FOR INSERT
