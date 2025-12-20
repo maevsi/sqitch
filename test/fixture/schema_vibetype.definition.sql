@@ -1167,6 +1167,30 @@ A vector used for full-text search on events.';
 
 
 --
+-- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibetype.event
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT e.*
+  FROM vibetype.event e
+  JOIN vibetype.guest g ON g.event_id = e.id
+  JOIN vibetype.attendance a ON a.guest_id = g.id
+  WHERE a.id = event_by_attendance_id.attendance_id
+$$;
+
+
+ALTER FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Returns the event associated with the given attendance ID.';
+
+
+--
 -- Name: event_delete(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -6443,6 +6467,15 @@ GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) 
 
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) TO vibetype_anonymous;
 
 
 --
