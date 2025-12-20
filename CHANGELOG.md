@@ -1,3 +1,19 @@
+## [10.0.0-beta.30](https://github.com/maevsi/sqitch/compare/10.0.0-beta.29...10.0.0-beta.30) (2025-12-20)
+
+### ⚠ BREAKING CHANGES
+
+* **guest:** add missing empty line to flat view
+
+### Features
+
+* add app ([dd7e25f](https://github.com/maevsi/sqitch/commit/dd7e25f7bf54550cc621d7e941807bf707de7cf9))
+* **event:** add attendance ([3d9b018](https://github.com/maevsi/sqitch/commit/3d9b018c3f02f9afcbaf1c940c9ed4b7d27603d0))
+* **event:** add getter function by attendance id ([879a2dd](https://github.com/maevsi/sqitch/commit/879a2ddd13046c3736076d7642a722bfd43027d1))
+
+### Code Refactoring
+
+* **guest:** add missing empty line to flat view ([2b15b75](https://github.com/maevsi/sqitch/commit/2b15b75bc52093464a3574466b8993db7ec48ddf))
+
 ## [10.0.0-beta.29](https://github.com/maevsi/sqitch/compare/10.0.0-beta.28...10.0.0-beta.29) (2025-12-15)
 
 ### ⚠ BREAKING CHANGES
