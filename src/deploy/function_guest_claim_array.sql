@@ -25,8 +25,12 @@ CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
     AND NOT EXISTS (
       SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
     )
-    AND NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
+    AND (
+      c.account_id IS NULL
+      OR
+      NOT EXISTS (
+        SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
+      )
     )
 $$;
 

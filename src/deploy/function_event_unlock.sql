@@ -12,6 +12,13 @@ DECLARE
 BEGIN
   _jwt_id := current_setting('jwt.claims.jti', true)::UUID;
   _jwt := (
+    COALESCE(
+      string_to_array(
+        replace(btrim(current_setting('jwt.claims.attendances', true), '[]'), '"', ''),
+        ','
+      )::UUID[],
+      '{}'::UUID[]
+    ),
     current_setting('jwt.claims.exp', true)::BIGINT,
     (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
     _jwt_id,

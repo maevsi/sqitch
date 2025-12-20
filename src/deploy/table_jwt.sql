@@ -19,7 +19,7 @@ COMMENT ON TABLE vibetype_private.jwt IS 'Stored JWT and related metadata used f
 COMMENT ON COLUMN vibetype_private.jwt.id IS 'Unique token identifier (jti) used to reference this JWT.';
 COMMENT ON COLUMN vibetype_private.jwt.expiry IS 'When this token expires (UTC).';
 COMMENT ON COLUMN vibetype_private.jwt.subject IS 'Account ID (UUID) this token belongs to.';
-COMMENT ON COLUMN vibetype_private.jwt.token IS 'The full JWT payload (claims such as jti, sub, username, exp, guests, role).';
+COMMENT ON COLUMN vibetype_private.jwt.token IS 'The full JWT payload (claims such as attendances, jti, sub, username, exp, guests, role).';
 COMMENT ON COLUMN vibetype_private.jwt.created_at IS 'Timestamp when this token record was created.';
 COMMENT ON COLUMN vibetype_private.jwt.updated_at IS 'Timestamp when this token record was last updated.';
 COMMENT ON COLUMN vibetype_private.jwt.updated_by IS 'Account ID of the user who last updated this token.';
