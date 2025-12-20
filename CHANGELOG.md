@@ -1,3 +1,9 @@
+## [9.10.0](https://github.com/maevsi/sqitch/compare/9.9.0...9.10.0) (2025-12-20)
+
+### Features
+
+* add app ([dd7e25f](https://github.com/maevsi/sqitch/commit/dd7e25f7bf54550cc621d7e941807bf707de7cf9))
+
 ## [9.9.0](https://github.com/maevsi/sqitch/compare/9.8.2...9.9.0) (2025-12-20)
 
 ### Features
