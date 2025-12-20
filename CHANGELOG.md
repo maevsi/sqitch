@@ -327,6 +327,19 @@
 * **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
 * **event-favorite:** grant select for anonymous ([84ce920](https://github.com/maevsi/sqitch/commit/84ce9204127f4a2aef4dd07d3c9d8a9bfcb17380))
 
+## [9.10.0](https://github.com/maevsi/sqitch/compare/9.9.0...9.10.0) (2025-12-20)
+
+### Features
+
+* add app ([dd7e25f](https://github.com/maevsi/sqitch/commit/dd7e25f7bf54550cc621d7e941807bf707de7cf9))
+
+## [9.9.0](https://github.com/maevsi/sqitch/compare/9.8.2...9.9.0) (2025-12-20)
+
+### Features
+
+* **event:** add attendance ([3d9b018](https://github.com/maevsi/sqitch/commit/3d9b018c3f02f9afcbaf1c940c9ed4b7d27603d0))
+* **event:** add getter function by attendance id ([879a2dd](https://github.com/maevsi/sqitch/commit/879a2ddd13046c3736076d7642a722bfd43027d1))
+
 ## [9.8.2](https://github.com/maevsi/sqitch/compare/9.8.1...9.8.2) (2025-12-06)
 
 ### Bug Fixes
