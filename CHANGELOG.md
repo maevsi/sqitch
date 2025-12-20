@@ -1,3 +1,101 @@
+## [10.0.0](https://github.com/maevsi/sqitch/compare/9.10.0...10.0.0) (2025-12-20)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** update claims
+* **attendance:** show with claim
+* **guest:** add missing empty line to flat view
+* **jwt:** extend table
+* **account:** increase upload quota to 100 mebibytes
+* tweak text constraints
+* **jwt:** standardize type properties
+* **jwt-update:** correct indentation
+* **account:** swap imprint text with url
+* rename trigger procedures to functions
+* **account-private:** reorder trigger definitions
+* rename trigger functions
+* reformat function definitions
+* **contact:** validate time zone using iana
+* **contact:** rename time zone
+* **jwt:** align function names session – contents
+* **jwt:** align function names – files
+* deduplicate select policies
+* **events-invited:** drop
+* **event-unlock-response:** remove
+* replace `in` with `exists`
+* convert plpgsql functions to sql
+* **language-iso-full-text-search:** use invoker security
+* align function definitions with dump
+* **account-social-network:** reindent
+* **invoker-account-id:** set security invoker
+* rewrite language plpgsql as sql
+* **event:** correct indentation
+* **device:** add access control for service account (#238)
+* **account:** search by username substring (#237)
+* **account:** allow unblocking
+* **account:** drop event check from deletion
+* **account:** disallow selecting blocked
+* **account:** specify unicode collation for username
+* reposition `INTO` clauses (#227)
+* document function error codes
+* **event-favorite:** grant select for anonymous
+
+### Features
+
+* **account:** allow unblocking ([f98c115](https://github.com/maevsi/sqitch/commit/f98c115f113acf914056c7d4634118906171c73d))
+* **account:** drop event check from deletion ([00fb035](https://github.com/maevsi/sqitch/commit/00fb0354b6addfc388f3cdbb70536be9419bff43))
+* **account:** edit description ([ec38f4d](https://github.com/maevsi/sqitch/commit/ec38f4d51c4386e33087954fb15ca07d3b01099b))
+* **account:** edit imprint ([f3178a7](https://github.com/maevsi/sqitch/commit/f3178a75820b5c16c02d419fa0b05ac878aeadd2))
+* **account:** increase upload quota to 100 mebibytes ([10b2d45](https://github.com/maevsi/sqitch/commit/10b2d4590c4311e9e99750a984a65c87f224eab7))
+* **account:** search by username substring ([#237](https://github.com/maevsi/sqitch/issues/237)) ([ec3ded3](https://github.com/maevsi/sqitch/commit/ec3ded36a9d91affa9659e714490f9fb86528012))
+* **account:** specify unicode collation for username ([83b9f35](https://github.com/maevsi/sqitch/commit/83b9f35cfce25a6af9d1fa746295c288378de17f))
+* **account:** swap imprint text with url ([4ee730c](https://github.com/maevsi/sqitch/commit/4ee730ce698ee88d5a2c46c24c30f8ab180cef90))
+* **attendance:** show with claim ([261c189](https://github.com/maevsi/sqitch/commit/261c1898c91c55c7d40fb3de7d7e4b988f27e3af))
+* **contact:** rename time zone ([35cd855](https://github.com/maevsi/sqitch/commit/35cd85520bac0314e5ede91585d4cb0ee855d8cb))
+* **contact:** validate time zone using iana ([5cfc35a](https://github.com/maevsi/sqitch/commit/5cfc35af07133ed9105511ff89d36f17fbfe3cb4))
+* **device:** add access control for service account ([#238](https://github.com/maevsi/sqitch/issues/238)) ([0e7c719](https://github.com/maevsi/sqitch/commit/0e7c7194bccf7f4247c66f88632d3e7b6eea2b8a))
+* **event-favorite:** grant select for anonymous ([aa5b0ce](https://github.com/maevsi/sqitch/commit/aa5b0ce742e4d4f68f0d1804c707b724d31fdeab))
+* **event-unlock-response:** remove ([a2c36ea](https://github.com/maevsi/sqitch/commit/a2c36eadd9ca0f03733943b76a48d943f4350af3))
+* **events-invited:** drop ([b3af8d4](https://github.com/maevsi/sqitch/commit/b3af8d467e6f3eba8fb64ed745898462b7ea4678))
+* **invite:** add contact's time zone ([ea386e2](https://github.com/maevsi/sqitch/commit/ea386e2d5b9bd3fe403b17f188cb4286d311a6e1))
+* **invite:** prefer contact's language ([8ead9d9](https://github.com/maevsi/sqitch/commit/8ead9d9fd89b64bf9ee94ead300645c1372ded4e))
+* **jwt:** align function names – files ([e48b48c](https://github.com/maevsi/sqitch/commit/e48b48c367d838d4eae435483d05aa016dd9aad9))
+* **jwt:** align function names session – contents ([22f3bb5](https://github.com/maevsi/sqitch/commit/22f3bb5ccbf9db8add8e744a3c413a10905ace11))
+* **jwt:** extend table ([cabc757](https://github.com/maevsi/sqitch/commit/cabc7570d2a841eafe7724eea2995c32be21f580))
+* **jwt:** standardize type properties ([c65416d](https://github.com/maevsi/sqitch/commit/c65416dc09bb9a4d05d90e6c73ccccf9ca1212b8))
+* reformat function definitions ([94a6155](https://github.com/maevsi/sqitch/commit/94a61555229ce833e5a21b905a8c773a609e1efe))
+* rename trigger functions ([4c31db5](https://github.com/maevsi/sqitch/commit/4c31db51631f594a4b726b5b808c7d3b7f4d8bc4))
+* tweak text constraints ([671ab58](https://github.com/maevsi/sqitch/commit/671ab588f5e8289483c9aea6efde3b9281690bc3))
+
+### Bug Fixes
+
+* **account:** disallow selecting blocked ([320e019](https://github.com/maevsi/sqitch/commit/320e0192d25c508f2f1d32c53a79945cd8ca11dd))
+* deduplicate select policies ([eeb5a31](https://github.com/maevsi/sqitch/commit/eeb5a312bef69f8bf1ad571566797eda4212943c))
+* **invoker-account-id:** set security invoker ([4656f5a](https://github.com/maevsi/sqitch/commit/4656f5a1b751cdaf432bb0774d38b1a86e944c3c))
+* **jwt:** update claims ([8f9fcc6](https://github.com/maevsi/sqitch/commit/8f9fcc6c35ceb7b70f8e8a675d57200e44a54669))
+
+### Performance Improvements
+
+* **language-iso-full-text-search:** use invoker security ([a4f20a8](https://github.com/maevsi/sqitch/commit/a4f20a8c908f9be50e4efc82b062878807520f1e))
+* rewrite language plpgsql as sql ([6123982](https://github.com/maevsi/sqitch/commit/6123982ece7f07627b7fee698bc5bc4ed886b15d))
+
+### Documentation
+
+* document function error codes ([04beea8](https://github.com/maevsi/sqitch/commit/04beea8aa368e8bed363c138daeee48a584ca74c))
+
+### Code Refactoring
+
+* **account-private:** reorder trigger definitions ([316460a](https://github.com/maevsi/sqitch/commit/316460a518746e2c8edd879d3f680141de1468cb))
+* **account-social-network:** reindent ([bf33a15](https://github.com/maevsi/sqitch/commit/bf33a15c67547aec189881ed7d53c05e539eb094))
+* align function definitions with dump ([aea220a](https://github.com/maevsi/sqitch/commit/aea220ac5291b5f92e8e172c72a603b016f2dc1f))
+* convert plpgsql functions to sql ([548e12a](https://github.com/maevsi/sqitch/commit/548e12a06e1f1560557c63f22b8de902252c782a))
+* **event:** correct indentation ([d2f23c8](https://github.com/maevsi/sqitch/commit/d2f23c8e9a092b8f7bdce894ae5d5182d70a42ab))
+* **guest:** add missing empty line to flat view ([2b15b75](https://github.com/maevsi/sqitch/commit/2b15b75bc52093464a3574466b8993db7ec48ddf))
+* **jwt-update:** correct indentation ([48ec9b0](https://github.com/maevsi/sqitch/commit/48ec9b072ae8000e3ac6ead567e95a5129b4eef3))
+* rename trigger procedures to functions ([307040e](https://github.com/maevsi/sqitch/commit/307040ec9f090ab04a90e00f2ec55c33ea0da3b1))
+* replace `in` with `exists` ([374080a](https://github.com/maevsi/sqitch/commit/374080ab6a4c43680e0ef201bcde0a6534368e91))
+* reposition `INTO` clauses ([#227](https://github.com/maevsi/sqitch/issues/227)) ([5f9a60a](https://github.com/maevsi/sqitch/commit/5f9a60a0b7751550beacfb39250ad146545dffde))
+
 ## [10.0.0-beta.31](https://github.com/maevsi/sqitch/compare/10.0.0-beta.30...10.0.0-beta.31) (2025-12-20)
 
 ### ⚠ BREAKING CHANGES
