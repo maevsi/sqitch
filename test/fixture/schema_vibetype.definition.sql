@@ -774,6 +774,51 @@ COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inser
 
 
 --
+-- Name: attendance_guard(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.attendance_guard() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    -- Allow organizer to modify entries freely
+    IF EXISTS (
+      SELECT 1
+      FROM vibetype.guest g
+      JOIN vibetype.event e ON e.id = g.event_id
+      WHERE g.id = NEW.guest_id
+        AND e.created_by = vibetype.invoker_account_id()
+    ) THEN
+      RETURN NEW;
+    END IF;
+
+    -- For non-organizers, allow checkout exactly once: transition from FALSE/NULL -> TRUE only
+    IF NEW.checked_out IS DISTINCT FROM OLD.checked_out THEN
+      IF OLD.checked_out IS TRUE THEN
+        RAISE EXCEPTION 'checked_out cannot be modified once set' USING ERRCODE = 'data_exception';
+      END IF;
+      IF NEW.checked_out IS DISTINCT FROM TRUE THEN
+        RAISE EXCEPTION 'checked_out must be set to true to check out' USING ERRCODE = 'data_exception';
+      END IF;
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.attendance_guard() OWNER TO ci;
+
+--
+-- Name: FUNCTION attendance_guard(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.attendance_guard() IS 'Ensures that checking out can happen only once.';
+
+
+--
 -- Name: authenticate(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1119,6 +1164,30 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 
 COMMENT ON COLUMN vibetype.event.search_vector IS '@omit
 A vector used for full-text search on events.';
+
+
+--
+-- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibetype.event
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT e.*
+  FROM vibetype.event e
+  JOIN vibetype.guest g ON g.event_id = e.id
+  JOIN vibetype.attendance a ON a.guest_id = g.id
+  WHERE a.id = event_by_attendance_id.attendance_id
+$$;
+
+
+ALTER FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Returns the event associated with the given attendance ID.';
 
 
 --
@@ -2814,6 +2883,87 @@ Reference to the account that last updated the address.';
 
 
 --
+-- Name: attendance; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.attendance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    checked_out boolean,
+    contact_id uuid,
+    guest_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
+);
+
+
+ALTER TABLE vibetype.attendance OWNER TO ci;
+
+--
+-- Name: TABLE attendance; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.attendance IS '@omit delete
+Keeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
+
+
+--
+-- Name: COLUMN attendance.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.id IS '@omit create,update
+A unique reference for this entry.';
+
+
+--
+-- Name: COLUMN attendance.checked_out; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.checked_out IS '@omit create
+Shows if the person has left. When this turns on, the time is saved automatically.';
+
+
+--
+-- Name: COLUMN attendance.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.contact_id IS '@omit update
+The contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
+
+
+--
+-- Name: COLUMN attendance.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.guest_id IS '@omit update
+Who this entry is for.';
+
+
+--
+-- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.created_at IS '@omit create,update
+When the entry was created (the check-in time).';
+
+
+--
+-- Name: COLUMN attendance.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.updated_at IS '@omit create,update
+When this entry was last changed. If someone checks out, this shows the checkout time.';
+
+
+--
+-- Name: COLUMN attendance.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.updated_by IS '@omit create,update
+Who last changed this entry. This may be empty if done without signing in.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -4467,6 +4617,22 @@ ALTER TABLE ONLY vibetype.address
 
 
 --
+-- Name: attendance attendance_guest_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.attendance
+    ADD CONSTRAINT attendance_guest_id_key UNIQUE (guest_id);
+
+
+--
+-- Name: attendance attendance_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.attendance
+    ADD CONSTRAINT attendance_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contact contact_created_by_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -4919,6 +5085,34 @@ COMMENT ON INDEX vibetype.idx_address_updated_by IS 'B-Tree index to optimize lo
 
 
 --
+-- Name: idx_attendance_contact_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_attendance_contact_id ON vibetype.attendance USING btree (contact_id);
+
+
+--
+-- Name: INDEX idx_attendance_contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_attendance_contact_id IS 'Speeds up searching by contact.';
+
+
+--
+-- Name: idx_attendance_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_attendance_updated_by ON vibetype.attendance USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_attendance_updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_attendance_updated_by IS 'Speeds up searching by who changed an entry.';
+
+
+--
 -- Name: idx_device_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5045,6 +5239,20 @@ CREATE TRIGGER vibetype_trigger_address_update BEFORE UPDATE ON vibetype.address
 
 
 --
+-- Name: attendance vibetype_trigger_attendance_guard; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER vibetype_trigger_attendance_guard BEFORE UPDATE ON vibetype.attendance FOR EACH ROW EXECUTE FUNCTION vibetype.attendance_guard();
+
+
+--
+-- Name: attendance vibetype_trigger_attendance_metadata_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER vibetype_trigger_attendance_metadata_update BEFORE UPDATE ON vibetype.attendance FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+
+
+--
 -- Name: contact vibetype_trigger_contact_update_account_id; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -5154,6 +5362,30 @@ ALTER TABLE ONLY vibetype.address
 
 ALTER TABLE ONLY vibetype.address
     ADD CONSTRAINT address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
+
+
+--
+-- Name: attendance attendance_contact_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.attendance
+    ADD CONSTRAINT attendance_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES vibetype.contact(id) ON DELETE SET NULL;
+
+
+--
+-- Name: attendance attendance_guest_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.attendance
+    ADD CONSTRAINT attendance_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES vibetype.guest(id) ON DELETE CASCADE;
+
+
+--
+-- Name: attendance attendance_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.attendance
+    ADD CONSTRAINT attendance_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -5550,6 +5782,50 @@ CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.in
    FROM vibetype_private.event_policy_select() event_policy_select(id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote, language, name, slug, start, url, visibility, created_at, created_by, search_vector)))) AND (NOT (EXISTS ( SELECT 1
    FROM vibetype_private.account_block_ids() b(id)
   WHERE (b.id = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: attendance; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.attendance ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: attendance attendance_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY attendance_insert ON vibetype.attendance FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
+   FROM (vibetype.guest g
+     JOIN vibetype.event e ON ((e.id = g.event_id)))
+  WHERE ((g.id = attendance.guest_id) AND (e.created_by = vibetype.invoker_account_id())))));
+
+
+--
+-- Name: attendance attendance_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM (vibetype.guest g
+     JOIN vibetype.event e ON ((e.id = g.event_id)))
+  WHERE ((g.id = attendance.guest_id) AND (e.created_by = vibetype.invoker_account_id())))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype.guest_claim_array()) gc(id)
+  WHERE (gc.id = attendance.guest_id))) OR (EXISTS ( SELECT 1
+   FROM (vibetype.guest g
+     JOIN vibetype.contact c ON ((c.id = g.contact_id)))
+  WHERE ((g.id = attendance.guest_id) AND (c.account_id = vibetype.invoker_account_id()) AND (NOT (c.created_by IN ( SELECT account_block_ids.id
+           FROM vibetype_private.account_block_ids() account_block_ids(id)))))))));
+
+
+--
+-- Name: attendance attendance_update; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY attendance_update ON vibetype.attendance FOR UPDATE USING (((EXISTS ( SELECT 1
+   FROM (vibetype.guest g
+     JOIN vibetype.event e ON ((e.id = g.event_id)))
+  WHERE ((g.id = attendance.guest_id) AND (e.created_by = vibetype.invoker_account_id())))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype.guest_claim_array()) gc(id)
+  WHERE (gc.id = attendance.guest_id)))));
 
 
 --
@@ -6152,6 +6428,15 @@ GRANT ALL ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) TO vibe
 
 
 --
+-- Name: FUNCTION attendance_guard(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.attendance_guard() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION authenticate(username text, password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6182,6 +6467,15 @@ GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) 
 
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) TO vibetype_anonymous;
 
 
 --
@@ -6505,6 +6799,14 @@ GRANT SELECT ON TABLE vibetype.achievement TO vibetype_anonymous;
 
 GRANT SELECT ON TABLE vibetype.address TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.address TO vibetype_account;
+
+
+--
+-- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE vibetype.attendance TO vibetype_account;
+GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 
 --
