@@ -1,3 +1,18 @@
+## [10.0.0-beta.31](https://github.com/maevsi/sqitch/compare/10.0.0-beta.30...10.0.0-beta.31) (2025-12-20)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** update claims
+* **attendance:** show with claim
+
+### Features
+
+* **attendance:** show with claim ([261c189](https://github.com/maevsi/sqitch/commit/261c1898c91c55c7d40fb3de7d7e4b988f27e3af))
+
+### Bug Fixes
+
+* **jwt:** update claims ([8f9fcc6](https://github.com/maevsi/sqitch/commit/8f9fcc6c35ceb7b70f8e8a675d57200e44a54669))
+
 ## [10.0.0-beta.30](https://github.com/maevsi/sqitch/compare/10.0.0-beta.29...10.0.0-beta.30) (2025-12-20)
 
 ### ⚠ BREAKING CHANGES
