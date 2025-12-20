@@ -29,7 +29,7 @@ BEGIN
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
 
   SET LOCAL role TO vibetype_account;
-  SET LOCAL jwt.claims.account_id TO '00000000-0000-0000-0000-000000000000';
+  SET LOCAL jwt.claims.sub TO '00000000-0000-0000-0000-000000000000';
   INSERT INTO vibetype.account_social_network(account_id, social_network, social_network_username)
   VALUES ('00000000-0000-0000-0000-000000000000', 'instagram', 'username');
 END $$;

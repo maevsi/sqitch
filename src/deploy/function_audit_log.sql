@@ -12,7 +12,7 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
-  _account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  _account_id := NULLIF(current_setting('jwt.claims.sub', true), '')::UUID;
 
   IF _account_id IS NULL THEN
     _user_name := current_user;

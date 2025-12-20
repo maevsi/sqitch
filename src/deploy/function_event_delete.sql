@@ -7,7 +7,7 @@ DECLARE
   _current_account_id UUID;
   _event_deleted vibetype.event;
 BEGIN
-  _current_account_id := current_setting('jwt.claims.account_id')::UUID;
+  _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(event_delete.password, account.password_hash))) THEN
     DELETE

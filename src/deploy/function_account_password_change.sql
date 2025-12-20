@@ -10,7 +10,7 @@ BEGIN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  _current_account_id := current_setting('jwt.claims.account_id')::UUID;
+  _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
     UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;

@@ -260,7 +260,7 @@ CREATE FUNCTION vibetype.account_delete(password text) RETURNS void
 DECLARE
   _current_account_id UUID;
 BEGIN
-  _current_account_id := current_setting('jwt.claims.account_id')::UUID;
+  _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
@@ -366,7 +366,7 @@ BEGIN
       RAISE 'New password too short!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  _current_account_id := current_setting('jwt.claims.account_id')::UUID;
+  _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
     UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;
@@ -683,7 +683,7 @@ COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all 
 CREATE FUNCTION vibetype.account_upload_quota_bytes() RETURNS bigint
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.account_id')::UUID;
+  SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.sub')::UUID;
 $$;
 
 
@@ -1140,7 +1140,7 @@ DECLARE
   _current_account_id UUID;
   _event_deleted vibetype.event;
 BEGIN
-  _current_account_id := current_setting('jwt.claims.account_id')::UUID;
+  _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(event_delete.password, account.password_hash))) THEN
     DELETE
@@ -1545,7 +1545,7 @@ COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a not
 CREATE FUNCTION vibetype.invoker_account_id() RETURNS uuid
     LANGUAGE sql STABLE STRICT
     AS $$
-  SELECT NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  SELECT NULLIF(current_setting('jwt.claims.sub', true), '')::UUID;
 $$;
 
 
@@ -1844,7 +1844,7 @@ CREATE FUNCTION vibetype.profile_picture_set(upload_id uuid) RETURNS void
     AS $$
   INSERT INTO vibetype.profile_picture(account_id, upload_id)
   VALUES (
-    current_setting('jwt.claims.account_id')::UUID,
+    current_setting('jwt.claims.sub')::UUID,
     upload_id
   )
   ON CONFLICT (account_id)
@@ -2380,7 +2380,7 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
-  _account_id := NULLIF(current_setting('jwt.claims.account_id', true), '')::UUID;
+  _account_id := NULLIF(current_setting('jwt.claims.sub', true), '')::UUID;
 
   IF _account_id IS NULL THEN
     _user_name := current_user;

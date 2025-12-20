@@ -5,7 +5,7 @@ CREATE FUNCTION vibetype.profile_picture_set(upload_id uuid) RETURNS void
     AS $$
   INSERT INTO vibetype.profile_picture(account_id, upload_id)
   VALUES (
-    current_setting('jwt.claims.account_id')::UUID,
+    current_setting('jwt.claims.sub')::UUID,
     upload_id
   )
   ON CONFLICT (account_id)
