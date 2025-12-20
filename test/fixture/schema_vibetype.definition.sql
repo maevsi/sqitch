@@ -2883,6 +2883,84 @@ Reference to the account that last updated the address.';
 
 
 --
+-- Name: app; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.app (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    icon_svg text NOT NULL,
+    url text NOT NULL,
+    url_attendance text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT app_icon_svg_check CHECK (((char_length(icon_svg) > 0) AND (char_length(icon_svg) <= 50000))),
+    CONSTRAINT app_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
+    CONSTRAINT app_url_attendance_check CHECK (((char_length(url_attendance) > 0) AND (char_length(url_attendance) <= 2000) AND (url_attendance ~ '^https://[^[:space:]]+$'::text))),
+    CONSTRAINT app_url_check CHECK (((char_length(url) > 0) AND (char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
+);
+
+
+ALTER TABLE vibetype.app OWNER TO ci;
+
+--
+-- Name: TABLE app; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.app IS '@omit create,update,delete
+Integrations that can be added to events. Each app has a name, icon, and an endpoint for attendance management.';
+
+
+--
+-- Name: COLUMN app.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.id IS 'A unique reference for this app.';
+
+
+--
+-- Name: COLUMN app.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.name IS 'The name of the app.';
+
+
+--
+-- Name: COLUMN app.icon_svg; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.icon_svg IS 'An SVG icon for displaying the app.';
+
+
+--
+-- Name: COLUMN app.url; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.url IS 'The main URL of the app.';
+
+
+--
+-- Name: COLUMN app.url_attendance; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.url_attendance IS 'The URL endpoint for managing attendance.';
+
+
+--
+-- Name: COLUMN app.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.created_at IS 'When the app was created.';
+
+
+--
+-- Name: COLUMN app.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.app.created_by IS 'Who created this app.';
+
+
+--
 -- Name: attendance; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -3180,6 +3258,69 @@ Timestamp when the device was last updated.';
 
 COMMENT ON COLUMN vibetype.device.updated_by IS '@omit create,update
 Reference to the account that last updated the device.';
+
+
+--
+-- Name: event_app; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.event_app (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    app_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL
+);
+
+
+ALTER TABLE vibetype.event_app OWNER TO ci;
+
+--
+-- Name: TABLE event_app; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.event_app IS '@omit create,update,delete
+Records which apps are installed on which events.';
+
+
+--
+-- Name: COLUMN event_app.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_app.id IS '@omit create,update
+A unique reference for this installation.';
+
+
+--
+-- Name: COLUMN event_app.app_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_app.app_id IS '@omit update
+The app that is installed.';
+
+
+--
+-- Name: COLUMN event_app.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_app.event_id IS '@omit update
+The event the app is installed on.';
+
+
+--
+-- Name: COLUMN event_app.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_app.created_at IS '@omit create,update
+When the app was installed.';
+
+
+--
+-- Name: COLUMN event_app.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_app.created_by IS '@omit update
+Who installed this app.';
 
 
 --
@@ -4617,6 +4758,22 @@ ALTER TABLE ONLY vibetype.address
 
 
 --
+-- Name: app app_name_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.app
+    ADD CONSTRAINT app_name_key UNIQUE (name);
+
+
+--
+-- Name: app app_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.app
+    ADD CONSTRAINT app_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: attendance attendance_guest_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -4669,6 +4826,22 @@ ALTER TABLE ONLY vibetype.device
 
 ALTER TABLE ONLY vibetype.device
     ADD CONSTRAINT device_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: event_app event_app_event_id_app_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_app
+    ADD CONSTRAINT event_app_event_id_app_id_key UNIQUE (event_id, app_id);
+
+
+--
+-- Name: event_app event_app_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_app
+    ADD CONSTRAINT event_app_pkey PRIMARY KEY (id);
 
 
 --
@@ -5085,6 +5258,20 @@ COMMENT ON INDEX vibetype.idx_address_updated_by IS 'B-Tree index to optimize lo
 
 
 --
+-- Name: idx_app_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_app_created_by ON vibetype.app USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_app_created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_app_created_by IS 'B-Tree index to optimize lookups by creator.';
+
+
+--
 -- Name: idx_attendance_contact_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5124,6 +5311,20 @@ CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
 --
 
 COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_event_app_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_app_created_by ON vibetype.event_app USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_event_app_created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_event_app_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 
 --
@@ -5365,6 +5566,14 @@ ALTER TABLE ONLY vibetype.address
 
 
 --
+-- Name: app app_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.app
+    ADD CONSTRAINT app_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: attendance attendance_contact_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5434,6 +5643,30 @@ ALTER TABLE ONLY vibetype.device
 
 ALTER TABLE ONLY vibetype.event
     ADD CONSTRAINT event_address_id_fkey FOREIGN KEY (address_id) REFERENCES vibetype.address(id) ON DELETE SET NULL;
+
+
+--
+-- Name: event_app event_app_app_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_app
+    ADD CONSTRAINT event_app_app_id_fkey FOREIGN KEY (app_id) REFERENCES vibetype.app(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_app event_app_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_app
+    ADD CONSTRAINT event_app_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: event_app event_app_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_app
+    ADD CONSTRAINT event_app_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -5785,6 +6018,19 @@ CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.in
 
 
 --
+-- Name: app; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.app ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: app app_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY app_select ON vibetype.app FOR SELECT USING (true);
+
+
+--
 -- Name: attendance; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -5901,6 +6147,21 @@ ALTER TABLE vibetype.event ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY event_all ON vibetype.event USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: event_app; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.event_app ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_app event_app_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_app_select ON vibetype.event_app FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE (e.id = event_app.event_id))));
 
 
 --
@@ -6802,6 +7063,14 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.address TO vibetype_account;
 
 
 --
+-- Name: TABLE app; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.app TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.app TO vibetype_anonymous;
+
+
+--
 -- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -6823,6 +7092,14 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.device TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.device TO vibetype;
+
+
+--
+-- Name: TABLE event_app; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.event_app TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.event_app TO vibetype_account;
 
 
 --
