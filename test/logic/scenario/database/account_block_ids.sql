@@ -17,7 +17,7 @@ BEGIN
   -- Account A blocks account B
   PERFORM vibetype_test.account_block_create(accountA, accountB);
 
-  PERFORM set_config('jwt.claims.account_id', accountA::TEXT, true);
+  PERFORM set_config('jwt.claims.sub', accountA::TEXT, true);
 
   -- Get block IDs for account A
   blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
@@ -42,7 +42,7 @@ BEGIN
   -- Account A blocks account B
   PERFORM vibetype_test.account_block_create(accountA, accountB);
 
-  PERFORM set_config('jwt.claims.account_id', accountB::TEXT, true);
+  PERFORM set_config('jwt.claims.sub', accountB::TEXT, true);
 
   -- Get block IDs for account B
   blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
@@ -67,7 +67,7 @@ BEGIN
   -- Account B blocks account A
   PERFORM vibetype_test.account_block_create(accountB, accountA);
 
-  PERFORM set_config('jwt.claims.account_id', accountA::TEXT, true);
+  PERFORM set_config('jwt.claims.sub', accountA::TEXT, true);
 
   -- Get block IDs for account A
   blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
@@ -97,7 +97,7 @@ BEGIN
   -- Account D blocks account A
   PERFORM vibetype_test.account_block_create(accountD, accountA);
 
-  PERFORM set_config('jwt.claims.account_id', accountA::TEXT, true);
+  PERFORM set_config('jwt.claims.sub', accountA::TEXT, true);
 
   -- Get block IDs for account A
   blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());

@@ -111,9 +111,9 @@ DECLARE
   rec RECORD;
 BEGIN
   IF _invoker_account_id IS NULL THEN
-    PERFORM set_config('jwt.claims.account_id', '', true);
+    PERFORM set_config('jwt.claims.sub', '', true);
   ELSE
-    PERFORM set_config('jwt.claims.account_id', _invoker_account_id::TEXT, true);
+    PERFORM set_config('jwt.claims.sub', _invoker_account_id::TEXT, true);
   END IF;
 
   IF EXISTS (

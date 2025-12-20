@@ -105,7 +105,7 @@ This resets the role to the value of `SELECT session_user`, which is the login r
 
 When a user successfully logs in to the Vibetype app, the database will return a JWT (JSON Web Token) containing the account ID and the name of the role associated with the user.
 In all subsequent requests, *Postgraphile* performs the role switching under the hood based on the content of the current JWT.
-*Postgraphile* will also automatically set the runtime parameter `jwt.claims.account_id` to the account ID from the JWT, which corresponds to the command `SET LOCAL 'jwt.claims.account_id' TO '<account_id>'`.
+*Postgraphile* will also automatically set the runtime parameter `jwt.claims.sub` to the account ID from the JWT, which corresponds to the command `SET LOCAL 'jwt.claims.sub' TO '<account_id>'`.
 If a user is not logged in, the role will be 'vibetype_anonymous'.
 
 ## Additional remarks:

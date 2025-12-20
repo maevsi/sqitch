@@ -100,11 +100,11 @@ BEGIN
 
   -- Set JWT claims in session
   PERFORM vibetype_test.invoker_set(_account_id);
+  PERFORM set_config('jwt.claims.attendances', '[' || COALESCE(string_agg('"' || _attendance_id_1::TEXT || '"', ','), '') || ']', true);
+  PERFORM set_config('jwt.claims.exp', _jwt.exp::TEXT, true);
   PERFORM set_config('jwt.claims.guests', '["' || _guest_id_1::TEXT || '"]', true);
   PERFORM set_config('jwt.claims.jti', _jwt.jti::TEXT, true);
-  PERFORM set_config('jwt.claims.exp', _jwt.exp::TEXT, true);
   PERFORM set_config('jwt.claims.role', _jwt.role::TEXT, true);
-  PERFORM set_config('jwt.claims.attendances', '[' || COALESCE(string_agg('"' || _attendance_id_1::TEXT || '"', ','), '') || ']', true);
   PERFORM set_config('jwt.claims.username', _jwt.username::TEXT, true);
 
   -- Add second attendance

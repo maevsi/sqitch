@@ -5,9 +5,9 @@ RETURNS VOID AS $$
 BEGIN
   -- Store the current role and account_id before setting a new one
   PERFORM set_config('vibetype_test.previous_role', session_user, true);
-  PERFORM set_config('vibetype_test.previous_account_id', COALESCE(current_setting('jwt.claims.account_id', true), ''), true);
+  PERFORM set_config('vibetype_test.previous_account_id', COALESCE(current_setting('jwt.claims.sub', true), ''), true);
   SET LOCAL ROLE = 'vibetype_account';
-  PERFORM set_config('jwt.claims.account_id', _invoker_id::TEXT, true);
+  PERFORM set_config('jwt.claims.sub', _invoker_id::TEXT, true);
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set(UUID) TO vibetype_account, vibetype_anonymous;
@@ -18,9 +18,9 @@ RETURNS VOID AS $$
 BEGIN
   -- Store the current role and account_id before setting a new one
   PERFORM set_config('vibetype_test.previous_role', session_user, true);
-  PERFORM set_config('vibetype_test.previous_account_id', COALESCE(current_setting('jwt.claims.account_id', true), ''), true);
+  PERFORM set_config('vibetype_test.previous_account_id', COALESCE(current_setting('jwt.claims.sub', true), ''), true);
   SET LOCAL ROLE = 'vibetype_anonymous';
-  PERFORM set_config('jwt.claims.account_id', '', true);
+  PERFORM set_config('jwt.claims.sub', '', true);
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set_anonymous() TO vibetype_account, vibetype_anonymous;
@@ -39,7 +39,7 @@ BEGIN
     ELSE
       SET LOCAL ROLE NONE;
     END IF;
-    PERFORM set_config('jwt.claims.account_id', COALESCE(_previous_account_id, ''), true);
+    PERFORM set_config('jwt.claims.sub', COALESCE(_previous_account_id, ''), true);
   END;
 END $$ LANGUAGE plpgsql;
 
@@ -50,7 +50,7 @@ CREATE OR REPLACE FUNCTION vibetype_test.invoker_set_empty()
 RETURNS VOID AS $$
 BEGIN
   SET LOCAL ROLE NONE;
-  PERFORM set_config('jwt.claims.account_id', '', true);
+  PERFORM set_config('jwt.claims.sub', '', true);
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.invoker_set_empty() TO vibetype_account, vibetype_anonymous;
