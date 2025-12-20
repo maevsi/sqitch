@@ -34,6 +34,13 @@ RETURNS boolean AS $$
       FROM vibetype_private.events_invited() ei(event_id)
       WHERE ei.event_id = e.id
     )
+    OR EXISTS (
+      SELECT 1
+      FROM vibetype.attendance a
+      JOIN vibetype.guest g ON g.id = a.guest_id
+      WHERE a.id = ANY (vibetype.attendance_claim_array())
+        AND g.event_id = e.id
+    )
   );
 $$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 

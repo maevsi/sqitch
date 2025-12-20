@@ -1,6 +1,7 @@
 BEGIN;
 
 CREATE TYPE vibetype.jwt AS (
+  attendances UUID[],
   exp BIGINT, -- expiration time as epoch
   guests UUID[],
   jti UUID, -- JWT ID
