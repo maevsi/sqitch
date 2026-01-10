@@ -6,7 +6,7 @@
     "node": "24"
   },
   "name": "@maevsi/sqitch",
-  "packageManager": "pnpm@10.27.0",
+  "packageManager": "pnpm@10.28.0",
   "private": true,
   "scripts": {
     "deploy": "pnpm run sqitch deploy",
