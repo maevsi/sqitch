@@ -1,3 +1,9 @@
+## [10.0.5](https://github.com/maevsi/sqitch/compare/10.0.4...10.0.5) (2026-02-14)
+
+### Bug Fixes
+
+* schedule release ([31be85a](https://github.com/maevsi/sqitch/commit/31be85aaa1e5ba9c69b4ac02d577ce775e345b96))
+
 ## [10.0.4](https://github.com/maevsi/sqitch/compare/10.0.3...10.0.4) (2026-01-31)
 
 ### Bug Fixes
