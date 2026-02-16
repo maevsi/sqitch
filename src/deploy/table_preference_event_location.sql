@@ -13,10 +13,10 @@ CREATE TABLE vibetype.preference_event_location (
 );
 
 COMMENT ON TABLE vibetype.preference_event_location IS 'Stores preferred event locations for user accounts, including coordinates and search radius.';
-COMMENT ON COLUMN vibetype.preference_event_location.id IS E'@omit create\nUnique identifier for the preference record.';
+COMMENT ON COLUMN vibetype.preference_event_location.id IS E'@behavior -insert\nUnique identifier for the preference record.';
 COMMENT ON COLUMN vibetype.preference_event_location.location IS 'Geographical point representing the preferred location, derived from latitude and longitude.';
 COMMENT ON COLUMN vibetype.preference_event_location.radius IS 'Search radius in meters around the location where events are preferred. Must be positive.';
-COMMENT ON COLUMN vibetype.preference_event_location.created_at IS E'@omit create\nTimestamp of when the event size preference was created, defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.preference_event_location.created_at IS E'@behavior -insert\nTimestamp of when the event location preference was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.preference_event_location.created_by IS 'Reference to the account that created the location preference.';
 
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.preference_event_location TO vibetype_account;

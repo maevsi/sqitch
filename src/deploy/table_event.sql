@@ -27,7 +27,7 @@ CREATE TABLE vibetype.event (
 CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
 
 COMMENT ON TABLE vibetype.event IS 'An event.';
-COMMENT ON COLUMN vibetype.event.id IS E'@omit create,update\nThe event''s internal id.';
+COMMENT ON COLUMN vibetype.event.id IS E'@behavior -insert -update\nThe event''s internal id.';
 COMMENT ON COLUMN vibetype.event.address_id IS 'Optional reference to the physical address of the event.';
 COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must be non-empty and not exceed 10,000 characters.';
 COMMENT ON COLUMN vibetype.event.end IS 'The event''s end date and time, with time zone.';
@@ -40,9 +40,9 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be 
 COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. Must start with "https://" and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
-COMMENT ON COLUMN vibetype.event.created_at IS E'@omit create,update\nTimestamp of when the event was created, defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.event.created_at IS E'@behavior -insert -update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
-COMMENT ON COLUMN vibetype.event.search_vector IS E'@omit\nA vector used for full-text search on events.';
+COMMENT ON COLUMN vibetype.event.search_vector IS E'@behavior -insert -select -update\nA vector used for full-text search on events.';
 COMMENT ON INDEX vibetype.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
 
 CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER

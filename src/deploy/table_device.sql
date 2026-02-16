@@ -16,12 +16,12 @@ CREATE TABLE vibetype.device (
 CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
 
 COMMENT ON TABLE vibetype.device IS E'A device that''s assigned to an account.';
-COMMENT ON COLUMN vibetype.device.id IS E'@omit create,update\nThe internal id of the device.';
+COMMENT ON COLUMN vibetype.device.id IS E'@behavior -insert -update\nThe internal id of the device.';
 COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications. Must be non-empty and not exceed 300 characters.';
-COMMENT ON COLUMN vibetype.device.created_at IS E'@omit create,update\nTimestamp when the device was created. Defaults to the current timestamp.';
-COMMENT ON COLUMN vibetype.device.created_by IS E'@omit update\nReference to the account that created the device.';
-COMMENT ON COLUMN vibetype.device.updated_at IS E'@omit create,update\nTimestamp when the device was last updated.';
-COMMENT ON COLUMN vibetype.device.updated_by IS E'@omit create,update\nReference to the account that last updated the device.';
+COMMENT ON COLUMN vibetype.device.created_at IS E'@behavior -insert -update\nTimestamp when the device was created. Defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.device.created_by IS E'@behavior -update\nReference to the account that created the device.';
+COMMENT ON COLUMN vibetype.device.updated_at IS E'@behavior -insert -update\nTimestamp when the device was last updated.';
+COMMENT ON COLUMN vibetype.device.updated_by IS E'@behavior -insert -update\nReference to the account that last updated the device.';
 COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
 -- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.

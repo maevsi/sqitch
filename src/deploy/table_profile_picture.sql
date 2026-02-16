@@ -12,7 +12,7 @@ CREATE TABLE vibetype.profile_picture (
 );
 
 COMMENT ON TABLE vibetype.profile_picture IS 'Mapping of account ids to upload ids.';
-COMMENT ON COLUMN vibetype.profile_picture.id IS E'@omit create,update\nThe profile picture''s internal id.';
+COMMENT ON COLUMN vibetype.profile_picture.id IS E'@behavior -insert -update\nThe profile picture''s internal id.';
 COMMENT ON COLUMN vibetype.profile_picture.account_id IS 'The account''s id.';
 COMMENT ON COLUMN vibetype.profile_picture.upload_id IS 'The upload''s id.';
 

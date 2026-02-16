@@ -23,11 +23,11 @@ CREATE TABLE vibetype.contact (
 );
 
 COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
-COMMENT ON COLUMN vibetype.contact.id IS E'@omit create,update\nPrimary key, uniquely identifies each contact.';
+COMMENT ON COLUMN vibetype.contact.id IS E'@behavior -insert -update\nPrimary key, uniquely identifies each contact.';
 COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
 COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
 COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS E'@omit create,update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+COMMENT ON COLUMN vibetype.contact.email_address_hash IS E'@behavior -insert -update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
 COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
@@ -36,7 +36,7 @@ COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. 
 COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
 COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
 COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
-COMMENT ON COLUMN vibetype.contact.created_at IS E'@omit create,update\nTimestamp when the contact was created. Defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.contact.created_at IS E'@behavior -insert -update\nTimestamp when the contact was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
 

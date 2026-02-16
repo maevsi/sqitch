@@ -23,14 +23,14 @@ CREATE INDEX idx_friendship_created_by ON vibetype.friendship USING btree (creat
 CREATE INDEX idx_friendship_updated_by ON vibetype.friendship USING btree (updated_by);
 
 COMMENT ON TABLE vibetype.friendship IS 'A friend relation together with its status.';
-COMMENT ON COLUMN vibetype.friendship.id IS E'@omit create,update\nThe friend relation''s internal id.';
-COMMENT ON COLUMN vibetype.friendship.a_account_id IS E'@omit update\nThe ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
-COMMENT ON COLUMN vibetype.friendship.b_account_id IS E'@omit update\nThe ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
-COMMENT ON COLUMN vibetype.friendship.status IS E'@omit create\nThe status of the friend relation.';
-COMMENT ON COLUMN vibetype.friendship.created_at IS E'@omit create,update\nThe timestamp when the friend relation was created.';
-COMMENT ON COLUMN vibetype.friendship.created_by IS E'@omit update\nThe account that created the friend relation was created.';
-COMMENT ON COLUMN vibetype.friendship.updated_at IS E'@omit create,update\nThe timestamp when the friend relation''s status was updated.';
-COMMENT ON COLUMN vibetype.friendship.updated_by IS E'@omit create,update\nThe account that updated the friend relation''s status.';
+COMMENT ON COLUMN vibetype.friendship.id IS E'@behavior -insert -update\nThe friend relation''s internal id.';
+COMMENT ON COLUMN vibetype.friendship.a_account_id IS E'@behavior -update\nThe ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
+COMMENT ON COLUMN vibetype.friendship.b_account_id IS E'@behavior -update\nThe ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
+COMMENT ON COLUMN vibetype.friendship.status IS E'@behavior -insert\nThe status of the friend relation.';
+COMMENT ON COLUMN vibetype.friendship.created_at IS E'@behavior -insert -update\nThe timestamp when the friend relation was created.';
+COMMENT ON COLUMN vibetype.friendship.created_by IS E'@behavior -update\nThe account that created the friend relation.';
+COMMENT ON COLUMN vibetype.friendship.updated_at IS E'@behavior -insert -update\nThe timestamp when the friend relation''s status was updated.';
+COMMENT ON COLUMN vibetype.friendship.updated_by IS E'@behavior -insert -update\nThe account that updated the friend relation''s status.';
 COMMENT ON INDEX vibetype.idx_friendship_created_by IS 'B-Tree index to optimize lookups by creator.';
 COMMENT ON INDEX vibetype.idx_friendship_updated_by IS 'B-Tree index to optimize lookups by updater.';
 
