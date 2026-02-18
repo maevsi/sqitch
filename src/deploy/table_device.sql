@@ -13,6 +13,7 @@ CREATE TABLE vibetype.device (
   UNIQUE (created_by, fcm_token)
 );
 
+CREATE INDEX idx_device_created_by ON vibetype.device USING btree (created_by);
 CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
 
 COMMENT ON TABLE vibetype.device IS E'A device that''s assigned to an account.';

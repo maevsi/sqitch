@@ -9,6 +9,9 @@ CREATE TABLE vibetype.legal_term_acceptance (
   created_at    TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_legal_term_acceptance_account_id ON vibetype.legal_term_acceptance USING btree (account_id);
+CREATE INDEX idx_legal_term_acceptance_legal_term_id ON vibetype.legal_term_acceptance USING btree (legal_term_id);
+
 COMMENT ON TABLE vibetype.legal_term_acceptance IS E'@behavior -update -delete\nTracks each user account''s acceptance of legal terms and conditions.';
 COMMENT ON COLUMN vibetype.legal_term_acceptance.id IS E'@behavior -insert\nUnique identifier for this legal term acceptance record. Automatically generated for each new acceptance.';
 COMMENT ON COLUMN vibetype.legal_term_acceptance.account_id IS 'The user account ID that accepted the legal terms. If the account is deleted, this acceptance record will also be deleted.';

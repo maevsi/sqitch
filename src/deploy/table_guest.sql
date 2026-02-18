@@ -15,6 +15,8 @@ CREATE TABLE vibetype.guest (
   UNIQUE (event_id, contact_id)
 );
 
+CREATE INDEX idx_guest_contact_id ON vibetype.guest USING btree (contact_id);
+CREATE INDEX idx_guest_event_id ON vibetype.guest USING btree (event_id);
 CREATE INDEX idx_guest_updated_by ON vibetype.guest USING btree (updated_by);
 
 COMMENT ON TABLE vibetype.guest IS 'A guest for a contact. A bidirectional mapping between an event and a contact.';

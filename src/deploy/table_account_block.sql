@@ -12,6 +12,9 @@ CREATE TABLE vibetype.account_block (
   CHECK (created_by != blocked_account_id)
 );
 
+CREATE INDEX idx_account_block_blocked_account_id ON vibetype.account_block USING btree (blocked_account_id);
+CREATE INDEX idx_account_block_created_by ON vibetype.account_block USING btree (created_by);
+
 COMMENT ON TABLE vibetype.account_block IS E'@behavior -update\nBlocking of one account by another.';
 COMMENT ON COLUMN vibetype.account_block.id IS E'@behavior -insert\nThe account block''s internal id.';
 COMMENT ON COLUMN vibetype.account_block.blocked_account_id IS 'The account id of the user who is blocked.';

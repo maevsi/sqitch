@@ -24,6 +24,9 @@ CREATE TABLE vibetype.event (
   UNIQUE (created_by, slug)
 );
 
+CREATE INDEX idx_event_address_id ON vibetype.event USING btree (address_id);
+CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
 
 COMMENT ON TABLE vibetype.event IS 'An event.';

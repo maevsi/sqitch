@@ -12,6 +12,8 @@ CREATE TABLE vibetype.upload (
   created_by    UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
+
 COMMENT ON TABLE vibetype.upload IS 'An upload.';
 COMMENT ON COLUMN vibetype.upload.id IS E'@behavior -insert -update\nThe upload''s internal id.';
 COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file. Must be non-empty and not exceed 300 characters.';

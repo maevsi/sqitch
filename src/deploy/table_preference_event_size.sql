@@ -11,6 +11,8 @@ CREATE TABLE vibetype.preference_event_size (
   UNIQUE (account_id, event_size)
 );
 
+CREATE INDEX idx_preference_event_size_account_id ON vibetype.preference_event_size USING btree (account_id);
+
 COMMENT ON TABLE vibetype.preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
 COMMENT ON COLUMN vibetype.preference_event_size.account_id IS 'The account''s internal id.';
 COMMENT ON COLUMN vibetype.preference_event_size.event_size IS 'A preferred event size.';

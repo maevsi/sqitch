@@ -12,6 +12,8 @@ CREATE TABLE vibetype.preference_event_location (
   UNIQUE (created_by, location, radius)
 );
 
+CREATE INDEX idx_preference_event_location_created_by ON vibetype.preference_event_location USING btree (created_by);
+
 COMMENT ON TABLE vibetype.preference_event_location IS 'Stores preferred event locations for user accounts, including coordinates and search radius.';
 COMMENT ON COLUMN vibetype.preference_event_location.id IS E'@behavior -insert\nUnique identifier for the preference record.';
 COMMENT ON COLUMN vibetype.preference_event_location.location IS 'Geographical point representing the preferred location, derived from latitude and longitude.';

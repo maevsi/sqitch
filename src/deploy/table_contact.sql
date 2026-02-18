@@ -22,6 +22,12 @@ CREATE TABLE vibetype.contact (
   UNIQUE (created_by, account_id)
 );
 
+CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
+CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id);
+CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
+CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name);
+CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
+
 COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 COMMENT ON COLUMN vibetype.contact.id IS E'@behavior -insert -update\nPrimary key, uniquely identifies each contact.';
 COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';

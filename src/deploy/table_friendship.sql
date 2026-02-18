@@ -19,6 +19,8 @@ CREATE TABLE vibetype.friendship (
   CONSTRAINT friendship_updater_participant CHECK (updated_by IS NULL or updated_by = a_account_id or updated_by = b_account_id)
 );
 
+CREATE INDEX idx_friendship_a_account_id ON vibetype.friendship USING btree (a_account_id);
+CREATE INDEX idx_friendship_b_account_id ON vibetype.friendship USING btree (b_account_id);
 CREATE INDEX idx_friendship_created_by ON vibetype.friendship USING btree (created_by);
 CREATE INDEX idx_friendship_updated_by ON vibetype.friendship USING btree (updated_by);
 

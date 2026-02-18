@@ -10,6 +10,8 @@ CREATE TABLE vibetype.event_upload (
   UNIQUE (event_id, upload_id)
 );
 
+CREATE INDEX idx_event_upload_upload_id ON vibetype.event_upload USING btree (upload_id);
+
 CREATE UNIQUE INDEX idx_event_upload_is_header_image_unique
   ON vibetype.event_upload USING btree (event_id)
   WHERE (is_header_image = true);
