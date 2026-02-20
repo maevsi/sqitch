@@ -617,7 +617,7 @@ ALTER TABLE vibetype.account OWNER TO ci;
 -- Name: TABLE account; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.account IS '@omit create,delete
+COMMENT ON TABLE vibetype.account IS '@behavior -insert -delete
 Public account data.';
 
 
@@ -625,7 +625,7 @@ Public account data.';
 -- Name: COLUMN account.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.account.id IS '@behavior -insert -update
 The account''s internal id.';
 
 
@@ -647,7 +647,7 @@ COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL. M
 -- Name: COLUMN account.username; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account.username IS '@omit update
+COMMENT ON COLUMN vibetype.account.username IS '@behavior -update
 The account''s username. Must be alphanumeric with hyphens and not exceed 100 characters.';
 
 
@@ -873,8 +873,8 @@ COMMENT ON TABLE vibetype.guest IS 'A guest for a contact. A bidirectional mappi
 -- Name: COLUMN guest.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.id IS '@omit create,update
-The guests''s internal id.';
+COMMENT ON COLUMN vibetype.guest.id IS '@behavior -insert -update
+The guest''s internal id.';
 
 
 --
@@ -909,7 +909,7 @@ COMMENT ON COLUMN vibetype.guest.feedback_paper IS 'The guest''s paper feedback 
 -- Name: COLUMN guest.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.guest.created_at IS '@behavior -insert -update
 Timestamp of when the guest was created, defaults to the current timestamp.';
 
 
@@ -917,7 +917,7 @@ Timestamp of when the guest was created, defaults to the current timestamp.';
 -- Name: COLUMN guest.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.updated_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.guest.updated_at IS '@behavior -insert -update
 Timestamp of when the guest was last updated.';
 
 
@@ -925,7 +925,7 @@ Timestamp of when the guest was last updated.';
 -- Name: COLUMN guest.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.updated_by IS '@omit create,update
+COMMENT ON COLUMN vibetype.guest.updated_by IS '@behavior -insert -update
 The id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
 
 
@@ -994,7 +994,7 @@ COMMENT ON TABLE vibetype.event IS 'An event.';
 -- Name: COLUMN event.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.event.id IS '@behavior -insert -update
 The event''s internal id.';
 
 
@@ -1086,7 +1086,7 @@ COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
 -- Name: COLUMN event.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.event.created_at IS '@behavior -insert -update
 Timestamp of when the event was created, defaults to the current timestamp.';
 
 
@@ -1101,7 +1101,7 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 -- Name: COLUMN event.search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.search_vector IS '@omit
+COMMENT ON COLUMN vibetype.event.search_vector IS '@behavior -insert -select -update
 A vector used for full-text search on events.';
 
 
@@ -2761,7 +2761,7 @@ ALTER TABLE vibetype.account_block OWNER TO ci;
 -- Name: TABLE account_block; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.account_block IS '@omit update
+COMMENT ON TABLE vibetype.account_block IS '@behavior -update
 Blocking of one account by another.';
 
 
@@ -2769,7 +2769,7 @@ Blocking of one account by another.';
 -- Name: COLUMN account_block.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account_block.id IS '@omit create
+COMMENT ON COLUMN vibetype.account_block.id IS '@behavior -insert
 The account block''s internal id.';
 
 
@@ -2784,7 +2784,7 @@ COMMENT ON COLUMN vibetype.account_block.blocked_account_id IS 'The account id o
 -- Name: COLUMN account_block.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.account_block.created_at IS '@omit create
+COMMENT ON COLUMN vibetype.account_block.created_at IS '@behavior -insert
 Timestamp of when the account block was created.';
 
 
@@ -2927,7 +2927,7 @@ COMMENT ON TABLE vibetype.address IS 'Stores detailed address information, inclu
 -- Name: COLUMN address.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.address.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.address.id IS '@behavior -insert -update
 Primary key, uniquely identifies each address.';
 
 
@@ -2991,7 +2991,7 @@ COMMENT ON COLUMN vibetype.address.region IS 'Region of the address (e.g., state
 -- Name: COLUMN address.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.address.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.address.created_at IS '@behavior -insert -update
 Timestamp when the address was created. Defaults to the current timestamp.';
 
 
@@ -2999,7 +2999,7 @@ Timestamp when the address was created. Defaults to the current timestamp.';
 -- Name: COLUMN address.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.address.created_by IS '@omit update
+COMMENT ON COLUMN vibetype.address.created_by IS '@behavior -update
 Reference to the account that created the address.';
 
 
@@ -3007,7 +3007,7 @@ Reference to the account that created the address.';
 -- Name: COLUMN address.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.address.updated_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.address.updated_at IS '@behavior -insert -update
 Timestamp when the address was last updated.';
 
 
@@ -3015,7 +3015,7 @@ Timestamp when the address was last updated.';
 -- Name: COLUMN address.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.address.updated_by IS '@omit create,update
+COMMENT ON COLUMN vibetype.address.updated_by IS '@behavior -insert -update
 Reference to the account that last updated the address.';
 
 
@@ -3044,7 +3044,7 @@ ALTER TABLE vibetype.app OWNER TO ci;
 -- Name: TABLE app; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.app IS '@omit create,update,delete
+COMMENT ON TABLE vibetype.app IS '@behavior -insert -update -delete
 Integrations that can be added to events. Each app has a name, icon, and an endpoint for attendance management.';
 
 
@@ -3118,7 +3118,7 @@ ALTER TABLE vibetype.attendance OWNER TO ci;
 -- Name: TABLE attendance; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.attendance IS '@omit delete
+COMMENT ON TABLE vibetype.attendance IS '@behavior -delete
 Keeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
 
 
@@ -3126,7 +3126,7 @@ Keeps track of when someone arrives and leaves an event. Each person can only be
 -- Name: COLUMN attendance.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.attendance.id IS '@behavior -insert -update
 A unique reference for this entry.';
 
 
@@ -3134,7 +3134,7 @@ A unique reference for this entry.';
 -- Name: COLUMN attendance.checked_out; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.checked_out IS '@omit create
+COMMENT ON COLUMN vibetype.attendance.checked_out IS '@behavior -insert
 Shows if the person has left. When this turns on, the time is saved automatically.';
 
 
@@ -3142,7 +3142,7 @@ Shows if the person has left. When this turns on, the time is saved automaticall
 -- Name: COLUMN attendance.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.contact_id IS '@omit update
+COMMENT ON COLUMN vibetype.attendance.contact_id IS '@behavior -update
 The contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
 
 
@@ -3150,7 +3150,7 @@ The contact information available to anyone with access to this attendance entry
 -- Name: COLUMN attendance.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.guest_id IS '@omit update
+COMMENT ON COLUMN vibetype.attendance.guest_id IS '@behavior -update
 Who this entry is for.';
 
 
@@ -3158,7 +3158,7 @@ Who this entry is for.';
 -- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.attendance.created_at IS '@behavior -insert -update
 When the entry was created (the check-in time).';
 
 
@@ -3166,7 +3166,7 @@ When the entry was created (the check-in time).';
 -- Name: COLUMN attendance.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.updated_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.attendance.updated_at IS '@behavior -insert -update
 When this entry was last changed. If someone checks out, this shows the checkout time.';
 
 
@@ -3174,7 +3174,7 @@ When this entry was last changed. If someone checks out, this shows the checkout
 -- Name: COLUMN attendance.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.attendance.updated_by IS '@omit create,update
+COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
 Who last changed this entry. This may be empty if done without signing in.';
 
 
@@ -3221,7 +3221,7 @@ COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to acco
 -- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
 Primary key, uniquely identifies each contact.';
 
 
@@ -3250,7 +3250,7 @@ COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contac
 -- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@omit create,update
+COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
 Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 
 
@@ -3314,7 +3314,7 @@ COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must
 -- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
 Timestamp when the contact was created. Defaults to the current timestamp.';
 
 
@@ -3353,7 +3353,7 @@ COMMENT ON TABLE vibetype.device IS 'A device that''s assigned to an account.';
 -- Name: COLUMN device.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.device.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.device.id IS '@behavior -insert -update
 The internal id of the device.';
 
 
@@ -3368,7 +3368,7 @@ COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging tok
 -- Name: COLUMN device.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.device.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.device.created_at IS '@behavior -insert -update
 Timestamp when the device was created. Defaults to the current timestamp.';
 
 
@@ -3376,7 +3376,7 @@ Timestamp when the device was created. Defaults to the current timestamp.';
 -- Name: COLUMN device.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.device.created_by IS '@omit update
+COMMENT ON COLUMN vibetype.device.created_by IS '@behavior -update
 Reference to the account that created the device.';
 
 
@@ -3384,7 +3384,7 @@ Reference to the account that created the device.';
 -- Name: COLUMN device.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.device.updated_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.device.updated_at IS '@behavior -insert -update
 Timestamp when the device was last updated.';
 
 
@@ -3392,7 +3392,7 @@ Timestamp when the device was last updated.';
 -- Name: COLUMN device.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.device.updated_by IS '@omit create,update
+COMMENT ON COLUMN vibetype.device.updated_by IS '@behavior -insert -update
 Reference to the account that last updated the device.';
 
 
@@ -3415,7 +3415,7 @@ ALTER TABLE vibetype.event_app OWNER TO ci;
 -- Name: TABLE event_app; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_app IS '@omit create,update,delete
+COMMENT ON TABLE vibetype.event_app IS '@behavior -insert -update -delete
 Records which apps are installed on which events.';
 
 
@@ -3423,7 +3423,7 @@ Records which apps are installed on which events.';
 -- Name: COLUMN event_app.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_app.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_app.id IS '@behavior -insert -update
 A unique reference for this installation.';
 
 
@@ -3431,7 +3431,7 @@ A unique reference for this installation.';
 -- Name: COLUMN event_app.app_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_app.app_id IS '@omit update
+COMMENT ON COLUMN vibetype.event_app.app_id IS '@behavior -update
 The app that is installed.';
 
 
@@ -3439,7 +3439,7 @@ The app that is installed.';
 -- Name: COLUMN event_app.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_app.event_id IS '@omit update
+COMMENT ON COLUMN vibetype.event_app.event_id IS '@behavior -update
 The event the app is installed on.';
 
 
@@ -3447,7 +3447,7 @@ The event the app is installed on.';
 -- Name: COLUMN event_app.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_app.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_app.created_at IS '@behavior -insert -update
 When the app was installed.';
 
 
@@ -3455,7 +3455,7 @@ When the app was installed.';
 -- Name: COLUMN event_app.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_app.created_by IS '@omit update
+COMMENT ON COLUMN vibetype.event_app.created_by IS '@behavior -update
 Who installed this app.';
 
 
@@ -3475,7 +3475,7 @@ ALTER TABLE vibetype.event_category OWNER TO ci;
 -- Name: TABLE event_category; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_category IS '@omit create,update,delete
+COMMENT ON TABLE vibetype.event_category IS '@behavior -insert -update -delete
 Event categories.';
 
 
@@ -3544,7 +3544,7 @@ ALTER TABLE vibetype.event_favorite OWNER TO ci;
 -- Name: TABLE event_favorite; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_favorite IS '@omit update
+COMMENT ON TABLE vibetype.event_favorite IS '@behavior -update
 Stores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 
 
@@ -3552,7 +3552,7 @@ Stores user-specific event favorites, linking an event to the account that marke
 -- Name: COLUMN event_favorite.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.id IS '@omit create
+COMMENT ON COLUMN vibetype.event_favorite.id IS '@behavior -insert
 Primary key, uniquely identifies each favorite entry.';
 
 
@@ -3567,7 +3567,7 @@ COMMENT ON COLUMN vibetype.event_favorite.event_id IS 'Reference to the event th
 -- Name: COLUMN event_favorite.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_favorite.created_at IS '@omit create
+COMMENT ON COLUMN vibetype.event_favorite.created_at IS '@behavior -insert
 Timestamp when the favorite was created. Defaults to the current timestamp.';
 
 
@@ -3594,7 +3594,7 @@ ALTER TABLE vibetype.event_format OWNER TO ci;
 -- Name: TABLE event_format; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event_format IS '@omit create,update,delete
+COMMENT ON TABLE vibetype.event_format IS '@behavior -insert -update -delete
 Event formats.';
 
 
@@ -3719,7 +3719,7 @@ COMMENT ON TABLE vibetype.event_upload IS 'Associates uploaded files with events
 -- Name: COLUMN event_upload.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_upload.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.event_upload.id IS '@behavior -insert -update
 Primary key, uniquely identifies each event-upload association.';
 
 
@@ -3727,7 +3727,7 @@ Primary key, uniquely identifies each event-upload association.';
 -- Name: COLUMN event_upload.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_upload.event_id IS '@omit update
+COMMENT ON COLUMN vibetype.event_upload.event_id IS '@behavior -update
 Reference to the event associated with the upload.';
 
 
@@ -3742,7 +3742,7 @@ COMMENT ON COLUMN vibetype.event_upload.is_header_image IS 'Optional boolean fla
 -- Name: COLUMN event_upload.upload_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event_upload.upload_id IS '@omit update
+COMMENT ON COLUMN vibetype.event_upload.upload_id IS '@behavior -update
 Reference to the uploaded file.';
 
 
@@ -3779,7 +3779,7 @@ COMMENT ON TABLE vibetype.friendship IS 'A friend relation together with its sta
 -- Name: COLUMN friendship.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.friendship.id IS '@behavior -insert -update
 The friend relation''s internal id.';
 
 
@@ -3787,7 +3787,7 @@ The friend relation''s internal id.';
 -- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.a_account_id IS '@omit update
+COMMENT ON COLUMN vibetype.friendship.a_account_id IS '@behavior -update
 The ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
 
 
@@ -3795,7 +3795,7 @@ The ''left'' side of the friend relation. It must be lexically less than the ''r
 -- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.b_account_id IS '@omit update
+COMMENT ON COLUMN vibetype.friendship.b_account_id IS '@behavior -update
 The ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
 
 
@@ -3803,7 +3803,7 @@ The ''right'' side of the friend relation. It must be lexically greater than the
 -- Name: COLUMN friendship.status; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.status IS '@omit create
+COMMENT ON COLUMN vibetype.friendship.status IS '@behavior -insert
 The status of the friend relation.';
 
 
@@ -3811,7 +3811,7 @@ The status of the friend relation.';
 -- Name: COLUMN friendship.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.friendship.created_at IS '@behavior -insert -update
 The timestamp when the friend relation was created.';
 
 
@@ -3819,15 +3819,15 @@ The timestamp when the friend relation was created.';
 -- Name: COLUMN friendship.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.created_by IS '@omit update
-The account that created the friend relation was created.';
+COMMENT ON COLUMN vibetype.friendship.created_by IS '@behavior -update
+The account that created the friend relation.';
 
 
 --
 -- Name: COLUMN friendship.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.updated_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.friendship.updated_at IS '@behavior -insert -update
 The timestamp when the friend relation''s status was updated.';
 
 
@@ -3835,7 +3835,7 @@ The timestamp when the friend relation''s status was updated.';
 -- Name: COLUMN friendship.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.updated_by IS '@omit create,update
+COMMENT ON COLUMN vibetype.friendship.updated_by IS '@behavior -insert -update
 The account that updated the friend relation''s status.';
 
 
@@ -3909,7 +3909,7 @@ ALTER TABLE vibetype.legal_term OWNER TO ci;
 -- Name: TABLE legal_term; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.legal_term IS '@omit create,update,delete
+COMMENT ON TABLE vibetype.legal_term IS '@behavior -insert -update -delete
 Legal terms like privacy policies or terms of service.';
 
 
@@ -3966,7 +3966,7 @@ ALTER TABLE vibetype.legal_term_acceptance OWNER TO ci;
 -- Name: TABLE legal_term_acceptance; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.legal_term_acceptance IS '@omit update,delete
+COMMENT ON TABLE vibetype.legal_term_acceptance IS '@behavior -update -delete
 Tracks each user account''s acceptance of legal terms and conditions.';
 
 
@@ -3974,7 +3974,7 @@ Tracks each user account''s acceptance of legal terms and conditions.';
 -- Name: COLUMN legal_term_acceptance.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.legal_term_acceptance.id IS '@omit create
+COMMENT ON COLUMN vibetype.legal_term_acceptance.id IS '@behavior -insert
 Unique identifier for this legal term acceptance record. Automatically generated for each new acceptance.';
 
 
@@ -3996,7 +3996,7 @@ COMMENT ON COLUMN vibetype.legal_term_acceptance.legal_term_id IS 'The ID of the
 -- Name: COLUMN legal_term_acceptance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.legal_term_acceptance.created_at IS '@omit create
+COMMENT ON COLUMN vibetype.legal_term_acceptance.created_at IS '@behavior -insert
 Timestamp showing when the legal terms were accepted, set automatically at the time of acceptance.';
 
 
@@ -4104,7 +4104,7 @@ COMMENT ON TABLE vibetype.preference_event_location IS 'Stores preferred event l
 -- Name: COLUMN preference_event_location.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.preference_event_location.id IS '@omit create
+COMMENT ON COLUMN vibetype.preference_event_location.id IS '@behavior -insert
 Unique identifier for the preference record.';
 
 
@@ -4126,8 +4126,8 @@ COMMENT ON COLUMN vibetype.preference_event_location.radius IS 'Search radius in
 -- Name: COLUMN preference_event_location.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.preference_event_location.created_at IS '@omit create
-Timestamp of when the event size preference was created, defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.preference_event_location.created_at IS '@behavior -insert
+Timestamp of when the event location preference was created, defaults to the current timestamp.';
 
 
 --
@@ -4176,7 +4176,7 @@ COMMENT ON COLUMN vibetype.preference_event_size.event_size IS 'A preferred even
 -- Name: COLUMN preference_event_size.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.preference_event_size.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.preference_event_size.created_at IS '@behavior -insert -update
 Timestamp of when the event size preference was created, defaults to the current timestamp.';
 
 
@@ -4204,7 +4204,7 @@ COMMENT ON TABLE vibetype.profile_picture IS 'Mapping of account ids to upload i
 -- Name: COLUMN profile_picture.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.profile_picture.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.profile_picture.id IS '@behavior -insert -update
 The profile picture''s internal id.';
 
 
@@ -4245,7 +4245,7 @@ ALTER TABLE vibetype.report OWNER TO ci;
 -- Name: TABLE report; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.report IS '@omit update,delete
+COMMENT ON TABLE vibetype.report IS '@behavior -update -delete
 Stores reports made by users on other users, events, or uploads for moderation purposes.';
 
 
@@ -4253,7 +4253,7 @@ Stores reports made by users on other users, events, or uploads for moderation p
 -- Name: COLUMN report.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.report.id IS '@omit create
+COMMENT ON COLUMN vibetype.report.id IS '@behavior -insert
 Unique identifier for the report, generated randomly using UUIDs.';
 
 
@@ -4289,7 +4289,7 @@ COMMENT ON COLUMN vibetype.report.target_upload_id IS 'The ID of the upload bein
 -- Name: COLUMN report.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.report.created_at IS '@omit create
+COMMENT ON COLUMN vibetype.report.created_at IS '@behavior -insert
 Timestamp of when the report was created, defaults to the current timestamp.';
 
 
@@ -4346,7 +4346,7 @@ COMMENT ON TABLE vibetype.upload IS 'An upload.';
 -- Name: COLUMN upload.id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.id IS '@omit create,update
+COMMENT ON COLUMN vibetype.upload.id IS '@behavior -insert -update
 The upload''s internal id.';
 
 
@@ -4361,7 +4361,7 @@ COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file. Must b
 -- Name: COLUMN upload.size_byte; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.size_byte IS '@omit update
+COMMENT ON COLUMN vibetype.upload.size_byte IS '@behavior -update
 The upload''s size in bytes.';
 
 
@@ -4369,7 +4369,7 @@ The upload''s size in bytes.';
 -- Name: COLUMN upload.storage_key; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.storage_key IS '@omit create,update
+COMMENT ON COLUMN vibetype.upload.storage_key IS '@behavior -insert -update
 The upload''s storage key.';
 
 
@@ -4377,7 +4377,7 @@ The upload''s storage key.';
 -- Name: COLUMN upload.type; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.type IS '@omit create,update
+COMMENT ON COLUMN vibetype.upload.type IS '@behavior -insert -update
 The type of the uploaded file, default is ''image''.';
 
 
@@ -4385,7 +4385,7 @@ The type of the uploaded file, default is ''image''.';
 -- Name: COLUMN upload.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.upload.created_at IS '@omit create,update
+COMMENT ON COLUMN vibetype.upload.created_at IS '@behavior -insert -update
 Timestamp of when the upload was created, defaults to the current timestamp.';
 
 
@@ -5378,6 +5378,27 @@ ALTER TABLE ONLY vibetype_private.notification
 
 
 --
+-- Name: idx_account_block_blocked_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_block_blocked_account_id ON vibetype.account_block USING btree (blocked_account_id);
+
+
+--
+-- Name: idx_account_block_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_block_created_by ON vibetype.account_block USING btree (created_by);
+
+
+--
+-- Name: idx_account_social_network_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_social_network_account_id ON vibetype.account_social_network USING btree (account_id);
+
+
+--
 -- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5389,6 +5410,13 @@ CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username p
 --
 
 COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+
+
+--
+-- Name: idx_achievement_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_achievement_account_id ON vibetype.achievement USING btree (account_id);
 
 
 --
@@ -5476,6 +5504,48 @@ COMMENT ON INDEX vibetype.idx_attendance_updated_by IS 'Speeds up searching by w
 
 
 --
+-- Name: idx_contact_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
+
+
+--
+-- Name: idx_contact_address_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id);
+
+
+--
+-- Name: idx_contact_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
+
+
+--
+-- Name: idx_contact_name_first; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name);
+
+
+--
+-- Name: idx_contact_name_last; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
+
+
+--
+-- Name: idx_device_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_device_created_by ON vibetype.device USING btree (created_by);
+
+
+--
 -- Name: idx_device_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5487,6 +5557,20 @@ CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
 --
 
 COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_event_address_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_address_id ON vibetype.event USING btree (address_id);
+
+
+--
+-- Name: idx_event_app_app_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_app_app_id ON vibetype.event_app USING btree (app_id);
 
 
 --
@@ -5504,6 +5588,76 @@ COMMENT ON INDEX vibetype.idx_event_app_created_by IS 'B-Tree index to optimize 
 
 
 --
+-- Name: idx_event_app_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_app_event_id ON vibetype.event_app USING btree (event_id);
+
+
+--
+-- Name: idx_event_category_mapping_category_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_category_mapping_category_id ON vibetype.event_category_mapping USING btree (category_id);
+
+
+--
+-- Name: idx_event_category_mapping_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_category_mapping_event_id ON vibetype.event_category_mapping USING btree (event_id);
+
+
+--
+-- Name: idx_event_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+
+
+--
+-- Name: idx_event_favorite_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_favorite_created_by ON vibetype.event_favorite USING btree (created_by);
+
+
+--
+-- Name: idx_event_favorite_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_favorite_event_id ON vibetype.event_favorite USING btree (event_id);
+
+
+--
+-- Name: idx_event_format_mapping_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_format_mapping_event_id ON vibetype.event_format_mapping USING btree (event_id);
+
+
+--
+-- Name: idx_event_format_mapping_format_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_format_mapping_format_id ON vibetype.event_format_mapping USING btree (format_id);
+
+
+--
+-- Name: idx_event_recommendation_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_recommendation_account_id ON vibetype.event_recommendation USING btree (account_id);
+
+
+--
+-- Name: idx_event_recommendation_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_recommendation_event_id ON vibetype.event_recommendation USING btree (event_id);
+
+
+--
 -- Name: idx_event_search_vector; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5518,6 +5672,13 @@ COMMENT ON INDEX vibetype.idx_event_search_vector IS 'GIN index on the search ve
 
 
 --
+-- Name: idx_event_start; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
+
+
+--
 -- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5529,6 +5690,27 @@ CREATE UNIQUE INDEX idx_event_upload_is_header_image_unique ON vibetype.event_up
 --
 
 COMMENT ON INDEX vibetype.idx_event_upload_is_header_image_unique IS 'Ensures that at most one header image exists per event.';
+
+
+--
+-- Name: idx_event_upload_upload_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_upload_upload_id ON vibetype.event_upload USING btree (upload_id);
+
+
+--
+-- Name: idx_friendship_a_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_friendship_a_account_id ON vibetype.friendship USING btree (a_account_id);
+
+
+--
+-- Name: idx_friendship_b_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_friendship_b_account_id ON vibetype.friendship USING btree (b_account_id);
 
 
 --
@@ -5560,6 +5742,20 @@ COMMENT ON INDEX vibetype.idx_friendship_updated_by IS 'B-Tree index to optimize
 
 
 --
+-- Name: idx_guest_contact_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_guest_contact_id ON vibetype.guest USING btree (contact_id);
+
+
+--
+-- Name: idx_guest_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_guest_event_id ON vibetype.guest USING btree (event_id);
+
+
+--
 -- Name: idx_guest_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5571,6 +5767,104 @@ CREATE INDEX idx_guest_updated_by ON vibetype.guest USING btree (updated_by);
 --
 
 COMMENT ON INDEX vibetype.idx_guest_updated_by IS 'B-Tree index to optimize lookups by updater.';
+
+
+--
+-- Name: idx_legal_term_acceptance_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_legal_term_acceptance_account_id ON vibetype.legal_term_acceptance USING btree (account_id);
+
+
+--
+-- Name: idx_legal_term_acceptance_legal_term_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_legal_term_acceptance_legal_term_id ON vibetype.legal_term_acceptance USING btree (legal_term_id);
+
+
+--
+-- Name: idx_preference_event_category_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_preference_event_category_account_id ON vibetype.preference_event_category USING btree (account_id);
+
+
+--
+-- Name: idx_preference_event_category_category_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_preference_event_category_category_id ON vibetype.preference_event_category USING btree (category_id);
+
+
+--
+-- Name: idx_preference_event_format_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_preference_event_format_account_id ON vibetype.preference_event_format USING btree (account_id);
+
+
+--
+-- Name: idx_preference_event_format_format_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_preference_event_format_format_id ON vibetype.preference_event_format USING btree (format_id);
+
+
+--
+-- Name: idx_preference_event_location_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_preference_event_location_created_by ON vibetype.preference_event_location USING btree (created_by);
+
+
+--
+-- Name: idx_preference_event_size_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_preference_event_size_account_id ON vibetype.preference_event_size USING btree (account_id);
+
+
+--
+-- Name: idx_profile_picture_upload_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_profile_picture_upload_id ON vibetype.profile_picture USING btree (upload_id);
+
+
+--
+-- Name: idx_report_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_report_created_by ON vibetype.report USING btree (created_by);
+
+
+--
+-- Name: idx_report_target_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_report_target_account_id ON vibetype.report USING btree (target_account_id);
+
+
+--
+-- Name: idx_report_target_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_report_target_event_id ON vibetype.report USING btree (target_event_id);
+
+
+--
+-- Name: idx_report_target_upload_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_report_target_upload_id ON vibetype.report USING btree (target_upload_id);
+
+
+--
+-- Name: idx_upload_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
 
 
 --

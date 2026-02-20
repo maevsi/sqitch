@@ -8,6 +8,8 @@ CREATE TABLE vibetype.account_social_network (
   PRIMARY KEY (account_id, social_network)
 );
 
+CREATE INDEX idx_account_social_network_account_id ON vibetype.account_social_network USING btree (account_id);
+
 COMMENT ON TABLE vibetype.account_social_network IS 'Links accounts to their social media profiles. Each entry represents a specific social network and associated username for an account.';
 COMMENT ON COLUMN vibetype.account_social_network.account_id IS 'The unique identifier of the account.';
 COMMENT ON COLUMN vibetype.account_social_network.social_network IS 'The social network to which the account is linked.';

@@ -10,6 +10,8 @@ CREATE TABLE vibetype.achievement (
   UNIQUE (account_id, achievement)
 );
 
+CREATE INDEX idx_achievement_account_id ON vibetype.achievement USING btree (account_id);
+
 COMMENT ON TABLE vibetype.achievement IS 'Achievements unlocked by users.';
 COMMENT ON COLUMN vibetype.achievement.id IS 'The achievement unlock''s internal id.';
 COMMENT ON COLUMN vibetype.achievement.account_id IS 'The account which unlocked the achievement.';
