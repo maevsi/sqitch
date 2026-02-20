@@ -1,3 +1,17 @@
+## [11.0.0-beta.1](https://github.com/maevsi/sqitch/compare/10.0.3...11.0.0-beta.1) (2026-02-20)
+
+### ⚠ BREAKING CHANGES
+
+* **postgraphile:** migrate to v5
+
+### Features
+
+* **postgraphile:** migrate to v5 ([a16af50](https://github.com/maevsi/sqitch/commit/a16af50f84f53916eef5080835bb54f2d95cdfc7))
+
+### Performance Improvements
+
+* **index:** add missing ([9e92140](https://github.com/maevsi/sqitch/commit/9e921401d0b3221090056dc4818463971f570d08))
+
 ## [10.0.3](https://github.com/maevsi/sqitch/compare/10.0.2...10.0.3) (2026-01-24)
 
 ### Bug Fixes
