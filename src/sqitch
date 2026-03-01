@@ -4,7 +4,7 @@
 # Determine which Docker image to run.
 SQITCH_IMAGE=${SQITCH_IMAGE:=sqitch/sqitch:latest}
 
-SQITCH_TARGET="db:pg://postgres:postgres@localhost/vibetype"
+SQITCH_TARGET="db:pg://postgres:postgres@127.0.0.1/vibetype"
 export SQITCH_TARGET
 
 # Set up required pass-through variables.

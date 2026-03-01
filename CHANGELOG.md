@@ -12,6 +12,24 @@
 
 * **index:** add missing ([9e92140](https://github.com/maevsi/sqitch/commit/9e921401d0b3221090056dc4818463971f570d08))
 
+## [10.0.6](https://github.com/maevsi/sqitch/compare/10.0.5...10.0.6) (2026-02-28)
+
+### Bug Fixes
+
+* schedule release ([4ae70d0](https://github.com/maevsi/sqitch/commit/4ae70d05e387717a45217d2a241d14ca90529e6c))
+
+## [10.0.5](https://github.com/maevsi/sqitch/compare/10.0.4...10.0.5) (2026-02-14)
+
+### Bug Fixes
+
+* schedule release ([31be85a](https://github.com/maevsi/sqitch/commit/31be85aaa1e5ba9c69b4ac02d577ce775e345b96))
+
+## [10.0.4](https://github.com/maevsi/sqitch/compare/10.0.3...10.0.4) (2026-01-31)
+
+### Bug Fixes
+
+* schedule release ([6e6e818](https://github.com/maevsi/sqitch/commit/6e6e818c4818518f7309a6a3bea13d1c79f0f6fb))
+
 ## [10.0.3](https://github.com/maevsi/sqitch/compare/10.0.2...10.0.3) (2026-01-24)
 
 ### Bug Fixes
