@@ -12,14 +12,16 @@ CREATE TABLE vibetype.event_app (
   UNIQUE (event_id, app_id)
 );
 
+CREATE INDEX idx_event_app_app_id ON vibetype.event_app USING btree (app_id);
+CREATE INDEX idx_event_app_event_id ON vibetype.event_app USING btree (event_id);
 CREATE INDEX idx_event_app_created_by ON vibetype.event_app USING btree (created_by);
 
-COMMENT ON TABLE vibetype.event_app IS E'@omit create,update,delete\nRecords which apps are installed on which events.';
-COMMENT ON COLUMN vibetype.event_app.id IS E'@omit create,update\nA unique reference for this installation.';
-COMMENT ON COLUMN vibetype.event_app.app_id IS E'@omit update\nThe app that is installed.';
-COMMENT ON COLUMN vibetype.event_app.event_id IS E'@omit update\nThe event the app is installed on.';
-COMMENT ON COLUMN vibetype.event_app.created_at IS E'@omit create,update\nWhen the app was installed.';
-COMMENT ON COLUMN vibetype.event_app.created_by IS E'@omit update\nWho installed this app.';
+COMMENT ON TABLE vibetype.event_app IS E'@behavior -insert -update -delete\nRecords which apps are installed on which events.';
+COMMENT ON COLUMN vibetype.event_app.id IS E'@behavior -insert -update\nA unique reference for this installation.';
+COMMENT ON COLUMN vibetype.event_app.app_id IS E'@behavior -update\nThe app that is installed.';
+COMMENT ON COLUMN vibetype.event_app.event_id IS E'@behavior -update\nThe event the app is installed on.';
+COMMENT ON COLUMN vibetype.event_app.created_at IS E'@behavior -insert -update\nWhen the app was installed.';
+COMMENT ON COLUMN vibetype.event_app.created_by IS E'@behavior -update\nWho installed this app.';
 COMMENT ON INDEX vibetype.idx_event_app_created_by IS 'B-Tree index to optimize lookups by creator.';
 
 GRANT SELECT ON TABLE vibetype.event_app TO vibetype_anonymous;

@@ -7,6 +7,9 @@ CREATE TABLE vibetype.event_format_mapping (
   PRIMARY KEY (event_id, format_id)
 );
 
+CREATE INDEX idx_event_format_mapping_event_id ON vibetype.event_format_mapping USING btree (event_id);
+CREATE INDEX idx_event_format_mapping_format_id ON vibetype.event_format_mapping USING btree (format_id);
+
 COMMENT ON TABLE vibetype.event_format_mapping IS 'Mapping events to formats (M:N relationship).';
 COMMENT ON COLUMN vibetype.event_format_mapping.event_id IS 'An event id.';
 COMMENT ON COLUMN vibetype.event_format_mapping.format_id IS 'A format id.';

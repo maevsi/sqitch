@@ -11,10 +11,12 @@ CREATE TABLE vibetype.preference_event_size (
   UNIQUE (account_id, event_size)
 );
 
+CREATE INDEX idx_preference_event_size_account_id ON vibetype.preference_event_size USING btree (account_id);
+
 COMMENT ON TABLE vibetype.preference_event_size IS 'Table for the user accounts'' preferred event sizes (M:N relationship).';
 COMMENT ON COLUMN vibetype.preference_event_size.account_id IS 'The account''s internal id.';
 COMMENT ON COLUMN vibetype.preference_event_size.event_size IS 'A preferred event size.';
-COMMENT ON COLUMN vibetype.preference_event_size.created_at IS E'@omit create,update\nTimestamp of when the event size preference was created, defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.preference_event_size.created_at IS E'@behavior -insert -update\nTimestamp of when the event size preference was created, defaults to the current timestamp.';
 
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.preference_event_size TO vibetype_account;
 
