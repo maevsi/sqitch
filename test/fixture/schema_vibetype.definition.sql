@@ -755,38 +755,26 @@ COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inser
 CREATE FUNCTION vibetype.attendance_claim_array() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  WITH attendance_ids AS (
-    SELECT NULLIF(attendance_text, '')::UUID AS id
-    FROM unnest(
-      string_to_array(
-        replace(btrim(current_setting('jwt.claims.attendances', true), '[]'), '"', ''),
-        ','
-      )
-    ) AS attendance_text
-    WHERE NULLIF(attendance_text, '') IS NOT NULL
+  WITH
+  _claimed_attendance_ids AS (
+    SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.attendances', true), '')::json)::UUID AS id
   ),
-  blocked_account_ids AS (
+  _blocked_accounts AS (
     SELECT id FROM vibetype_private.account_block_ids()
+  ),
+  _accessible_attendances AS (
+    SELECT attendance.id
+    FROM _claimed_attendance_ids claimed
+    INNER JOIN vibetype.attendance ON attendance.id = claimed.id
+    INNER JOIN vibetype.guest ON guest.id = attendance.guest_id
+    INNER JOIN vibetype.event ON event.id = guest.event_id
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id
+    WHERE NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = event.created_by)
+      AND NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = contact.created_by)
+      AND (contact.account_id IS NULL OR NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = contact.account_id))
   )
-  SELECT COALESCE(array_agg(a.id), ARRAY[]::UUID[])
-  FROM attendance_ids ai
-    JOIN vibetype.attendance a ON a.id = ai.id
-    JOIN vibetype.guest g ON a.guest_id = g.id
-    JOIN vibetype.event e ON g.event_id = e.id
-    JOIN vibetype.contact c ON g.contact_id = c.id
-  WHERE NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = e.created_by
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
-    )
-    AND (
-      c.account_id IS NULL
-      OR
-      NOT EXISTS (
-        SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
-      )
-    )
+  SELECT COALESCE(array_agg(id), ARRAY[]::UUID[])
+  FROM _accessible_attendances;
 $$;
 
 
@@ -1228,117 +1216,31 @@ COMMENT ON FUNCTION vibetype.event_search(query text, language vibetype.language
 
 
 --
--- Name: event_unlock(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.event_unlock(guest_id uuid) RETURNS TABLE(creator_username text, event_slug text, jwt vibetype.jwt)
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _jwt_id UUID;
-  _jwt vibetype.jwt;
-  _event vibetype.event;
-  _event_creator_account_username TEXT;
-  _event_id UUID;
-BEGIN
-  _jwt_id := current_setting('jwt.claims.jti', true)::UUID;
-  _jwt := (
-    COALESCE(
-      string_to_array(
-        replace(btrim(current_setting('jwt.claims.attendances', true), '[]'), '"', ''),
-        ','
-      )::UUID[],
-      '{}'::UUID[]
-    ),
-    current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || event_unlock.guest_id) ORDER BY 1)),
-    _jwt_id,
-    current_setting('jwt.claims.role', true)::TEXT,
-    vibetype.invoker_account_id(),
-    current_setting('jwt.claims.username', true)::TEXT
-  )::vibetype.jwt;
-
-  UPDATE vibetype_private.jwt
-  SET token = _jwt
-  WHERE id = _jwt_id;
-
-  _event_id := (
-    SELECT event_id FROM vibetype.guest
-    WHERE guest.id = event_unlock.guest_id
-  );
-
-  IF (_event_id IS NULL) THEN
-    RAISE 'No guest for this guest id found!' USING ERRCODE = 'no_data_found';
-  END IF;
-
-  SELECT *
-    INTO _event
-    FROM vibetype.event
-    WHERE id = _event_id;
-
-  IF (_event IS NULL) THEN
-    RAISE 'No event for this guest id found!' USING ERRCODE = 'no_data_found';
-  END IF;
-
-  _event_creator_account_username := (
-    SELECT username
-    FROM vibetype.account
-    WHERE id = _event.created_by
-  );
-
-  IF (_event_creator_account_username IS NULL) THEN
-    RAISE 'No event creator username for this guest id found!' USING ERRCODE = 'no_data_found';
-  END IF;
-
-  RETURN QUERY SELECT _event_creator_account_username, _event.slug, _jwt;
-END $$;
-
-
-ALTER FUNCTION vibetype.event_unlock(guest_id uuid) OWNER TO ci;
-
---
--- Name: FUNCTION event_unlock(guest_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.event_unlock(guest_id uuid) IS 'Adds a guest claim to the current session.\n\nError codes:\n- **P0002** when no guest, no event, or no event creator username was found for this guest id.';
-
-
---
 -- Name: guest_claim_array(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
 CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  WITH guest_ids AS (
-    SELECT unnest(
-      string_to_array(
-        replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''),
-        ','
-      )::UUID[]
-    ) AS id
+  WITH
+  _claimed_guest_ids AS (
+    SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.guests', true), '')::json)::UUID AS id
   ),
-  blocked_account_ids AS (
+  _blocked_accounts AS (
     SELECT id FROM vibetype_private.account_block_ids()
+  ),
+  _accessible_guests AS (
+    SELECT guest.id
+    FROM _claimed_guest_ids claimed
+    INNER JOIN vibetype.guest ON guest.id = claimed.id
+    INNER JOIN vibetype.event ON event.id = guest.event_id
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id
+    WHERE NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = event.created_by)
+      AND NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = contact.created_by)
+      AND (contact.account_id IS NULL OR NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = contact.account_id))
   )
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM guest_ids gi
-    JOIN vibetype.guest g ON g.id = gi.id
-    JOIN vibetype.event e ON g.event_id = e.id
-    JOIN vibetype.contact c ON g.contact_id = c.id
-  WHERE NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = e.created_by
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
-    )
-    AND (
-      c.account_id IS NULL
-      OR
-      NOT EXISTS (
-        SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
-      )
-    )
+  SELECT COALESCE(array_agg(id), ARRAY[]::UUID[])
+  FROM _accessible_guests;
 $$;
 
 
@@ -1563,62 +1465,68 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 --
 
 CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _account_id UUID;
-  _jwt_id UUID := gen_random_uuid();
-  _jwt_exp BIGINT := EXTRACT(EPOCH FROM ((SELECT date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)) + COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL));
-  _jwt vibetype.jwt;
-  _username TEXT;
-BEGIN
-  IF (jwt_create.username = '' AND jwt_create.password = '') THEN
-    -- Authenticate as guest.
-    _jwt := (NULL, _jwt_exp, vibetype.guest_claim_array(), _jwt_id, 'vibetype_anonymous', NULL, NULL)::vibetype.jwt;
-  ELSIF (jwt_create.username IS NOT NULL AND jwt_create.password IS NOT NULL) THEN
-    -- if jwt_create.username contains @ then treat it as an email address otherwise as a user name
-    IF (strpos(jwt_create.username, '@') = 0) THEN
-      SELECT id FROM vibetype.account WHERE account.username = jwt_create.username INTO _account_id;
-    ELSE
-      SELECT id FROM vibetype_private.account WHERE account.email_address = jwt_create.username INTO _account_id;
-    END IF;
-
-    IF (_account_id IS NULL) THEN
-      RAISE 'Account not found!' USING ERRCODE = 'no_data_found';
-    END IF;
-
-    SELECT account.username INTO _username FROM vibetype.account WHERE id = _account_id;
-
-    IF ((
-        SELECT account.email_address_verification
-        FROM vibetype_private.account
-        WHERE
-              account.id = _account_id
-          AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
-      ) IS NOT NULL) THEN
-      RAISE 'Account not verified!' USING ERRCODE = 'object_not_in_prerequisite_state';
-    END IF;
-
-    WITH updated AS (
-      UPDATE vibetype_private.account
-      SET (last_activity, password_reset_verification) = (DEFAULT, NULL)
-      WHERE
-            account.id = _account_id
-        AND account.email_address_verification IS NULL -- Has been checked before, but better safe than sorry.
-        AND account.password_hash = public.crypt(jwt_create.password, account.password_hash)
-      RETURNING *
-    ) SELECT NULL, _jwt_exp, NULL, _jwt_id, 'vibetype_account', updated.id, _username
-      FROM updated
-      INTO _jwt;
-
-    IF (_jwt IS NULL) THEN
-      RAISE 'Could not get token!' USING ERRCODE = 'no_data_found';
-    END IF;
-  END IF;
-
-  INSERT INTO vibetype_private.jwt(token) VALUES (_jwt);
-  RETURN _jwt;
-END;
+  WITH
+  _current_time AS (
+    SELECT date_trunc('second', CURRENT_TIMESTAMP) AS now
+  ),
+  _expiry_duration AS (
+    SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
+  ),
+  _account_lookup AS (
+    SELECT
+      CASE
+        WHEN position('@' IN jwt_create.username) = 0 THEN
+          (SELECT id FROM vibetype.account WHERE username = jwt_create.username)
+        ELSE
+          (SELECT id FROM vibetype_private.account WHERE email_address = jwt_create.username)
+      END AS id
+  ),
+  _account_validation AS (
+    SELECT
+      account_lookup.id,
+      public_account.username,
+      private_account.email_address_verification IS NOT NULL AS email_not_verified,
+      private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash) AS password_valid
+    FROM _account_lookup account_lookup
+    INNER JOIN vibetype.account public_account ON public_account.id = account_lookup.id
+    INNER JOIN vibetype_private.account private_account ON private_account.id = account_lookup.id
+    WHERE account_lookup.id IS NOT NULL
+  ),
+  _authenticated_account AS (
+    SELECT id, username
+    FROM _account_validation
+    WHERE password_valid = true
+      AND email_not_verified = false
+  ),
+  _account_activity_update AS (
+    UPDATE vibetype_private.account
+    SET last_activity = DEFAULT, password_reset_verification = NULL
+    WHERE id = (SELECT id FROM _authenticated_account)
+    RETURNING id
+  ),
+  _jwt_token AS (
+    SELECT
+      ROW(
+        NULL,
+        EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration)),
+        NULL,
+        gen_random_uuid(),
+        'vibetype_account',
+        authenticated_account.id,
+        authenticated_account.username
+      )::vibetype.jwt AS token
+    FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
+    WHERE EXISTS (SELECT 1 FROM _account_activity_update)
+  ),
+  _jwt_insert AS (
+    INSERT INTO vibetype_private.jwt (id, token)
+    SELECT (token).jti, token
+    FROM _jwt_token
+    RETURNING token
+  )
+  SELECT token FROM _jwt_insert;
 $$;
 
 
@@ -1628,7 +1536,7 @@ ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
 -- Name: FUNCTION jwt_create(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.\n\nError codes:\n- **P0002** when an account is not found or when the token could not be created.\n- **55000** when the account is not verified yet.';
+COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
 
 
 --
@@ -1638,38 +1546,36 @@ COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Create
 CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-  WITH params AS (
+  WITH
+  _current_time AS (
+    SELECT date_trunc('second', CURRENT_TIMESTAMP) AS now
+  ),
+  _expiry_duration AS (
+    SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
+  ),
+  _valid_jwt AS (
     SELECT
-    EXTRACT(EPOCH FROM date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE))::bigint AS epoch_now,
-    COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::interval AS expiry_interval
+      jwt.id,
+      jwt.token,
+      (jwt.token).sub AS account_id
+    FROM vibetype_private.jwt, _current_time
+    WHERE jwt.id = jwt_update.jwt_id
+      AND (jwt.token).exp >= EXTRACT(EPOCH FROM _current_time.now)
   ),
-  found AS (
-    SELECT j.id, (j.token).sub AS account_id
-    FROM vibetype_private.jwt j, params p
-    WHERE j.id = jwt_update.jwt_id
-    AND (j.token).exp >= p.epoch_now
-    LIMIT 1
-  ),
-  u AS (
-    UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(
-      EPOCH FROM (
-        date_trunc('second', CURRENT_TIMESTAMP::TIMESTAMP WITH TIME ZONE)
-        + (SELECT expiry_interval FROM params)
-      )
-    )
-    WHERE id IN (SELECT id FROM found)
-    RETURNING *
-  ),
-  account_update AS (
+  _account_activity_update AS (
     UPDATE vibetype_private.account
     SET last_activity = DEFAULT
-    WHERE id = (SELECT account_id FROM found)
+    WHERE id = (SELECT account_id FROM _valid_jwt)
     RETURNING id
+  ),
+  _jwt_update AS (
+    UPDATE vibetype_private.jwt
+    SET token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+    FROM _current_time, _expiry_duration
+    WHERE jwt.id = (SELECT id FROM _valid_jwt)
+    RETURNING token
   )
-  SELECT token
-  FROM u
-  WHERE (token).exp >= (SELECT epoch_now FROM params);
+  SELECT token FROM _jwt_update;
 $$;
 
 
@@ -1687,50 +1593,59 @@ COMMENT ON FUNCTION vibetype.jwt_update(jwt_id uuid) IS 'Refreshes a JWT.';
 --
 
 CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS vibetype.jwt
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _jwt_id UUID;
-  _jwt vibetype.jwt;
-BEGIN
-  _jwt_id := current_setting('jwt.claims.jti', true)::UUID;
-
-  -- Construct updated JWT with attendance UUID added to attendances array
-  _jwt := (
-    (SELECT ARRAY(
-      SELECT DISTINCT UNNEST(
-        COALESCE(
-          string_to_array(
-            replace(btrim(current_setting('jwt.claims.attendances', true), '[]'), '"', ''),
-            ','
-          )::UUID[],
-          '{}'::UUID[]
-        ) || jwt_update_attendance_add.attendance_id
-      )
-      ORDER BY 1
-    )),
-    current_setting('jwt.claims.exp', true)::BIGINT,
-    (SELECT
+  WITH
+  _current_time AS (
+    SELECT date_trunc('second', CURRENT_TIMESTAMP) AS now
+  ),
+  _expiry_duration AS (
+    SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
+  ),
+  _existing_jwt_id AS (
+    SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _jwt_claims AS (
+    SELECT
       CASE
-        WHEN btrim(current_setting('jwt.claims.guests', true), '[]') = '' THEN '{}'::UUID[]
-        ELSE string_to_array(
-          replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''),
-          ','
-        )::UUID[]
-      END
-    ),
-    _jwt_id,
-    current_setting('jwt.claims.role', true)::TEXT,
-    vibetype.invoker_account_id(),
-    current_setting('jwt.claims.username', true)::TEXT
-  )::vibetype.jwt;
-
-  UPDATE vibetype_private.jwt
-  SET token = _jwt
-  WHERE id = _jwt_id;
-
-  RETURN _jwt;
-END $$;
+        WHEN existing_jwt.id IS NOT NULL THEN
+          (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.attendance_claim_array() || jwt_update_attendance_add.attendance_id) ORDER BY 1))
+        ELSE ARRAY[jwt_update_attendance_add.attendance_id]
+      END AS attendance_claims,
+      CASE
+        WHEN existing_jwt.id IS NOT NULL THEN vibetype.guest_claim_array()
+        ELSE NULL
+      END AS guest_claims,
+      COALESCE(
+        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+      ) AS expiration,
+      COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
+      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
+      vibetype.invoker_account_id() AS account_id,
+      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+    FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
+  ),
+  _jwt_upsert AS (
+    INSERT INTO vibetype_private.jwt (id, token)
+    SELECT
+      token_id,
+      ROW(
+        attendance_claims,
+        expiration,
+        guest_claims,
+        token_id,
+        role,
+        account_id,
+        username
+      )::vibetype.jwt
+    FROM _jwt_claims
+    ON CONFLICT (id) DO UPDATE
+    SET token = EXCLUDED.token
+    RETURNING token
+  )
+  SELECT token FROM _jwt_upsert;
+$$;
 
 
 ALTER FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) OWNER TO ci;
@@ -1739,7 +1654,76 @@ ALTER FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) OWNER TO c
 -- Name: FUNCTION jwt_update_attendance_add(attendance_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) IS 'Adds an attendance UUID to the current session JWT.';
+COMMENT ON FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) IS 'Adds an attendance claim to the current session.';
+
+
+--
+-- Name: jwt_update_guest_add(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jwt
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  WITH
+  _current_time AS (
+    SELECT date_trunc('second', CURRENT_TIMESTAMP) AS now
+  ),
+  _expiry_duration AS (
+    SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
+  ),
+  _existing_jwt_id AS (
+    SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _jwt_claims AS (
+    SELECT
+      CASE
+        WHEN existing_jwt.id IS NOT NULL THEN vibetype.attendance_claim_array()
+        ELSE NULL
+      END AS attendance_claims,
+      CASE
+        WHEN existing_jwt.id IS NOT NULL THEN
+          (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || jwt_update_guest_add.guest_id) ORDER BY 1))
+        ELSE ARRAY[jwt_update_guest_add.guest_id]
+      END AS guest_claims,
+      COALESCE(
+        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+      ) AS expiration,
+      COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
+      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
+      vibetype.invoker_account_id() AS account_id,
+      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+    FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
+  ),
+  _jwt_upsert AS (
+    INSERT INTO vibetype_private.jwt (id, token)
+    SELECT
+      token_id,
+      ROW(
+        attendance_claims,
+        expiration,
+        guest_claims,
+        token_id,
+        role,
+        account_id,
+        username
+      )::vibetype.jwt
+    FROM _jwt_claims
+    ON CONFLICT (id) DO UPDATE
+    SET token = EXCLUDED.token
+    RETURNING token
+  )
+  SELECT token FROM _jwt_upsert;
+$$;
+
+
+ALTER FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION jwt_update_guest_add(guest_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) IS 'Adds a guest claim to the current session.';
 
 
 --
@@ -4729,7 +4713,7 @@ COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_function IS 'The na
 --
 
 CREATE TABLE vibetype_private.jwt (
-    id uuid GENERATED ALWAYS AS ((token).jti) STORED NOT NULL,
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
     expiry timestamp with time zone GENERATED ALWAYS AS (to_timestamp(((token).exp)::double precision)) STORED NOT NULL,
     subject uuid GENERATED ALWAYS AS ((token).sub) STORED,
     token vibetype.jwt NOT NULL,
@@ -7278,15 +7262,6 @@ GRANT ALL ON FUNCTION vibetype.event_search(query text, language vibetype.langua
 
 
 --
--- Name: FUNCTION event_unlock(guest_id uuid); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.event_unlock(guest_id uuid) TO vibetype_anonymous;
-
-
---
 -- Name: FUNCTION guest_claim_array(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7356,6 +7331,15 @@ GRANT ALL ON FUNCTION vibetype.jwt_update(jwt_id uuid) TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION jwt_update_guest_add(guest_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) TO vibetype_anonymous;
 
 
 --

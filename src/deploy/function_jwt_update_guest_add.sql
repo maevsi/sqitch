@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS vibetype.jwt
+CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
   WITH
@@ -16,13 +16,13 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
   _jwt_claims AS (
     SELECT
       CASE
-        WHEN existing_jwt.id IS NOT NULL THEN
-          (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.attendance_claim_array() || jwt_update_attendance_add.attendance_id) ORDER BY 1))
-        ELSE ARRAY[jwt_update_attendance_add.attendance_id]
+        WHEN existing_jwt.id IS NOT NULL THEN vibetype.attendance_claim_array()
+        ELSE NULL
       END AS attendance_claims,
       CASE
-        WHEN existing_jwt.id IS NOT NULL THEN vibetype.guest_claim_array()
-        ELSE NULL
+        WHEN existing_jwt.id IS NOT NULL THEN
+          (SELECT ARRAY(SELECT DISTINCT UNNEST(vibetype.guest_claim_array() || jwt_update_guest_add.guest_id) ORDER BY 1))
+        ELSE ARRAY[jwt_update_guest_add.guest_id]
       END AS guest_claims,
       COALESCE(
         NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
@@ -55,8 +55,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
   SELECT token FROM _jwt_upsert;
 $$;
 
-COMMENT ON FUNCTION vibetype.jwt_update_attendance_add(UUID) IS 'Adds an attendance claim to the current session.';
+COMMENT ON FUNCTION vibetype.jwt_update_guest_add(UUID) IS 'Adds a guest claim to the current session.';
 
-GRANT EXECUTE ON FUNCTION vibetype.jwt_update_attendance_add(UUID) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.jwt_update_guest_add(UUID) TO vibetype_account, vibetype_anonymous;
 
 COMMIT;
