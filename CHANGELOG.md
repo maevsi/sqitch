@@ -1,3 +1,19 @@
+## [11.0.0-beta.2](https://github.com/maevsi/sqitch/compare/11.0.0-beta.1...11.0.0-beta.2) (2026-03-02)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** rework mutation
+
+### Features
+
+* **jwt:** rework mutation ([d40493c](https://github.com/maevsi/sqitch/commit/d40493c6e19a26b4f60ec0e3d4ce3d5d7caa5236))
+
+### Bug Fixes
+
+* schedule release ([4ae70d0](https://github.com/maevsi/sqitch/commit/4ae70d05e387717a45217d2a241d14ca90529e6c))
+* schedule release ([31be85a](https://github.com/maevsi/sqitch/commit/31be85aaa1e5ba9c69b4ac02d577ce775e345b96))
+* schedule release ([6e6e818](https://github.com/maevsi/sqitch/commit/6e6e818c4818518f7309a6a3bea13d1c79f0f6fb))
+
 ## [11.0.0-beta.1](https://github.com/maevsi/sqitch/compare/10.0.3...11.0.0-beta.1) (2026-02-20)
 
 ### ⚠ BREAKING CHANGES
