@@ -126,13 +126,13 @@ As they bypass RLS security, every security check that would otherwise be handle
 ## Performance considerations for helper functions in policies
 
 RLS policy conditions are evaluated per row, so helper functions called inside policies should be efficient.
-In *Vibetype*, helper functions like `vibetype.account_block_ids()` and `vibetype.events_invited()` return `UUID[]` arrays rather than result sets (`TABLE`).
+In *Vibetype*, helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays rather than result sets (`TABLE`).
 This allows policies to use the `= ANY(function())` pattern instead of `EXISTS(SELECT FROM function() WHERE ...)` subqueries, which avoids repeated per-row correlated subquery execution:
 
 ```sql
 -- preferred: array return with = ANY()
-NOT (event.created_by = ANY(vibetype.account_block_ids()))
+NOT (event.created_by = ANY(vibetype_private.account_block_ids()))
 
 -- avoid: correlated subquery per row
-NOT EXISTS(SELECT FROM vibetype.account_block_ids() AS b WHERE b.id = event.created_by)
+NOT EXISTS(SELECT FROM vibetype_private.account_block_ids() AS b WHERE b.id = event.created_by)
 ```
