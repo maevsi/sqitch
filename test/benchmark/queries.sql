@@ -10,8 +10,8 @@
 \pset tuples_only on
 
 -- Warm up shared buffers
-SELECT count(*) FROM vibetype.account \gexec
-SELECT count(*) FROM vibetype.event \gexec
+SELECT count(*) FROM vibetype.account;
+SELECT count(*) FROM vibetype.event;
 
 -- Helper function to run EXPLAIN ANALYZE and extract timing as JSON
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_query(
@@ -23,10 +23,10 @@ CREATE OR REPLACE FUNCTION vibetype_test.benchmark_query(
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
+  _plan_text TEXT;
   _plan JSONB;
   _planning_time NUMERIC;
   _execution_time NUMERIC;
-  _result JSONB;
 BEGIN
   -- Set role context
   IF _role = 'vibetype_account' AND _account_id IS NOT NULL THEN
@@ -38,7 +38,8 @@ BEGIN
   END IF;
 
   -- Run EXPLAIN ANALYZE and capture the JSON plan
-  EXECUTE 'EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' || _sql INTO _plan;
+  EXECUTE 'EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' || _sql INTO _plan_text;
+  _plan := _plan_text::JSONB;
 
   _planning_time := (_plan->0->>'Planning Time')::NUMERIC;
   _execution_time := (_plan->0->>'Execution Time')::NUMERIC;

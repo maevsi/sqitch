@@ -15,8 +15,8 @@ set -e
 OUTPUT_FILE="${1:?Usage: run.sh <output_file> [pg_connection_string]}"
 PG_URI="${2:-db:pg://ci:postgres@localhost/ci_database}"
 
-# Strip the db: prefix if present (Sqitch format vs psql format)
-PSQL_URI=$(echo "$PG_URI" | sed 's|^db:||')
+# Strip the db: prefix if present (Sqitch format vs psql format) and normalize pg:// to postgresql://
+PSQL_URI=$(echo "$PG_URI" | sed -e 's|^db:||' -e 's|^pg://|postgresql://|')
 
 THIS=$(dirname "$(readlink -f "$0")")
 
@@ -35,8 +35,8 @@ psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on --file "$THIS/seed.sql"
 # Run ANALYZE to ensure query planner has up-to-date statistics
 psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on -c "ANALYZE;"
 
-# Run benchmark queries and capture output
-BENCHMARK_OUTPUT=$(psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on --file "$THIS/queries.sql" 2>&1)
+# Run benchmark queries and capture output (stderr still goes to console for visibility)
+BENCHMARK_OUTPUT=$(psql "$PSQL_URI" --variable ON_ERROR_STOP=on --file "$THIS/queries.sql")
 
 # Extract JSON lines between the markers
 echo "$BENCHMARK_OUTPUT" \

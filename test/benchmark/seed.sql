@@ -72,7 +72,7 @@ BEGIN
       CASE WHEN _i % 5 = 0 THEN 20 ELSE NULL END,
       _organizer_id,
       'Description for benchmark event number ' || _i || '. This event tests database query performance under row-level security policies.',
-      CASE WHEN _i % 2 = 0 THEN 'en' ELSE 'de' END
+      CASE WHEN _i % 2 = 0 THEN 'en' ELSE 'de' END::vibetype.language
     ) RETURNING id INTO _event_id;
 
     _event_ids := array_append(_event_ids, _event_id);
