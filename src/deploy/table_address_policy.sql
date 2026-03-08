@@ -16,10 +16,7 @@ USING (
     )
   )
   AND
-  NOT EXISTS (
-    WITH _blocked AS MATERIALIZED (SELECT vibetype_private.account_block_ids() AS ids)
-    SELECT 1 FROM _blocked, unnest(_blocked.ids) AS b WHERE b = address.created_by
-  )
+  NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = address.created_by)
 )
 WITH CHECK (
   address.created_by = vibetype.invoker_account_id()

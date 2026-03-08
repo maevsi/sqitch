@@ -15,19 +15,13 @@ USING (
   (
     contact.account_id = vibetype.invoker_account_id()
     AND
-    NOT EXISTS (
-      WITH _blocked AS MATERIALIZED (SELECT vibetype_private.account_block_ids() AS ids)
-      SELECT 1 FROM _blocked, unnest(_blocked.ids) AS b WHERE b = contact.created_by
-    )
+    NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.created_by)
   )
   OR
   (
     contact.created_by = vibetype.invoker_account_id()
     AND
-    NOT EXISTS (
-      WITH _blocked AS MATERIALIZED (SELECT vibetype_private.account_block_ids() AS ids)
-      SELECT 1 FROM _blocked, unnest(_blocked.ids) AS b WHERE b = contact.account_id
-    )
+    NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.account_id)
   )
   OR EXISTS (SELECT 1 FROM vibetype.guest_contact_ids() gci WHERE gci.contact_id = contact.id)
 );

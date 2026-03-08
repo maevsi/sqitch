@@ -6488,12 +6488,8 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (EXISTS ( WITH _blocked AS MATERIALIZED (
-         SELECT vibetype_private.account_block_ids() AS ids
-        )
- SELECT 1
-   FROM _blocked,
-    LATERAL unnest(_blocked.ids) b(b)
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
   WHERE (b.b = account.id)))));
 
 
@@ -6549,12 +6545,8 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( WITH _blocked AS MATERIALIZED (
-         SELECT vibetype_private.account_block_ids() AS ids
-        )
- SELECT 1
-   FROM _blocked,
-    LATERAL unnest(_blocked.ids) b(b)
+  WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
   WHERE (b.b = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -6628,18 +6620,10 @@ CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((create
 -- Name: contact contact_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( WITH _blocked AS MATERIALIZED (
-         SELECT vibetype_private.account_block_ids() AS ids
-        )
- SELECT 1
-   FROM _blocked,
-    LATERAL unnest(_blocked.ids) b(b)
-  WHERE (b.b = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( WITH _blocked AS MATERIALIZED (
-         SELECT vibetype_private.account_block_ids() AS ids
-        )
- SELECT 1
-   FROM _blocked,
-    LATERAL unnest(_blocked.ids) b(b)
+CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
+  WHERE (b.b = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
   WHERE (b.b = contact.account_id))))) OR (EXISTS ( SELECT 1
    FROM vibetype.guest_contact_ids() gci(contact_id)
   WHERE (gci.contact_id = contact.id)))));
@@ -6844,18 +6828,10 @@ ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 -- Name: friendship friendship_existing; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (EXISTS ( WITH _blocked AS MATERIALIZED (
-         SELECT vibetype_private.account_block_ids() AS ids
-        )
- SELECT 1
-   FROM _blocked,
-    LATERAL unnest(_blocked.ids) b(b)
-  WHERE (b.b = friendship.b_account_id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (EXISTS ( WITH _blocked AS MATERIALIZED (
-         SELECT vibetype_private.account_block_ids() AS ids
-        )
- SELECT 1
-   FROM _blocked,
-    LATERAL unnest(_blocked.ids) b(b)
+CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
+  WHERE (b.b = friendship.b_account_id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
   WHERE (b.b = friendship.a_account_id))))))) WITH CHECK (false);
 
 
