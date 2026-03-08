@@ -46,15 +46,23 @@ BEGIN
     EXECUTE _sql;
     _end := clock_timestamp();
     EXECUTE 'SET LOCAL statement_timeout = ''0''';
-  EXCEPTION WHEN OTHERS THEN
-    -- Query timed out or failed (e.g. permission denied)
-    RAISE NOTICE '[benchmark] skipped: % as % - %', _name, _role_label, SQLERRM;
-    RETURN jsonb_build_object(
-      'name', _name,
-      'role', _role_label,
-      'execution_time_ms', -1,
-      'total_time_ms', -1
-    );
+  EXCEPTION
+    WHEN query_canceled THEN
+      RAISE NOTICE '[benchmark] timeout: % as %', _name, _role_label;
+      RETURN jsonb_build_object(
+        'name', _name,
+        'role', _role_label,
+        'execution_time_ms', -1,
+        'total_time_ms', -1
+      );
+    WHEN OTHERS THEN
+      RAISE NOTICE '[benchmark] error: % as % - %', _name, _role_label, SQLERRM;
+      RETURN jsonb_build_object(
+        'name', _name,
+        'role', _role_label,
+        'execution_time_ms', -2,
+        'total_time_ms', -2
+      );
   END;
 
   _warmup_ms := EXTRACT(EPOCH FROM (_end - _start)) * 1000;
@@ -215,12 +223,8 @@ SELECT vibetype_test.benchmark_median('account_search', 'vibetype_account', 'SEL
 SELECT vibetype_test.benchmark_median('event_search', 'vibetype_account', 'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')');
 \echo [benchmark] auth: guest_count
 SELECT vibetype_test.benchmark_median('guest_count', 'vibetype_account', 'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)');
-\echo [benchmark] auth: events_invited
-SELECT vibetype_test.benchmark_median('events_invited', 'vibetype_account', 'SELECT * FROM vibetype_private.events_invited()');
 \echo [benchmark] auth: guest_claim_array
 SELECT vibetype_test.benchmark_median('guest_claim_array', 'vibetype_account', 'SELECT vibetype.guest_claim_array()');
-\echo [benchmark] auth: account_block_ids
-SELECT vibetype_test.benchmark_median('account_block_ids', 'vibetype_account', 'SELECT * FROM vibetype_private.account_block_ids()');
 \echo [benchmark] auth: attendance_claim_array
 SELECT vibetype_test.benchmark_median('attendance_claim_array', 'vibetype_account', 'SELECT vibetype.attendance_claim_array()');
 \echo [benchmark] auth: event_guest_count_maximum

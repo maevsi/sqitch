@@ -48,11 +48,19 @@ jq -n \
     elif $base_entry and $base_total > 0 then
       (($pr_total - $base_total) / $base_total * 100 | . * 10 | round / 10)
     else null end) as $delta_pct |
+
+    def format_time:
+      if . == -1 then "timeout :hourglass:"
+      elif . == -2 then "error :x:"
+      elif . < 0 then "skipped"
+      else (. | tostring)
+      end;
+
     {
       name: $name,
       role: $role,
-      base_total: (if $base_entry then (if $base_entry.total_time_ms < 0 then "timeout" else ($base_entry.total_time_ms | tostring) end) else "—" end),
-      pr_total: (if $pr_total < 0 then "timeout" else ($pr_total | tostring) end),
+      base_total: (if $base_entry then ($base_entry.total_time_ms | format_time) else "—" end),
+      pr_total: ($pr_total | format_time),
       delta: ($delta_pct | format_delta),
       icon: ($delta_pct | status_icon)
     }
