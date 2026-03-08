@@ -76,8 +76,8 @@ jq -n \
   "\n\n" +
   "<details>\n<summary>Details</summary>\n\n" +
   "- Threshold for regression warnings: >\($threshold)%\n" +
-"- Each measurement is the median of 11 runs with adaptive iteration counts (~500ms target per run)\\n\" +
-  "- Timings are per-iteration averages measured via `clock_timestamp()`\n" +
+  "- Each measurement is the median of 11 runs with adaptive iteration counts (~500ms target per run)\n" +
+  "- Timings are per-iteration averages measured via clock_timestamp()\n" +
   "- Data: 1000 accounts, 100 events, 1000 contacts, ~1000 guests, 200 attendances\n" +
   "- Runner: GitHub Actions (timings may vary ±10% between runs)\n\n" +
   "</details>"
