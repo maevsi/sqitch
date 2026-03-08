@@ -21,6 +21,7 @@ SELECT count(*) FROM vibetype.contact;
 
 -- Helper function: runs a query in a loop and returns per-iteration timing as JSON.
 -- Automatically picks iteration count to target ~500ms of wall time per measurement.
+-- If a single execution takes > 1s, skips the loop and returns the warmup timing.
 -- SECURITY INVOKER so it executes under whatever role is currently set.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_run(
   _name TEXT,
@@ -42,6 +43,16 @@ BEGIN
   EXECUTE _sql;
   _end := clock_timestamp();
   _warmup_ms := EXTRACT(EPOCH FROM (_end - _start)) * 1000;
+
+  -- For slow queries (> 1s), just return the warmup timing directly
+  IF _warmup_ms > 1000 THEN
+    RETURN jsonb_build_object(
+      'name', _name,
+      'role', _role_label,
+      'execution_time_ms', round(_warmup_ms::NUMERIC, 3),
+      'total_time_ms', round(_warmup_ms::NUMERIC, 3)
+    );
+  END IF;
 
   -- Target ~500ms total: fast queries get many iterations, slow ones get fewer
   _iterations := GREATEST(1, LEAST(100, floor(500.0 / GREATEST(_warmup_ms, 0.01))));
@@ -66,7 +77,9 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_run(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 \echo [benchmark] benchmark_run function created
 
--- Helper function: runs benchmark _runs times and returns median timing.
+-- Helper function: runs benchmark multiple times and returns median timing.
+-- Adapts run count: 11 for fast queries, 3 for slow ones (> 1s).
+-- Enforces a 60-second time budget per query.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
   _name TEXT,
   _role_label TEXT,
@@ -78,18 +91,33 @@ CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
 DECLARE
   _results NUMERIC[] := ARRAY[]::NUMERIC[];
   _run JSONB;
-  _i INT;
+  _i INT := 0;
+  _actual_runs INT;
   _median_total NUMERIC;
+  _budget_start TIMESTAMPTZ := clock_timestamp();
 BEGIN
-  FOR _i IN 1.._runs LOOP
+  _actual_runs := _runs;
+
+  WHILE _i < _actual_runs LOOP
+    _i := _i + 1;
     _run := vibetype_test.benchmark_run(_name, _role_label, _sql);
     _results := array_append(_results, (_run->>'total_time_ms')::NUMERIC);
+
+    -- After first run: reduce to 3 runs if query is slow (> 1s)
+    IF _i = 1 AND (_run->>'total_time_ms')::NUMERIC > 1000 THEN
+      _actual_runs := 3;
+    END IF;
+
+    -- Enforce 60-second time budget
+    IF EXTRACT(EPOCH FROM (clock_timestamp() - _budget_start)) > 60 THEN
+      EXIT;
+    END IF;
   END LOOP;
 
   -- Sort and pick median
   SELECT val INTO _median_total
     FROM unnest(_results) AS val ORDER BY val
-    LIMIT 1 OFFSET _runs / 2;
+    LIMIT 1 OFFSET array_length(_results, 1) / 2;
 
   RETURN jsonb_build_object(
     'name', _name,
