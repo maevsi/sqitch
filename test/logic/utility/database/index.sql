@@ -54,8 +54,7 @@ BEGIN
 
   -- If missing indexes exist, raise an exception
   IF LENGTH(violation_details) > 0 THEN
---    RAISE EXCEPTION E'Foreign key constraints without indexes:\n%', violation_details;
-    RAISE NOTICE E'Foreign key constraints without indexes:\n%', violation_details;
+    RAISE EXCEPTION E'Foreign key constraints without indexes:\n%', violation_details;
   END IF;
 END;
 $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;

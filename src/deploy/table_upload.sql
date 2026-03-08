@@ -12,13 +12,15 @@ CREATE TABLE vibetype.upload (
   created_by    UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE
 );
 
+CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
+
 COMMENT ON TABLE vibetype.upload IS 'An upload.';
-COMMENT ON COLUMN vibetype.upload.id IS E'@omit create,update\nThe upload''s internal id.';
+COMMENT ON COLUMN vibetype.upload.id IS E'@behavior -insert -update\nThe upload''s internal id.';
 COMMENT ON COLUMN vibetype.upload.name IS 'The name of the uploaded file. Must be non-empty and not exceed 300 characters.';
-COMMENT ON COLUMN vibetype.upload.size_byte IS E'@omit update\nThe upload''s size in bytes.';
-COMMENT ON COLUMN vibetype.upload.storage_key IS E'@omit create,update\nThe upload''s storage key.';
-COMMENT ON COLUMN vibetype.upload.type IS E'@omit create,update\nThe type of the uploaded file, default is ''image''.';
-COMMENT ON COLUMN vibetype.upload.created_at IS E'@omit create,update\nTimestamp of when the upload was created, defaults to the current timestamp.';
+COMMENT ON COLUMN vibetype.upload.size_byte IS E'@behavior -update\nThe upload''s size in bytes.';
+COMMENT ON COLUMN vibetype.upload.storage_key IS E'@behavior -insert -update\nThe upload''s storage key.';
+COMMENT ON COLUMN vibetype.upload.type IS E'@behavior -insert -update\nThe type of the uploaded file, default is ''image''.';
+COMMENT ON COLUMN vibetype.upload.created_at IS E'@behavior -insert -update\nTimestamp of when the upload was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
 
 ALTER TABLE vibetype.upload REPLICA IDENTITY FULL;

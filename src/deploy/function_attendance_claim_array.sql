@@ -3,38 +3,26 @@ BEGIN;
 CREATE FUNCTION vibetype.attendance_claim_array() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  WITH attendance_ids AS (
-    SELECT NULLIF(attendance_text, '')::UUID AS id
-    FROM unnest(
-      string_to_array(
-        replace(btrim(current_setting('jwt.claims.attendances', true), '[]'), '"', ''),
-        ','
-      )
-    ) AS attendance_text
-    WHERE NULLIF(attendance_text, '') IS NOT NULL
+  WITH
+  _claimed_attendance_ids AS (
+    SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.attendances', true), '')::json)::UUID AS id
   ),
-  blocked_account_ids AS (
+  _blocked_accounts AS (
     SELECT id FROM vibetype_private.account_block_ids()
+  ),
+  _accessible_attendances AS (
+    SELECT attendance.id
+    FROM _claimed_attendance_ids claimed
+    INNER JOIN vibetype.attendance ON attendance.id = claimed.id
+    INNER JOIN vibetype.guest ON guest.id = attendance.guest_id
+    INNER JOIN vibetype.event ON event.id = guest.event_id
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id
+    WHERE NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = event.created_by)
+      AND NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = contact.created_by)
+      AND (contact.account_id IS NULL OR NOT EXISTS (SELECT 1 FROM _blocked_accounts WHERE id = contact.account_id))
   )
-  SELECT COALESCE(array_agg(a.id), ARRAY[]::UUID[])
-  FROM attendance_ids ai
-    JOIN vibetype.attendance a ON a.id = ai.id
-    JOIN vibetype.guest g ON a.guest_id = g.id
-    JOIN vibetype.event e ON g.event_id = e.id
-    JOIN vibetype.contact c ON g.contact_id = c.id
-  WHERE NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = e.created_by
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
-    )
-    AND (
-      c.account_id IS NULL
-      OR
-      NOT EXISTS (
-        SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
-      )
-    )
+  SELECT COALESCE(array_agg(id), ARRAY[]::UUID[])
+  FROM _accessible_attendances;
 $$;
 
 COMMENT ON FUNCTION vibetype.attendance_claim_array() IS 'Returns the current attendance claims as UUID array.';

@@ -27,7 +27,7 @@ CREATE TABLE vibetype.legal_term (
   --   - law (like "GDPR")
 );
 
-COMMENT ON TABLE vibetype.legal_term IS E'@omit create,update,delete\nLegal terms like privacy policies or terms of service.';
+COMMENT ON TABLE vibetype.legal_term IS E'@behavior -insert -update -delete\nLegal terms like privacy policies or terms of service.';
 COMMENT ON COLUMN vibetype.legal_term.id IS 'Unique identifier for each legal term.';
 COMMENT ON COLUMN vibetype.legal_term.language IS 'Language code in ISO 639-1 format with optional region (e.g., `en` for English, `en_GB` for British English)';
 COMMENT ON COLUMN vibetype.legal_term.term IS 'Text of the legal term. Markdown is expected to be used. It must be non-empty and cannot exceed 500,000 characters.';
