@@ -48,7 +48,7 @@ CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
   _name TEXT,
   _role_label TEXT,
   _sql TEXT,
-  _runs INT DEFAULT 3
+  _runs INT DEFAULT 11
 ) RETURNS JSONB
     LANGUAGE plpgsql SECURITY INVOKER
     AS $$

@@ -75,9 +75,9 @@ jq -n \
   "\n\n" +
   "<details>\n<summary>Details</summary>\n\n" +
   "- Threshold for regression warnings: >\($threshold)%\n" +
-  "- Each measurement is the median of 3 runs using `EXPLAIN ANALYZE`\n" +
+  "- Each measurement is the median of 11 runs using `EXPLAIN ANALYZE`\n" +
   "- Timings include both planning and execution time\n" +
-  "- Data: 100 accounts, 50 events, 200 contacts, ~500 guests, 100 attendances\n" +
+  "- Data: 1000 accounts, 500 events, 5000 contacts, ~5000 guests, 1000 attendances\n" +
   "- Runner: GitHub Actions (timings may vary ±10% between runs)\n\n" +
   "</details>"
   ' -r > "$OUTPUT_FILE"

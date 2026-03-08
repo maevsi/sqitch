@@ -1,38 +1,30 @@
 -- Deterministic synthetic data for benchmark measurements.
--- Generates 100 accounts, 50 events, 200 contacts, 500 guests, and 100 attendances.
--- Uses setseed() for reproducible random values across CI runs.
-
-SELECT setseed(0.42);
+-- Generates 1000 accounts, 500 events, 5000 contacts, ~5000 guests, and 1000 attendances.
+-- Uses bulk inserts for speed; only a few accounts go through proper registration.
 
 DO $$
 DECLARE
   _legal_term_id UUID;
-  _account_ids UUID[] := ARRAY[]::UUID[];
-  _event_ids UUID[] := ARRAY[]::UUID[];
-  _contact_ids UUID[] := ARRAY[]::UUID[];
-  _guest_ids UUID[] := ARRAY[]::UUID[];
   _account_id UUID;
-  _event_id UUID;
-  _contact_id UUID;
-  _guest_id UUID;
+  _password_hash TEXT;
   _i INT;
-  _organizer_id UUID;
-  _visibility TEXT;
-  _visibilities TEXT[] := ARRAY['public', 'public', 'public', 'private', 'unlisted'];
 BEGIN
   -- Legal term (required for account registration)
   INSERT INTO vibetype.legal_term (term, version)
     VALUES ('Benchmark terms of service', '0.0.0')
     RETURNING id INTO _legal_term_id;
 
-  -- 100 accounts
-  FOR _i IN 1..100 LOOP
+  -- Pre-compute a single bcrypt hash for bulk accounts (avoids 1000x hashing)
+  _password_hash := public.crypt('benchmark-password', public.gen_salt('bf'));
+
+  -- Register 5 accounts properly (for benchmark subjects with full verification)
+  FOR _i IN 1..5 LOOP
     PERFORM vibetype.account_registration(
       '1990-01-01'::DATE,
       'benchmark-' || _i || '@example.test',
       CASE WHEN _i % 2 = 0 THEN 'en' ELSE 'de' END,
       _legal_term_id,
-      'password-' || _i,
+      'benchmark-password',
       'benchmark-user-' || _i
     );
 
@@ -40,134 +32,162 @@ BEGIN
       FROM vibetype.account
       WHERE username = 'benchmark-user-' || _i;
 
-    -- Verify email so JWT creation works
     PERFORM vibetype.account_email_address_verification(
-      (
-        SELECT email_address_verification
-        FROM vibetype_private.account
-        WHERE id = _account_id
-      )
+      (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
     );
-
-    _account_ids := array_append(_account_ids, _account_id);
   END LOOP;
 
-  -- 50 events spread across organizers
+  -- Bulk insert 995 more accounts directly (bypassing slow bcrypt per-row)
+  INSERT INTO vibetype_private.account (id, birth_date, email_address, password_hash, last_activity)
+    SELECT
+      md5('benchmark-account-' || i)::UUID,
+      '1990-01-01'::DATE,
+      'benchmark-' || i || '@example.test',
+      _password_hash,
+      CURRENT_TIMESTAMP
+    FROM generate_series(6, 1000) AS i;
+
+  INSERT INTO vibetype.account (id, username)
+    SELECT
+      md5('benchmark-account-' || i)::UUID,
+      'benchmark-user-' || i
+    FROM generate_series(6, 1000) AS i;
+
+  -- Self-contacts for bulk accounts
+  INSERT INTO vibetype.contact (account_id, created_by)
+    SELECT
+      md5('benchmark-account-' || i)::UUID,
+      md5('benchmark-account-' || i)::UUID
+    FROM generate_series(6, 1000) AS i;
+
+  -- Legal term acceptance for bulk accounts
+  INSERT INTO vibetype.legal_term_acceptance (account_id, legal_term_id)
+    SELECT md5('benchmark-account-' || i)::UUID, _legal_term_id
+    FROM generate_series(6, 1000) AS i;
+
+  RAISE NOTICE 'Seeded 1000 accounts';
+END $$;
+
+-- Collect all account IDs into a temp table for efficient referencing
+CREATE TEMP TABLE _benchmark_accounts AS
+  SELECT id, username, row_number() OVER (ORDER BY username) AS seq
+  FROM vibetype.account
+  WHERE username LIKE 'benchmark-user-%';
+
+-- 500 events: first 100 accounts each organize 5 events
+INSERT INTO vibetype.event (name, slug, visibility, start, "end", guest_count_maximum, created_by, description, language)
+  SELECT
+    'Benchmark Event ' || event_num,
+    'benchmark-event-' || event_num,
+    (ARRAY['public', 'public', 'public', 'private', 'unlisted'])[1 + (event_num % 5)]::vibetype.event_visibility,
+    '2025-06-01'::TIMESTAMPTZ + (event_num || ' hours')::INTERVAL,
+    '2025-06-01'::TIMESTAMPTZ + (event_num || ' hours')::INTERVAL + '4 hours'::INTERVAL,
+    CASE WHEN event_num % 10 = 0 THEN 50 ELSE NULL END,
+    a.id,
+    'Description for benchmark event ' || event_num || '. Performance test under row-level security.',
+    CASE WHEN event_num % 2 = 0 THEN 'en' ELSE 'de' END::vibetype.language
+  FROM (
+    SELECT
+      ((organizer_seq - 1) * 5 + event_offset) AS event_num,
+      organizer_seq
+    FROM generate_series(1, 100) AS organizer_seq,
+         generate_series(1, 5) AS event_offset
+  ) sub
+  JOIN _benchmark_accounts a ON a.seq = sub.organizer_seq;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded 500 events'; END $$;
+
+-- Collect event data for guest assignment
+CREATE TEMP TABLE _benchmark_events AS
+  SELECT id, slug, created_by, row_number() OVER (ORDER BY slug) AS seq
+  FROM vibetype.event
+  WHERE slug LIKE 'benchmark-event-%';
+
+-- 5000 contacts: first 100 accounts each create 50 contacts
+INSERT INTO vibetype.contact (email_address, first_name, last_name, created_by)
+  SELECT
+    'contact-' || contact_num || '@example.test',
+    'First' || contact_num,
+    'Last' || contact_num,
+    a.id
+  FROM (
+    SELECT
+      ((owner_seq - 1) * 50 + contact_offset) AS contact_num,
+      owner_seq
+    FROM generate_series(1, 100) AS owner_seq,
+         generate_series(1, 50) AS contact_offset
+  ) sub
+  JOIN _benchmark_accounts a ON a.seq = sub.owner_seq;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded 5000 contacts'; END $$;
+
+-- 5000 guests: 10 per event, using contacts owned by the event organizer
+-- Each organizer has 50 contacts; with 5 events × 10 guests = 50, so each contact is used once.
+INSERT INTO vibetype.guest (contact_id, event_id)
+  SELECT c.id, e.id
+  FROM _benchmark_events e
+  JOIN LATERAL (
+    SELECT ct.id, row_number() OVER (ORDER BY ct.id) AS rn
+    FROM vibetype.contact ct
+    WHERE ct.created_by = e.created_by
+      AND ct.account_id IS NULL  -- exclude self-contacts
+  ) c ON c.rn <= 10;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded guests'; END $$;
+
+-- 1000 attendances: first 2 guests per event for the first 500 events
+INSERT INTO vibetype.attendance (guest_id)
+  SELECT g.id
+  FROM (
+    SELECT id, event_id, row_number() OVER (PARTITION BY event_id ORDER BY id) AS rn
+    FROM vibetype.guest
+    WHERE event_id IN (SELECT id FROM _benchmark_events)
+  ) g
+  WHERE g.rn <= 2;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded attendances'; END $$;
+
+-- 50 account blocks: accounts 1-50 each block account 51
+DO $$
+DECLARE
+  _blocker_id UUID;
+  _blocked_id UUID;
+  _i INT;
+BEGIN
+  SELECT id INTO _blocked_id FROM _benchmark_accounts WHERE seq = 51;
+
   FOR _i IN 1..50 LOOP
-    _organizer_id := _account_ids[1 + (_i % 20)];
-    _visibility := _visibilities[1 + (_i % array_length(_visibilities, 1))];
+    SELECT id INTO _blocker_id FROM _benchmark_accounts WHERE seq = _i;
 
-    PERFORM set_config('jwt.claims.sub', _organizer_id::TEXT, true);
-    SET LOCAL ROLE = 'vibetype_account';
-
-    INSERT INTO vibetype.event (
-      name, slug, visibility, start, "end",
-      guest_count_maximum, created_by, description, language
-    ) VALUES (
-      'Benchmark Event ' || _i,
-      'benchmark-event-' || _i,
-      _visibility::vibetype.event_visibility,
-      '2025-06-01'::TIMESTAMPTZ + (_i || ' days')::INTERVAL,
-      '2025-06-01'::TIMESTAMPTZ + (_i || ' days')::INTERVAL + '4 hours'::INTERVAL,
-      CASE WHEN _i % 5 = 0 THEN 20 ELSE NULL END,
-      _organizer_id,
-      'Description for benchmark event number ' || _i || '. This event tests database query performance under row-level security policies.',
-      CASE WHEN _i % 2 = 0 THEN 'en' ELSE 'de' END::vibetype.language
-    ) RETURNING id INTO _event_id;
-
-    _event_ids := array_append(_event_ids, _event_id);
-
-    RESET ROLE;
-    PERFORM set_config('jwt.claims.sub', '', true);
-  END LOOP;
-
-  -- 200 extra contacts (each of the first 40 accounts creates 5 contacts)
-  FOR _i IN 1..200 LOOP
-    _account_id := _account_ids[1 + ((_i - 1) % 40)];
-
-    PERFORM set_config('jwt.claims.sub', _account_id::TEXT, true);
-    SET LOCAL ROLE = 'vibetype_account';
-
-    INSERT INTO vibetype.contact (
-      email_address, first_name, last_name, created_by
-    ) VALUES (
-      'contact-' || _i || '@example.test',
-      'First' || _i,
-      'Last' || _i,
-      _account_id
-    ) RETURNING id INTO _contact_id;
-
-    _contact_ids := array_append(_contact_ids, _contact_id);
-
-    RESET ROLE;
-    PERFORM set_config('jwt.claims.sub', '', true);
-  END LOOP;
-
-  -- 500 guests: distribute across events using contacts from the organizer
-  FOR _i IN 1..500 LOOP
-    _event_id := _event_ids[1 + ((_i - 1) % 50)];
-
-    SELECT created_by INTO _organizer_id
-      FROM vibetype.event WHERE id = _event_id;
-
-    -- Pick a contact owned by the organizer
-    SELECT id INTO _contact_id
-      FROM vibetype.contact
-      WHERE created_by = _organizer_id
-        AND id NOT IN (SELECT contact_id FROM vibetype.guest WHERE event_id = _event_id)
-      LIMIT 1;
-
-    -- Skip if organizer has no unused contacts for this event
-    CONTINUE WHEN _contact_id IS NULL;
-
-    PERFORM set_config('jwt.claims.sub', _organizer_id::TEXT, true);
-    SET LOCAL ROLE = 'vibetype_account';
-
-    INSERT INTO vibetype.guest (contact_id, event_id)
-      VALUES (_contact_id, _event_id)
-      RETURNING id INTO _guest_id;
-
-    _guest_ids := array_append(_guest_ids, _guest_id);
-
-    RESET ROLE;
-    PERFORM set_config('jwt.claims.sub', '', true);
-  END LOOP;
-
-  -- 100 attendances on first 100 guests (where the organizer creates the attendance)
-  FOR _i IN 1..LEAST(100, array_length(_guest_ids, 1)) LOOP
-    _guest_id := _guest_ids[_i];
-
-    SELECT e.created_by INTO _organizer_id
-      FROM vibetype.guest g
-      JOIN vibetype.event e ON e.id = g.event_id
-      WHERE g.id = _guest_id;
-
-    PERFORM set_config('jwt.claims.sub', _organizer_id::TEXT, true);
-    SET LOCAL ROLE = 'vibetype_account';
-
-    INSERT INTO vibetype.attendance (guest_id)
-      VALUES (_guest_id);
-
-    RESET ROLE;
-    PERFORM set_config('jwt.claims.sub', '', true);
-  END LOOP;
-
-  -- 5 account blocks (accounts 1-5 each block account 6)
-  FOR _i IN 1..5 LOOP
-    PERFORM set_config('jwt.claims.sub', _account_ids[_i]::TEXT, true);
-    SET LOCAL ROLE = 'vibetype_account';
+    PERFORM set_config('jwt.claims.sub', _blocker_id::TEXT, true);
 
     INSERT INTO vibetype.account_block (blocked_account_id, created_by)
-      VALUES (_account_ids[6], _account_ids[_i]);
-
-    RESET ROLE;
-    PERFORM set_config('jwt.claims.sub', '', true);
+      VALUES (_blocked_id, _blocker_id);
   END LOOP;
 
-  RAISE NOTICE 'Benchmark seed complete: % accounts, % events, % contacts, % guests, % attendances',
-    array_length(_account_ids, 1),
-    array_length(_event_ids, 1),
-    array_length(_contact_ids, 1),
-    array_length(_guest_ids, 1),
-    LEAST(100, array_length(_guest_ids, 1));
+  PERFORM set_config('jwt.claims.sub', '', true);
 END $$;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded account blocks'; END $$;
+
+-- Summary
+DO $$
+DECLARE
+  _accounts INT;
+  _events INT;
+  _contacts INT;
+  _guests INT;
+  _attendances INT;
+BEGIN
+  SELECT count(*) INTO _accounts FROM vibetype.account WHERE username LIKE 'benchmark-%';
+  SELECT count(*) INTO _events FROM vibetype.event WHERE slug LIKE 'benchmark-%';
+  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_address LIKE 'contact-%';
+  SELECT count(*) INTO _guests FROM vibetype.guest;
+  SELECT count(*) INTO _attendances FROM vibetype.attendance;
+  RAISE NOTICE 'Benchmark seed complete: % accounts, % events, % contacts, % guests, % attendances',
+    _accounts, _events, _contacts, _guests, _attendances;
+END $$;
+
+-- Cleanup temp tables
+DROP TABLE _benchmark_accounts;
+DROP TABLE _benchmark_events;
