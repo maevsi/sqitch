@@ -38,16 +38,18 @@ echo "Running ANALYZE..."
 psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on -c "ANALYZE;"
 echo "ANALYZE complete."
 
-# Run benchmark queries and capture output (stderr still goes to console for visibility)
+# Run benchmark queries — tee to temp file for extraction while showing progress
 echo "Running benchmark queries..."
-BENCHMARK_OUTPUT=$(psql "$PSQL_URI" --variable ON_ERROR_STOP=on --file "$THIS/queries.sql")
+BENCHMARK_TMPFILE=$(mktemp)
+psql "$PSQL_URI" --variable ON_ERROR_STOP=on --file "$THIS/queries.sql" 2>&1 | tee "$BENCHMARK_TMPFILE"
 echo "Benchmark queries complete."
 
 # Extract JSON lines between the markers
-echo "$BENCHMARK_OUTPUT" \
-  | sed -n '/--- BEGIN BENCHMARK RESULTS ---/,/--- END BENCHMARK RESULTS ---/p' \
+sed -n '/--- BEGIN BENCHMARK RESULTS ---/,/--- END BENCHMARK RESULTS ---/p' "$BENCHMARK_TMPFILE" \
   | grep '^{' \
   | jq -s '.' > "$OUTPUT_FILE"
+
+rm "$BENCHMARK_TMPFILE"
 
 # Cleanup
 psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on -c "DROP SCHEMA IF EXISTS vibetype_test CASCADE;"
