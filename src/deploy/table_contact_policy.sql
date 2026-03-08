@@ -10,29 +10,20 @@ ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 -- 2) Display contacts created by the invoker's account, omit contacts referring to an account
 --    blocked by the invoker or by an account that blocked the invoker.
 -- 3) Display contacts for which an accessible guest exists.
-CREATE FUNCTION vibetype_private.contact_policy_select(c vibetype.contact)
-RETURNS boolean AS $$
-  SELECT (
-    (
-      c.account_id = vibetype.invoker_account_id()
-      AND
-      NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
-    )
-    OR
-    (
-      c.created_by = vibetype.invoker_account_id()
-      AND
-      NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
-    )
-    OR c.id = ANY(vibetype.guest_contact_ids())
-  );
-$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
-
-GRANT EXECUTE ON FUNCTION vibetype_private.contact_policy_select(vibetype.contact) TO vibetype_account, vibetype_anonymous;
-
 CREATE POLICY contact_select ON vibetype.contact FOR SELECT
 USING (
-  vibetype_private.contact_policy_select(contact)
+  (
+    contact.account_id = vibetype.invoker_account_id()
+    AND
+    NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.created_by)
+  )
+  OR
+  (
+    contact.created_by = vibetype.invoker_account_id()
+    AND
+    NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.account_id)
+  )
+  OR EXISTS (SELECT 1 FROM unnest(vibetype.guest_contact_ids()) AS gci WHERE gci = contact.id)
 );
 
 -- Only allow inserts for contacts created by the invoker's account.

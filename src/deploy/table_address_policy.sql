@@ -16,7 +16,7 @@ USING (
     )
   )
   AND
-  NOT (address.created_by = ANY(vibetype_private.account_block_ids()))
+  NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = address.created_by)
 )
 WITH CHECK (
   address.created_by = vibetype.invoker_account_id()
