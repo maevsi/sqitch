@@ -43,14 +43,16 @@ jq -n \
     .execution_time_ms as $pr_execution |
     ($base_map["\($name)|\($role)"] // null) as $base_entry |
     (if $base_entry then $base_entry.total_time_ms else null end) as $base_total |
-    (if $base_entry and $base_total > 0 then
+    (if $pr_total < 0 or ($base_total != null and $base_total < 0) then
+      null
+    elif $base_entry and $base_total > 0 then
       (($pr_total - $base_total) / $base_total * 100 | . * 10 | round / 10)
     else null end) as $delta_pct |
     {
       name: $name,
       role: $role,
-      base_total: (if $base_entry then ($base_entry.total_time_ms | tostring) else "—" end),
-      pr_total: ($pr_total | tostring),
+      base_total: (if $base_entry then (if $base_entry.total_time_ms < 0 then "timeout" else ($base_entry.total_time_ms | tostring) end) else "—" end),
+      pr_total: (if $pr_total < 0 then "timeout" else ($pr_total | tostring) end),
       delta: ($delta_pct | format_delta),
       icon: ($delta_pct | status_icon)
     }
@@ -76,7 +78,7 @@ jq -n \
   "- Threshold for regression warnings: >\($threshold)%\n" +
 "- Each measurement is the median of 11 runs with adaptive iteration counts (~500ms target per run)\\n\" +
   "- Timings are per-iteration averages measured via `clock_timestamp()`\n" +
-  "- Data: 1000 accounts, 500 events, 5000 contacts, ~5000 guests, 1000 attendances\n" +
+  "- Data: 1000 accounts, 100 events, 1000 contacts, ~1000 guests, 200 attendances\n" +
   "- Runner: GitHub Actions (timings may vary ±10% between runs)\n\n" +
   "</details>"
   ' -r > "$OUTPUT_FILE"

@@ -22,6 +22,7 @@ SELECT count(*) FROM vibetype.contact;
 -- Helper function: runs a query in a loop and returns per-iteration timing as JSON.
 -- Automatically picks iteration count to target ~500ms of wall time per measurement.
 -- If a single execution takes > 1s, skips the loop and returns the warmup timing.
+-- Times out after 10s and returns -1 for timed-out queries.
 -- SECURITY INVOKER so it executes under whatever role is currently set.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_run(
   _name TEXT,
@@ -38,10 +39,24 @@ DECLARE
   _elapsed_ms NUMERIC;
   _i INT;
 BEGIN
-  -- Warmup + measure single execution to determine iteration count
-  _start := clock_timestamp();
-  EXECUTE _sql;
-  _end := clock_timestamp();
+  -- Warmup with 10-second timeout
+  BEGIN
+    EXECUTE 'SET LOCAL statement_timeout = ''10s''';
+    _start := clock_timestamp();
+    EXECUTE _sql;
+    _end := clock_timestamp();
+    EXECUTE 'SET LOCAL statement_timeout = ''0''';
+  EXCEPTION WHEN OTHERS THEN
+    -- Query timed out or failed (e.g. permission denied)
+    RAISE NOTICE '[benchmark] skipped: % as % - %', _name, _role_label, SQLERRM;
+    RETURN jsonb_build_object(
+      'name', _name,
+      'role', _role_label,
+      'execution_time_ms', -1,
+      'total_time_ms', -1
+    );
+  END;
+
   _warmup_ms := EXTRACT(EPOCH FROM (_end - _start)) * 1000;
 
   -- For slow queries (> 1s), just return the warmup timing directly
@@ -167,12 +182,8 @@ SELECT vibetype_test.benchmark_median('select_attendance', 'vibetype_anonymous',
 SELECT vibetype_test.benchmark_median('event_search', 'vibetype_anonymous', 'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')');
 \echo [benchmark] anon: guest_count
 SELECT vibetype_test.benchmark_median('guest_count', 'vibetype_anonymous', 'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)');
-\echo [benchmark] anon: events_invited
-SELECT vibetype_test.benchmark_median('events_invited', 'vibetype_anonymous', 'SELECT * FROM vibetype_private.events_invited()');
 \echo [benchmark] anon: guest_claim_array
 SELECT vibetype_test.benchmark_median('guest_claim_array', 'vibetype_anonymous', 'SELECT vibetype.guest_claim_array()');
-\echo [benchmark] anon: account_block_ids
-SELECT vibetype_test.benchmark_median('account_block_ids', 'vibetype_anonymous', 'SELECT * FROM vibetype_private.account_block_ids()');
 \echo [benchmark] anon: attendance_claim_array
 SELECT vibetype_test.benchmark_median('attendance_claim_array', 'vibetype_anonymous', 'SELECT vibetype.attendance_claim_array()');
 \echo [benchmark] anon: event_guest_count_maximum

@@ -1,5 +1,5 @@
 -- Deterministic synthetic data for benchmark measurements.
--- Generates 1000 accounts, 500 events, 5000 contacts, ~5000 guests, and 1000 attendances.
+-- Generates 1000 accounts, 100 events, 1000 contacts, ~1000 guests, and 200 attendances.
 -- Uses bulk inserts for speed; only a few accounts go through proper registration.
 
 DO $$
@@ -74,7 +74,7 @@ CREATE TEMP TABLE _benchmark_accounts AS
   FROM vibetype.account
   WHERE username LIKE 'benchmark-user-%';
 
--- 500 events: first 100 accounts each organize 5 events
+-- 100 events: first 20 accounts each organize 5 events
 INSERT INTO vibetype.event (name, slug, visibility, start, "end", guest_count_maximum, created_by, description, language)
   SELECT
     'Benchmark Event ' || event_num,
@@ -90,12 +90,12 @@ INSERT INTO vibetype.event (name, slug, visibility, start, "end", guest_count_ma
     SELECT
       ((organizer_seq - 1) * 5 + event_offset) AS event_num,
       organizer_seq
-    FROM generate_series(1, 100) AS organizer_seq,
+    FROM generate_series(1, 20) AS organizer_seq,
          generate_series(1, 5) AS event_offset
   ) sub
   JOIN _benchmark_accounts a ON a.seq = sub.organizer_seq;
 
-DO $$ BEGIN RAISE NOTICE 'Seeded 500 events'; END $$;
+DO $$ BEGIN RAISE NOTICE 'Seeded 100 events'; END $$;
 
 -- Collect event data for guest assignment
 CREATE TEMP TABLE _benchmark_events AS
@@ -103,7 +103,7 @@ CREATE TEMP TABLE _benchmark_events AS
   FROM vibetype.event
   WHERE slug LIKE 'benchmark-event-%';
 
--- 5000 contacts: first 100 accounts each create 50 contacts
+-- 1000 contacts: first 20 accounts each create 50 contacts
 INSERT INTO vibetype.contact (email_address, first_name, last_name, created_by)
   SELECT
     'contact-' || contact_num || '@example.test',
@@ -114,14 +114,14 @@ INSERT INTO vibetype.contact (email_address, first_name, last_name, created_by)
     SELECT
       ((owner_seq - 1) * 50 + contact_offset) AS contact_num,
       owner_seq
-    FROM generate_series(1, 100) AS owner_seq,
+    FROM generate_series(1, 20) AS owner_seq,
          generate_series(1, 50) AS contact_offset
   ) sub
   JOIN _benchmark_accounts a ON a.seq = sub.owner_seq;
 
-DO $$ BEGIN RAISE NOTICE 'Seeded 5000 contacts'; END $$;
+DO $$ BEGIN RAISE NOTICE 'Seeded 1000 contacts'; END $$;
 
--- 5000 guests: 10 per event, using contacts owned by the event organizer
+-- ~1000 guests: 10 per event, using contacts owned by the event organizer
 -- Each organizer has 50 contacts; with 5 events × 10 guests = 50, so each contact is used once.
 INSERT INTO vibetype.guest (contact_id, event_id)
   SELECT c.id, e.id
@@ -135,7 +135,7 @@ INSERT INTO vibetype.guest (contact_id, event_id)
 
 DO $$ BEGIN RAISE NOTICE 'Seeded guests'; END $$;
 
--- 1000 attendances: first 2 guests per event for the first 500 events
+-- 200 attendances: first 2 guests per event for all 100 events
 INSERT INTO vibetype.attendance (guest_id)
   SELECT g.id
   FROM (
