@@ -80,11 +80,14 @@ BEGIN
   -- Target ~500ms total: fast queries get many iterations, slow ones get fewer
   _iterations := GREATEST(1, LEAST(100, floor(500.0 / GREATEST(_warmup_ms, 0.01))));
 
+  -- Keep statement_timeout active during the loop to prevent hangs
+  EXECUTE 'SET LOCAL statement_timeout = ''30s''';
   _start := clock_timestamp();
   FOR _i IN 1.._iterations LOOP
     EXECUTE _sql;
   END LOOP;
   _end := clock_timestamp();
+  EXECUTE 'SET LOCAL statement_timeout = ''0''';
 
   _elapsed_ms := round((EXTRACT(EPOCH FROM (_end - _start)) * 1000 / _iterations)::NUMERIC, 3);
 
@@ -101,7 +104,8 @@ GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_run(TEXT, TEXT, TEXT) TO vibet
 \echo [benchmark] benchmark_run function created
 
 -- Helper function: runs benchmark multiple times and returns median timing.
--- Adapts run count: 11 for fast queries, 3 for slow ones (> 1s).
+-- Adapts run count based on query speed: 11/7/5/3 runs.
+-- Detects timeouts and errors early to avoid wasting time.
 -- Enforces a 60-second time budget per query.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
   _name TEXT,
@@ -116,6 +120,7 @@ DECLARE
   _run JSONB;
   _i INT := 0;
   _actual_runs INT;
+  _first_ms NUMERIC;
   _median_total NUMERIC;
   _budget_start TIMESTAMPTZ := clock_timestamp();
 BEGIN
@@ -126,9 +131,23 @@ BEGIN
     _run := vibetype_test.benchmark_run(_name, _role_label, _sql);
     _results := array_append(_results, (_run->>'total_time_ms')::NUMERIC);
 
-    -- After first run: reduce to 3 runs if query is slow (> 1s)
-    IF _i = 1 AND (_run->>'total_time_ms')::NUMERIC > 1000 THEN
-      _actual_runs := 3;
+    -- After first run: adapt run count based on query speed
+    IF _i = 1 THEN
+      _first_ms := (_run->>'total_time_ms')::NUMERIC;
+
+      -- Timeout or error: return immediately with single result
+      IF _first_ms < 0 THEN
+        RETURN _run;
+      END IF;
+
+      -- Granular adaptive run counts based on query speed
+      IF _first_ms > 5000 THEN
+        _actual_runs := 3;
+      ELSIF _first_ms > 2000 THEN
+        _actual_runs := 5;
+      ELSIF _first_ms > 1000 THEN
+        _actual_runs := 7;
+      END IF;
     END IF;
 
     -- Enforce 60-second time budget
@@ -153,6 +172,30 @@ $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_median(TEXT, TEXT, TEXT, INT) TO vibetype_anonymous, vibetype_account;
 \echo [benchmark] benchmark_median function created
+
+-- Wrapper for vibetype_private.events_invited() accessible to benchmark roles.
+-- The original function is SECURITY DEFINER in vibetype_private (no USAGE grant
+-- for user roles), but user roles have EXECUTE on it. This SECURITY DEFINER
+-- wrapper allows the benchmark SECURITY INVOKER functions to call it.
+CREATE OR REPLACE FUNCTION vibetype_test.events_invited()
+  RETURNS TABLE(event_id UUID)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT * FROM vibetype_private.events_invited();
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.events_invited() TO vibetype_anonymous, vibetype_account;
+
+-- Wrapper for vibetype_private.account_block_ids()
+CREATE OR REPLACE FUNCTION vibetype_test.account_block_ids()
+  RETURNS TABLE(id UUID)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT * FROM vibetype_private.account_block_ids();
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_block_ids() TO vibetype_anonymous, vibetype_account;
+\echo [benchmark] wrapper functions created
 
 -- Resolve the benchmark account and event IDs
 DO $$
@@ -190,8 +233,12 @@ SELECT vibetype_test.benchmark_median('select_attendance', 'vibetype_anonymous',
 SELECT vibetype_test.benchmark_median('event_search', 'vibetype_anonymous', 'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')');
 \echo [benchmark] anon: guest_count
 SELECT vibetype_test.benchmark_median('guest_count', 'vibetype_anonymous', 'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)');
+\echo [benchmark] anon: events_invited
+SELECT vibetype_test.benchmark_median('events_invited', 'vibetype_anonymous', 'SELECT * FROM vibetype_test.events_invited()');
 \echo [benchmark] anon: guest_claim_array
 SELECT vibetype_test.benchmark_median('guest_claim_array', 'vibetype_anonymous', 'SELECT vibetype.guest_claim_array()');
+\echo [benchmark] anon: account_block_ids
+SELECT vibetype_test.benchmark_median('account_block_ids', 'vibetype_anonymous', 'SELECT * FROM vibetype_test.account_block_ids()');
 \echo [benchmark] anon: attendance_claim_array
 SELECT vibetype_test.benchmark_median('attendance_claim_array', 'vibetype_anonymous', 'SELECT vibetype.attendance_claim_array()');
 \echo [benchmark] anon: event_guest_count_maximum
@@ -223,8 +270,12 @@ SELECT vibetype_test.benchmark_median('account_search', 'vibetype_account', 'SEL
 SELECT vibetype_test.benchmark_median('event_search', 'vibetype_account', 'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')');
 \echo [benchmark] auth: guest_count
 SELECT vibetype_test.benchmark_median('guest_count', 'vibetype_account', 'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)');
+\echo [benchmark] auth: events_invited
+SELECT vibetype_test.benchmark_median('events_invited', 'vibetype_account', 'SELECT * FROM vibetype_test.events_invited()');
 \echo [benchmark] auth: guest_claim_array
 SELECT vibetype_test.benchmark_median('guest_claim_array', 'vibetype_account', 'SELECT vibetype.guest_claim_array()');
+\echo [benchmark] auth: account_block_ids
+SELECT vibetype_test.benchmark_median('account_block_ids', 'vibetype_account', 'SELECT * FROM vibetype_test.account_block_ids()');
 \echo [benchmark] auth: attendance_claim_array
 SELECT vibetype_test.benchmark_median('attendance_claim_array', 'vibetype_account', 'SELECT vibetype.attendance_claim_array()');
 \echo [benchmark] auth: event_guest_count_maximum

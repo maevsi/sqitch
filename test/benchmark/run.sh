@@ -1,5 +1,5 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
 # Runs benchmark queries against a PostgreSQL database with deployed migrations
 # and benchmark seed data. Outputs a JSON file with timing results.
@@ -9,7 +9,7 @@ set -e
 # The script:
 # 1. Creates the vibetype_test schema and benchmark helper functions
 # 2. Seeds benchmark data
-# 3. Runs benchmark queries, capturing EXPLAIN ANALYZE output
+# 3. Runs benchmark queries, capturing timing output
 # 4. Extracts JSON results to the output file
 
 OUTPUT_FILE="${1:?Usage: run.sh <output_file> [pg_connection_string]}"

@@ -56,6 +56,9 @@ jobs:
       - name: Revert PR migrations
         run: sqitch --chdir src revert --target db:pg://ci:postgres@localhost/ci_database -y
 
+      - name: Clear PostgreSQL caches
+        run: psql "postgresql://ci:postgres@localhost/ci_database" -c "DISCARD ALL;"
+
       - name: Check out base branch
         uses: actions/checkout@v4
         with:

@@ -14,13 +14,13 @@ BEGIN
     VALUES ('Benchmark terms of service', '0.0.0')
     RETURNING id INTO _legal_term_id;
 
-  -- Pre-compute a single bcrypt hash for bulk accounts (avoids 1000x hashing)
-  _password_hash := public.crypt('benchmark-password', public.gen_salt('bf'));
+  -- Use a fixed, precomputed bcrypt hash of 'benchmark-password' to keep seed data deterministic.
+  _password_hash := '$2b$10$abcdefghijklmnopqrstuvABCDEFGHijkLMNOPQRstu';
 
   -- Register 5 accounts properly (for benchmark subjects with full verification)
   FOR _i IN 1..5 LOOP
     PERFORM vibetype.account_registration(
-      '1990-01-01'::DATE,
+      '1970-01-01'::DATE,
       'benchmark-' || _i || '@example.test',
       CASE WHEN _i % 2 = 0 THEN 'en' ELSE 'de' END,
       _legal_term_id,
@@ -44,7 +44,7 @@ BEGIN
       '1990-01-01'::DATE,
       'benchmark-' || i || '@example.test',
       _password_hash,
-      CURRENT_TIMESTAMP
+      '1970-01-01 00:00:00'::timestamp
     FROM generate_series(6, 1000) AS i;
 
   INSERT INTO vibetype.account (id, username)
