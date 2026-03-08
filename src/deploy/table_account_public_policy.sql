@@ -8,9 +8,7 @@ ALTER TABLE vibetype.account ENABLE ROW LEVEL SECURITY;
 -- Make all accounts accessible by everyone.
 CREATE POLICY account_select ON vibetype.account FOR SELECT
 USING (
-  NOT EXISTS (
-    SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = account.id
-  )
+  NOT (account.id = ANY(vibetype_private.account_block_ids()))
 );
 
 CREATE POLICY account_update ON vibetype.account FOR UPDATE

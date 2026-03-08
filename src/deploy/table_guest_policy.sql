@@ -20,9 +20,7 @@ AS $$
       AND c.account_id = vibetype.invoker_account_id()
       -- omit contacts created by a user who is blocked by the invoker
       -- omit contacts created by a user who blocked the invoker.
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-      )
+      AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
     )
   )
   OR
@@ -41,12 +39,8 @@ AS $$
       SELECT 1
       FROM vibetype.contact c
       WHERE c.id = g.contact_id
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-        )
+        AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+        AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
     )
   )
 );
@@ -70,10 +64,9 @@ WITH CHECK (
         AND e.created_by = vibetype.invoker_account_id()
   )
   AND
-  (
-    vibetype.event_guest_count_maximum(guest.event_id) IS NULL
-    OR
-    vibetype.event_guest_count_maximum(guest.event_id) > vibetype.guest_count(guest.event_id)
+  COALESCE(
+    vibetype.event_guest_count_maximum(guest.event_id) > vibetype.guest_count(guest.event_id),
+    TRUE
   )
   AND
     EXISTS (
@@ -81,9 +74,7 @@ WITH CHECK (
       FROM vibetype.contact c
       WHERE c.id = guest.contact_id
       AND c.created_by = vibetype.invoker_account_id()
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-      )
+      AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
     )
 );
 
@@ -104,8 +95,6 @@ USING (
 CREATE FUNCTION vibetype.trigger_guest_update() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT
     AS $$
-DECLARE
-  whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
       TG_OP = 'UPDATE'
@@ -119,15 +108,16 @@ BEGIN
         AND c.account_id = vibetype.invoker_account_id()
       )
     )
-    AND
-      EXISTS (
-        SELECT 1
-          FROM jsonb_each(to_jsonb(OLD)) AS pre, jsonb_each(to_jsonb(NEW)) AS post
-          WHERE pre.key = post.key AND pre.value IS DISTINCT FROM post.value
-          AND NOT (pre.key = ANY(whitelisted_cols))
-      )
+    AND (
+      NEW.id IS DISTINCT FROM OLD.id
+      OR NEW.contact_id IS DISTINCT FROM OLD.contact_id
+      OR NEW.event_id IS DISTINCT FROM OLD.event_id
+      OR NEW.created_at IS DISTINCT FROM OLD.created_at
+      OR NEW.updated_at IS DISTINCT FROM OLD.updated_at
+      OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
+    )
   THEN
-    RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
+    RAISE 'You''re only allowed to alter these columns: feedback, feedback_paper!' USING ERRCODE = 'insufficient_privilege';
   ELSE
     NEW.updated_at = CURRENT_TIMESTAMP;
     NEW.updated_by = vibetype.invoker_account_id();

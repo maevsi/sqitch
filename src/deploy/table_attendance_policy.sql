@@ -21,11 +21,7 @@ USING (
       AND e.created_by = vibetype.invoker_account_id()
   )
   OR
-  EXISTS (
-    SELECT 1
-    FROM unnest(vibetype.guest_claim_array()) gc(id)
-    WHERE gc.id = vibetype.attendance.guest_id
-  )
+  vibetype.attendance.guest_id = ANY(vibetype.guest_claim_array())
   OR
   EXISTS (
     SELECT 1
@@ -33,7 +29,7 @@ USING (
     JOIN vibetype.contact c ON c.id = g.contact_id
     WHERE g.id = vibetype.attendance.guest_id
       AND c.account_id = vibetype.invoker_account_id()
-      AND c.created_by NOT IN (SELECT id FROM vibetype_private.account_block_ids())
+      AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
   )
 );
 
@@ -59,12 +55,7 @@ USING (
     WHERE g.id = vibetype.attendance.guest_id
       AND e.created_by = vibetype.invoker_account_id()
   )
-  OR
-  EXISTS (
-    SELECT 1
-    FROM unnest(vibetype.guest_claim_array()) gc(id)
-    WHERE gc.id = vibetype.attendance.guest_id
-  )
+  OR vibetype.attendance.guest_id = ANY(vibetype.guest_claim_array())
 );
 
 COMMIT;

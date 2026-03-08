@@ -1,11 +1,14 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
+CREATE FUNCTION vibetype.guest_contact_ids() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   -- get all contacts of guests
-  SELECT g.contact_id
-  FROM vibetype.guest g
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
+  SELECT COALESCE(array_agg(g.contact_id), ARRAY[]::UUID[])
+  FROM vibetype.guest g, _blocked
   WHERE
     (
       -- that are known through a guest claim
@@ -24,12 +27,8 @@ CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
           SELECT 1
           FROM vibetype.contact c
           WHERE c.id = g.contact_id
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-          )
+            AND NOT (c.created_by = ANY(_blocked.ids))
+            AND NOT (c.account_id = ANY(_blocked.ids))
         )
       )
     );

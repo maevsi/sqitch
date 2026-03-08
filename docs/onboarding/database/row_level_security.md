@@ -122,3 +122,17 @@ Suppose the function was defined as `SECURITY INVOKER`; this would imply the eva
 
 A developer should be careful with `SECURITY DEFINER` functions.
 As they bypass RLS security, every security check that would otherwise be handled by policies must be explicitly implemented in the function body.
+
+## Performance considerations for helper functions in policies
+
+RLS policy conditions are evaluated per row, so helper functions called inside policies should be efficient.
+In *Vibetype*, helper functions like `vibetype.account_block_ids()`, `vibetype.events_invited()`, and `vibetype.guest_contact_ids()` return `UUID[]` arrays rather than result sets (`TABLE`).
+This allows policies to use the `= ANY(function())` pattern instead of `EXISTS(SELECT FROM function() WHERE ...)` subqueries, which avoids repeated per-row correlated subquery execution:
+
+```sql
+-- preferred: array return with = ANY()
+NOT (event.created_by = ANY(vibetype.account_block_ids()))
+
+-- avoid: correlated subquery per row
+NOT EXISTS(SELECT FROM vibetype.account_block_ids() AS b WHERE b.id = event.created_by)
+```

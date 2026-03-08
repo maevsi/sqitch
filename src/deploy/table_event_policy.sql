@@ -23,17 +23,9 @@ RETURNS boolean AS $$
         e.guest_count_maximum IS NULL
         OR e.guest_count_maximum > vibetype.guest_count(e.id)
       )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM vibetype_private.account_block_ids() b
-        WHERE b.id = e.created_by
-      )
+      AND NOT (e.created_by = ANY(vibetype_private.account_block_ids()))
     )
-    OR EXISTS (
-      SELECT 1
-      FROM vibetype_private.events_invited() ei(event_id)
-      WHERE ei.event_id = e.id
-    )
+    OR e.id = ANY(vibetype_private.events_invited())
     OR EXISTS (
       SELECT 1
       FROM vibetype.attendance a
