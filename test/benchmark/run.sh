@@ -30,13 +30,18 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 EOF
 
 # Seed benchmark data
+echo "Seeding benchmark data..."
 psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on --file "$THIS/seed.sql"
 
 # Run ANALYZE to ensure query planner has up-to-date statistics
+echo "Running ANALYZE..."
 psql "$PSQL_URI" --quiet --variable ON_ERROR_STOP=on -c "ANALYZE;"
+echo "ANALYZE complete."
 
 # Run benchmark queries and capture output (stderr still goes to console for visibility)
+echo "Running benchmark queries..."
 BENCHMARK_OUTPUT=$(psql "$PSQL_URI" --variable ON_ERROR_STOP=on --file "$THIS/queries.sql")
+echo "Benchmark queries complete."
 
 # Extract JSON lines between the markers
 echo "$BENCHMARK_OUTPUT" \

@@ -5,17 +5,19 @@
 -- Role switching is done at the psql script level (not inside functions)
 -- because SET ROLE cannot be used inside SECURITY DEFINER functions.
 --
--- Each measurement runs the query 10 times in a loop and divides by 10
--- to get a per-execution time. This reduces noise from fast queries.
+-- Each measurement auto-selects an iteration count targeting ~500ms of
+-- wall time, then divides by iteration count for per-execution timing.
 
 \pset format unaligned
 \pset tuples_only on
 
 -- Warm up shared buffers
+\echo [benchmark] warming up shared buffers...
 SELECT count(*) FROM vibetype.account;
 SELECT count(*) FROM vibetype.event;
 SELECT count(*) FROM vibetype.guest;
 SELECT count(*) FROM vibetype.contact;
+\echo [benchmark] warmup complete
 
 -- Helper function: runs a query in a loop and returns per-iteration timing as JSON.
 -- Automatically picks iteration count to target ~500ms of wall time per measurement.
@@ -62,6 +64,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_run(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
+\echo [benchmark] benchmark_run function created
 
 -- Helper function: runs benchmark _runs times and returns median timing.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
@@ -98,6 +101,7 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_median(TEXT, TEXT, TEXT, INT) TO vibetype_anonymous, vibetype_account;
+\echo [benchmark] benchmark_median function created
 
 -- Resolve the benchmark account and event IDs
 DO $$
@@ -110,6 +114,7 @@ BEGIN
   PERFORM set_config('benchmark.account_id', _account_id::TEXT, false);
   PERFORM set_config('benchmark.event_id', _event_id::TEXT, false);
 END $$;
+\echo [benchmark] account/event IDs resolved
 
 \echo --- BEGIN BENCHMARK RESULTS ---
 
@@ -118,42 +123,70 @@ END $$;
 -- ============================================================
 SET ROLE vibetype_anonymous;
 SELECT set_config('jwt.claims.sub', '', false);
+\echo [benchmark] starting anonymous benchmarks...
 
+\echo [benchmark] anon: select_accounts
 SELECT vibetype_test.benchmark_median('select_accounts', 'vibetype_anonymous', 'SELECT * FROM vibetype.account');
+\echo [benchmark] anon: select_events
 SELECT vibetype_test.benchmark_median('select_events', 'vibetype_anonymous', 'SELECT * FROM vibetype.event');
+\echo [benchmark] anon: select_guests
 SELECT vibetype_test.benchmark_median('select_guests', 'vibetype_anonymous', 'SELECT * FROM vibetype.guest');
+\echo [benchmark] anon: select_contacts
 SELECT vibetype_test.benchmark_median('select_contacts', 'vibetype_anonymous', 'SELECT * FROM vibetype.contact');
+\echo [benchmark] anon: select_attendance
 SELECT vibetype_test.benchmark_median('select_attendance', 'vibetype_anonymous', 'SELECT * FROM vibetype.attendance');
+\echo [benchmark] anon: event_search
 SELECT vibetype_test.benchmark_median('event_search', 'vibetype_anonymous', 'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')');
+\echo [benchmark] anon: guest_count
 SELECT vibetype_test.benchmark_median('guest_count', 'vibetype_anonymous', 'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)');
+\echo [benchmark] anon: events_invited
 SELECT vibetype_test.benchmark_median('events_invited', 'vibetype_anonymous', 'SELECT * FROM vibetype_private.events_invited()');
+\echo [benchmark] anon: guest_claim_array
 SELECT vibetype_test.benchmark_median('guest_claim_array', 'vibetype_anonymous', 'SELECT vibetype.guest_claim_array()');
+\echo [benchmark] anon: account_block_ids
 SELECT vibetype_test.benchmark_median('account_block_ids', 'vibetype_anonymous', 'SELECT * FROM vibetype_private.account_block_ids()');
+\echo [benchmark] anon: attendance_claim_array
 SELECT vibetype_test.benchmark_median('attendance_claim_array', 'vibetype_anonymous', 'SELECT vibetype.attendance_claim_array()');
+\echo [benchmark] anon: event_guest_count_maximum
 SELECT vibetype_test.benchmark_median('event_guest_count_maximum', 'vibetype_anonymous', 'SELECT vibetype.event_guest_count_maximum(''' || current_setting('benchmark.event_id') || '''::UUID)');
 
 RESET ROLE;
+\echo [benchmark] anonymous benchmarks complete
 
 -- ============================================================
 -- Authenticated role benchmarks
 -- ============================================================
 SET ROLE vibetype_account;
 SELECT set_config('jwt.claims.sub', current_setting('benchmark.account_id'), false);
+\echo [benchmark] starting authenticated benchmarks...
 
+\echo [benchmark] auth: select_accounts
 SELECT vibetype_test.benchmark_median('select_accounts', 'vibetype_account', 'SELECT * FROM vibetype.account');
+\echo [benchmark] auth: select_events
 SELECT vibetype_test.benchmark_median('select_events', 'vibetype_account', 'SELECT * FROM vibetype.event');
+\echo [benchmark] auth: select_guests
 SELECT vibetype_test.benchmark_median('select_guests', 'vibetype_account', 'SELECT * FROM vibetype.guest');
+\echo [benchmark] auth: select_contacts
 SELECT vibetype_test.benchmark_median('select_contacts', 'vibetype_account', 'SELECT * FROM vibetype.contact');
+\echo [benchmark] auth: select_attendance
 SELECT vibetype_test.benchmark_median('select_attendance', 'vibetype_account', 'SELECT * FROM vibetype.attendance');
+\echo [benchmark] auth: account_search
 SELECT vibetype_test.benchmark_median('account_search', 'vibetype_account', 'SELECT * FROM vibetype.account_search(''benchmark'')');
+\echo [benchmark] auth: event_search
 SELECT vibetype_test.benchmark_median('event_search', 'vibetype_account', 'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')');
+\echo [benchmark] auth: guest_count
 SELECT vibetype_test.benchmark_median('guest_count', 'vibetype_account', 'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)');
+\echo [benchmark] auth: events_invited
 SELECT vibetype_test.benchmark_median('events_invited', 'vibetype_account', 'SELECT * FROM vibetype_private.events_invited()');
+\echo [benchmark] auth: guest_claim_array
 SELECT vibetype_test.benchmark_median('guest_claim_array', 'vibetype_account', 'SELECT vibetype.guest_claim_array()');
+\echo [benchmark] auth: account_block_ids
 SELECT vibetype_test.benchmark_median('account_block_ids', 'vibetype_account', 'SELECT * FROM vibetype_private.account_block_ids()');
+\echo [benchmark] auth: attendance_claim_array
 SELECT vibetype_test.benchmark_median('attendance_claim_array', 'vibetype_account', 'SELECT vibetype.attendance_claim_array()');
+\echo [benchmark] auth: event_guest_count_maximum
 SELECT vibetype_test.benchmark_median('event_guest_count_maximum', 'vibetype_account', 'SELECT vibetype.event_guest_count_maximum(''' || current_setting('benchmark.event_id') || '''::UUID)');
 
 RESET ROLE;
-
+\echo [benchmark] authenticated benchmarks complete
 \echo --- END BENCHMARK RESULTS ---
