@@ -1,9 +1,12 @@
 -- Benchmark queries for measuring database query performance.
 -- Each query is run as both vibetype_anonymous and vibetype_account roles.
--- Output: JSON rows with query name, role, planning time, and execution time.
+-- Output: JSON rows with query name, role, and execution time.
 --
 -- Role switching is done at the psql script level (not inside functions)
 -- because SET ROLE cannot be used inside SECURITY DEFINER functions.
+--
+-- Each measurement runs the query 10 times in a loop and divides by 10
+-- to get a per-execution time. This reduces noise from fast queries.
 
 \pset format unaligned
 \pset tuples_only on
@@ -11,83 +14,84 @@
 -- Warm up shared buffers
 SELECT count(*) FROM vibetype.account;
 SELECT count(*) FROM vibetype.event;
+SELECT count(*) FROM vibetype.guest;
+SELECT count(*) FROM vibetype.contact;
 
--- Helper function: runs EXPLAIN ANALYZE and returns timing as JSON.
+-- Helper function: runs a query in a loop and returns timing as JSON.
 -- SECURITY INVOKER so it executes under whatever role is currently set.
-CREATE OR REPLACE FUNCTION vibetype_test.benchmark_explain(
+CREATE OR REPLACE FUNCTION vibetype_test.benchmark_run(
   _name TEXT,
   _role_label TEXT,
-  _sql TEXT
+  _sql TEXT,
+  _iterations INT DEFAULT 10
 ) RETURNS JSONB
     LANGUAGE plpgsql SECURITY INVOKER
     AS $$
 DECLARE
-  _plan_text TEXT;
-  _plan JSONB;
-  _planning_time NUMERIC;
-  _execution_time NUMERIC;
+  _start TIMESTAMPTZ;
+  _end TIMESTAMPTZ;
+  _elapsed_ms NUMERIC;
+  _i INT;
+  _dummy RECORD;
 BEGIN
-  EXECUTE 'EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ' || _sql INTO _plan_text;
-  _plan := _plan_text::JSONB;
+  -- Force plan cache by running once
+  EXECUTE _sql INTO _dummy;
 
-  _planning_time := (_plan->0->>'Planning Time')::NUMERIC;
-  _execution_time := (_plan->0->>'Execution Time')::NUMERIC;
+  _start := clock_timestamp();
+  FOR _i IN 1.._iterations LOOP
+    EXECUTE _sql;
+  END LOOP;
+  _end := clock_timestamp();
+
+  _elapsed_ms := round((EXTRACT(EPOCH FROM (_end - _start)) * 1000 / _iterations)::NUMERIC, 3);
 
   RETURN jsonb_build_object(
     'name', _name,
     'role', _role_label,
-    'planning_time_ms', round(_planning_time, 3),
-    'execution_time_ms', round(_execution_time, 3),
-    'total_time_ms', round(_planning_time + _execution_time, 3)
+    'execution_time_ms', _elapsed_ms,
+    'total_time_ms', _elapsed_ms
   );
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_explain(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_run(TEXT, TEXT, TEXT, INT) TO vibetype_anonymous, vibetype_account;
+
+-- Helper function: runs benchmark _runs times and returns median timing.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
   _name TEXT,
   _role_label TEXT,
   _sql TEXT,
-  _runs INT DEFAULT 11
+  _runs INT DEFAULT 11,
+  _iterations INT DEFAULT 10
 ) RETURNS JSONB
     LANGUAGE plpgsql SECURITY INVOKER
     AS $$
 DECLARE
   _results NUMERIC[] := ARRAY[]::NUMERIC[];
-  _planning_times NUMERIC[] := ARRAY[]::NUMERIC[];
   _run JSONB;
   _i INT;
   _median_total NUMERIC;
-  _median_planning NUMERIC;
-  _median_execution NUMERIC;
 BEGIN
   FOR _i IN 1.._runs LOOP
-    _run := vibetype_test.benchmark_explain(_name, _role_label, _sql);
+    _run := vibetype_test.benchmark_run(_name, _role_label, _sql, _iterations);
     _results := array_append(_results, (_run->>'total_time_ms')::NUMERIC);
-    _planning_times := array_append(_planning_times, (_run->>'planning_time_ms')::NUMERIC);
   END LOOP;
 
+  -- Sort and pick median
   SELECT val INTO _median_total
     FROM unnest(_results) AS val ORDER BY val
     LIMIT 1 OFFSET _runs / 2;
 
-  SELECT val INTO _median_planning
-    FROM unnest(_planning_times) AS val ORDER BY val
-    LIMIT 1 OFFSET _runs / 2;
-
-  _median_execution := _median_total - _median_planning;
-
   RETURN jsonb_build_object(
     'name', _name,
     'role', _role_label,
-    'planning_time_ms', round(_median_planning, 3),
-    'execution_time_ms', round(_median_execution, 3),
+    'execution_time_ms', round(_median_total, 3),
     'total_time_ms', round(_median_total, 3)
   );
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_median(TEXT, TEXT, TEXT, INT) TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_median(TEXT, TEXT, TEXT, INT, INT) TO vibetype_anonymous, vibetype_account;
 
 -- Resolve the benchmark account and event IDs
 DO $$
@@ -106,8 +110,8 @@ END $$;
 -- ============================================================
 -- Anonymous role benchmarks
 -- ============================================================
-SET LOCAL ROLE vibetype_anonymous;
-SELECT set_config('jwt.claims.sub', '', true);
+SET ROLE vibetype_anonymous;
+SELECT set_config('jwt.claims.sub', '', false);
 
 SELECT vibetype_test.benchmark_median('select_accounts', 'vibetype_anonymous', 'SELECT * FROM vibetype.account');
 SELECT vibetype_test.benchmark_median('select_events', 'vibetype_anonymous', 'SELECT * FROM vibetype.event');
@@ -127,8 +131,8 @@ RESET ROLE;
 -- ============================================================
 -- Authenticated role benchmarks
 -- ============================================================
-SET LOCAL ROLE vibetype_account;
-SELECT set_config('jwt.claims.sub', current_setting('benchmark.account_id'), true);
+SET ROLE vibetype_account;
+SELECT set_config('jwt.claims.sub', current_setting('benchmark.account_id'), false);
 
 SELECT vibetype_test.benchmark_median('select_accounts', 'vibetype_account', 'SELECT * FROM vibetype.account');
 SELECT vibetype_test.benchmark_median('select_events', 'vibetype_account', 'SELECT * FROM vibetype.event');

@@ -5,7 +5,7 @@ set -e
 #
 # Usage: compare.sh <base_results.json> <pr_results.json> <output.md>
 #
-# The JSON files are arrays of objects with: name, role, planning_time_ms, execution_time_ms, total_time_ms
+# The JSON files are arrays of objects with: name, role, execution_time_ms, total_time_ms
 
 BASE_FILE="${1:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
 PR_FILE="${2:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
@@ -40,7 +40,6 @@ jq -n \
     .name as $name |
     .role as $role |
     .total_time_ms as $pr_total |
-    .planning_time_ms as $pr_planning |
     .execution_time_ms as $pr_execution |
     ($base_map["\($name)|\($role)"] // null) as $base_entry |
     (if $base_entry then $base_entry.total_time_ms else null end) as $base_total |
@@ -75,8 +74,8 @@ jq -n \
   "\n\n" +
   "<details>\n<summary>Details</summary>\n\n" +
   "- Threshold for regression warnings: >\($threshold)%\n" +
-  "- Each measurement is the median of 11 runs using `EXPLAIN ANALYZE`\n" +
-  "- Timings include both planning and execution time\n" +
+  "- Each measurement is the median of 11 runs, each timing 10 query iterations\n" +
+  "- Timings are per-iteration averages measured via `clock_timestamp()`\n" +
   "- Data: 1000 accounts, 500 events, 5000 contacts, ~5000 guests, 1000 attendances\n" +
   "- Runner: GitHub Actions (timings may vary ±10% between runs)\n\n" +
   "</details>"
