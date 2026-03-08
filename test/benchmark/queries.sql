@@ -17,25 +17,32 @@ SELECT count(*) FROM vibetype.event;
 SELECT count(*) FROM vibetype.guest;
 SELECT count(*) FROM vibetype.contact;
 
--- Helper function: runs a query in a loop and returns timing as JSON.
+-- Helper function: runs a query in a loop and returns per-iteration timing as JSON.
+-- Automatically picks iteration count to target ~500ms of wall time per measurement.
 -- SECURITY INVOKER so it executes under whatever role is currently set.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_run(
   _name TEXT,
   _role_label TEXT,
-  _sql TEXT,
-  _iterations INT DEFAULT 10
+  _sql TEXT
 ) RETURNS JSONB
     LANGUAGE plpgsql SECURITY INVOKER
     AS $$
 DECLARE
   _start TIMESTAMPTZ;
   _end TIMESTAMPTZ;
+  _warmup_ms NUMERIC;
+  _iterations INT;
   _elapsed_ms NUMERIC;
   _i INT;
-  _dummy RECORD;
 BEGIN
-  -- Force plan cache by running once
-  EXECUTE _sql INTO _dummy;
+  -- Warmup + measure single execution to determine iteration count
+  _start := clock_timestamp();
+  EXECUTE _sql;
+  _end := clock_timestamp();
+  _warmup_ms := EXTRACT(EPOCH FROM (_end - _start)) * 1000;
+
+  -- Target ~500ms total: fast queries get many iterations, slow ones get fewer
+  _iterations := GREATEST(1, LEAST(100, floor(500.0 / GREATEST(_warmup_ms, 0.01))));
 
   _start := clock_timestamp();
   FOR _i IN 1.._iterations LOOP
@@ -54,15 +61,14 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_run(TEXT, TEXT, TEXT, INT) TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_run(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 
 -- Helper function: runs benchmark _runs times and returns median timing.
 CREATE OR REPLACE FUNCTION vibetype_test.benchmark_median(
   _name TEXT,
   _role_label TEXT,
   _sql TEXT,
-  _runs INT DEFAULT 11,
-  _iterations INT DEFAULT 10
+  _runs INT DEFAULT 11
 ) RETURNS JSONB
     LANGUAGE plpgsql SECURITY INVOKER
     AS $$
@@ -73,7 +79,7 @@ DECLARE
   _median_total NUMERIC;
 BEGIN
   FOR _i IN 1.._runs LOOP
-    _run := vibetype_test.benchmark_run(_name, _role_label, _sql, _iterations);
+    _run := vibetype_test.benchmark_run(_name, _role_label, _sql);
     _results := array_append(_results, (_run->>'total_time_ms')::NUMERIC);
   END LOOP;
 
@@ -91,7 +97,7 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_median(TEXT, TEXT, TEXT, INT, INT) TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_median(TEXT, TEXT, TEXT, INT) TO vibetype_anonymous, vibetype_account;
 
 -- Resolve the benchmark account and event IDs
 DO $$
