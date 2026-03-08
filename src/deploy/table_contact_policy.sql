@@ -23,7 +23,7 @@ USING (
     AND
     NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.account_id)
   )
-  OR EXISTS (SELECT 1 FROM unnest(vibetype.guest_contact_ids()) AS gci WHERE gci = contact.id)
+  OR EXISTS (SELECT 1 FROM vibetype.guest_contact_ids() gci WHERE gci.contact_id = contact.id)
 );
 
 -- Only allow inserts for contacts created by the invoker's account.

@@ -1259,14 +1259,14 @@ COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest c
 -- Name: guest_contact_ids(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.guest_contact_ids() RETURNS uuid[]
+CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   -- get all contacts of guests
   WITH _blocked AS (
     SELECT vibetype_private.account_block_ids() AS ids
   )
-  SELECT COALESCE(array_agg(g.contact_id), ARRAY[]::UUID[])
+  SELECT g.contact_id
   FROM vibetype.guest g, _blocked
   WHERE
     (
@@ -6628,8 +6628,8 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id
   WHERE (b.b = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
    FROM unnest(vibetype_private.account_block_ids()) b(b)
   WHERE (b.b = contact.account_id))))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_contact_ids()) gci(gci)
-  WHERE (gci.gci = contact.id)))));
+   FROM vibetype.guest_contact_ids() gci(contact_id)
+  WHERE (gci.contact_id = contact.id)))));
 
 
 --

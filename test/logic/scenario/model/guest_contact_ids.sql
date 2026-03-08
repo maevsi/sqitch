@@ -22,7 +22,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   -- Get contact IDs for account A (event organizer)
-  contactIds := vibetype.guest_contact_ids();
+  contactIds := ARRAY(SELECT contact_id FROM vibetype.guest_contact_ids());
 
   -- Account A should see contact AB
   PERFORM vibetype_test.uuid_array_test('organizer sees guest contact', contactIds, ARRAY[contactAB]);
@@ -51,7 +51,7 @@ BEGIN
   PERFORM vibetype_test.guest_claim_set(accountB);
 
   -- Get contact IDs for account B (guest with claim)
-  contactIds := vibetype.guest_contact_ids();
+  contactIds := ARRAY(SELECT contact_id FROM vibetype.guest_contact_ids());
 
   -- Account B should see contact AB through guest claim
   PERFORM vibetype_test.uuid_array_test('guest sees contact via guest claim', contactIds, ARRAY[contactAB]);
@@ -87,7 +87,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   -- Get contact IDs for account A
-  contactIds := vibetype.guest_contact_ids();
+  contactIds := ARRAY(SELECT contact_id FROM vibetype.guest_contact_ids());
 
   -- Account A should not see contact AB (blocked account B)
   IF contactAB = ANY(contactIds) THEN
@@ -127,7 +127,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   -- Get contact IDs for account A
-  contactIds := vibetype.guest_contact_ids();
+  contactIds := ARRAY(SELECT contact_id FROM vibetype.guest_contact_ids());
 
   -- Account A should see both contacts (no duplicates)
   PERFORM vibetype_test.uuid_array_test('organizer sees all guest contacts', contactIds, ARRAY[contactAB, contactAC]);

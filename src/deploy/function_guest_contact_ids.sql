@@ -1,13 +1,13 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.guest_contact_ids() RETURNS UUID[]
+CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   -- get all contacts of guests
   WITH _blocked AS (
     SELECT vibetype_private.account_block_ids() AS ids
   )
-  SELECT COALESCE(array_agg(g.contact_id), ARRAY[]::UUID[])
+  SELECT g.contact_id
   FROM vibetype.guest g, _blocked
   WHERE
     (
