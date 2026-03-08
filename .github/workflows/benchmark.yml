@@ -29,6 +29,13 @@ jobs:
       - name: Check out PR branch
         uses: actions/checkout@v4
 
+      - name: Check out base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          clean: false
+          path: base
+
       - name: Install Sqitch
         run: |
           sudo apt-get update
@@ -47,36 +54,20 @@ jobs:
             /run/secrets/postgres_role_service_vibetype_password \
             /run/secrets/postgres_role_service_zammad_password
 
+      - name: Deploy base migrations
+        run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database
+
+      - name: Run base benchmarks
+        run: ./test/benchmark/run.sh /tmp/benchmark_base.json "pg://ci:postgres@localhost/ci_database"
+
+      - name: Revert base migrations
+        run: sqitch --chdir base/src revert --target db:pg://ci:postgres@localhost/ci_database -y
+
       - name: Deploy PR migrations
         run: sqitch --chdir src deploy --target db:pg://ci:postgres@localhost/ci_database
 
       - name: Run PR benchmarks
         run: ./test/benchmark/run.sh /tmp/benchmark_pr.json "pg://ci:postgres@localhost/ci_database"
-
-      - name: Revert PR migrations
-        run: sqitch --chdir src revert --target db:pg://ci:postgres@localhost/ci_database -y
-
-      - name: Clear PostgreSQL caches
-        run: psql "postgresql://ci:postgres@localhost/ci_database" -c "DISCARD ALL;"
-
-      - name: Check out base branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-          clean: false
-          path: base
-
-      - name: Deploy base migrations
-        run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database
-
-      - name: Run base benchmarks
-        run: |
-          # Use PR benchmark scripts against base schema
-          # First, copy benchmark files into base if they don't exist there
-          if [ ! -d base/test/benchmark ]; then
-            cp -r test/benchmark base/test/benchmark
-          fi
-          base/test/benchmark/run.sh /tmp/benchmark_base.json "pg://ci:postgres@localhost/ci_database"
 
       - name: Generate comparison
         run: ./test/benchmark/compare.sh /tmp/benchmark_base.json /tmp/benchmark_pr.json /tmp/benchmark_comment.md
