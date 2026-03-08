@@ -2120,6 +2120,19 @@ COMMENT ON FUNCTION vibetype_private.account_block_ids() IS 'Returns all account
 
 
 --
+-- Name: account_policy_select(vibetype.account); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.account_policy_select(a vibetype.account) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT NOT (a.id = ANY(vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype_private.account_policy_select(a vibetype.account) OWNER TO ci;
+
+--
 -- Name: adjust_audit_log_id_seq(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -2149,6 +2162,294 @@ ALTER FUNCTION vibetype_private.adjust_audit_log_id_seq() OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function resetting the current value of the sequence vibetype_private.audit_log_id_seq according to the content of table audit_log.';
 
+
+--
+-- Name: attendance; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.attendance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    checked_out boolean,
+    contact_id uuid,
+    guest_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
+);
+
+
+ALTER TABLE vibetype.attendance OWNER TO ci;
+
+--
+-- Name: TABLE attendance; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.attendance IS '@behavior -delete
+Keeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
+
+
+--
+-- Name: COLUMN attendance.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.id IS '@behavior -insert -update
+A unique reference for this entry.';
+
+
+--
+-- Name: COLUMN attendance.checked_out; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.checked_out IS '@behavior -insert
+Shows if the person has left. When this turns on, the time is saved automatically.';
+
+
+--
+-- Name: COLUMN attendance.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.contact_id IS '@behavior -update
+The contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
+
+
+--
+-- Name: COLUMN attendance.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.guest_id IS '@behavior -update
+Who this entry is for.';
+
+
+--
+-- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.created_at IS '@behavior -insert -update
+When the entry was created (the check-in time).';
+
+
+--
+-- Name: COLUMN attendance.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.updated_at IS '@behavior -insert -update
+When this entry was last changed. If someone checks out, this shows the checkout time.';
+
+
+--
+-- Name: COLUMN attendance.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
+Who last changed this entry. This may be empty if done without signing in.';
+
+
+--
+-- Name: attendance_policy_select(vibetype.attendance); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT (
+    a.id = ANY(vibetype.attendance_claim_array())
+    OR
+    EXISTS (
+      SELECT 1
+      FROM vibetype.guest g
+      JOIN vibetype.event e ON e.id = g.event_id
+      WHERE g.id = a.guest_id
+        AND e.created_by = vibetype.invoker_account_id()
+    )
+    OR
+    a.guest_id = ANY(vibetype.guest_claim_array())
+    OR
+    EXISTS (
+      SELECT 1
+      FROM vibetype.guest g
+      JOIN vibetype.contact c ON c.id = g.contact_id
+      WHERE g.id = a.guest_id
+        AND c.account_id = vibetype.invoker_account_id()
+        AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+    )
+  );
+$$;
+
+
+ALTER FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) OWNER TO ci;
+
+--
+-- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid,
+    address_id uuid,
+    email_address text,
+    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
+    first_name text,
+    language vibetype.language,
+    last_name text,
+    nickname text,
+    note text,
+    phone_number text,
+    time_zone text,
+    url text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
+    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
+    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
+    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
+);
+
+
+ALTER TABLE vibetype.contact OWNER TO ci;
+
+--
+-- Name: TABLE contact; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
+
+
+--
+-- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
+Primary key, uniquely identifies each contact.';
+
+
+--
+-- Name: COLUMN contact.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
+
+
+--
+-- Name: COLUMN contact.address_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
+
+
+--
+-- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
+
+
+--
+-- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
+Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+
+
+--
+-- Name: COLUMN contact.first_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
+
+
+--
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
+
+
+--
+-- Name: COLUMN contact.last_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
+
+
+--
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
+
+
+--
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
+
+
+--
+-- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
+
+
+--
+-- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
+
+
+--
+-- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
+
+
+--
+-- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
+Timestamp when the contact was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
+
+
+--
+-- Name: contact_policy_select(vibetype.contact); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.contact_policy_select(c vibetype.contact) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT (
+    (
+      c.account_id = vibetype.invoker_account_id()
+      AND
+      NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+    )
+    OR
+    (
+      c.created_by = vibetype.invoker_account_id()
+      AND
+      NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+    )
+    OR c.id = ANY(vibetype.guest_contact_ids())
+  );
+$$;
+
+
+ALTER FUNCTION vibetype_private.contact_policy_select(c vibetype.contact) OWNER TO ci;
 
 --
 -- Name: event_policy_select(vibetype.event); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -3068,234 +3369,6 @@ COMMENT ON COLUMN vibetype.app.created_at IS 'When the app was created.';
 --
 
 COMMENT ON COLUMN vibetype.app.created_by IS 'Who created this app.';
-
-
---
--- Name: attendance; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.attendance (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    checked_out boolean,
-    contact_id uuid,
-    guest_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid
-);
-
-
-ALTER TABLE vibetype.attendance OWNER TO ci;
-
---
--- Name: TABLE attendance; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.attendance IS '@behavior -delete
-Keeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
-
-
---
--- Name: COLUMN attendance.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.id IS '@behavior -insert -update
-A unique reference for this entry.';
-
-
---
--- Name: COLUMN attendance.checked_out; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.checked_out IS '@behavior -insert
-Shows if the person has left. When this turns on, the time is saved automatically.';
-
-
---
--- Name: COLUMN attendance.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.contact_id IS '@behavior -update
-The contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
-
-
---
--- Name: COLUMN attendance.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.guest_id IS '@behavior -update
-Who this entry is for.';
-
-
---
--- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.created_at IS '@behavior -insert -update
-When the entry was created (the check-in time).';
-
-
---
--- Name: COLUMN attendance.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.updated_at IS '@behavior -insert -update
-When this entry was last changed. If someone checks out, this shows the checkout time.';
-
-
---
--- Name: COLUMN attendance.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
-Who last changed this entry. This may be empty if done without signing in.';
-
-
---
--- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.contact (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid,
-    address_id uuid,
-    email_address text,
-    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
-    first_name text,
-    language vibetype.language,
-    last_name text,
-    nickname text,
-    note text,
-    phone_number text,
-    time_zone text,
-    url text,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
-    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
-    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
-    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
-    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
-    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
-);
-
-
-ALTER TABLE vibetype.contact OWNER TO ci;
-
---
--- Name: TABLE contact; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
-
-
---
--- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
-Primary key, uniquely identifies each contact.';
-
-
---
--- Name: COLUMN contact.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
-
-
---
--- Name: COLUMN contact.address_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-
-
---
--- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-
-
---
--- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
-Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
-
-
---
--- Name: COLUMN contact.first_name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
-
-
---
--- Name: COLUMN contact.language; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
-
-
---
--- Name: COLUMN contact.last_name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
-
-
---
--- Name: COLUMN contact.nickname; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
-
-
---
--- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
-
-
---
--- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
-
-
---
--- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
-
-
---
--- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
-
-
---
--- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
-Timestamp when the contact was created. Defaults to the current timestamp.';
-
-
---
--- Name: COLUMN contact.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 
 
 --
@@ -6457,7 +6530,7 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 -- Name: account account_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (id = ANY (vibetype_private.account_block_ids()))));
+CREATE POLICY account_select ON vibetype.account FOR SELECT USING (vibetype_private.account_policy_select(account.*));
 
 
 --
@@ -6548,13 +6621,7 @@ CREATE POLICY attendance_insert ON vibetype.attendance FOR INSERT WITH CHECK ((E
 -- Name: attendance attendance_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((id = ANY (vibetype.attendance_claim_array())) OR (EXISTS ( SELECT 1
-   FROM (vibetype.guest g
-     JOIN vibetype.event e ON ((e.id = g.event_id)))
-  WHERE ((g.id = attendance.guest_id) AND (e.created_by = vibetype.invoker_account_id())))) OR (guest_id = ANY (vibetype.guest_claim_array())) OR (EXISTS ( SELECT 1
-   FROM (vibetype.guest g
-     JOIN vibetype.contact c ON ((c.id = g.contact_id)))
-  WHERE ((g.id = attendance.guest_id) AND (c.account_id = vibetype.invoker_account_id()) AND (NOT (c.created_by = ANY (vibetype_private.account_block_ids()))))))));
+CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (vibetype_private.attendance_policy_select(attendance.*));
 
 
 --
@@ -6591,7 +6658,7 @@ CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((create
 -- Name: contact contact_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (created_by = ANY (vibetype_private.account_block_ids())))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (account_id = ANY (vibetype_private.account_block_ids())))) OR (id = ANY (vibetype.guest_contact_ids()))));
+CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING (vibetype_private.contact_policy_select(contact.*));
 
 
 --
@@ -7406,10 +7473,53 @@ GRANT ALL ON FUNCTION vibetype_private.account_block_ids() TO vibetype_anonymous
 
 
 --
+-- Name: FUNCTION account_policy_select(a vibetype.account); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.account_policy_select(a vibetype.account) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.account_policy_select(a vibetype.account) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.account_policy_select(a vibetype.account) TO vibetype_anonymous;
+
+
+--
 -- Name: FUNCTION adjust_audit_log_id_seq(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
+
+
+--
+-- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE vibetype.attendance TO vibetype_account;
+GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION attendance_policy_select(a vibetype.attendance); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) TO vibetype_anonymous;
+
+
+--
+-- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
+
+
+--
+-- Name: FUNCTION contact_policy_select(c vibetype.contact); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.contact_policy_select(c vibetype.contact) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.contact_policy_select(c vibetype.contact) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.contact_policy_select(c vibetype.contact) TO vibetype_anonymous;
 
 
 --
@@ -7556,22 +7666,6 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.address TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.app TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.app TO vibetype_anonymous;
-
-
---
--- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT,INSERT,UPDATE ON TABLE vibetype.attendance TO vibetype_account;
-GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
-
-
---
--- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 
 
 --
