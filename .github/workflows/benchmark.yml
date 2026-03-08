@@ -1,0 +1,95 @@
+name: Benchmark
+
+permissions: {}
+
+on:
+  pull_request:
+
+jobs:
+  benchmark:
+    name: Query performance
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_DB: ci_database
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+
+      - name: Install Sqitch
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y sqitch jq
+
+      - name: Create role secrets
+        run: |
+          sudo mkdir -p /run/secrets
+          echo "grafana"       | sudo tee /run/secrets/postgres_role_service_grafana_username
+          echo "postgraphile"  | sudo tee /run/secrets/postgres_role_service_postgraphile_username
+          echo "vibetype"      | sudo tee /run/secrets/postgres_role_service_vibetype_username
+          echo "zammad"        | sudo tee /run/secrets/postgres_role_service_zammad_username
+          echo "placeholder"   | sudo tee \
+            /run/secrets/postgres_role_service_grafana_password \
+            /run/secrets/postgres_role_service_postgraphile_password \
+            /run/secrets/postgres_role_service_vibetype_password \
+            /run/secrets/postgres_role_service_zammad_password
+
+      - name: Deploy PR migrations
+        run: sqitch --chdir src deploy --target db:pg://ci:postgres@localhost/ci_database
+
+      - name: Run PR benchmarks
+        run: ./test/benchmark/run.sh /tmp/benchmark_pr.json "pg://ci:postgres@localhost/ci_database"
+
+      - name: Revert PR migrations
+        run: sqitch --chdir src revert --target db:pg://ci:postgres@localhost/ci_database -y
+
+      - name: Check out base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          clean: false
+          path: base
+
+      - name: Deploy base migrations
+        run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database
+
+      - name: Run base benchmarks
+        run: |
+          # Use PR benchmark scripts against base schema
+          # First, copy benchmark files into base if they don't exist there
+          if [ ! -d base/test/benchmark ]; then
+            cp -r test/benchmark base/test/benchmark
+          fi
+          base/test/benchmark/run.sh /tmp/benchmark_base.json "pg://ci:postgres@localhost/ci_database"
+
+      - name: Generate comparison
+        run: ./test/benchmark/compare.sh /tmp/benchmark_base.json /tmp/benchmark_pr.json /tmp/benchmark_comment.md
+
+      - name: Find Comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          body-includes: Database Query Performance
+          comment-author: 'github-actions[bot]'
+          issue-number: ${{ github.event.pull_request.number }}
+
+      - name: Post or update PR comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          body-path: /tmp/benchmark_comment.md
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          edit-mode: replace
+          issue-number: ${{ github.event.pull_request.number }}
