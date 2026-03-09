@@ -1174,8 +1174,14 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
     AND (
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
-      -- Or event is accessible via policy (public, invited, etc.)
-      OR vibetype_private.event_policy_select(e)
+      -- Or event is accessible (public, invited, or has claimed attendance)
+      OR (
+        e.visibility = 'public'
+        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > vibetype.guest_count(e.id))
+        AND NOT (e.created_by = ANY(vibetype_private.account_block_ids()))
+      )
+      OR e.id = ANY(vibetype_private.events_invited())
+      OR e.id = ANY(vibetype_private.events_with_claimed_attendance())
     );
 $$;
 
@@ -2263,37 +2269,6 @@ $$;
 ALTER FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) OWNER TO ci;
 
 --
--- Name: event_policy_select(vibetype.event); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event) RETURNS boolean
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT
-  (
-    (
-      e.visibility = 'public'
-      AND (
-        e.guest_count_maximum IS NULL
-        OR e.guest_count_maximum > vibetype.guest_count(e.id)
-      )
-      AND NOT (e.created_by = ANY(vibetype_private.account_block_ids()))
-    )
-    OR e.id = ANY(vibetype_private.events_invited())
-    OR EXISTS (
-      SELECT 1
-      FROM vibetype.attendance a
-      JOIN vibetype.guest g ON g.id = a.guest_id
-      WHERE a.id = ANY (vibetype.attendance_claim_array())
-        AND g.event_id = e.id
-    )
-  );
-$$;
-
-
-ALTER FUNCTION vibetype_private.event_policy_select(e vibetype.event) OWNER TO ci;
-
---
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -2339,6 +2314,22 @@ ALTER FUNCTION vibetype_private.events_invited() OWNER TO ci;
 
 COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Returns all event ids for which the invoker is invited.';
 
+
+--
+-- Name: events_with_claimed_attendance(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(DISTINCT g.event_id), ARRAY[]::UUID[])
+  FROM vibetype.attendance a
+  JOIN vibetype.guest g ON g.id = a.guest_id
+  WHERE a.id = ANY (vibetype.attendance_claim_array());
+$$;
+
+
+ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
 
 --
 -- Name: guest_policy_select(vibetype.guest); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -6780,7 +6771,13 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING (vibetype_private.event_policy_select(event.*));
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.account_block_ids()) b(b)
+  WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.events_invited()) inv(inv)
+  WHERE (inv.inv = event.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.events_with_claimed_attendance()) att(att)
+  WHERE (att.att = event.id)))));
 
 
 --
@@ -7469,21 +7466,21 @@ GRANT ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.atten
 
 
 --
--- Name: FUNCTION event_policy_select(e vibetype.event); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.event_policy_select(e vibetype.event) TO vibetype_anonymous;
-
-
---
 -- Name: FUNCTION events_invited(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.events_invited() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION events_with_claimed_attendance(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
 
 
 --

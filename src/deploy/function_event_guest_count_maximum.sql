@@ -10,8 +10,14 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
     AND (
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
-      -- Or event is accessible via policy (public, invited, etc.)
-      OR vibetype_private.event_policy_select(e)
+      -- Or event is accessible (public, invited, or has claimed attendance)
+      OR (
+        e.visibility = 'public'
+        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > vibetype.guest_count(e.id))
+        AND NOT (e.created_by = ANY(vibetype_private.account_block_ids()))
+      )
+      OR e.id = ANY(vibetype_private.events_invited())
+      OR e.id = ANY(vibetype_private.events_with_claimed_attendance())
     );
 $$;
 

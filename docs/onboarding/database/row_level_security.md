@@ -123,16 +123,64 @@ Suppose the function was defined as `SECURITY INVOKER`; this would imply the eva
 A developer should be careful with `SECURITY DEFINER` functions.
 As they bypass RLS security, every security check that would otherwise be handled by policies must be explicitly implemented in the function body.
 
-## Performance considerations for helper functions in policies
+## Performance considerations for policies
 
-RLS policy conditions are evaluated per row, so helper functions called inside policies should be efficient.
-In *Vibetype*, helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays rather than result sets (`TABLE`).
-This allows policies to use the `= ANY(function())` pattern instead of `EXISTS(SELECT FROM function() WHERE ...)` subqueries, which avoids repeated per-row correlated subquery execution:
+### Avoid wrapping policies in SECURITY DEFINER functions
+
+RLS policy conditions are evaluated per row.
+When the entire policy logic is wrapped in a `SECURITY DEFINER` function that takes a row parameter, PostgreSQL treats the function as a black box and evaluates it independently for every row.
+Any helper functions called *inside* that wrapper are also re-evaluated per row, even if they return the same result regardless of the row.
+
+For example, a policy like `USING (vibetype_private.event_policy_select(event.*))` that internally calls `events_invited()` (which takes ~18 ms) will take `18 ms × number_of_rows` to evaluate — resulting in **765 ms for just 100 events**.
+
+The preferred approach is to **inline the policy logic** directly in the `USING` clause.
+When helper functions appear directly in inline policy expressions, PostgreSQL's optimizer can hoist them into *SubPlans* that are computed once and reused across all rows.
+
+### Use helper functions returning arrays with the unnest pattern
+
+Helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays.
+In inline policies, use the `unnest()` + `EXISTS` pattern so PostgreSQL creates a *hashed SubPlan*:
 
 ```sql
--- preferred: array return with = ANY()
-NOT (event.created_by = ANY(vibetype_private.account_block_ids()))
+-- preferred: unnest with EXISTS (hashed SubPlan, computed once)
+NOT EXISTS (
+  SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b
+  WHERE b = event.created_by
+)
 
--- avoid: correlated subquery per row
-NOT EXISTS(SELECT FROM vibetype_private.account_block_ids() AS b WHERE b.id = event.created_by)
+-- also works: ANY with array (InitPlan, computed once)
+NOT (event.created_by = ANY(vibetype_private.account_block_ids()))
+```
+
+Both patterns allow the optimizer to evaluate the function call once.
+The `unnest()` + `EXISTS` pattern is generally preferred for larger arrays because PostgreSQL builds a hash table for O(1) lookups per row.
+
+### When SECURITY DEFINER helpers are still needed
+
+Some policy checks require querying other RLS-protected tables (for example, the guest policy needs to check the `contact` and `event` tables).
+In these cases, the check must run with elevated privileges to avoid infinite RLS recursion.
+
+The recommended approach is to extract these cross-table checks into **focused SECURITY DEFINER helper functions** that return arrays of IDs, rather than wrapping the entire policy:
+
+```sql
+-- Good: focused helper returns array, inlined in policy
+CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$ ... $$;
+
+CREATE POLICY event_select ON vibetype.event FOR SELECT
+USING (
+  ... OR EXISTS (
+    SELECT 1 FROM unnest(vibetype_private.events_with_claimed_attendance()) AS att
+    WHERE att = event.id
+  )
+);
+
+-- Avoid: wrapper function takes entire row, prevents SubPlan optimization
+CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$ ... $$;
+
+CREATE POLICY event_select ON vibetype.event FOR SELECT
+USING (vibetype_private.event_policy_select(event.*));
 ```
