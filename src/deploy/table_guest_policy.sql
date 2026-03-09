@@ -5,51 +5,80 @@ GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
 
 ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 
-CREATE FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) RETURNS boolean
-AS $$
+-- Display guests accessible through guest claims.
+-- Display guests where the contact is the invoker account,
+--   omitting contacts created by a blocked account.
+-- Display guests to events organized by the invoker,
+--   omitting guests with contacts pointing at or created by a blocked account.
+
+-- Helper: returns guest IDs where the contact references the invoker's account.
+-- Needs SECURITY DEFINER to bypass RLS on guest and contact tables.
+CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE c.account_id = vibetype.invoker_account_id()
+    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+$$;
+
+-- Helper: returns guest IDs for events organized by the invoker with unblocked contacts.
+-- Needs SECURITY DEFINER to bypass RLS on guest, event, and contact tables.
+CREATE FUNCTION vibetype_private.guests_via_own_events_unblocked() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE e.created_by = vibetype.invoker_account_id()
+    AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+$$;
+
+-- Row-level visibility check for newly inserted guests not yet visible to STABLE functions.
+-- Only queries contact and event tables (not guest), so works during INSERT+RETURNING.
+CREATE FUNCTION vibetype_private.guest_row_visible(contact_id UUID, event_id UUID) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
   SELECT (
-    -- Display guests accessible through guest claims.
-    g.id = ANY (vibetype.guest_claim_array())
-  OR
-  (
-    -- Display guests where the contact is the invoker account.
     EXISTS (
       SELECT 1
       FROM vibetype.contact c
-      WHERE c.id = g.contact_id
-      AND c.account_id = vibetype.invoker_account_id()
-      -- omit contacts created by a user who is blocked by the invoker
-      -- omit contacts created by a user who blocked the invoker.
-      AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
-    )
-  )
-  OR
-  (
-    -- Display guests to events organized by the invoker,
-    -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
-    -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
-    EXISTS (
-      SELECT 1
-      FROM vibetype.event e
-      WHERE e.id = g.event_id
-        AND e.created_by = vibetype.invoker_account_id()
-    )
-    AND
-    EXISTS (
-      SELECT 1
-      FROM vibetype.contact c
-      WHERE c.id = g.contact_id
-        AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+      WHERE c.id = guest_row_visible.contact_id
+        AND c.account_id = vibetype.invoker_account_id()
         AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
     )
-  )
-);
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+    OR (
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = guest_row_visible.event_id
+          AND e.created_by = vibetype.invoker_account_id()
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM vibetype.contact c
+        WHERE c.id = guest_row_visible.contact_id
+          AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+          AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+      )
+    )
+  );
+$$;
 
-GRANT EXECUTE ON FUNCTION vibetype_private.guest_policy_select(vibetype.guest) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.guest_row_visible(UUID, UUID) TO vibetype_account, vibetype_anonymous;
 
 CREATE POLICY guest_select ON vibetype.guest FOR SELECT
-USING (vibetype_private.guest_policy_select(guest));
+USING (
+  EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_contact()) AS g WHERE g = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_events_unblocked()) AS g WHERE g = guest.id)
+  OR vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+);
 
 -- Only allow inserts for guests of events organized by oneself.
 -- Only allow inserts for guests of events for which the maximum guest count is not yet reached.
@@ -79,7 +108,12 @@ WITH CHECK (
 );
 
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE
-USING (vibetype_private.guest_policy_select(guest));
+USING (
+  EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_contact()) AS g WHERE g = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_events_unblocked()) AS g WHERE g = guest.id)
+  OR vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+);
 
 -- Only allow deletes for guests of events organized by oneself.
 CREATE POLICY guest_delete ON vibetype.guest FOR DELETE

@@ -2154,111 +2154,25 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 
 
 --
--- Name: attendance; Type: TABLE; Schema: vibetype; Owner: ci
+-- Name: attendance_row_visible(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE TABLE vibetype.attendance (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    checked_out boolean,
-    contact_id uuid,
-    guest_id uuid NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid
-);
-
-
-ALTER TABLE vibetype.attendance OWNER TO ci;
-
---
--- Name: TABLE attendance; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.attendance IS '@behavior -delete
-Keeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
-
-
---
--- Name: COLUMN attendance.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.id IS '@behavior -insert -update
-A unique reference for this entry.';
-
-
---
--- Name: COLUMN attendance.checked_out; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.checked_out IS '@behavior -insert
-Shows if the person has left. When this turns on, the time is saved automatically.';
-
-
---
--- Name: COLUMN attendance.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.contact_id IS '@behavior -update
-The contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
-
-
---
--- Name: COLUMN attendance.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.guest_id IS '@behavior -update
-Who this entry is for.';
-
-
---
--- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.created_at IS '@behavior -insert -update
-When the entry was created (the check-in time).';
-
-
---
--- Name: COLUMN attendance.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.updated_at IS '@behavior -insert -update
-When this entry was last changed. If someone checks out, this shows the checkout time.';
-
-
---
--- Name: COLUMN attendance.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
-Who last changed this entry. This may be empty if done without signing in.';
-
-
---
--- Name: attendance_policy_select(vibetype.attendance); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) RETURNS boolean
+CREATE FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   SELECT (
-    a.id = ANY(vibetype.attendance_claim_array())
-    OR
     EXISTS (
       SELECT 1
       FROM vibetype.guest g
       JOIN vibetype.event e ON e.id = g.event_id
-      WHERE g.id = a.guest_id
+      WHERE g.id = attendance_row_visible.guest_id
         AND e.created_by = vibetype.invoker_account_id()
     )
-    OR
-    a.guest_id = ANY(vibetype.guest_claim_array())
-    OR
-    EXISTS (
+    OR EXISTS (
       SELECT 1
       FROM vibetype.guest g
       JOIN vibetype.contact c ON c.id = g.contact_id
-      WHERE g.id = a.guest_id
+      WHERE g.id = attendance_row_visible.guest_id
         AND c.account_id = vibetype.invoker_account_id()
         AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
     )
@@ -2266,7 +2180,42 @@ CREATE FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance)
 $$;
 
 
-ALTER FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) OWNER TO ci;
+ALTER FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) OWNER TO ci;
+
+--
+-- Name: attendance_via_own_contact(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.attendance_via_own_contact() RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(a.id), ARRAY[]::UUID[])
+  FROM vibetype.attendance a
+  JOIN vibetype.guest g ON g.id = a.guest_id
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE c.account_id = vibetype.invoker_account_id()
+    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype_private.attendance_via_own_contact() OWNER TO ci;
+
+--
+-- Name: attendance_via_own_events(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.attendance_via_own_events() RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(a.id), ARRAY[]::UUID[])
+  FROM vibetype.attendance a
+  JOIN vibetype.guest g ON g.id = a.guest_id
+  JOIN vibetype.event e ON e.id = g.event_id
+  WHERE e.created_by = vibetype.invoker_account_id();
+$$;
+
+
+ALTER FUNCTION vibetype_private.attendance_via_own_events() OWNER TO ci;
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -2332,53 +2281,76 @@ $$;
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
 
 --
--- Name: guest_policy_select(vibetype.guest); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+-- Name: guest_row_visible(uuid, uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) RETURNS boolean
-    LANGUAGE sql STABLE SECURITY DEFINER
+CREATE FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   SELECT (
-    -- Display guests accessible through guest claims.
-    g.id = ANY (vibetype.guest_claim_array())
-  OR
-  (
-    -- Display guests where the contact is the invoker account.
     EXISTS (
       SELECT 1
       FROM vibetype.contact c
-      WHERE c.id = g.contact_id
-      AND c.account_id = vibetype.invoker_account_id()
-      -- omit contacts created by a user who is blocked by the invoker
-      -- omit contacts created by a user who blocked the invoker.
-      AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
-    )
-  )
-  OR
-  (
-    -- Display guests to events organized by the invoker,
-    -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
-    -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
-    EXISTS (
-      SELECT 1
-      FROM vibetype.event e
-      WHERE e.id = g.event_id
-        AND e.created_by = vibetype.invoker_account_id()
-    )
-    AND
-    EXISTS (
-      SELECT 1
-      FROM vibetype.contact c
-      WHERE c.id = g.contact_id
-        AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+      WHERE c.id = guest_row_visible.contact_id
+        AND c.account_id = vibetype.invoker_account_id()
         AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
     )
-  )
-);
+    OR (
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = guest_row_visible.event_id
+          AND e.created_by = vibetype.invoker_account_id()
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM vibetype.contact c
+        WHERE c.id = guest_row_visible.contact_id
+          AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+          AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+      )
+    )
+  );
 $$;
 
 
-ALTER FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) OWNER TO ci;
+ALTER FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) OWNER TO ci;
+
+--
+-- Name: guests_via_own_contact(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE c.account_id = vibetype.invoker_account_id()
+    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype_private.guests_via_own_contact() OWNER TO ci;
+
+--
+-- Name: guests_via_own_events_unblocked(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guests_via_own_events_unblocked() RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE e.created_by = vibetype.invoker_account_id()
+    AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype_private.guests_via_own_events_unblocked() OWNER TO ci;
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -3171,6 +3143,87 @@ COMMENT ON COLUMN vibetype.app.created_at IS 'When the app was created.';
 --
 
 COMMENT ON COLUMN vibetype.app.created_by IS 'Who created this app.';
+
+
+--
+-- Name: attendance; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.attendance (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    checked_out boolean,
+    contact_id uuid,
+    guest_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid
+);
+
+
+ALTER TABLE vibetype.attendance OWNER TO ci;
+
+--
+-- Name: TABLE attendance; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.attendance IS '@behavior -delete
+Keeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
+
+
+--
+-- Name: COLUMN attendance.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.id IS '@behavior -insert -update
+A unique reference for this entry.';
+
+
+--
+-- Name: COLUMN attendance.checked_out; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.checked_out IS '@behavior -insert
+Shows if the person has left. When this turns on, the time is saved automatically.';
+
+
+--
+-- Name: COLUMN attendance.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.contact_id IS '@behavior -update
+The contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
+
+
+--
+-- Name: COLUMN attendance.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.guest_id IS '@behavior -update
+Who this entry is for.';
+
+
+--
+-- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.created_at IS '@behavior -insert -update
+When the entry was created (the check-in time).';
+
+
+--
+-- Name: COLUMN attendance.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.updated_at IS '@behavior -insert -update
+When this entry was last changed. If someone checks out, this shows the checkout time.';
+
+
+--
+-- Name: COLUMN attendance.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
+Who last changed this entry. This may be empty if done without signing in.';
 
 
 --
@@ -6574,7 +6627,15 @@ CREATE POLICY attendance_insert ON vibetype.attendance FOR INSERT WITH CHECK ((E
 -- Name: attendance attendance_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (vibetype_private.attendance_policy_select(attendance.*));
+CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM unnest(vibetype.attendance_claim_array()) ac(ac)
+  WHERE (ac.ac = attendance.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.attendance_via_own_events()) a(a)
+  WHERE (a.a = attendance.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype.guest_claim_array()) gc(gc)
+  WHERE (gc.gc = attendance.guest_id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.attendance_via_own_contact()) a(a)
+  WHERE (a.a = attendance.id))) OR vibetype_private.attendance_row_visible(guest_id)));
 
 
 --
@@ -6876,14 +6937,26 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( S
 -- Name: guest guest_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (vibetype_private.guest_policy_select(guest.*));
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM unnest(vibetype.guest_claim_array()) gc(gc)
+  WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
+  WHERE (g.g = guest.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.guests_via_own_events_unblocked()) g(g)
+  WHERE (g.g = guest.id))) OR vibetype_private.guest_row_visible(contact_id, event_id)));
 
 
 --
 -- Name: guest guest_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (vibetype_private.guest_policy_select(guest.*));
+CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((EXISTS ( SELECT 1
+   FROM unnest(vibetype.guest_claim_array()) gc(gc)
+  WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
+  WHERE (g.g = guest.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.guests_via_own_events_unblocked()) g(g)
+  WHERE (g.g = guest.id))) OR vibetype_private.guest_row_visible(contact_id, event_id)));
 
 
 --
@@ -7449,20 +7522,30 @@ REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
 
 
 --
--- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION attendance_row_visible(guest_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-GRANT SELECT,INSERT,UPDATE ON TABLE vibetype.attendance TO vibetype_account;
-GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) TO vibetype_anonymous;
 
 
 --
--- Name: FUNCTION attendance_policy_select(a vibetype.attendance); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION attendance_via_own_contact(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.attendance_policy_select(a vibetype.attendance) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.attendance_via_own_contact() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_contact() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_contact() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION attendance_via_own_events(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.attendance_via_own_events() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_anonymous;
 
 
 --
@@ -7484,12 +7567,30 @@ GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibet
 
 
 --
--- Name: FUNCTION guest_policy_select(g vibetype.guest); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION guest_row_visible(contact_id uuid, event_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guests_via_own_contact(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_contact() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guests_via_own_events_unblocked(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibetype_anonymous;
 
 
 --
@@ -7609,6 +7710,14 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.address TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.app TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.app TO vibetype_anonymous;
+
+
+--
+-- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE vibetype.attendance TO vibetype_account;
+GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 
 --
