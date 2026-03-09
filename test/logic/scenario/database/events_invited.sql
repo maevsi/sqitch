@@ -22,7 +22,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountB::TEXT, true);
 
   -- Get invited events for account B
-  invitedEventIds := ARRAY(SELECT event_id FROM vibetype_private.events_invited());
+  invitedEventIds := vibetype_private.events_invited();
 
   -- Account B should see event A (invited via contact)
   PERFORM vibetype_test.uuid_array_test('invited event appears in list', invitedEventIds, ARRAY[eventA]);
@@ -53,7 +53,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountC::TEXT, true);
 
   -- Get invited events for account C
-  invitedEventIds := ARRAY(SELECT event_id FROM vibetype_private.events_invited());
+  invitedEventIds := vibetype_private.events_invited();
 
   -- Account C should not see event A or B (not invited)
   IF eventA = ANY(invitedEventIds) THEN
@@ -89,7 +89,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountB::TEXT, true);
 
   -- Get invited events for account B
-  invitedEventIds := ARRAY(SELECT event_id FROM vibetype_private.events_invited());
+  invitedEventIds := vibetype_private.events_invited();
 
   -- Account B should not see event A (blocked the organizer)
   IF eventA = ANY(invitedEventIds) THEN
@@ -119,7 +119,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountB::TEXT, true);
 
   -- Get invited events for account B (should include via guest claim)
-  invitedEventIds := ARRAY(SELECT event_id FROM vibetype_private.events_invited());
+  invitedEventIds := vibetype_private.events_invited();
 
   -- Account B should see event A via guest claim
   PERFORM vibetype_test.uuid_array_test('invited event via guest claim appears in list', invitedEventIds, ARRAY[eventA]);
