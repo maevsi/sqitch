@@ -1,11 +1,9 @@
 #!/bin/sh
 set -e
 
-# Compares two benchmark JSON files and generates a Markdown table for a PR comment.
+# Compares two benchmark JSON files and generates a Markdown report.
 #
 # Usage: compare.sh <base_results.json> <pr_results.json> <output.md>
-#
-# The JSON files are arrays of objects with: name, role, total_time_ms
 
 BASE_FILE="${1:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
 PR_FILE="${2:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
