@@ -139,21 +139,43 @@ When helper functions appear directly in inline policy expressions, PostgreSQL's
 ### Use helper functions returning arrays with the unnest pattern
 
 Helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays.
-In inline policies, use the `unnest()` + `EXISTS` pattern so PostgreSQL creates a *hashed SubPlan*:
+Two patterns are used for block checks, depending on context:
+
+#### In policies: NOT EXISTS + unnest (direct function call)
+
+When a block check appears directly in a policy `USING` clause, use `NOT EXISTS` + `unnest()`.
+PostgreSQL creates a *hashed SubPlan* that is computed once and probed per row:
 
 ```sql
--- preferred: unnest with EXISTS (hashed SubPlan, computed once)
+-- Hashed SubPlan: function called once, hash built once, O(1) per-row probe
 NOT EXISTS (
   SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b
   WHERE b = event.created_by
 )
-
--- also works: ANY with array (InitPlan, computed once)
-NOT (event.created_by = ANY(vibetype_private.account_block_ids()))
 ```
 
-Both patterns allow the optimizer to evaluate the function call once.
-The `unnest()` + `EXISTS` pattern is generally preferred for larger arrays because PostgreSQL builds a hash table for O(1) lookups per row.
+This pattern is inherently NULL-safe: when a column is NULL, `b = NULL` never matches, so `NOT EXISTS` correctly returns TRUE. No `IS NULL OR` guard is needed.
+
+#### In helper functions: _blocked CTE + ANY (when 2+ block checks are needed)
+
+When a SECURITY DEFINER helper function needs to check block status against multiple columns,
+use a `_blocked` CTE that stores the UUID array in a single row, cross-joined into the query:
+
+```sql
+WITH _blocked AS (
+  SELECT vibetype_private.account_block_ids() AS ids
+)
+SELECT ...
+FROM vibetype.guest g
+JOIN vibetype.contact c ON c.id = g.contact_id,
+_blocked
+WHERE NOT (c.created_by = ANY(_blocked.ids))
+  AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)));
+```
+
+The `ANY(array)` ScalarArrayOp on a cross-joined single-row CTE is faster than correlated `NOT EXISTS` subqueries against a multi-row CTE because the array scan has lower per-row overhead than probing a materialized CTE.
+
+**NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
 
 ### When SECURITY DEFINER helpers are still needed
 

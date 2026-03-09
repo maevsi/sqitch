@@ -31,7 +31,7 @@ CREATE FUNCTION vibetype_private.attendance_via_own_contact() RETURNS UUID[]
   JOIN vibetype.guest g ON g.id = a.guest_id
   JOIN vibetype.contact c ON c.id = g.contact_id
   WHERE c.account_id = vibetype.invoker_account_id()
-    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by);
 $$;
 
 -- Row-level visibility check for newly inserted attendance not yet visible to STABLE functions.
@@ -53,7 +53,7 @@ CREATE FUNCTION vibetype_private.attendance_row_visible(guest_id UUID) RETURNS b
       JOIN vibetype.contact c ON c.id = g.contact_id
       WHERE g.id = attendance_row_visible.guest_id
         AND c.account_id = vibetype.invoker_account_id()
-        AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+        AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by)
     )
   );
 $$;

@@ -20,7 +20,7 @@ CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS UUID[]
   FROM vibetype.guest g
   JOIN vibetype.contact c ON c.id = g.contact_id
   WHERE c.account_id = vibetype.invoker_account_id()
-    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by);
 $$;
 
 -- Helper: returns guest IDs for events organized by the invoker with unblocked contacts.
@@ -110,7 +110,7 @@ WITH CHECK (
       FROM vibetype.contact c
       WHERE c.id = guest.contact_id
       AND c.created_by = vibetype.invoker_account_id()
-      AND (c.account_id IS NULL OR NOT (c.account_id = ANY(vibetype_private.account_block_ids())))
+      AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.account_id)
     )
 );
 
