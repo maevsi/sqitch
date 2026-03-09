@@ -2,14 +2,18 @@
 -- Each query runs under both vibetype_anonymous and vibetype_account roles.
 -- Outputs one JSON array to stdout with all timing results.
 --
--- Each measurement runs the query repeatedly within a 5-second time budget
--- and reports the median per-execution timing.
+-- Each measurement discards the first (cold-cache) execution, then runs
+-- the query repeatedly within a 5-second time budget and reports the median.
 
 \pset format unaligned
 \pset tuples_only on
 
 -- Suppress intermediate output.
 \o /dev/null
+
+-- Reduce variance: disable JIT compilation and synchronized sequential scans.
+SET jit = off;
+SET synchronize_seqscans = off;
 
 -- Warm up shared buffers.
 SELECT count(*) FROM vibetype.account;
@@ -18,6 +22,7 @@ SELECT count(*) FROM vibetype.guest;
 SELECT count(*) FROM vibetype.contact;
 
 -- Runs a query repeatedly within a time budget and returns the median timing as JSON.
+-- The first execution is discarded (warm-up: plan compilation, buffer loading).
 CREATE FUNCTION vibetype_test.benchmark_measure(
   query_name TEXT,
   role_label TEXT,
@@ -29,16 +34,14 @@ DECLARE
   _start TIMESTAMPTZ;
   _end TIMESTAMPTZ;
   _timings NUMERIC[] := ARRAY[]::NUMERIC[];
-  _budget_start TIMESTAMPTZ := clock_timestamp();
+  _budget_start TIMESTAMPTZ;
   _budget_seconds CONSTANT NUMERIC := 5.0;
   _median NUMERIC;
 BEGIN
-  -- First run: detect timeout or error.
+  -- Warm-up run: plan compilation and buffer loading (timing discarded).
   BEGIN
     SET LOCAL statement_timeout TO '5s';
-    _start := clock_timestamp();
     EXECUTE query_sql;
-    _end := clock_timestamp();
     SET LOCAL statement_timeout TO '0';
   EXCEPTION
     WHEN query_canceled THEN
@@ -47,9 +50,8 @@ BEGIN
       RETURN jsonb_build_object('name', query_name, 'role', role_label, 'total_time_ms', -2);
   END;
 
-  _timings := array_append(_timings, EXTRACT(EPOCH FROM (_end - _start)) * 1000);
-
-  -- Continue running until the time budget is exhausted.
+  -- Timed runs within the budget.
+  _budget_start := clock_timestamp();
   SET LOCAL statement_timeout TO '30s';
   WHILE EXTRACT(EPOCH FROM (clock_timestamp() - _budget_start)) < _budget_seconds LOOP
     _start := clock_timestamp();
@@ -59,9 +61,9 @@ BEGIN
   END LOOP;
   SET LOCAL statement_timeout TO '0';
 
-  SELECT val INTO _median
-    FROM unnest(_timings) AS val ORDER BY val
-    LIMIT 1 OFFSET array_length(_timings, 1) / 2;
+  -- Proper statistical median.
+  SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY val) INTO _median
+    FROM unnest(_timings) AS val;
 
   RETURN jsonb_build_object(
     'name', query_name,
@@ -75,12 +77,12 @@ GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_measure(TEXT, TEXT, TEXT) TO v
 
 -- Wrappers for private-schema functions that user roles need to benchmark.
 CREATE FUNCTION vibetype_test.events_invited() RETURNS UUID[]
-    LANGUAGE sql SECURITY DEFINER
-    AS $$ SELECT vibetype_private.events_invited(); $$;
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$ BEGIN RETURN vibetype_private.events_invited(); END; $$;
 
 CREATE FUNCTION vibetype_test.account_block_ids() RETURNS UUID[]
-    LANGUAGE sql SECURITY DEFINER
-    AS $$ SELECT vibetype_private.account_block_ids(); $$;
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$ BEGIN RETURN vibetype_private.account_block_ids(); END; $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.events_invited() TO vibetype_anonymous, vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_ids() TO vibetype_anonymous, vibetype_account;
