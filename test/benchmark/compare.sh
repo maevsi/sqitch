@@ -53,6 +53,13 @@ jq -n \
     else ""
     end) as $icon |
 
+    # Wrap delta in parentheses when the absolute change is below the minimum threshold.
+    (if $delta_abs != null and $delta_abs < $min_abs then
+      "(" + ($delta_pct | format_delta) + ")"
+    else
+      ($delta_pct | format_delta)
+    end) as $delta_display |
+
     def format_time:
       if . == -1 then "timeout :hourglass:"
       elif . == -2 then "error :x:"
@@ -65,7 +72,7 @@ jq -n \
       role: $role,
       base_total: (if $base_entry then ($base_entry.total_time_ms | format_time) else "—" end),
       pr_total: ($pr_total | format_time),
-      delta: ($delta_pct | format_delta),
+      delta: $delta_display,
       icon: $icon
     }
   ] as $rows |
@@ -94,6 +101,7 @@ jq -n \
   "\n\n" +
   "<details>\n<summary>Details</summary>\n\n" +
   "- Threshold for regression warnings: >\($threshold)% and ≥\($min_abs)ms absolute change\n" +
+  "- Deltas in parentheses indicate that the absolute change is below the minimum threshold\n" +
   "- Each measurement discards the first (cold-cache) execution, then reports the median of all subsequent runs within a 5-second time budget\n" +
   "- Timings use clock_timestamp() with JIT compilation and synchronized sequential scans disabled\n" +
   "- Data: 1000 accounts, 100 events, 1000 contacts, ~1000 guests, 200 attendances\n" +
