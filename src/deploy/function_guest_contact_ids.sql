@@ -24,12 +24,8 @@ CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
           SELECT 1
           FROM vibetype.contact c
           WHERE c.id = g.contact_id
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-          )
+            AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by)
+            AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.account_id)
         )
       )
     );

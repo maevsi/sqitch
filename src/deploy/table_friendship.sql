@@ -52,16 +52,12 @@ CREATE POLICY friendship_existing ON vibetype.friendship FOR ALL
 USING (
   (
     vibetype.invoker_account_id() = friendship.a_account_id
-    AND NOT EXISTS (
-      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = friendship.b_account_id
-    )
+    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = friendship.b_account_id)
   )
   OR
   (
     vibetype.invoker_account_id() = friendship.b_account_id
-    AND NOT EXISTS (
-      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = friendship.a_account_id
-    )
+    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = friendship.a_account_id)
   )
 )
 WITH CHECK (FALSE);

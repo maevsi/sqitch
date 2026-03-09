@@ -130,9 +130,7 @@ BEGIN
     )
     SELECT account_id AS id
     FROM friendship_account_ids_test f
-    WHERE NOT EXISTS (
-      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = f.account_id
-    )
+    WHERE NOT (f.account_id = ANY(vibetype_private.account_block_ids()))
     EXCEPT
     SELECT * FROM unnest(_expected_result)
   ) THEN
@@ -155,9 +153,7 @@ BEGIN
     EXCEPT
     SELECT account_id AS id
     FROM friendship_account_ids_test f
-    WHERE NOT EXISTS (
-      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = f.account_id
-    )
+    WHERE NOT (f.account_id = ANY(vibetype_private.account_block_ids()))
   ) THEN
     RAISE EXCEPTION 'some account is missing in the list of friends';
   END IF;

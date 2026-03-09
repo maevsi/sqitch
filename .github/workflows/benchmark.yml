@@ -1,0 +1,92 @@
+name: Benchmark
+
+permissions: {}
+
+on:
+  pull_request:
+
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+
+jobs:
+  benchmark:
+    name: Query performance
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_DB: ci_database
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: ci
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    timeout-minutes: 15
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v4
+
+      - name: Check out base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          clean: false
+          path: base
+
+      - name: Create role secrets
+        run: |
+          sudo mkdir -p /run/secrets
+          for role in grafana postgraphile vibetype zammad; do
+            echo "$role" | sudo tee "/run/secrets/postgres_role_service_${role}_username" > /dev/null
+            echo "placeholder" | sudo tee "/run/secrets/postgres_role_service_${role}_password" > /dev/null
+          done
+
+      - name: Install Sqitch
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y jq=1.7.1-3ubuntu0.24.04.1 sqitch=1.4.1-1
+
+      - name: Deploy base migrations
+        run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database
+
+      - name: Run base benchmarks
+        run: ./test/benchmark/run.sh /tmp/benchmark_base.json "pg://ci:postgres@localhost/ci_database"
+
+      - name: Revert base migrations
+        run: sqitch --chdir base/src revert --target db:pg://ci:postgres@localhost/ci_database -y
+
+      - name: Deploy PR migrations
+        run: sqitch --chdir src deploy --target db:pg://ci:postgres@localhost/ci_database
+
+      - name: Run PR benchmarks
+        run: ./test/benchmark/run.sh /tmp/benchmark_pr.json "pg://ci:postgres@localhost/ci_database"
+
+      - name: Generate comparison
+        run: >-
+          ./test/benchmark/compare.sh
+          /tmp/benchmark_base.json
+          /tmp/benchmark_pr.json
+          /tmp/benchmark_comment.md
+          "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Find comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          body-includes: Database Query Performance
+          comment-author: 'github-actions[bot]'
+          issue-number: ${{ github.event.pull_request.number }}
+
+      - name: Post or update PR comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          body-path: /tmp/benchmark_comment.md
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          edit-mode: replace
+          issue-number: ${{ github.event.pull_request.number }}

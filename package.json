@@ -9,6 +9,8 @@
   "packageManager": "pnpm@10.30.2",
   "private": true,
   "scripts": {
+    "benchmark": "./test/benchmark/benchmark.sh",
+    "benchmark:compare": "./test/benchmark/benchmark.sh --compare",
     "deploy": "pnpm run sqitch deploy",
     "revert": "pnpm run sqitch revert",
     "sqitch": "./src/sqitch",
