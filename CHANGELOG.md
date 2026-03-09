@@ -1,3 +1,9 @@
+## [11.0.0-beta.3](https://github.com/maevsi/sqitch/compare/11.0.0-beta.2...11.0.0-beta.3) (2026-03-09)
+
+### Performance Improvements
+
+* inline functions ([8ea356a](https://github.com/maevsi/sqitch/commit/8ea356a871eda41402e054cf2987954ce4dafcdc))
+
 ## [11.0.0-beta.2](https://github.com/maevsi/sqitch/compare/11.0.0-beta.1...11.0.0-beta.2) (2026-03-02)
 
 ### ⚠ BREAKING CHANGES
