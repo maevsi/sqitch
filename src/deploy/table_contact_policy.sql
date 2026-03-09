@@ -31,7 +31,7 @@ USING (
 CREATE POLICY contact_insert ON vibetype.contact FOR INSERT
 WITH CHECK (
   contact.created_by = vibetype.invoker_account_id()
-  AND NOT (contact.account_id = ANY(vibetype_private.account_block_ids()))
+  AND (contact.account_id IS NULL OR NOT (contact.account_id = ANY(vibetype_private.account_block_ids())))
 );
 
 -- Only allow updates for contacts created by the invoker's account.
@@ -39,7 +39,7 @@ WITH CHECK (
 CREATE POLICY contact_update ON vibetype.contact FOR UPDATE
 USING (
   contact.created_by = vibetype.invoker_account_id()
-  AND NOT (contact.account_id = ANY(vibetype_private.account_block_ids()))
+  AND (contact.account_id IS NULL OR NOT (contact.account_id = ANY(vibetype_private.account_block_ids())))
 );
 
 -- Only allow deletes for contacts created by the invoker's account except for the own account's contact.

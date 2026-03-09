@@ -28,13 +28,17 @@ $$;
 CREATE FUNCTION vibetype_private.guests_via_own_events_unblocked() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
   SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
   FROM vibetype.guest g
   JOIN vibetype.event e ON e.id = g.event_id
-  JOIN vibetype.contact c ON c.id = g.contact_id
+  JOIN vibetype.contact c ON c.id = g.contact_id,
+  _blocked
   WHERE e.created_by = vibetype.invoker_account_id()
-    AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
-    AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()));
+    AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
+    AND NOT (c.created_by = ANY(_blocked.ids));
 $$;
 
 -- Row-level visibility check for newly inserted guests not yet visible to STABLE functions.
@@ -42,13 +46,16 @@ $$;
 CREATE FUNCTION vibetype_private.guest_row_visible(contact_id UUID, event_id UUID) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
   SELECT (
     EXISTS (
       SELECT 1
-      FROM vibetype.contact c
+      FROM vibetype.contact c, _blocked
       WHERE c.id = guest_row_visible.contact_id
         AND c.account_id = vibetype.invoker_account_id()
-        AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+        AND NOT (c.created_by = ANY(_blocked.ids))
     )
     OR (
       EXISTS (
@@ -59,10 +66,10 @@ CREATE FUNCTION vibetype_private.guest_row_visible(contact_id UUID, event_id UUI
       )
       AND EXISTS (
         SELECT 1
-        FROM vibetype.contact c
+        FROM vibetype.contact c, _blocked
         WHERE c.id = guest_row_visible.contact_id
-          AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
-          AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
+          AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
+          AND NOT (c.created_by = ANY(_blocked.ids))
       )
     )
   );
@@ -103,7 +110,7 @@ WITH CHECK (
       FROM vibetype.contact c
       WHERE c.id = guest.contact_id
       AND c.created_by = vibetype.invoker_account_id()
-      AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+      AND (c.account_id IS NULL OR NOT (c.account_id = ANY(vibetype_private.account_block_ids())))
     )
 );
 

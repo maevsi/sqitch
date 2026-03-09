@@ -3,6 +3,9 @@ BEGIN;
 CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
   -- get all contacts of guests
   SELECT g.contact_id
   FROM vibetype.guest g
@@ -22,10 +25,10 @@ CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
         AND
         EXISTS (
           SELECT 1
-          FROM vibetype.contact c
+          FROM vibetype.contact c, _blocked
           WHERE c.id = g.contact_id
-            AND NOT (c.created_by = ANY(vibetype_private.account_block_ids()))
-            AND NOT (c.account_id = ANY(vibetype_private.account_block_ids()))
+            AND NOT (c.created_by = ANY(_blocked.ids))
+            AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
         )
       )
     );
