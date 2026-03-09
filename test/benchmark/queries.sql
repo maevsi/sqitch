@@ -76,13 +76,38 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_measure(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 
 -- Wrappers for private-schema functions that user roles need to benchmark.
+-- Handle both UUID[] (current) and TABLE (base branch) return types.
 CREATE FUNCTION vibetype_test.events_invited() RETURNS UUID[]
     LANGUAGE plpgsql SECURITY DEFINER
-    AS $$ BEGIN RETURN vibetype_private.events_invited(); END; $$;
+    AS $$
+DECLARE
+  result UUID[];
+BEGIN
+  BEGIN
+    result := vibetype_private.events_invited();
+  EXCEPTION WHEN OTHERS THEN
+    SELECT COALESCE(array_agg(event_id), ARRAY[]::UUID[]) INTO result
+      FROM vibetype_private.events_invited();
+  END;
+  RETURN result;
+END;
+$$;
 
 CREATE FUNCTION vibetype_test.account_block_ids() RETURNS UUID[]
     LANGUAGE plpgsql SECURITY DEFINER
-    AS $$ BEGIN RETURN vibetype_private.account_block_ids(); END; $$;
+    AS $$
+DECLARE
+  result UUID[];
+BEGIN
+  BEGIN
+    result := vibetype_private.account_block_ids();
+  EXCEPTION WHEN OTHERS THEN
+    SELECT COALESCE(array_agg(id), ARRAY[]::UUID[]) INTO result
+      FROM vibetype_private.account_block_ids();
+  END;
+  RETURN result;
+END;
+$$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.events_invited() TO vibetype_anonymous, vibetype_account;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_ids() TO vibetype_anonymous, vibetype_account;

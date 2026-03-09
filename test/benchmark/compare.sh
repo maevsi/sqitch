@@ -3,11 +3,12 @@ set -e
 
 # Compares two benchmark JSON files and generates a Markdown report.
 #
-# Usage: compare.sh <base_results.json> <pr_results.json> <output.md>
+# Usage: compare.sh <base_results.json> <pr_results.json> <output.md> [run_url]
 
-BASE_FILE="${1:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
-PR_FILE="${2:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
-OUTPUT_FILE="${3:?Usage: compare.sh <base.json> <pr.json> <output.md>}"
+BASE_FILE="${1:?Usage: compare.sh <base.json> <pr.json> <output.md> [run_url]}"
+PR_FILE="${2:?Usage: compare.sh <base.json> <pr.json> <output.md> [run_url]}"
+OUTPUT_FILE="${3:?Usage: compare.sh <base.json> <pr.json> <output.md> [run_url]}"
+RUN_URL="${4:-}"
 
 REGRESSION_THRESHOLD=15
 
@@ -15,6 +16,7 @@ jq -n \
   --argjson base "$(cat "$BASE_FILE")" \
   --argjson pr "$(cat "$PR_FILE")" \
   --argjson threshold "$REGRESSION_THRESHOLD" \
+  --arg run_url "$RUN_URL" \
   '
   def format_delta:
     if . == null then "N/A"
@@ -63,8 +65,10 @@ jq -n \
     }
   ] as $rows |
 
-  # Count regressions
+  # Count regressions and errors
   [$rows[] | select(.icon == " :warning:")] | length as $regression_count |
+  [$rows[] | select(.base_total == "error :x:" or .pr_total == "error :x:")] as $error_rows |
+  ($error_rows | length) as $error_count |
 
   # Build markdown
   "## Database Query Performance\n\n" +
@@ -72,6 +76,10 @@ jq -n \
     ":warning: **\($regression_count) potential regression(s) detected** (>" + ($threshold | tostring) + "% slower)\n\n"
   else
     ":white_check_mark: No significant regressions detected\n\n"
+  end) +
+  (if $error_count > 0 then
+    ":x: **\($error_count) query/queries errored** (function signature mismatch between branches)\n\n"
+  else ""
   end) +
   "| Query | Role | Base (ms) | PR (ms) | Delta |\n" +
   "|-------|------|-----------|---------|-------|\n" +
@@ -84,8 +92,9 @@ jq -n \
   "- Each measurement discards the first (cold-cache) execution, then reports the median of all subsequent runs within a 5-second time budget\n" +
   "- Timings use clock_timestamp() with JIT compilation and synchronized sequential scans disabled\n" +
   "- Data: 1000 accounts, 100 events, 1000 contacts, ~1000 guests, 200 attendances\n" +
-  "- Runner: GitHub Actions (timings may vary ±10% between runs)\n\n" +
-  "</details>"
+  "- Runner: GitHub Actions (timings may vary ±10% between runs)\n" +
+  (if $run_url != "" then "- [Workflow run](\($run_url))\n" else "" end) +
+  "\n</details>"
   ' -r > "$OUTPUT_FILE"
 
 echo "Comparison written to $OUTPUT_FILE"

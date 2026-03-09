@@ -41,9 +41,6 @@ jobs:
           clean: false
           path: base
 
-      - name: Check out PR branch
-        uses: actions/checkout@v4
-
       - name: Create role secrets
         run: |
           sudo mkdir -p /run/secrets
@@ -71,7 +68,12 @@ jobs:
         run: ./test/benchmark/run.sh /tmp/benchmark_pr.json "pg://ci:postgres@localhost/ci_database"
 
       - name: Generate comparison
-        run: ./test/benchmark/compare.sh /tmp/benchmark_base.json /tmp/benchmark_pr.json /tmp/benchmark_comment.md
+        run: >-
+          ./test/benchmark/compare.sh
+          /tmp/benchmark_base.json
+          /tmp/benchmark_pr.json
+          /tmp/benchmark_comment.md
+          "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Find comment
         uses: peter-evans/find-comment@v3
