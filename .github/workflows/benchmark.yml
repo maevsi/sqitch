@@ -5,6 +5,10 @@ permissions: {}
 on:
   pull_request:
 
+concurrency:
+  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+
 jobs:
   benchmark:
     name: Query performance
@@ -16,8 +20,8 @@ jobs:
         image: postgis/postgis:18-3.6
         env:
           POSTGRES_DB: ci_database
-          POSTGRES_USER: ci
           POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: ci
         options: >-
           --health-cmd "pg_isready -U ci"
           --health-interval 10s
@@ -25,6 +29,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+    timeout-minutes: 15
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v4
@@ -36,23 +41,19 @@ jobs:
           clean: false
           path: base
 
-      - name: Install Sqitch
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y sqitch jq
+      - name: Check out PR branch
+        uses: actions/checkout@v4
 
       - name: Create role secrets
         run: |
           sudo mkdir -p /run/secrets
-          echo "grafana"       | sudo tee /run/secrets/postgres_role_service_grafana_username
-          echo "postgraphile"  | sudo tee /run/secrets/postgres_role_service_postgraphile_username
-          echo "vibetype"      | sudo tee /run/secrets/postgres_role_service_vibetype_username
-          echo "zammad"        | sudo tee /run/secrets/postgres_role_service_zammad_username
-          echo "placeholder"   | sudo tee \
-            /run/secrets/postgres_role_service_grafana_password \
-            /run/secrets/postgres_role_service_postgraphile_password \
-            /run/secrets/postgres_role_service_vibetype_password \
-            /run/secrets/postgres_role_service_zammad_password
+          for role in grafana postgraphile vibetype zammad; do
+            echo "$role" | sudo tee "/run/secrets/postgres_role_service_${role}_username" > /dev/null
+            echo "placeholder" | sudo tee "/run/secrets/postgres_role_service_${role}_password" > /dev/null
+          done
+
+      - name: Install Sqitch
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y jq sqitch
 
       - name: Deploy base migrations
         run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database
@@ -72,7 +73,7 @@ jobs:
       - name: Generate comparison
         run: ./test/benchmark/compare.sh /tmp/benchmark_base.json /tmp/benchmark_pr.json /tmp/benchmark_comment.md
 
-      - name: Find Comment
+      - name: Find comment
         uses: peter-evans/find-comment@v3
         id: fc
         with:
