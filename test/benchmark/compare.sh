@@ -11,24 +11,19 @@ OUTPUT_FILE="${3:?Usage: compare.sh <base.json> <pr.json> <output.md> [run_url]}
 RUN_URL="${4:-}"
 
 REGRESSION_THRESHOLD=15
+MINIMUM_ABSOLUTE_MS=1
 
 jq -n \
   --argjson base "$(cat "$BASE_FILE")" \
   --argjson pr "$(cat "$PR_FILE")" \
   --argjson threshold "$REGRESSION_THRESHOLD" \
+  --argjson min_abs "$MINIMUM_ABSOLUTE_MS" \
   --arg run_url "$RUN_URL" \
   '
   def format_delta:
     if . == null then "N/A"
     elif . > 0 then "+\(. | tostring)%"
     else "\(. | tostring)%"
-    end;
-
-  def status_icon:
-    if . == null then ""
-    elif . > $threshold then " :warning:"
-    elif . < (-1 * $threshold) then " :rocket:"
-    else ""
     end;
 
   # Index base results by name+role
@@ -47,6 +42,16 @@ jq -n \
     elif $base_entry and $base_total > 0 then
       (($pr_total - $base_total) / $base_total * 100 | . * 10 | round / 10)
     else null end) as $delta_pct |
+    (if $base_total != null and $pr_total >= 0 and $base_total >= 0 then
+      (($pr_total - $base_total) | fabs)
+    else null end) as $delta_abs |
+
+    # Only flag regressions/improvements that exceed both the percentage AND absolute thresholds.
+    (if $delta_pct == null or $delta_abs == null then ""
+    elif ($delta_pct > $threshold) and ($delta_abs >= $min_abs) then " :warning:"
+    elif ($delta_pct < (-1 * $threshold)) and ($delta_abs >= $min_abs) then " :rocket:"
+    else ""
+    end) as $icon |
 
     def format_time:
       if . == -1 then "timeout :hourglass:"
@@ -61,7 +66,7 @@ jq -n \
       base_total: (if $base_entry then ($base_entry.total_time_ms | format_time) else "—" end),
       pr_total: ($pr_total | format_time),
       delta: ($delta_pct | format_delta),
-      icon: ($delta_pct | status_icon)
+      icon: $icon
     }
   ] as $rows |
 
@@ -88,7 +93,7 @@ jq -n \
   ] | join("\n")) +
   "\n\n" +
   "<details>\n<summary>Details</summary>\n\n" +
-  "- Threshold for regression warnings: >\($threshold)%\n" +
+  "- Threshold for regression warnings: >\($threshold)% and ≥\($min_abs)ms absolute change\n" +
   "- Each measurement discards the first (cold-cache) execution, then reports the median of all subsequent runs within a 5-second time budget\n" +
   "- Timings use clock_timestamp() with JIT compilation and synchronized sequential scans disabled\n" +
   "- Data: 1000 accounts, 100 events, 1000 contacts, ~1000 guests, 200 attendances\n" +
