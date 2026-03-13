@@ -4,7 +4,32 @@
 # Determine which Docker image to run.
 SQITCH_IMAGE=${SQITCH_IMAGE:=sqitch/sqitch:latest}
 
-SQITCH_TARGET="db:pg://postgres:postgres@127.0.0.1/vibetype"
+# Read PostgreSQL secrets and build SQITCH_TARGET
+THIS=$(dirname "$(readlink -f "$0")")
+secret_dir="$THIS/../../stack/artifacts/secrets"
+user_file="$secret_dir/postgres-user"
+pass_file="$secret_dir/postgres-password"
+db_file="$secret_dir/postgres-db"
+
+if [ -r "$user_file" ]; then
+  postgres_user=$(tr -d '\n' < "$user_file")
+else
+  postgres_user="postgres"
+fi
+
+if [ -r "$pass_file" ]; then
+  postgres_password=$(tr -d '\n' < "$pass_file")
+else
+  postgres_password="postgres"
+fi
+
+if [ -r "$db_file" ]; then
+  postgres_db=$(tr -d '\n' < "$db_file")
+else
+  postgres_db="vibetype"
+fi
+
+SQITCH_TARGET="db:pg://${postgres_user}:${postgres_password}@127.0.0.1/${postgres_db}"
 export SQITCH_TARGET
 
 # Set up required pass-through variables.
@@ -65,8 +90,6 @@ elif [ ! -t 0 ]; then
     passopt+=(--interactive)
 fi
 
-THIS=$(dirname "$(readlink -f "$0")")
-
 function docker_sudo() {
     if id -nG | grep -qw "docker"; then
         docker "$@"
@@ -79,12 +102,12 @@ function docker_sudo() {
 docker_sudo run --rm --network host \
     --mount "type=bind,src=$THIS,dst=/repo" \
     --mount "type=bind,src=$HOME,dst=$homedst" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_grafana_password.secret,dst=/run/secrets/postgres_role_service_grafana_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_grafana_username.secret,dst=/run/secrets/postgres_role_service_grafana_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_postgraphile_password.secret,dst=/run/secrets/postgres_role_service_postgraphile_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_postgraphile_username.secret,dst=/run/secrets/postgres_role_service_postgraphile_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_vibetype_password.secret,dst=/run/secrets/postgres_role_service_vibetype_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_vibetype_username.secret,dst=/run/secrets/postgres_role_service_vibetype_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_zammad_password.secret,dst=/run/secrets/postgres_role_service_zammad_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_zammad_username.secret,dst=/run/secrets/postgres_role_service_zammad_username" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-grafana-password,dst=/run/secrets/postgres-role-service-grafana-password" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-grafana-username,dst=/run/secrets/postgres-role-service-grafana-username" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-postgraphile-password,dst=/run/secrets/postgres-role-service-postgraphile-password" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-postgraphile-username,dst=/run/secrets/postgres-role-service-postgraphile-username" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-vibetype-password,dst=/run/secrets/postgres-role-service-vibetype-password" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-vibetype-username,dst=/run/secrets/postgres-role-service-vibetype-username" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-zammad-password,dst=/run/secrets/postgres-role-service-zammad-password" \
+    --mount "type=bind,src=$secret_dir/postgres-role-service-zammad-username,dst=/run/secrets/postgres-role-service-zammad-username" \
     "${passopt[@]}" "$SQITCH_IMAGE" "$@"

@@ -56,10 +56,10 @@ CREATE TRIGGER update_fcm
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_device_update_fcm_token();
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.device TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.device TO :role_service_vibetype_username;
+GRANT SELECT ON TABLE vibetype.device TO :"role_service_vibetype_username";
 
 ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 
@@ -69,7 +69,7 @@ USING (
 );
 
 CREATE POLICY device_service_vibetype_select ON vibetype.device FOR SELECT
-TO :role_service_vibetype_username
+TO :"role_service_vibetype_username"
 USING (
   TRUE
 );

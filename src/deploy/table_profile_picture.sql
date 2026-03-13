@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 CREATE TABLE vibetype.profile_picture (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -20,7 +20,7 @@ COMMENT ON COLUMN vibetype.profile_picture.upload_id IS 'The upload''s id.';
 
 GRANT SELECT ON TABLE vibetype.profile_picture TO vibetype_anonymous;
 GRANT INSERT, SELECT, DELETE, UPDATE ON TABLE vibetype.profile_picture TO vibetype_account;
-GRANT SELECT, DELETE ON TABLE vibetype.profile_picture TO :role_service_vibetype_username;
+GRANT SELECT, DELETE ON TABLE vibetype.profile_picture TO :"role_service_vibetype_username";
 
 ALTER TABLE vibetype.profile_picture ENABLE ROW LEVEL SECURITY;
 
@@ -36,7 +36,7 @@ CREATE POLICY profile_picture_select ON vibetype.profile_picture FOR SELECT USIN
 
 -- Allow all profile pictures to be deleted by the service.
 CREATE POLICY profile_picture_delete_service ON vibetype.profile_picture FOR DELETE
-TO :role_service_vibetype_username
+TO :"role_service_vibetype_username"
 USING (
   TRUE
 );

@@ -9,7 +9,7 @@ CREATE TABLE vibetype.event_recommendation (
   PRIMARY KEY (account_id, event_id)
 );
 
-CREATE INDEX idx_event_recommendation_account_id ON vibetype.event_recommendation USING btree (account_id);
+-- CREATE INDEX idx_event_recommendation_account_id ON vibetype.event_recommendation USING btree (account_id); -- already covered by primary key index on (account_id, event_id)
 CREATE INDEX idx_event_recommendation_event_id ON vibetype.event_recommendation USING btree (event_id);
 
 COMMENT ON TABLE vibetype.event_recommendation IS 'Events recommended to a user account (M:N relationship).';

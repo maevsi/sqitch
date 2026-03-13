@@ -24,7 +24,7 @@ CREATE TABLE vibetype.contact (
 
 CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
 CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id);
-CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
+-- CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by); -- already covered by unique index on (created_by, account_id)
 CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name);
 CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
 

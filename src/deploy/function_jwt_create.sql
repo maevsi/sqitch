@@ -65,7 +65,7 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
   SELECT token FROM _jwt_insert;
 $$;
 
-COMMENT ON FUNCTION vibetype.jwt_create(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.jwt_create(TEXT, TEXT) IS 'Creates a JWT for the account with the given username and password. The username can be either the account''s username or email address. Returns NULL if the credentials are invalid or the email address is not verified.';
 
 GRANT EXECUTE ON FUNCTION vibetype.jwt_create(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 

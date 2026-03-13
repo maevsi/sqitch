@@ -13,7 +13,7 @@ CREATE TABLE vibetype.event_app (
 );
 
 CREATE INDEX idx_event_app_app_id ON vibetype.event_app USING btree (app_id);
-CREATE INDEX idx_event_app_event_id ON vibetype.event_app USING btree (event_id);
+-- CREATE INDEX idx_event_app_event_id ON vibetype.event_app USING btree (event_id); -- already covered by unique index on (event_id, app_id)
 CREATE INDEX idx_event_app_created_by ON vibetype.event_app USING btree (created_by);
 
 COMMENT ON TABLE vibetype.event_app IS E'@behavior -insert -update -delete\nRecords which apps are installed on which events.';

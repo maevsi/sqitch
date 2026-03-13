@@ -11,7 +11,7 @@ CREATE TABLE vibetype.preference_event_format (
   UNIQUE (account_id, format_id)
 );
 
-CREATE INDEX idx_preference_event_format_account_id ON vibetype.preference_event_format USING btree (account_id);
+-- CREATE INDEX idx_preference_event_format_account_id ON vibetype.preference_event_format USING btree (account_id); -- already covered by unique index on (account_id, format_id)
 CREATE INDEX idx_preference_event_format_format_id ON vibetype.preference_event_format USING btree (format_id);
 
 COMMENT ON TABLE vibetype.preference_event_format IS 'Event formats a user account is interested in (M:N relationship).';

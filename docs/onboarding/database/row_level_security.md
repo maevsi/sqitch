@@ -88,7 +88,7 @@ Here is an example from *Vibetype*:
 
 ```sql
 CREATE POLICY upload_all ON vibetype.upload FOR ALL
-TO :role_service_vibetype_username
+TO :"role_service_vibetype_username"
 USING (
   TRUE
 );

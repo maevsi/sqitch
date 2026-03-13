@@ -1,8 +1,8 @@
 BEGIN;
 
-\set role_service_zammad_username `cat /run/secrets/postgres_role_service_zammad_username`
+\set role_service_zammad_username `cat /run/secrets/postgres-role-service-zammad-username`
 
-SET LOCAL role.service_zammad_username TO :'role_service_zammad_username';
+SET LOCAL role.service_zammad_username TO :"role_service_zammad_username";
 
 DO $$
 BEGIN

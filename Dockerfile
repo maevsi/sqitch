@@ -27,7 +27,7 @@ COPY ./src ./
 FROM postgis/postgis:18-3.6 AS postgres-base
 
 ENV POSTGRES_DB=ci_database
-ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
 ENV POSTGRES_USER=ci
 
 WORKDIR /srv/app
@@ -37,16 +37,16 @@ RUN apt-get update \
     jq \
     sqitch=1.5.2-1 \
   && mkdir -p /run/secrets \
-  && echo "grafana"       > /run/secrets/postgres_role_service_grafana_username \
-  && echo "postgres"      > /run/secrets/postgres_password \
-  && echo "postgraphile"  > /run/secrets/postgres_role_service_postgraphile_username \
-  && echo "vibetype"      > /run/secrets/postgres_role_service_vibetype_username \
-  && echo "zammad"        > /run/secrets/postgres_role_service_zammad_username \
+  && echo "grafana"       > /run/secrets/postgres-role-service-grafana-username \
+  && echo "postgres"      > /run/secrets/postgres-password \
+  && echo "postgraphile"  > /run/secrets/postgres-role-service-postgraphile-username \
+  && echo "vibetype"      > /run/secrets/postgres-role-service-vibetype-username \
+  && echo "zammad"        > /run/secrets/postgres-role-service-zammad-username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_service_grafana_password \
-    /run/secrets/postgres_role_service_postgraphile_password \
-    /run/secrets/postgres_role_service_vibetype_password \
-    /run/secrets/postgres_role_service_zammad_password \
+    /run/secrets/postgres-role-service-grafana-password \
+    /run/secrets/postgres-role-service-postgraphile-password \
+    /run/secrets/postgres-role-service-vibetype-password \
+    /run/secrets/postgres-role-service-zammad-password \
     /dev/null
 
 COPY ./src ./src

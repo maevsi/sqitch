@@ -1,16 +1,16 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.upload TO vibetype_account;
-GRANT SELECT, UPDATE ON TABLE vibetype.upload TO :role_service_vibetype_username;
+GRANT SELECT, UPDATE ON TABLE vibetype.upload TO :"role_service_vibetype_username";
 
 ALTER TABLE vibetype.upload ENABLE ROW LEVEL SECURITY;
 
 -- Allow the service role to select and update rows.
 CREATE POLICY upload_service_vibetype_all ON vibetype.upload FOR ALL
-TO :role_service_vibetype_username
+TO :"role_service_vibetype_username"
 USING (
   TRUE
 );

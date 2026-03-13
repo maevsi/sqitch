@@ -12,7 +12,7 @@ CREATE TABLE vibetype.event_favorite (
 );
 
 CREATE INDEX idx_event_favorite_event_id ON vibetype.event_favorite USING btree (event_id);
-CREATE INDEX idx_event_favorite_created_by ON vibetype.event_favorite USING btree (created_by);
+-- CREATE INDEX idx_event_favorite_created_by ON vibetype.event_favorite USING btree (created_by); -- already covered by unique index on (created_by, event_id)
 
 COMMENT ON TABLE vibetype.event_favorite IS E'@behavior -update\nStores user-specific event favorites, linking an event to the account that marked it as a favorite.';
 COMMENT ON COLUMN vibetype.event_favorite.id IS E'@behavior -insert\nPrimary key, uniquely identifies each favorite entry.';

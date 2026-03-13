@@ -7,7 +7,7 @@ CREATE TABLE vibetype.event_category_mapping (
   PRIMARY KEY (event_id, category_id)
 );
 
-CREATE INDEX idx_event_category_mapping_event_id ON vibetype.event_category_mapping USING btree (event_id);
+-- CREATE INDEX idx_event_category_mapping_event_id ON vibetype.event_category_mapping USING btree (event_id); -- already covered by primary key index on (event_id, category_id)
 CREATE INDEX idx_event_category_mapping_category_id ON vibetype.event_category_mapping USING btree (category_id);
 
 COMMENT ON TABLE vibetype.event_category_mapping IS 'Mapping events to categories (M:N relationship).';
