@@ -20,7 +20,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountA::TEXT, true);
 
   -- Get block IDs for account A
-  blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
+  blockIds := vibetype_private.account_block_ids();
 
   -- Account A should see account B in block list
   PERFORM vibetype_test.uuid_array_test('blocked account appears in block list', blockIds, ARRAY[accountB]);
@@ -45,7 +45,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountB::TEXT, true);
 
   -- Get block IDs for account B
-  blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
+  blockIds := vibetype_private.account_block_ids();
 
   -- Account B should see account A (who blocked them) in the list
   PERFORM vibetype_test.uuid_array_test('blocker account appears in blocked user list', blockIds, ARRAY[accountA]);
@@ -70,7 +70,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountA::TEXT, true);
 
   -- Get block IDs for account A
-  blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
+  blockIds := vibetype_private.account_block_ids();
 
   -- Account A should see account B (both as blocked and as blocker)
   PERFORM vibetype_test.uuid_array_test('mutual block shows other account', blockIds, ARRAY[accountB]);
@@ -100,7 +100,7 @@ BEGIN
   PERFORM set_config('jwt.claims.sub', accountA::TEXT, true);
 
   -- Get block IDs for account A
-  blockIds := ARRAY(SELECT id FROM vibetype_private.account_block_ids());
+  blockIds := vibetype_private.account_block_ids();
 
   -- Account A should see B, C, and D
   PERFORM vibetype_test.uuid_array_test('multiple blocks show all blocked and blocker accounts', blockIds, ARRAY[accountB, accountC, accountD]);

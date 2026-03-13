@@ -1,10 +1,14 @@
 BEGIN;
 
-CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
+CREATE FUNCTION vibetype_private.events_invited() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   -- Return event IDs for events the invoker is invited to.
-  SELECT g.event_id FROM vibetype.guest g
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
+  SELECT COALESCE(array_agg(DISTINCT g.event_id), ARRAY[]::UUID[])
+  FROM vibetype.guest g, _blocked
   WHERE
       -- Guest records explicitly known to the invoker (via guest claim).
       g.id = ANY (vibetype.guest_claim_array())
@@ -16,9 +20,7 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
         FROM vibetype.contact c
         WHERE c.id = g.contact_id
           AND c.account_id = vibetype.invoker_account_id()
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-          )
+          AND NOT (c.created_by = ANY(_blocked.ids))
       )
       AND
       -- And the corresponding event wasn't created by a blocked account.
@@ -26,14 +28,12 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS TABLE(event_id uuid)
         SELECT 1
         FROM vibetype.event e
         WHERE e.id = g.event_id
-          AND NOT EXISTS (
-            SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = e.created_by
-          )
+          AND NOT (e.created_by = ANY(_blocked.ids))
       )
     );
 $$;
 
-COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Add a function that returns all event ids for which the invoker is invited.';
+COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Returns all event ids for which the invoker is invited.';
 
 GRANT EXECUTE ON FUNCTION vibetype_private.events_invited() TO vibetype_account, vibetype_anonymous;
 

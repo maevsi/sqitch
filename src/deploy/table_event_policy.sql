@@ -13,40 +13,33 @@ USING (
 
 -- Only display events that are public and not full and not organized by a blocked account.
 -- Only display events to which oneself is invited, but not by a guest created by a blocked account.
-CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event)
-RETURNS boolean AS $$
-  SELECT
-  (
-    (
-      e.visibility = 'public'
-      AND (
-        e.guest_count_maximum IS NULL
-        OR e.guest_count_maximum > vibetype.guest_count(e.id)
-      )
-      AND NOT EXISTS (
-        SELECT 1
-        FROM vibetype_private.account_block_ids() b
-        WHERE b.id = e.created_by
-      )
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM vibetype_private.events_invited() ei(event_id)
-      WHERE ei.event_id = e.id
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM vibetype.attendance a
-      JOIN vibetype.guest g ON g.id = a.guest_id
-      WHERE a.id = ANY (vibetype.attendance_claim_array())
-        AND g.event_id = e.id
-    )
-  );
-$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
+-- Only display events for which the invoker has a claimed attendance.
 
-GRANT EXECUTE ON FUNCTION vibetype_private.event_policy_select(vibetype.event) TO vibetype_account, vibetype_anonymous;
+-- Helper: returns event IDs for events accessible through attendance claims.
+-- Needs SECURITY DEFINER to bypass RLS on attendance and guest tables.
+CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(DISTINCT g.event_id), ARRAY[]::UUID[])
+  FROM vibetype.attendance a
+  JOIN vibetype.guest g ON g.id = a.guest_id
+  WHERE a.id = ANY (vibetype.attendance_claim_array());
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account, vibetype_anonymous;
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT
-USING (vibetype_private.event_policy_select(event));
+USING (
+  (
+    event.visibility = 'public'
+    AND (
+      event.guest_count_maximum IS NULL
+      OR event.guest_count_maximum > vibetype.guest_count(event.id)
+    )
+    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = event.created_by)
+  )
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.events_invited()) AS inv WHERE inv = event.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.events_with_claimed_attendance()) AS att WHERE att = event.id)
+);
 
 COMMIT;

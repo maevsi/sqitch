@@ -15,23 +15,15 @@ USING (
   (
     contact.account_id = vibetype.invoker_account_id()
     AND
-    NOT EXISTS (
-      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.created_by
-    )
+    NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.created_by)
   )
   OR
   (
     contact.created_by = vibetype.invoker_account_id()
     AND
-    NOT EXISTS (
-      SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
-    )
+    NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.account_id)
   )
-  OR EXISTS (
-    SELECT 1
-    FROM vibetype.guest_contact_ids() gci(contact_id)
-    WHERE gci.contact_id = contact.id
-  )
+  OR EXISTS (SELECT 1 FROM vibetype.guest_contact_ids() gci WHERE gci.contact_id = contact.id)
 );
 
 -- Only allow inserts for contacts created by the invoker's account.
@@ -39,9 +31,7 @@ USING (
 CREATE POLICY contact_insert ON vibetype.contact FOR INSERT
 WITH CHECK (
   contact.created_by = vibetype.invoker_account_id()
-  AND NOT EXISTS (
-    SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
-  )
+  AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.account_id)
 );
 
 -- Only allow updates for contacts created by the invoker's account.
@@ -49,9 +39,7 @@ WITH CHECK (
 CREATE POLICY contact_update ON vibetype.contact FOR UPDATE
 USING (
   contact.created_by = vibetype.invoker_account_id()
-  AND NOT EXISTS (
-    SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = contact.account_id
-  )
+  AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = contact.account_id)
 );
 
 -- Only allow deletes for contacts created by the invoker's account except for the own account's contact.

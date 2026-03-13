@@ -11,6 +11,9 @@ CREATE TABLE vibetype.preference_event_category (
   UNIQUE (account_id, category_id)
 );
 
+CREATE INDEX idx_preference_event_category_account_id ON vibetype.preference_event_category USING btree (account_id);
+CREATE INDEX idx_preference_event_category_category_id ON vibetype.preference_event_category USING btree (category_id);
+
 COMMENT ON TABLE vibetype.preference_event_category IS 'Event categories a user account is interested in (M:N relationship).';
 COMMENT ON COLUMN vibetype.preference_event_category.account_id IS 'A user account id.';
 COMMENT ON COLUMN vibetype.preference_event_category.category_id IS 'An event category id.';

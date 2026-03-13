@@ -17,14 +17,14 @@ CREATE TABLE vibetype.attendance (
 CREATE INDEX idx_attendance_contact_id ON vibetype.attendance USING btree (contact_id);
 CREATE INDEX idx_attendance_updated_by ON vibetype.attendance USING btree (updated_by);
 
-COMMENT ON TABLE vibetype.attendance IS E'@omit delete\nKeeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
-COMMENT ON COLUMN vibetype.attendance.id IS E'@omit create,update\nA unique reference for this entry.';
-COMMENT ON COLUMN vibetype.attendance.checked_out IS E'@omit create\nShows if the person has left. When this turns on, the time is saved automatically.';
-COMMENT ON COLUMN vibetype.attendance.contact_id IS E'@omit update\nThe contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
-COMMENT ON COLUMN vibetype.attendance.guest_id IS E'@omit update\nWho this entry is for.';
-COMMENT ON COLUMN vibetype.attendance.created_at IS E'@omit create,update\nWhen the entry was created (the check-in time).';
-COMMENT ON COLUMN vibetype.attendance.updated_at IS E'@omit create,update\nWhen this entry was last changed. If someone checks out, this shows the checkout time.';
-COMMENT ON COLUMN vibetype.attendance.updated_by IS E'@omit create,update\nWho last changed this entry. This may be empty if done without signing in.';
+COMMENT ON TABLE vibetype.attendance IS E'@behavior -delete\nKeeps track of when someone arrives and leaves an event. Each person can only be checked in once.';
+COMMENT ON COLUMN vibetype.attendance.id IS E'@behavior -insert -update\nA unique reference for this entry.';
+COMMENT ON COLUMN vibetype.attendance.checked_out IS E'@behavior -insert\nShows if the person has left. When this turns on, the time is saved automatically.';
+COMMENT ON COLUMN vibetype.attendance.contact_id IS E'@behavior -update\nThe contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
+COMMENT ON COLUMN vibetype.attendance.guest_id IS E'@behavior -update\nWho this entry is for.';
+COMMENT ON COLUMN vibetype.attendance.created_at IS E'@behavior -insert -update\nWhen the entry was created (the check-in time).';
+COMMENT ON COLUMN vibetype.attendance.updated_at IS E'@behavior -insert -update\nWhen this entry was last changed. If someone checks out, this shows the checkout time.';
+COMMENT ON COLUMN vibetype.attendance.updated_by IS E'@behavior -insert -update\nWho last changed this entry. This may be empty if done without signing in.';
 COMMENT ON INDEX vibetype.idx_attendance_contact_id IS 'Speeds up searching by contact.';
 COMMENT ON INDEX vibetype.idx_attendance_updated_by IS 'Speeds up searching by who changed an entry.';
 

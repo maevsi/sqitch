@@ -16,7 +16,7 @@ CREATE TABLE vibetype.app (
 
 CREATE INDEX idx_app_created_by ON vibetype.app USING btree (created_by);
 
-COMMENT ON TABLE vibetype.app IS E'@omit create,update,delete\nIntegrations that can be added to events. Each app has a name, icon, and an endpoint for attendance management.';
+COMMENT ON TABLE vibetype.app IS E'@behavior -insert -update -delete\nIntegrations that can be added to events. Each app has a name, icon, and an endpoint for attendance management.';
 COMMENT ON COLUMN vibetype.app.id IS 'A unique reference for this app.';
 COMMENT ON COLUMN vibetype.app.name IS 'The name of the app.';
 COMMENT ON COLUMN vibetype.app.icon_svg IS 'An SVG icon for displaying the app.';
