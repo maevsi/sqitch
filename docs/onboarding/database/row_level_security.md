@@ -122,3 +122,87 @@ Suppose the function was defined as `SECURITY INVOKER`; this would imply the eva
 
 A developer should be careful with `SECURITY DEFINER` functions.
 As they bypass RLS security, every security check that would otherwise be handled by policies must be explicitly implemented in the function body.
+
+## Performance considerations for policies
+
+### Avoid wrapping policies in SECURITY DEFINER functions
+
+RLS policy conditions are evaluated per row.
+When the entire policy logic is wrapped in a `SECURITY DEFINER` function that takes a row parameter, PostgreSQL treats the function as a black box and evaluates it independently for every row.
+Any helper functions called *inside* that wrapper are also re-evaluated per row, even if they return the same result regardless of the row.
+
+For example, a policy like `USING (vibetype_private.event_policy_select(event.*))` that internally calls `events_invited()` (which takes ~18 ms) will take `18 ms × number_of_rows` to evaluate — resulting in **765 ms for just 100 events**.
+
+The preferred approach is to **inline the policy logic** directly in the `USING` clause.
+When helper functions appear directly in inline policy expressions, PostgreSQL's optimizer can hoist them into *SubPlans* that are computed once and reused across all rows.
+
+### Use helper functions returning arrays with the unnest pattern
+
+Helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays.
+Two patterns are used for block checks, depending on context:
+
+#### In policies: NOT EXISTS + unnest (direct function call)
+
+When a block check appears directly in a policy `USING` clause, use `NOT EXISTS` + `unnest()`.
+PostgreSQL creates a *hashed SubPlan* that is computed once and probed per row:
+
+```sql
+-- Hashed SubPlan: function called once, hash built once, O(1) per-row probe
+NOT EXISTS (
+  SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b
+  WHERE b = event.created_by
+)
+```
+
+This pattern is inherently NULL-safe: when a column is NULL, `b = NULL` never matches, so `NOT EXISTS` correctly returns TRUE. No `IS NULL OR` guard is needed.
+
+#### In helper functions: _blocked CTE + ANY (when 2+ block checks are needed)
+
+When a SECURITY DEFINER helper function needs to check block status against multiple columns,
+use a `_blocked` CTE that stores the UUID array in a single row, cross-joined into the query:
+
+```sql
+WITH _blocked AS (
+  SELECT vibetype_private.account_block_ids() AS ids
+)
+SELECT ...
+FROM vibetype.guest g
+JOIN vibetype.contact c ON c.id = g.contact_id,
+_blocked
+WHERE NOT (c.created_by = ANY(_blocked.ids))
+  AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)));
+```
+
+The `ANY(array)` ScalarArrayOp on a cross-joined single-row CTE is faster than correlated `NOT EXISTS` subqueries against a multi-row CTE because the array scan has lower per-row overhead than probing a materialized CTE.
+
+**NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
+
+### When SECURITY DEFINER helpers are still needed
+
+Some policy checks require querying other RLS-protected tables (for example, the guest policy needs to check the `contact` and `event` tables).
+In these cases, the check must run with elevated privileges to avoid infinite RLS recursion.
+
+The recommended approach is to extract these cross-table checks into **focused SECURITY DEFINER helper functions** that return arrays of IDs, rather than wrapping the entire policy:
+
+```sql
+-- Good: focused helper returns array, inlined in policy
+CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$ ... $$;
+
+CREATE POLICY event_select ON vibetype.event FOR SELECT
+USING (
+  ... OR EXISTS (
+    SELECT 1 FROM unnest(vibetype_private.events_with_claimed_attendance()) AS att
+    WHERE att = event.id
+  )
+);
+
+-- Avoid: wrapper function takes entire row, prevents SubPlan optimization
+CREATE FUNCTION vibetype_private.event_policy_select(e vibetype.event) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$ ... $$;
+
+CREATE POLICY event_select ON vibetype.event FOR SELECT
+USING (vibetype_private.event_policy_select(event.*));
+```

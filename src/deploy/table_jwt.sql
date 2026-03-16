@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE vibetype_private.jwt (
-  id                uuid GENERATED ALWAYS AS ((token).jti) STORED PRIMARY KEY,
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 
   expiry            timestamp with time zone GENERATED ALWAYS AS (to_timestamp(((token).exp)::double precision)) STORED NOT NULL,
   subject           uuid GENERATED ALWAYS AS ((token).sub) STORED REFERENCES vibetype.account(id) ON DELETE CASCADE,

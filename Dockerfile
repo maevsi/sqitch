@@ -24,7 +24,7 @@ COPY ./src ./
 
 ###########################
 # sqitch is not available for alpine linux as of 2025-11-20 (https://github.com/sqitchers/sqitch/issues/351#issuecomment-614153859)
-FROM postgis/postgis:18-3.6 AS test-build
+FROM postgis/postgis:18-3.6 AS postgres-base
 
 ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
@@ -34,6 +34,7 @@ WORKDIR /srv/app
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
+    jq \
     sqitch=1.5.2-1 \
   && mkdir -p /run/secrets \
   && echo "grafana"       > /run/secrets/postgres_role_service_grafana_username \
@@ -51,6 +52,10 @@ RUN apt-get update \
 COPY ./src ./src
 COPY ./test ./test
 
+
+##############################
+FROM postgres-base AS test-build
+
 RUN docker-entrypoint.sh postgres & \
   while ! pg_isready --host localhost --username ci --port 5432; do sleep 1; done \
   && sqitch --chdir src deploy --target db:pg://ci:postgres@/ci_database \
@@ -59,6 +64,15 @@ RUN docker-entrypoint.sh postgres & \
   && psql --host localhost --username ci --dbname ci_database --quiet --file ./test/logic/main.sql \
     --variable TEST_DIRECTORY=./test/logic --variable ON_ERROR_STOP=on \
   && sqitch --chdir src revert --target db:pg://ci:postgres@/ci_database
+
+
+##############################
+FROM postgres-base AS benchmark
+
+RUN docker-entrypoint.sh postgres & \
+  while ! pg_isready --host localhost --username ci --port 5432; do sleep 1; done \
+  && sqitch --chdir src deploy --target db:pg://ci:postgres@/ci_database \
+  && ./test/benchmark/run.sh benchmark_results.json "pg://ci:postgres@localhost/ci_database"
 
 ##############################
 FROM test-build AS test
