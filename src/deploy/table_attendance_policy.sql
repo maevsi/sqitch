@@ -68,7 +68,11 @@ USING (
   OR EXISTS (SELECT 1 FROM unnest(vibetype_private.attendance_via_own_events()) AS a WHERE a = attendance.id)
   OR EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = attendance.guest_id)
   OR EXISTS (SELECT 1 FROM unnest(vibetype_private.attendance_via_own_contact()) AS a WHERE a = attendance.id)
-  OR vibetype_private.attendance_row_visible(attendance.guest_id)
+  OR CASE
+      WHEN vibetype.invoker_account_id() IS NOT NULL
+        THEN vibetype_private.attendance_row_visible(attendance.guest_id)
+      ELSE FALSE
+    END
 );
 
 -- Only the organizer may check a guest in (insert attendance).

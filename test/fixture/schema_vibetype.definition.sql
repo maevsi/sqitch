@@ -6642,7 +6642,11 @@ CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((EXIST
    FROM unnest(vibetype.guest_claim_array()) gc(gc)
   WHERE (gc.gc = attendance.guest_id))) OR (EXISTS ( SELECT 1
    FROM unnest(vibetype_private.attendance_via_own_contact()) a(a)
-  WHERE (a.a = attendance.id))) OR vibetype_private.attendance_row_visible(guest_id)));
+  WHERE (a.a = attendance.id))) OR
+CASE
+    WHEN (vibetype.invoker_account_id() IS NOT NULL) THEN vibetype_private.attendance_row_visible(guest_id)
+    ELSE false
+END));
 
 
 --
@@ -6956,7 +6960,11 @@ CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((EXISTS ( SELECT
    FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
   WHERE (g.g = guest.id))) OR (EXISTS ( SELECT 1
    FROM unnest(vibetype_private.guests_via_own_events_unblocked()) g(g)
-  WHERE (g.g = guest.id))) OR vibetype_private.guest_row_visible(contact_id, event_id)));
+  WHERE (g.g = guest.id))) OR
+CASE
+    WHEN (vibetype.invoker_account_id() IS NOT NULL) THEN vibetype_private.guest_row_visible(contact_id, event_id)
+    ELSE false
+END));
 
 
 --
@@ -6969,7 +6977,11 @@ CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((EXISTS ( SELECT
    FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
   WHERE (g.g = guest.id))) OR (EXISTS ( SELECT 1
    FROM unnest(vibetype_private.guests_via_own_events_unblocked()) g(g)
-  WHERE (g.g = guest.id))) OR vibetype_private.guest_row_visible(contact_id, event_id)));
+  WHERE (g.g = guest.id))) OR
+CASE
+    WHEN (vibetype.invoker_account_id() IS NOT NULL) THEN vibetype_private.guest_row_visible(contact_id, event_id)
+    ELSE false
+END));
 
 
 --

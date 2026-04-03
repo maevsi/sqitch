@@ -84,7 +84,11 @@ USING (
   EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = guest.id)
   OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_contact()) AS g WHERE g = guest.id)
   OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_events_unblocked()) AS g WHERE g = guest.id)
-  OR vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+  OR CASE
+      WHEN vibetype.invoker_account_id() IS NOT NULL
+        THEN vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+      ELSE FALSE
+    END
 );
 
 -- Only allow inserts for guests of events organized by oneself.
@@ -119,7 +123,11 @@ USING (
   EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = guest.id)
   OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_contact()) AS g WHERE g = guest.id)
   OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_events_unblocked()) AS g WHERE g = guest.id)
-  OR vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+  OR CASE
+      WHEN vibetype.invoker_account_id() IS NOT NULL
+        THEN vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+      ELSE FALSE
+    END
 );
 
 -- Only allow deletes for guests of events organized by oneself.
