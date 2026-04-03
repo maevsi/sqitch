@@ -1,3 +1,20 @@
+## [11.0.0](https://github.com/maevsi/sqitch/compare/10.0.8...11.0.0) (2026-04-03)
+
+### ⚠ BREAKING CHANGES
+
+* **jwt:** rework mutation
+* **postgraphile:** migrate to v5
+
+### Features
+
+* **jwt:** rework mutation ([d40493c](https://github.com/maevsi/sqitch/commit/d40493c6e19a26b4f60ec0e3d4ce3d5d7caa5236))
+* **postgraphile:** migrate to v5 ([a16af50](https://github.com/maevsi/sqitch/commit/a16af50f84f53916eef5080835bb54f2d95cdfc7))
+
+### Performance Improvements
+
+* **index:** add missing ([9e92140](https://github.com/maevsi/sqitch/commit/9e921401d0b3221090056dc4818463971f570d08))
+* inline functions ([8ea356a](https://github.com/maevsi/sqitch/commit/8ea356a871eda41402e054cf2987954ce4dafcdc))
+
 ## [11.0.0-beta.4](https://github.com/maevsi/sqitch/compare/11.0.0-beta.3...11.0.0-beta.4) (2026-04-03)
 
 ### Bug Fixes
