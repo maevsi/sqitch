@@ -1,3 +1,10 @@
+## [11.0.0-beta.4](https://github.com/maevsi/sqitch/compare/11.0.0-beta.3...11.0.0-beta.4) (2026-04-03)
+
+### Bug Fixes
+
+* schedule release ([859e714](https://github.com/maevsi/sqitch/commit/859e71419aa1a5a2b4009db2ae37cf240085c254))
+* schedule release ([052f309](https://github.com/maevsi/sqitch/commit/052f30972fd1d6e30c27762dfd4de160b0e6e996))
+
 ## [11.0.0-beta.3](https://github.com/maevsi/sqitch/compare/11.0.0-beta.2...11.0.0-beta.3) (2026-03-09)
 
 ### Performance Improvements
