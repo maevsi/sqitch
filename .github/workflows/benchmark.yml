@@ -32,10 +32,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out PR branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Check out base branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           clean: false
@@ -76,7 +76,7 @@ jobs:
           "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Find comment
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@3eae4d37986fb5a8592848f6a574fdf654e61f9e # v3
         id: fc
         with:
           body-includes: Database Query Performance
@@ -84,7 +84,7 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
 
       - name: Post or update PR comment
-        uses: peter-evans/create-or-update-comment@v4
+        uses: peter-evans/create-or-update-comment@71345be0265236311c031f5c7866368bd1eff043 # v4
         with:
           body-path: /tmp/benchmark_comment.md
           comment-id: ${{ steps.fc.outputs.comment-id }}
