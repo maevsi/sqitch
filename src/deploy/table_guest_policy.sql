@@ -5,57 +5,87 @@ GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
 
 ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 
-CREATE FUNCTION vibetype_private.guest_policy_select(g vibetype.guest) RETURNS boolean
-AS $$
+-- Display guests accessible through guest claims.
+-- Display guests where the contact is the invoker account,
+--   omitting contacts created by a blocked account.
+-- Display guests to events organized by the invoker,
+--   omitting guests with contacts pointing at or created by a blocked account.
+
+-- Helper: returns guest IDs where the contact references the invoker's account.
+-- Needs SECURITY DEFINER to bypass RLS on guest and contact tables.
+CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE c.account_id = vibetype.invoker_account_id()
+    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by);
+$$;
+
+-- Helper: returns guest IDs for events organized by the invoker with unblocked contacts.
+-- Needs SECURITY DEFINER to bypass RLS on guest, event, and contact tables.
+CREATE FUNCTION vibetype_private.guests_via_own_events_unblocked() RETURNS UUID[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
+  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.contact c ON c.id = g.contact_id,
+  _blocked
+  WHERE e.created_by = vibetype.invoker_account_id()
+    AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
+    AND NOT (c.created_by = ANY(_blocked.ids));
+$$;
+
+-- Row-level visibility check for newly inserted guests not yet visible to STABLE functions.
+-- Only queries contact and event tables (not guest), so works during INSERT+RETURNING.
+CREATE FUNCTION vibetype_private.guest_row_visible(contact_id UUID, event_id UUID) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  WITH _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
   SELECT (
-    -- Display guests accessible through guest claims.
-    g.id = ANY (vibetype.guest_claim_array())
-  OR
-  (
-    -- Display guests where the contact is the invoker account.
     EXISTS (
       SELECT 1
-      FROM vibetype.contact c
-      WHERE c.id = g.contact_id
-      AND c.account_id = vibetype.invoker_account_id()
-      -- omit contacts created by a user who is blocked by the invoker
-      -- omit contacts created by a user who blocked the invoker.
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
+      FROM vibetype.contact c, _blocked
+      WHERE c.id = guest_row_visible.contact_id
+        AND c.account_id = vibetype.invoker_account_id()
+        AND NOT (c.created_by = ANY(_blocked.ids))
+    )
+    OR (
+      EXISTS (
+        SELECT 1
+        FROM vibetype.event e
+        WHERE e.id = guest_row_visible.event_id
+          AND e.created_by = vibetype.invoker_account_id()
+      )
+      AND EXISTS (
+        SELECT 1
+        FROM vibetype.contact c, _blocked
+        WHERE c.id = guest_row_visible.contact_id
+          AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
+          AND NOT (c.created_by = ANY(_blocked.ids))
       )
     )
-  )
-  OR
-  (
-    -- Display guests to events organized by the invoker,
-    -- but omit guests with contacts pointing at a user blocked by the invoker or pointing at a user who blocked the invoker.
-    -- Also omit guests created by a user blocked by the invoker or created by a user who blocked the invoker.
-    EXISTS (
-      SELECT 1
-      FROM vibetype.event e
-      WHERE e.id = g.event_id
-        AND e.created_by = vibetype.invoker_account_id()
-    )
-    AND
-    EXISTS (
-      SELECT 1
-      FROM vibetype.contact c
-      WHERE c.id = g.contact_id
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.created_by
-        )
-    )
-  )
-);
-$$ LANGUAGE sql STABLE SECURITY DEFINER;
+  );
+$$;
 
-GRANT EXECUTE ON FUNCTION vibetype_private.guest_policy_select(vibetype.guest) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype_private.guest_row_visible(UUID, UUID) TO vibetype_account, vibetype_anonymous;
 
 CREATE POLICY guest_select ON vibetype.guest FOR SELECT
-USING (vibetype_private.guest_policy_select(guest));
+USING (
+  EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_contact()) AS g WHERE g = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_events_unblocked()) AS g WHERE g = guest.id)
+  OR vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+);
 
 -- Only allow inserts for guests of events organized by oneself.
 -- Only allow inserts for guests of events for which the maximum guest count is not yet reached.
@@ -70,10 +100,9 @@ WITH CHECK (
         AND e.created_by = vibetype.invoker_account_id()
   )
   AND
-  (
-    vibetype.event_guest_count_maximum(guest.event_id) IS NULL
-    OR
-    vibetype.event_guest_count_maximum(guest.event_id) > vibetype.guest_count(guest.event_id)
+  COALESCE(
+    vibetype.event_guest_count_maximum(guest.event_id) > vibetype.guest_count(guest.event_id),
+    TRUE
   )
   AND
     EXISTS (
@@ -81,14 +110,17 @@ WITH CHECK (
       FROM vibetype.contact c
       WHERE c.id = guest.contact_id
       AND c.created_by = vibetype.invoker_account_id()
-      AND NOT EXISTS (
-        SELECT 1 FROM vibetype_private.account_block_ids() b WHERE b.id = c.account_id
-      )
+      AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.account_id)
     )
 );
 
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE
-USING (vibetype_private.guest_policy_select(guest));
+USING (
+  EXISTS (SELECT 1 FROM unnest(vibetype.guest_claim_array()) AS gc WHERE gc = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_contact()) AS g WHERE g = guest.id)
+  OR EXISTS (SELECT 1 FROM unnest(vibetype_private.guests_via_own_events_unblocked()) AS g WHERE g = guest.id)
+  OR vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)
+);
 
 -- Only allow deletes for guests of events organized by oneself.
 CREATE POLICY guest_delete ON vibetype.guest FOR DELETE
@@ -104,8 +136,6 @@ USING (
 CREATE FUNCTION vibetype.trigger_guest_update() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT
     AS $$
-DECLARE
-  whitelisted_cols TEXT[] := ARRAY['feedback', 'feedback_paper'];
 BEGIN
   IF
       TG_OP = 'UPDATE'
@@ -119,15 +149,16 @@ BEGIN
         AND c.account_id = vibetype.invoker_account_id()
       )
     )
-    AND
-      EXISTS (
-        SELECT 1
-          FROM jsonb_each(to_jsonb(OLD)) AS pre, jsonb_each(to_jsonb(NEW)) AS post
-          WHERE pre.key = post.key AND pre.value IS DISTINCT FROM post.value
-          AND NOT (pre.key = ANY(whitelisted_cols))
-      )
+    AND (
+      NEW.id IS DISTINCT FROM OLD.id
+      OR NEW.contact_id IS DISTINCT FROM OLD.contact_id
+      OR NEW.event_id IS DISTINCT FROM OLD.event_id
+      OR NEW.created_at IS DISTINCT FROM OLD.created_at
+      OR NEW.updated_at IS DISTINCT FROM OLD.updated_at
+      OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
+    )
   THEN
-    RAISE 'You''re only allowed to alter these rows: %!', whitelisted_cols USING ERRCODE = 'insufficient_privilege';
+    RAISE 'You''re only allowed to alter these columns: feedback, feedback_paper!' USING ERRCODE = 'insufficient_privilege';
   ELSE
     NEW.updated_at = CURRENT_TIMESTAMP;
     NEW.updated_by = vibetype.invoker_account_id();

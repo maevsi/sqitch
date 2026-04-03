@@ -9,6 +9,8 @@ DROP POLICY guest_update ON vibetype.guest;
 DROP POLICY guest_insert ON vibetype.guest;
 DROP POLICY guest_select ON vibetype.guest;
 
-DROP FUNCTION vibetype_private.guest_policy_select(vibetype.guest);
+DROP FUNCTION vibetype_private.guest_row_visible(UUID, UUID);
+DROP FUNCTION vibetype_private.guests_via_own_contact();
+DROP FUNCTION vibetype_private.guests_via_own_events_unblocked();
 
 COMMIT;

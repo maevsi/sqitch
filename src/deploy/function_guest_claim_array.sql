@@ -3,35 +3,26 @@ BEGIN;
 CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  WITH guest_ids AS (
-    SELECT unnest(
-      string_to_array(
-        replace(btrim(current_setting('jwt.claims.guests', true), '[]'), '"', ''),
-        ','
-      )::UUID[]
-    ) AS id
+  WITH
+  _claimed_guest_ids AS (
+    SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.guests', true), '')::json)::UUID AS id
   ),
-  blocked_account_ids AS (
-    SELECT id FROM vibetype_private.account_block_ids()
+  _blocked AS (
+    SELECT vibetype_private.account_block_ids() AS ids
+  ),
+  _accessible_guests AS (
+    SELECT guest.id
+    FROM _claimed_guest_ids claimed
+    INNER JOIN vibetype.guest ON guest.id = claimed.id
+    INNER JOIN vibetype.event ON event.id = guest.event_id
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id,
+    _blocked
+    WHERE NOT (event.created_by = ANY(_blocked.ids))
+      AND NOT (contact.created_by = ANY(_blocked.ids))
+      AND (contact.account_id IS NULL OR NOT (contact.account_id = ANY(_blocked.ids)))
   )
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM guest_ids gi
-    JOIN vibetype.guest g ON g.id = gi.id
-    JOIN vibetype.event e ON g.event_id = e.id
-    JOIN vibetype.contact c ON g.contact_id = c.id
-  WHERE NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = e.created_by
-    )
-    AND NOT EXISTS (
-      SELECT 1 FROM blocked_account_ids b WHERE b.id = c.created_by
-    )
-    AND (
-      c.account_id IS NULL
-      OR
-      NOT EXISTS (
-        SELECT 1 FROM blocked_account_ids b WHERE b.id = c.account_id
-      )
-    )
+  SELECT COALESCE(array_agg(id), ARRAY[]::UUID[])
+  FROM _accessible_guests;
 $$;
 
 COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest claims as UUID array.';

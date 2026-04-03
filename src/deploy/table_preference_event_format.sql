@@ -11,6 +11,9 @@ CREATE TABLE vibetype.preference_event_format (
   UNIQUE (account_id, format_id)
 );
 
+CREATE INDEX idx_preference_event_format_account_id ON vibetype.preference_event_format USING btree (account_id);
+CREATE INDEX idx_preference_event_format_format_id ON vibetype.preference_event_format USING btree (format_id);
+
 COMMENT ON TABLE vibetype.preference_event_format IS 'Event formats a user account is interested in (M:N relationship).';
 COMMENT ON COLUMN vibetype.preference_event_format.account_id IS 'A user account id.';
 COMMENT ON COLUMN vibetype.preference_event_format.format_id IS 'The id of an event format.';
