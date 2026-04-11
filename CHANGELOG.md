@@ -1,3 +1,9 @@
+## [11.0.1](https://github.com/maevsi/sqitch/compare/11.0.0...11.0.1) (2026-04-11)
+
+### Bug Fixes
+
+* schedule release ([f846a72](https://github.com/maevsi/sqitch/commit/f846a723f9b05959ef28e5179ee63586798f5f98))
+
 ## [11.0.0](https://github.com/maevsi/sqitch/compare/10.0.8...11.0.0) (2026-04-03)
 
 ### ⚠ BREAKING CHANGES
