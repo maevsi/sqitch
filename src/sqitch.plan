@@ -101,3 +101,4 @@ function_event_by_attendance_id [privilege_execute_revoke schema_public table_ev
 function_jwt_update_attendance_add [privilege_execute_revoke schema_private table_attendance function_invoker_account_id table_jwt type_jwt role_account role_anonymous] 2025-12-19T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add function to update JWT with attendance UUIDs.
 table_app [schema_public table_account_public role_account role_anonymous] 2025-12-20T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add table for apps with integrations that can be installed on events.
 table_event_app [table_app table_event table_account_public role_account role_anonymous] 2025-12-20T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add table for app installations on events.
+role_reccoom 2026-04-11T12:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role reccoom.

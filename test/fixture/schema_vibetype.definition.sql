@@ -7310,6 +7310,7 @@ GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) 
 
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event TO reccoom;
 
 
 --

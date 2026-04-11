@@ -40,11 +40,13 @@ RUN apt-get update \
   && echo "grafana"       > /run/secrets/postgres_role_service_grafana_username \
   && echo "postgres"      > /run/secrets/postgres_password \
   && echo "postgraphile"  > /run/secrets/postgres_role_service_postgraphile_username \
+  && echo "reccoom"       > /run/secrets/postgres_role_service_reccoom_username \
   && echo "vibetype"      > /run/secrets/postgres_role_service_vibetype_username \
   && echo "zammad"        > /run/secrets/postgres_role_service_zammad_username \
   && echo "placeholder" | tee \
     /run/secrets/postgres_role_service_grafana_password \
     /run/secrets/postgres_role_service_postgraphile_password \
+    /run/secrets/postgres_role_service_reccoom_password \
     /run/secrets/postgres_role_service_vibetype_password \
     /run/secrets/postgres_role_service_zammad_password \
     /dev/null

@@ -44,7 +44,7 @@ jobs:
       - name: Create role secrets
         run: |
           sudo mkdir -p /run/secrets
-          for role in grafana postgraphile vibetype zammad; do
+          for role in grafana postgraphile reccoom vibetype zammad; do
             echo "$role" | sudo tee "/run/secrets/postgres_role_service_${role}_username" > /dev/null
             echo "placeholder" | sudo tee "/run/secrets/postgres_role_service_${role}_password" > /dev/null
           done
