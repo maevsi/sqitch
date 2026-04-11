@@ -1,3 +1,13 @@
+## [12.0.0-beta.1](https://github.com/maevsi/sqitch/compare/11.1.0...12.0.0-beta.1) (2026-04-11)
+
+### ⚠ BREAKING CHANGES
+
+* **reccoom:** merge into event policy
+
+### Features
+
+* **reccoom:** merge into event policy ([6d07302](https://github.com/maevsi/sqitch/commit/6d073028afe5d409c0aba4368cd7f183a288286f))
+
 ## [11.1.0](https://github.com/maevsi/sqitch/compare/11.0.1...11.1.0) (2026-04-11)
 
 ### Features
