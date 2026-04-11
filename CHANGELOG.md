@@ -1,3 +1,9 @@
+## [11.1.0](https://github.com/maevsi/sqitch/compare/11.0.1...11.1.0) (2026-04-11)
+
+### Features
+
+* **reccoom:** add role ([4c0e10c](https://github.com/maevsi/sqitch/commit/4c0e10c2780516082b4c802b91c4624b00503db7))
+
 ## [11.0.1](https://github.com/maevsi/sqitch/compare/11.0.0...11.0.1) (2026-04-11)
 
 ### Bug Fixes
