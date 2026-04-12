@@ -13,7 +13,7 @@ FROM prepare AS development
 VOLUME /srv/app
 
 ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
-CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
+CMD ["sqitch", "--chdir", "src", "deploy"]
 
 
 ###########################
@@ -102,4 +102,4 @@ COPY ./docker-entrypoint.sh /usr/local/bin/
 COPY --from=collect /srv/app ./
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
+CMD ["sqitch", "deploy"]
