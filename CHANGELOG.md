@@ -1,3 +1,13 @@
+## [12.0.0-beta.2](https://github.com/maevsi/sqitch/compare/12.0.0-beta.1...12.0.0-beta.2) (2026-04-12)
+
+### ⚠ BREAKING CHANGES
+
+* **docker:** do not sleep indefinitely
+
+### Features
+
+* **docker:** do not sleep indefinitely ([f8ae404](https://github.com/maevsi/sqitch/commit/f8ae404326a28cc9a28007630f70d925a5129dc7))
+
 ## [12.0.0-beta.1](https://github.com/maevsi/sqitch/compare/11.1.0...12.0.0-beta.1) (2026-04-11)
 
 ### ⚠ BREAKING CHANGES
