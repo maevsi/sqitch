@@ -7152,6 +7152,7 @@ CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR S
 
 GRANT USAGE ON SCHEMA vibetype TO vibetype_anonymous;
 GRANT USAGE ON SCHEMA vibetype TO vibetype_account;
+GRANT USAGE ON SCHEMA vibetype TO reccoom;
 GRANT USAGE ON SCHEMA vibetype TO vibetype;
 
 
