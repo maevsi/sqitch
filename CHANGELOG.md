@@ -1,3 +1,9 @@
+## [12.0.0-beta.3](https://github.com/maevsi/sqitch/compare/12.0.0-beta.2...12.0.0-beta.3) (2026-04-14)
+
+### Bug Fixes
+
+* **reccoom:** correct event grant ([796b084](https://github.com/maevsi/sqitch/commit/796b08450ce04a4073d8a26820855ce8c12cb237))
+
 ## [12.0.0-beta.2](https://github.com/maevsi/sqitch/compare/12.0.0-beta.1...12.0.0-beta.2) (2026-04-12)
 
 ### ⚠ BREAKING CHANGES
