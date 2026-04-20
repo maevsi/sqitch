@@ -1,3 +1,13 @@
+## [12.0.0-beta.4](https://github.com/maevsi/sqitch/compare/12.0.0-beta.3...12.0.0-beta.4) (2026-04-20)
+
+### ⚠ BREAKING CHANGES
+
+* **metadata:** conditionally update updated by in metadata trigger
+
+### Features
+
+* **metadata:** conditionally update updated by in metadata trigger ([501d2b1](https://github.com/maevsi/sqitch/commit/501d2b1197c3826d8d419d2d1558d3643a9f4f0b))
+
 ## [12.0.0-beta.3](https://github.com/maevsi/sqitch/compare/12.0.0-beta.2...12.0.0-beta.3) (2026-04-14)
 
 ### Bug Fixes
