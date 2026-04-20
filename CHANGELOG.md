@@ -1,3 +1,13 @@
+## [12.0.0-beta.5](https://github.com/maevsi/sqitch/compare/12.0.0-beta.4...12.0.0-beta.5) (2026-04-20)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** allow each user 1 gb of storage
+
+### Features
+
+* **account:** allow each user 1 gb of storage ([40dbd82](https://github.com/maevsi/sqitch/commit/40dbd827c0e2364de91769eb673b00b909639628))
+
 ## [12.0.0-beta.4](https://github.com/maevsi/sqitch/compare/12.0.0-beta.3...12.0.0-beta.4) (2026-04-20)
 
 ### ⚠ BREAKING CHANGES
