@@ -4471,7 +4471,7 @@ CREATE TABLE vibetype_private.account (
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp with time zone,
-    upload_quota_bytes bigint DEFAULT 104857600 NOT NULL,
+    upload_quota_bytes bigint DEFAULT 1073741824 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) <= 254))
