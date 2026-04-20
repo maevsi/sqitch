@@ -44,6 +44,8 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 3. Ensure proper test coverage
 4. Run `npm run test:update` to build the Docker test image, deploy all migrations, run test SQL, revert, and update schema fixture files
 
+Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
+
 ## General instructions
 
 - Code style
