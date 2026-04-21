@@ -47,6 +47,10 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
 
+## Docker
+
+- You may need to use `sudo` to run Docker
+
 ## General instructions
 
 - Code style
