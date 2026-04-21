@@ -36,6 +36,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 - Ensure SQL logic is always covered by tests
 - Use the test framework in `test/` rather than `src/verify/` scripts
+- Prefer the unit test-like SAVEPOINT/ROLLBACK pattern used in existing tests
 
 ## Workflow
 
