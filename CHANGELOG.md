@@ -1,3 +1,13 @@
+## [12.0.0-beta.6](https://github.com/maevsi/sqitch/compare/12.0.0-beta.5...12.0.0-beta.6) (2026-04-21)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** grant reccoom read access to more tables
+
+### Features
+
+* **role:** grant reccoom read access to more tables ([9303ea0](https://github.com/maevsi/sqitch/commit/9303ea04c27d7ca0afa8521e7f7a2f97296fb9d0))
+
 ## [12.0.0-beta.5](https://github.com/maevsi/sqitch/compare/12.0.0-beta.4...12.0.0-beta.5) (2026-04-20)
 
 ### ⚠ BREAKING CHANGES
