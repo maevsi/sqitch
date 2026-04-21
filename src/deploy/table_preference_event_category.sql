@@ -18,7 +18,10 @@ COMMENT ON TABLE vibetype.preference_event_category IS 'Event categories a user 
 COMMENT ON COLUMN vibetype.preference_event_category.account_id IS 'A user account id.';
 COMMENT ON COLUMN vibetype.preference_event_category.category_id IS 'An event category id.';
 
+\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.preference_event_category TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_event_category TO :role_service_reccoom_username;
 
 ALTER TABLE vibetype.preference_event_category ENABLE ROW LEVEL SECURITY;
 

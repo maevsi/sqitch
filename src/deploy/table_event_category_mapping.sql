@@ -14,8 +14,11 @@ COMMENT ON TABLE vibetype.event_category_mapping IS 'Mapping events to categorie
 COMMENT ON COLUMN vibetype.event_category_mapping.event_id IS 'An event id.';
 COMMENT ON COLUMN vibetype.event_category_mapping.category_id IS 'A category id.';
 
+\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+
 GRANT SELECT ON TABLE vibetype.event_category_mapping TO vibetype_anonymous;
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.event_category_mapping TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_category_mapping TO :role_service_reccoom_username;
 
 ALTER TABLE vibetype.event_category_mapping ENABLE ROW LEVEL SECURITY;
 
