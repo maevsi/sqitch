@@ -1,3 +1,13 @@
+## [12.0.0-beta.7](https://github.com/maevsi/sqitch/compare/12.0.0-beta.6...12.0.0-beta.7) (2026-04-21)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** override contact deletion
+
+### Bug Fixes
+
+* **account:** override contact deletion ([cc08d3b](https://github.com/maevsi/sqitch/commit/cc08d3bed96c0c7d95f6d3e987442ca4949dd29b))
+
 ## [12.0.0-beta.6](https://github.com/maevsi/sqitch/compare/12.0.0-beta.5...12.0.0-beta.6) (2026-04-21)
 
 ### ⚠ BREAKING CHANGES
