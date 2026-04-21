@@ -7699,6 +7699,7 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_block TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.account_block TO reccoom;
 
 
 --
@@ -7771,6 +7772,7 @@ GRANT SELECT ON TABLE vibetype.event_app TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_category TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.event_category TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_category TO reccoom;
 
 
 --
@@ -7779,6 +7781,7 @@ GRANT SELECT ON TABLE vibetype.event_category TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_category_mapping TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_category_mapping TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_category_mapping TO reccoom;
 
 
 --
@@ -7795,6 +7798,7 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_format TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_format TO reccoom;
 
 
 --
@@ -7803,6 +7807,7 @@ GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_format_mapping TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_format_mapping TO reccoom;
 
 
 --
@@ -7855,6 +7860,7 @@ GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_category TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_event_category TO reccoom;
 
 
 --
@@ -7862,6 +7868,7 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_category TO vibety
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_format TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_event_format TO reccoom;
 
 
 --
