@@ -11,7 +11,11 @@ COMMENT ON TABLE vibetype.event_format IS E'@behavior -insert -update -delete\nE
 COMMENT ON COLUMN vibetype.event_format.id IS 'The id of the event format.';
 COMMENT ON COLUMN vibetype.event_format.name IS 'The name of the event format.';
 
-GRANT SELECT ON TABLE vibetype.event_format TO vibetype_anonymous, vibetype_account;
+\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+
+GRANT SELECT ON TABLE vibetype.event_format TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_format TO :role_service_reccoom_username;
 
 -- no row level security necessary for this table as it does not contain user data
 

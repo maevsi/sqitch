@@ -19,7 +19,10 @@ COMMENT ON COLUMN vibetype.preference_event_format.account_id IS 'A user account
 COMMENT ON COLUMN vibetype.preference_event_format.format_id IS 'The id of an event format.';
 COMMENT ON COLUMN vibetype.preference_event_format.created_at IS 'The timestammp when the record was created..';
 
+\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.preference_event_format TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_event_format TO :role_service_reccoom_username;
 
 ALTER TABLE vibetype.preference_event_format ENABLE ROW LEVEL SECURITY;
 
