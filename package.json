@@ -6,7 +6,7 @@
     "node": "24"
   },
   "name": "@maevsi/sqitch",
-  "packageManager": "pnpm@10.33.1",
+  "packageManager": "pnpm@10.33.2",
   "private": true,
   "scripts": {
     "benchmark": "./test/benchmark/benchmark.sh",
