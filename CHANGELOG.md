@@ -1,3 +1,69 @@
+## [12.0.0-beta.7](https://github.com/maevsi/sqitch/compare/12.0.0-beta.6...12.0.0-beta.7) (2026-04-21)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** override contact deletion
+
+### Bug Fixes
+
+* **account:** override contact deletion ([cc08d3b](https://github.com/maevsi/sqitch/commit/cc08d3bed96c0c7d95f6d3e987442ca4949dd29b))
+
+## [12.0.0-beta.6](https://github.com/maevsi/sqitch/compare/12.0.0-beta.5...12.0.0-beta.6) (2026-04-21)
+
+### ⚠ BREAKING CHANGES
+
+* **role:** grant reccoom read access to more tables
+
+### Features
+
+* **role:** grant reccoom read access to more tables ([9303ea0](https://github.com/maevsi/sqitch/commit/9303ea04c27d7ca0afa8521e7f7a2f97296fb9d0))
+
+## [12.0.0-beta.5](https://github.com/maevsi/sqitch/compare/12.0.0-beta.4...12.0.0-beta.5) (2026-04-20)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** allow each user 1 gb of storage
+
+### Features
+
+* **account:** allow each user 1 gb of storage ([40dbd82](https://github.com/maevsi/sqitch/commit/40dbd827c0e2364de91769eb673b00b909639628))
+
+## [12.0.0-beta.4](https://github.com/maevsi/sqitch/compare/12.0.0-beta.3...12.0.0-beta.4) (2026-04-20)
+
+### ⚠ BREAKING CHANGES
+
+* **metadata:** conditionally update updated by in metadata trigger
+
+### Features
+
+* **metadata:** conditionally update updated by in metadata trigger ([501d2b1](https://github.com/maevsi/sqitch/commit/501d2b1197c3826d8d419d2d1558d3643a9f4f0b))
+
+## [12.0.0-beta.3](https://github.com/maevsi/sqitch/compare/12.0.0-beta.2...12.0.0-beta.3) (2026-04-14)
+
+### Bug Fixes
+
+* **reccoom:** correct event grant ([796b084](https://github.com/maevsi/sqitch/commit/796b08450ce04a4073d8a26820855ce8c12cb237))
+
+## [12.0.0-beta.2](https://github.com/maevsi/sqitch/compare/12.0.0-beta.1...12.0.0-beta.2) (2026-04-12)
+
+### ⚠ BREAKING CHANGES
+
+* **docker:** do not sleep indefinitely
+
+### Features
+
+* **docker:** do not sleep indefinitely ([f8ae404](https://github.com/maevsi/sqitch/commit/f8ae404326a28cc9a28007630f70d925a5129dc7))
+
+## [12.0.0-beta.1](https://github.com/maevsi/sqitch/compare/11.1.0...12.0.0-beta.1) (2026-04-11)
+
+### ⚠ BREAKING CHANGES
+
+* **reccoom:** merge into event policy
+
+### Features
+
+* **reccoom:** merge into event policy ([6d07302](https://github.com/maevsi/sqitch/commit/6d073028afe5d409c0aba4368cd7f183a288286f))
+
 ## [11.1.0](https://github.com/maevsi/sqitch/compare/11.0.1...11.1.0) (2026-04-11)
 
 ### Features

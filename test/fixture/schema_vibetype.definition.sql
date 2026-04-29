@@ -263,6 +263,7 @@ BEGIN
   _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
+    DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -2036,7 +2037,13 @@ CREATE FUNCTION vibetype.trigger_metadata_update() RETURNS trigger
     AS $$
 BEGIN
   NEW.updated_at = CURRENT_TIMESTAMP;
-  NEW.updated_by = vibetype.invoker_account_id();
+
+  BEGIN
+    NEW.updated_by = vibetype.invoker_account_id();
+  EXCEPTION
+    WHEN undefined_column THEN
+      NULL;
+  END;
 
   RETURN NEW;
 END;
@@ -2049,7 +2056,7 @@ ALTER FUNCTION vibetype.trigger_metadata_update() OWNER TO ci;
 -- Name: FUNCTION trigger_metadata_update(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_metadata_update() IS 'Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.';
+COMMENT ON FUNCTION vibetype.trigger_metadata_update() IS 'Trigger function to automatically update metadata fields when a row is modified. Always sets `updated_at` to the current timestamp. Sets `updated_by` to the invoker account ID if the column exists on the table.';
 
 
 --
@@ -4465,7 +4472,7 @@ CREATE TABLE vibetype_private.account (
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp with time zone,
-    upload_quota_bytes bigint DEFAULT 104857600 NOT NULL,
+    upload_quota_bytes bigint DEFAULT 1073741824 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) <= 254))
@@ -7152,6 +7159,7 @@ CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR S
 
 GRANT USAGE ON SCHEMA vibetype TO vibetype_anonymous;
 GRANT USAGE ON SCHEMA vibetype TO vibetype_account;
+GRANT USAGE ON SCHEMA vibetype TO reccoom;
 GRANT USAGE ON SCHEMA vibetype TO vibetype;
 
 
@@ -7692,6 +7700,7 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.account_block TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.account_block TO reccoom;
 
 
 --
@@ -7764,6 +7773,7 @@ GRANT SELECT ON TABLE vibetype.event_app TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_category TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.event_category TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_category TO reccoom;
 
 
 --
@@ -7772,6 +7782,7 @@ GRANT SELECT ON TABLE vibetype.event_category TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_category_mapping TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_category_mapping TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_category_mapping TO reccoom;
 
 
 --
@@ -7788,6 +7799,7 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_favorite TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_format TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_format TO reccoom;
 
 
 --
@@ -7796,6 +7808,7 @@ GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.event_format_mapping TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.event_format_mapping TO reccoom;
 
 
 --
@@ -7848,6 +7861,7 @@ GRANT SELECT,INSERT ON TABLE vibetype.legal_term_acceptance TO vibetype_account;
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_category TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_event_category TO reccoom;
 
 
 --
@@ -7855,6 +7869,7 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_category TO vibety
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_format TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_event_format TO reccoom;
 
 
 --

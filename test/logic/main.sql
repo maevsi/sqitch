@@ -54,6 +54,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/report/constraints.sql
 \i scenario/model/upload/constraints.sql
 \i scenario/model/account_block_accounts.sql
+\i scenario/model/account_delete.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql
 \i scenario/model/account_social_network.sql
@@ -77,6 +78,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/jwt_update_attendance_add.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
+\i scenario/model/trigger_metadata_update.sql
 
 \echo all tests completed successfully.
 
