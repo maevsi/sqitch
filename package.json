@@ -1,12 +1,14 @@
 {
-  "devDependencies": {
-    "conventional-changelog-conventionalcommits": "9.3.1"
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.0.8"
+    }
   },
   "engines": {
     "node": "24"
   },
   "name": "@maevsi/sqitch",
-  "packageManager": "pnpm@11.0.8",
   "private": true,
   "scripts": {
     "benchmark": "./test/benchmark/benchmark.sh",
