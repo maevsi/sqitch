@@ -1,3 +1,9 @@
+## [12.0.0-beta.8](https://github.com/maevsi/sqitch/compare/12.0.0-beta.7...12.0.0-beta.8) (2026-05-26)
+
+### Features
+
+* **docker:** store entrypoint in app directory ([fe8a7f9](https://github.com/maevsi/sqitch/commit/fe8a7f9275fc372ef6efefae9db6d1aa6b9f03e2))
+
 ## [12.0.0-beta.7](https://github.com/maevsi/sqitch/compare/12.0.0-beta.6...12.0.0-beta.7) (2026-04-21)
 
 ### ⚠ BREAKING CHANGES
