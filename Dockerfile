@@ -98,8 +98,8 @@ FROM collect AS production
 # used in docker entrypoint
 ENV ENV=production
 
-COPY ./docker-entrypoint.sh /usr/local/bin/
+COPY ./docker-entrypoint.sh /srv/app/docker-entrypoint.sh
 COPY --from=collect /srv/app ./
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
 CMD ["sqitch", "deploy"]
