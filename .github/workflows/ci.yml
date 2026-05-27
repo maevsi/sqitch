@@ -29,6 +29,8 @@ jobs:
       PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
     with:
       DRY_RUN: true
+      EXTRA_PLUGINS: |
+        @semantic-release/exec
   build:
     name: Build
     uses: dargmuesli/github-actions/.github/workflows/docker.yml@c980106b984bec43dd538a9d24ecc2212967797d # 5.3.0
@@ -46,3 +48,7 @@ jobs:
       id-token: write
     secrets:
       PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+    with:
+      COREPACK_ENABLED: true
+      EXTRA_PLUGINS: |
+        @semantic-release/exec
