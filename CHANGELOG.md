@@ -1,3 +1,9 @@
+## [11.1.5](https://github.com/maevsi/sqitch/compare/11.1.4...11.1.5) (2026-05-28)
+
+### Bug Fixes
+
+* **deps:** update dargmuesli/github-actions to v5.4.0 ([dcf957b](https://github.com/maevsi/sqitch/commit/dcf957bab137b5ef982bfa8606553c5ed2265e29))
+
 ## [11.1.4](https://github.com/maevsi/sqitch/compare/11.1.3...11.1.4) (2026-05-27)
 
 ### Bug Fixes
