@@ -30,12 +30,17 @@ ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
 ENV POSTGRES_USER=ci
 
+# renovate: suite=trixie depName=jq
+ENV JQ_VERSION="1.7.0-6+deb13u2"
+# renovate: suite=trixie depName=sqitch
+ENV SQITCH_VERSION="1.5.1-1"
+
 WORKDIR /srv/app
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
-    jq \
-    sqitch=1.5.2-1 \
+    jq="${JQ_VERSION}" \
+    sqitch="${SQITCH_VERSION}" \
   && mkdir -p /run/secrets \
   && echo "grafana"       > /run/secrets/postgres_role_service_grafana_username \
   && echo "postgres"      > /run/secrets/postgres_password \

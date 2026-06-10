@@ -33,6 +33,15 @@
         "#\\s+renovate:\\s+datasource=deb\\s+depName=(?<depName>\\S+)\\s+suite=(?<suite>\\S+)\\s+\\w+_\\w+:\\s+(?<currentValue>[^\\n]+)"
       ],
       "registryUrlTemplate": "https://security.ubuntu.com/ubuntu?suite={{#if suite }}{{suite}}-security{{else}}noble-security{{/if}}&components=main,multiverse,restricted,universe&binaryArch=amd64"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "deb",
+      "managerFilePatterns": ["/^Dockerfile$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*?(suite=(?<suite>.*?))?\\s*depName=(?<depName>.*?)?\\sENV .*?_VERSION=\"(?<currentValue>.*)\""
+      ],
+      "registryUrlTemplate": "https://deb.debian.org/debian?suite={{#if suite }}{{suite}}{{else}}stable{{/if}}&components=main,contrib,non-free&binaryArch=amd64"
     }
   ],
   "extends": [
