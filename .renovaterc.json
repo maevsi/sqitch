@@ -10,7 +10,7 @@
       "matchStrings": [
         "#\\s+renovate:\\s+datasource=deb\\s+depName=(?<depName>\\S+)\\s+suite=(?<suite>\\S+)\\s+\\w+_\\w+:\\s+(?<currentValue>[^\\n]+)"
       ],
-      "registryUrlTemplate": "https://archive.ubuntu.com/ubuntu?suite={{#if suite }}{{suite}}{{else}}stable{{/if}}&components=main,multiverse,restricted,universe&binaryArch=amd64"
+      "registryUrlTemplate": "https://archive.ubuntu.com/ubuntu?suite={{#if suite }}{{suite}}-updates{{else}}noble-updates{{/if}}&components=main,multiverse,restricted,universe&binaryArch=amd64"
     }
   ],
   "extends": [
