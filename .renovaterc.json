@@ -1,5 +1,40 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "datasourceTemplate": "deb",
+      "managerFilePatterns": [
+        "/\\.github/workflows/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s+renovate:\\s+datasource=deb\\s+depName=(?<depName>\\S+)\\s+suite=(?<suite>\\S+)\\s+\\w+_\\w+:\\s+(?<currentValue>[^\\n]+)"
+      ],
+      "registryUrlTemplate": "https://archive.ubuntu.com/ubuntu?suite={{#if suite }}{{suite}}{{else}}noble{{/if}}&components=main,multiverse,restricted,universe&binaryArch=amd64"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "deb",
+      "managerFilePatterns": [
+        "/\\.github/workflows/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s+renovate:\\s+datasource=deb\\s+depName=(?<depName>\\S+)\\s+suite=(?<suite>\\S+)\\s+\\w+_\\w+:\\s+(?<currentValue>[^\\n]+)"
+      ],
+      "registryUrlTemplate": "https://archive.ubuntu.com/ubuntu?suite={{#if suite }}{{suite}}-updates{{else}}noble-updates{{/if}}&components=main,multiverse,restricted,universe&binaryArch=amd64"
+    },
+    {
+      "customType": "regex",
+      "datasourceTemplate": "deb",
+      "managerFilePatterns": [
+        "/\\.github/workflows/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "#\\s+renovate:\\s+datasource=deb\\s+depName=(?<depName>\\S+)\\s+suite=(?<suite>\\S+)\\s+\\w+_\\w+:\\s+(?<currentValue>[^\\n]+)"
+      ],
+      "registryUrlTemplate": "https://security.ubuntu.com/ubuntu?suite={{#if suite }}{{suite}}-security{{else}}noble-security{{/if}}&components=main,multiverse,restricted,universe&binaryArch=amd64"
+    }
+  ],
   "extends": [
     "github>dargmuesli/renovate-config"
   ]
