@@ -4,8 +4,8 @@
     {
       "customType": "regex",
       "datasourceTemplate": "deb",
-      "fileMatch": [
-        "\\.github/workflows/.*\\.ya?ml$"
+      "managerFilePatterns": [
+        "/\\.github/workflows/.*\\.ya?ml$/"
       ],
       "matchStrings": [
         "#\\s+renovate:\\s+datasource=deb\\s+depName=(?<depName>\\S+)\\s+suite=(?<suite>\\S+)\\s+\\w+_\\w+:\\s+(?<currentValue>[^\\n]+)"
