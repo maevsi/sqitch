@@ -6,9 +6,9 @@ on:
   pull_request:
 
 env:
-  # renovate: datasource=deb depName=jq suite=noble
+  # renovate: datasource=deb distro=ubuntu depName=jq suite=noble
   APT_JQ: 1.7.1-3ubuntu0.24.04.2
-  # renovate: datasource=deb depName=sqitch suite=noble
+  # renovate: datasource=deb distro=ubuntu depName=sqitch suite=noble
   APT_SQITCH: 1.4.1-1
 
 concurrency:
