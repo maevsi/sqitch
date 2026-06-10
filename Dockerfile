@@ -31,9 +31,9 @@ ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
 ENV POSTGRES_USER=ci
 
 # renovate: suite=trixie depName=jq
-ENV JQ_VERSION="1.7.0-6+deb13u2"
+ENV JQ_VERSION="1.7.1-6+deb13u2"
 # renovate: suite=trixie depName=sqitch
-ENV SQITCH_VERSION="1.5.1-1"
+ENV SQITCH_VERSION="1.5.2-1"
 
 WORKDIR /srv/app
 

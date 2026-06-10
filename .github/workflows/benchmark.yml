@@ -7,9 +7,9 @@ on:
 
 env:
   # renovate: datasource=deb depName=jq suite=noble
-  APT_JQ: 1.7.1-3ubuntu0.24.04.1
+  APT_JQ: 1.7.1-3ubuntu0.24.04.2
   # renovate: datasource=deb depName=sqitch suite=noble
-  APT_SQITCH: 1.4.0-1
+  APT_SQITCH: 1.4.1-1
 
 concurrency:
   cancel-in-progress: true
