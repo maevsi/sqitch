@@ -226,6 +226,26 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 
 
 --
+-- Name: email_address_status; Type: TYPE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TYPE vibetype_private.email_address_status AS ENUM (
+    'bounced',
+    'complained',
+    'unsubscribed'
+);
+
+
+ALTER TYPE vibetype_private.email_address_status OWNER TO ci;
+
+--
+-- Name: TYPE email_address_status; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TYPE vibetype_private.email_address_status IS 'Email deliverability statuses: bounced, complained, or unsubscribed.';
+
+
+--
 -- Name: account_block_accounts(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -4780,6 +4800,80 @@ COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_function IS 'The na
 
 
 --
+-- Name: email_address; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.email_address (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    email_address text NOT NULL,
+    status vibetype_private.email_address_status NOT NULL,
+    reason text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid,
+    CONSTRAINT email_address_email_address_check CHECK ((char_length(email_address) <= 254))
+);
+
+
+ALTER TABLE vibetype_private.email_address OWNER TO ci;
+
+--
+-- Name: TABLE email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.email_address IS 'Tracks email addresses with a deliverability issue: hard bounces, spam complaints, or explicit unsubscribes.';
+
+
+--
+-- Name: COLUMN email_address.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.id IS 'Unique row identifier.';
+
+
+--
+-- Name: COLUMN email_address.email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.email_address IS 'The affected email address. At most 254 characters (RFC 5321).';
+
+
+--
+-- Name: COLUMN email_address.status; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
+
+
+--
+-- Name: COLUMN email_address.reason; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type).';
+
+
+--
+-- Name: COLUMN email_address.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.created_at IS 'Timestamp when this status was first recorded.';
+
+
+--
+-- Name: COLUMN email_address.updated_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.updated_at IS 'Timestamp when this status was last updated.';
+
+
+--
+-- Name: COLUMN email_address.updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.updated_by IS 'Account that last updated this row, or NULL for service-triggered updates.';
+
+
+--
 -- Name: jwt; Type: TABLE; Schema: vibetype_private; Owner: ci
 --
 
@@ -5409,6 +5503,22 @@ ALTER TABLE ONLY vibetype_private.audit_log
 
 
 --
+-- Name: email_address email_address_email_address_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_email_address_key UNIQUE (email_address);
+
+
+--
+-- Name: email_address email_address_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: jwt jwt_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
@@ -5937,6 +6047,20 @@ COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on
 
 
 --
+-- Name: idx_email_address_updated_by; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_email_address_updated_by ON vibetype_private.email_address USING btree (updated_by);
+
+
+--
+-- Name: INDEX idx_email_address_updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_email_address_updated_by IS 'Index on the updated_by column to optimize queries filtering by the account that last updated the email address status.';
+
+
+--
 -- Name: idx_jwt_subject; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
@@ -6067,6 +6191,13 @@ CREATE TRIGGER email_address_verification BEFORE INSERT OR UPDATE OF email_addre
 --
 
 CREATE TRIGGER password_reset_verification BEFORE INSERT OR UPDATE OF password_reset_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
+
+
+--
+-- Name: email_address update; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER update BEFORE UPDATE ON vibetype_private.email_address FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
@@ -6498,6 +6629,14 @@ ALTER TABLE ONLY vibetype.report
 
 ALTER TABLE ONLY vibetype.upload
     ADD CONSTRAINT upload_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: email_address email_address_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -7147,6 +7286,19 @@ CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR S
 
 
 --
+-- Name: email_address; Type: ROW SECURITY; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE vibetype_private.email_address ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: email_address email_address_service_vibetype_all; Type: POLICY; Schema: vibetype_private; Owner: ci
+--
+
+CREATE POLICY email_address_service_vibetype_all ON vibetype_private.email_address TO vibetype USING (true);
+
+
+--
 -- Name: SCHEMA vibetype; Type: ACL; Schema: -; Owner: ci
 --
 
@@ -7160,6 +7312,7 @@ GRANT USAGE ON SCHEMA vibetype TO vibetype;
 --
 
 GRANT USAGE ON SCHEMA vibetype_private TO grafana;
+GRANT USAGE ON SCHEMA vibetype_private TO vibetype;
 
 
 --
@@ -7908,6 +8061,13 @@ GRANT SELECT ON TABLE vibetype_private.account TO grafana;
 --
 
 GRANT SELECT ON TABLE vibetype_private.achievement_code TO vibetype;
+
+
+--
+-- Name: TABLE email_address; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email_address TO vibetype;
 
 
 --
