@@ -1,3 +1,5 @@
+## [11.1.9](https://github.com/maevsi/sqitch/compare/11.1.8...11.1.9) (2026-07-11)
+
 ## [11.1.8](https://github.com/maevsi/sqitch/compare/11.1.7...11.1.8) (2026-06-27)
 
 ## [11.1.7](https://github.com/maevsi/sqitch/compare/11.1.6...11.1.7) (2026-06-13)
