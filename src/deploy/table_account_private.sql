@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_grafana_username `cat /run/secrets/postgres_role_service_grafana_username`
+\set role_service_grafana_username `cat /run/secrets/postgres-role-service-grafana-username`
 
 CREATE TABLE vibetype_private.account (
   id                                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),

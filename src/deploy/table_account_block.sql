@@ -21,7 +21,7 @@ COMMENT ON COLUMN vibetype.account_block.blocked_account_id IS 'The account id o
 COMMENT ON COLUMN vibetype.account_block.created_at IS E'@behavior -insert\nTimestamp of when the account block was created.';
 COMMENT ON COLUMN vibetype.account_block.created_by IS 'The account id of the user who created the account block.';
 
-\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
 GRANT INSERT, SELECT, DELETE ON TABLE vibetype.account_block TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account_block TO vibetype_anonymous;

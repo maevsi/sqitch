@@ -11,7 +11,7 @@ COMMENT ON TABLE vibetype.event_format IS E'@behavior -insert -update -delete\nE
 COMMENT ON COLUMN vibetype.event_format.id IS 'The id of the event format.';
 COMMENT ON COLUMN vibetype.event_format.name IS 'The name of the event format.';
 
-\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
 GRANT SELECT ON TABLE vibetype.event_format TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.event_format TO vibetype_account;

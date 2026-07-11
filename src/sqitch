@@ -79,14 +79,14 @@ function docker_sudo() {
 docker_sudo run --rm --network host \
     --mount "type=bind,src=$THIS,dst=/repo" \
     --mount "type=bind,src=$HOME,dst=$homedst" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_grafana_password.secret,dst=/run/secrets/postgres_role_service_grafana_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_grafana_username.secret,dst=/run/secrets/postgres_role_service_grafana_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_postgraphile_password.secret,dst=/run/secrets/postgres_role_service_postgraphile_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_postgraphile_username.secret,dst=/run/secrets/postgres_role_service_postgraphile_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_reccoom_password.secret,dst=/run/secrets/postgres_role_service_reccoom_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_reccoom_username.secret,dst=/run/secrets/postgres_role_service_reccoom_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_vibetype_password.secret,dst=/run/secrets/postgres_role_service_vibetype_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_vibetype_username.secret,dst=/run/secrets/postgres_role_service_vibetype_username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_zammad_password.secret,dst=/run/secrets/postgres_role_service_zammad_password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role_service_zammad_username.secret,dst=/run/secrets/postgres_role_service_zammad_username" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-grafana-password.secret,dst=/run/secrets/postgres-role-service-grafana-password" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-grafana-username.secret,dst=/run/secrets/postgres-role-service-grafana-username" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-postgraphile-password.secret,dst=/run/secrets/postgres-role-service-postgraphile-password" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-postgraphile-username.secret,dst=/run/secrets/postgres-role-service-postgraphile-username" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-reccoom-password.secret,dst=/run/secrets/postgres-role-service-reccoom-password" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-reccoom-username.secret,dst=/run/secrets/postgres-role-service-reccoom-username" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-vibetype-password.secret,dst=/run/secrets/postgres-role-service-vibetype-password" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-vibetype-username.secret,dst=/run/secrets/postgres-role-service-vibetype-username" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-zammad-password.secret,dst=/run/secrets/postgres-role-service-zammad-password" \
+    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-zammad-username.secret,dst=/run/secrets/postgres-role-service-zammad-username" \
     "${passopt[@]}" "$SQITCH_IMAGE" "$@"
