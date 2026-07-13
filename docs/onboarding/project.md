@@ -8,7 +8,14 @@ The `src` directory contains the Sqitch executable, which you can use to interac
 The executable is a shell script that invokes Sqitch's Docker image.
 When you run `npm run deploy` to deploy the database migrations, this package script invokes the Sqitch executable.
 
-The other files in `src` follow the structure outlined in the [Sqitch documentation](https://sqitch.org/docs/).
+The other files in `src` follow the structure outlined in the [Sqitch documentation](https://sqitch.org/docs/):
+
+- **`deploy/`**: SQL files that create or modify database objects
+- **`revert/`**: SQL files that undo migrations in reverse order
+- **`verify/`**: PL/pgSQL verification scripts with assertions to validate deployment success
+- **`sqitch.plan`**: Migration order and dependencies
+
+Each migration has three files; one in each directory. They work together as a unit with Sqitch managing execution order based on dependencies specified in `sqitch.plan`.
 
 
 ## Testing

@@ -70,6 +70,52 @@
 
 * **reccoom:** merge into event policy ([6d07302](https://github.com/maevsi/sqitch/commit/6d073028afe5d409c0aba4368cd7f183a288286f))
 
+## [11.1.9](https://github.com/maevsi/sqitch/compare/11.1.8...11.1.9) (2026-07-11)
+
+## [11.1.8](https://github.com/maevsi/sqitch/compare/11.1.7...11.1.8) (2026-06-27)
+
+## [11.1.7](https://github.com/maevsi/sqitch/compare/11.1.6...11.1.7) (2026-06-13)
+
+### Bug Fixes
+
+* schedule release ([8989cf0](https://github.com/maevsi/sqitch/commit/8989cf0b9ecf887784f427250bb09d25305b87fc))
+
+## [11.1.6](https://github.com/maevsi/sqitch/compare/11.1.5...11.1.6) (2026-06-06)
+
+### Bug Fixes
+
+* schedule release ([c7edf38](https://github.com/maevsi/sqitch/commit/c7edf3863d536057f53de9569c6c1b90129d6f62))
+
+## [11.1.5](https://github.com/maevsi/sqitch/compare/11.1.4...11.1.5) (2026-05-28)
+
+### Bug Fixes
+
+* **deps:** update dargmuesli/github-actions to v5.4.0 ([dcf957b](https://github.com/maevsi/sqitch/commit/dcf957bab137b5ef982bfa8606553c5ed2265e29))
+
+## [11.1.4](https://github.com/maevsi/sqitch/compare/11.1.3...11.1.4) (2026-05-27)
+
+### Bug Fixes
+
+* schedule release ([2a3959b](https://github.com/maevsi/sqitch/commit/2a3959be5215f387cfa3fa372e8fa5865327ab99))
+
+## [11.1.3](https://github.com/maevsi/sqitch/compare/11.1.2...11.1.3) (2026-05-16)
+
+### Bug Fixes
+
+* schedule release ([67c186a](https://github.com/maevsi/sqitch/commit/67c186a0a6a665818fc0b762a00688afd9f4b2e2))
+
+## [11.1.2](https://github.com/maevsi/sqitch/compare/11.1.1...11.1.2) (2026-05-09)
+
+### Bug Fixes
+
+* schedule release ([6a3dfa7](https://github.com/maevsi/sqitch/commit/6a3dfa76bd1d9b9face24aa0005b23b5af3c47a7))
+
+## [11.1.1](https://github.com/maevsi/sqitch/compare/11.1.0...11.1.1) (2026-05-02)
+
+### Bug Fixes
+
+* schedule release ([13404c1](https://github.com/maevsi/sqitch/commit/13404c1aa9a92dd97ee9751e2230a5a025065450))
+
 ## [11.1.0](https://github.com/maevsi/sqitch/compare/11.0.1...11.1.0) (2026-04-11)
 
 ### Features

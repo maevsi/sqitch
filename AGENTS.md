@@ -36,6 +36,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 - Ensure SQL logic is always covered by tests
 - Use the test framework in `test/` rather than `src/verify/` scripts
+- Prefer the unit test-like SAVEPOINT/ROLLBACK pattern used in existing tests
 
 ## Workflow
 
@@ -45,6 +46,10 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 4. Run `npm run test:update` to build the Docker test image, deploy all migrations, run test SQL, revert, and update schema fixture files
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
+
+## Docker
+
+- You may need to use `sudo` to run Docker
 
 ## General instructions
 
