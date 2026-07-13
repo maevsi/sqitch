@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_postgraphile_username `cat /run/secrets/postgres_role_service_postgraphile_username`
+\set role_service_postgraphile_username `cat /run/secrets/postgres-role-service-postgraphile-username`
 SET local role.vibetype_postgraphile_username TO :'role_service_postgraphile_username';
 
 DO $$

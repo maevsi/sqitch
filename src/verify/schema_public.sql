@@ -1,12 +1,15 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
+SET local role.reccoom_username TO :'role_service_reccoom_username';
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
 
 DO $$
 BEGIN
   ASSERT (SELECT pg_catalog.has_schema_privilege('vibetype_account', 'vibetype', 'USAGE'));
   ASSERT (SELECT pg_catalog.has_schema_privilege('vibetype_anonymous', 'vibetype', 'USAGE'));
+  ASSERT (SELECT pg_catalog.has_schema_privilege(current_setting('role.reccoom_username'), 'vibetype', 'USAGE'));
   ASSERT (SELECT pg_catalog.has_schema_privilege(current_setting('role.vibetype_username'), 'vibetype', 'USAGE'));
 END $$;
 

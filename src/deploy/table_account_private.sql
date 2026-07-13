@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_grafana_username `cat /run/secrets/postgres_role_service_grafana_username`
+\set role_service_grafana_username `cat /run/secrets/postgres-role-service-grafana-username`
 
 CREATE TABLE vibetype_private.account (
   id                                         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -13,7 +13,7 @@ CREATE TABLE vibetype_private.account (
   password_hash                              TEXT NOT NULL,
   password_reset_verification                UUID,
   password_reset_verification_valid_until    TIMESTAMP WITH TIME ZONE,
-  upload_quota_bytes                         BIGINT NOT NULL DEFAULT 104857600, -- 100 mebibytes
+  upload_quota_bytes                         BIGINT NOT NULL DEFAULT 1073741824, -- 1 GiB
 
   created_at                                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP

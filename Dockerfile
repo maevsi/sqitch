@@ -13,7 +13,7 @@ FROM prepare AS development
 VOLUME /srv/app
 
 ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
-CMD ["sqitch", "--chdir", "src", "deploy", "&&", "sleep", "infinity"]
+CMD ["sqitch", "--chdir", "src", "deploy"]
 
 
 ###########################
@@ -27,7 +27,7 @@ COPY ./src ./
 FROM postgis/postgis:18-3.6 AS postgres-base
 
 ENV POSTGRES_DB=ci_database
-ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
 ENV POSTGRES_USER=ci
 
 # renovate: datasource=deb distro=debian depName=jq suite=trixie
@@ -42,18 +42,18 @@ RUN apt-get update \
     jq="${JQ_VERSION}" \
     sqitch="${SQITCH_VERSION}" \
   && mkdir -p /run/secrets \
-  && echo "grafana"       > /run/secrets/postgres_role_service_grafana_username \
-  && echo "postgres"      > /run/secrets/postgres_password \
-  && echo "postgraphile"  > /run/secrets/postgres_role_service_postgraphile_username \
-  && echo "reccoom"       > /run/secrets/postgres_role_service_reccoom_username \
-  && echo "vibetype"      > /run/secrets/postgres_role_service_vibetype_username \
-  && echo "zammad"        > /run/secrets/postgres_role_service_zammad_username \
+  && echo "grafana"       > /run/secrets/postgres-role-service-grafana-username \
+  && echo "postgres"      > /run/secrets/postgres-password \
+  && echo "postgraphile"  > /run/secrets/postgres-role-service-postgraphile-username \
+  && echo "reccoom"       > /run/secrets/postgres-role-service-reccoom-username \
+  && echo "vibetype"      > /run/secrets/postgres-role-service-vibetype-username \
+  && echo "zammad"        > /run/secrets/postgres-role-service-zammad-username \
   && echo "placeholder" | tee \
-    /run/secrets/postgres_role_service_grafana_password \
-    /run/secrets/postgres_role_service_postgraphile_password \
-    /run/secrets/postgres_role_service_reccoom_password \
-    /run/secrets/postgres_role_service_vibetype_password \
-    /run/secrets/postgres_role_service_zammad_password \
+    /run/secrets/postgres-role-service-grafana-password \
+    /run/secrets/postgres-role-service-postgraphile-password \
+    /run/secrets/postgres-role-service-reccoom-password \
+    /run/secrets/postgres-role-service-vibetype-password \
+    /run/secrets/postgres-role-service-zammad-password \
     /dev/null
 
 COPY ./src ./src
@@ -103,8 +103,8 @@ FROM collect AS production
 # used in docker entrypoint
 ENV ENV=production
 
-COPY ./docker-entrypoint.sh /usr/local/bin/
+COPY ./docker-entrypoint.sh /srv/app/docker-entrypoint.sh
 COPY --from=collect /srv/app ./
 
-ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sqitch", "deploy", "&&", "sleep", "infinity"]
+ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
+CMD ["sqitch", "deploy"]

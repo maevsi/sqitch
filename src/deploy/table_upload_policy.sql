@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.upload TO vibetype_account;
