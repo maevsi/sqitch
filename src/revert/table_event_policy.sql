@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
 DROP POLICY event_select ON vibetype.event;
 DROP FUNCTION vibetype_private.events_with_claimed_attendance();

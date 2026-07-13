@@ -45,12 +45,12 @@ jobs:
         run: |
           sudo mkdir -p /run/secrets
           for role in grafana postgraphile reccoom vibetype zammad; do
-            echo "$role" | sudo tee "/run/secrets/postgres_role_service_${role}_username" > /dev/null
-            echo "placeholder" | sudo tee "/run/secrets/postgres_role_service_${role}_password" > /dev/null
+            echo "$role" | sudo tee "/run/secrets/postgres-role-service-${role}-username" > /dev/null
+            echo "placeholder" | sudo tee "/run/secrets/postgres-role-service-${role}-password" > /dev/null
           done
 
       - name: Install Sqitch
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y jq=1.7.1-3ubuntu0.24.04.1 sqitch=1.4.1-1
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y jq=1.7.1-3ubuntu0.24.04.2 sqitch=1.4.1-1
 
       - name: Deploy base migrations
         run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database

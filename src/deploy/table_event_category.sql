@@ -11,7 +11,7 @@ COMMENT ON TABLE vibetype.event_category IS E'@behavior -insert -update -delete\
 COMMENT ON COLUMN vibetype.event_category.id IS 'The id of the event category.';
 COMMENT ON COLUMN vibetype.event_category.name IS 'A category name.';
 
-\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
 GRANT SELECT ON TABLE vibetype.event_category TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.event_category TO vibetype_account;

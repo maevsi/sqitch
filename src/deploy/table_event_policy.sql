@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.event TO vibetype_account;

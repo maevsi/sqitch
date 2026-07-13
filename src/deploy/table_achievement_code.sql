@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 CREATE TABLE vibetype_private.achievement_code (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

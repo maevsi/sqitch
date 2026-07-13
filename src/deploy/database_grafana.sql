@@ -1,4 +1,4 @@
-\set role_service_grafana_username `cat /run/secrets/postgres_role_service_grafana_username`
+\set role_service_grafana_username `cat /run/secrets/postgres-role-service-grafana-username`
 
 SELECT 'CREATE DATABASE grafana OWNER "' || :'role_service_grafana_username' || '";'
 WHERE NOT EXISTS (

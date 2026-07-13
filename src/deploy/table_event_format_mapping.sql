@@ -14,7 +14,7 @@ COMMENT ON TABLE vibetype.event_format_mapping IS 'Mapping events to formats (M:
 COMMENT ON COLUMN vibetype.event_format_mapping.event_id IS 'An event id.';
 COMMENT ON COLUMN vibetype.event_format_mapping.format_id IS 'A format id.';
 
-\set role_service_reccoom_username `cat /run/secrets/postgres_role_service_reccoom_username`
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
 GRANT SELECT ON TABLE vibetype.event_format_mapping TO vibetype_anonymous;
 GRANT SELECT, INSERT, DELETE ON TABLE vibetype.event_format_mapping TO vibetype_account;
