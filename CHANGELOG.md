@@ -1,3 +1,5 @@
+## [12.0.0](https://github.com/maevsi/sqitch/compare/11.1.9...12.0.0) (2026-07-13)
+
 ## [12.0.0-beta.8](https://github.com/maevsi/sqitch/compare/12.0.0-beta.7...12.0.0-beta.8) (2026-05-26)
 
 ### Features
