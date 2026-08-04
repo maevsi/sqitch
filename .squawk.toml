@@ -1,0 +1,9 @@
+# https://squawkhq.com/docs/rules
+excluded_rules = [
+  # Every deploy migration already runs inside an explicit BEGIN/COMMIT
+  # block (see AGENTS.md), so lock/statement timeouts would need to be
+  # configured on nearly every statement. Revisit once tables are large
+  # enough for lock duration to matter in production.
+  "require-lock-timeout",
+  "require-statement-timeout",
+]

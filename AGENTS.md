@@ -38,12 +38,20 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - Use the test framework in `test/` rather than `src/verify/` scripts
 - Prefer the unit test-like SAVEPOINT/ROLLBACK pattern used in existing tests
 
+## Linting
+
+- `pnpm run lint` runs [Squawk](https://squawkhq.com/) against every file in `src/deploy/`; pass file paths (e.g. `pnpm run lint -- src/deploy/table_foo.sql`) to lint a subset
+- `test/lint.sh` preprocesses each file before linting: Squawk can't parse psql meta-commands (`\set`, `\gexec`) or `:role_service_*` variable interpolation used to grant access to secret-sourced role names, so those are substituted with placeholder SQL (line numbers are preserved so warnings still point at the right line)
+- `.squawk.toml` excludes `require-lock-timeout`/`require-statement-timeout`: every deploy migration already runs inside an explicit `BEGIN`/`COMMIT` block, so those rules would fire on nearly every statement; revisit once tables are large enough for lock duration to matter in production
+- CI (`.github/workflows/ci.yml`, job `lint_migrations`) only lints migration files changed in a PR/push, not the whole directory, since old deploy files are append-only and can't be edited after merging to `main`
+
 ## Workflow
 
 1. Edit SQL files, keeping the plan in sync
 2. Ensure correctness of security and permissions
 3. Ensure proper test coverage
 4. Run `npm run test:update` to build the Docker test image, deploy all migrations, run test SQL, revert, and update schema fixture files
+5. Run `pnpm run lint` to check new/changed migrations for unsafe patterns
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
 

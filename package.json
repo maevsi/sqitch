@@ -1,4 +1,7 @@
 {
+  "devDependencies": {
+    "squawk-cli": "2.61.0"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
@@ -14,6 +17,7 @@
     "benchmark": "./test/benchmark/benchmark.sh",
     "benchmark:compare": "./test/benchmark/benchmark.sh --compare",
     "deploy": "pnpm run sqitch deploy",
+    "lint": "./test/lint.sh",
     "revert": "pnpm run sqitch revert",
     "sqitch": "./src/sqitch",
     "test": "./test/test.sh",
