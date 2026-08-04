@@ -1,6 +1,6 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 DROP POLICY email_address_service_vibetype_all ON vibetype_private.email_address;
 DROP TRIGGER update ON vibetype_private.email_address;

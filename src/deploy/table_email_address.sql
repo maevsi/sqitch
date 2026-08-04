@@ -1,15 +1,15 @@
 BEGIN;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
-CREATE TYPE vibetype_private.email_address_status AS ENUM ('bounced', 'complained', 'unsubscribed');
+CREATE TYPE vibetype_private.email_address_status AS ENUM ('active', 'bounced', 'complained', 'unsubscribed'); -- TODO: add "unverified", migrating the existing logic for this here
 
 CREATE TABLE vibetype_private.email_address (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  email_address  TEXT NOT NULL UNIQUE CHECK (char_length(email_address) <= 254),
-  status         vibetype_private.email_address_status NOT NULL,
-  reason         TEXT,
+  address      TEXT NOT NULL UNIQUE CHECK (char_length(address) <= 254),
+  status       vibetype_private.email_address_status NOT NULL,
+  reason       TEXT CHECK (reason IS NULL OR char_length(reason) <= 512),
 
   created_at     TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at     TIMESTAMP WITH TIME ZONE,
@@ -18,12 +18,12 @@ CREATE TABLE vibetype_private.email_address (
 
 CREATE INDEX idx_email_address_updated_by ON vibetype_private.email_address USING btree (updated_by);
 
-COMMENT ON TYPE vibetype_private.email_address_status IS 'Email deliverability statuses: bounced, complained, or unsubscribed.';
+COMMENT ON TYPE vibetype_private.email_address_status IS 'Email deliverability statuses: active, bounced, complained, or unsubscribed.';
 COMMENT ON TABLE vibetype_private.email_address IS 'Tracks email addresses with a deliverability issue: hard bounces, spam complaints, or explicit unsubscribes.';
 COMMENT ON COLUMN vibetype_private.email_address.id IS 'Unique row identifier.';
-COMMENT ON COLUMN vibetype_private.email_address.email_address IS 'The affected email address. At most 254 characters (RFC 5321).';
-COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
-COMMENT ON COLUMN vibetype_private.email_address.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type).';
+COMMENT ON COLUMN vibetype_private.email_address.address IS 'The affected email address. At most 254 characters (RFC 5321).';
+COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: active (no issue), bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
+COMMENT ON COLUMN vibetype_private.email_address.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type). At most 512 characters.';
 COMMENT ON COLUMN vibetype_private.email_address.created_at IS 'Timestamp when this status was first recorded.';
 COMMENT ON COLUMN vibetype_private.email_address.updated_at IS 'Timestamp when this status was last updated.';
 COMMENT ON COLUMN vibetype_private.email_address.updated_by IS 'Account that last updated this row, or NULL for service-triggered updates.';

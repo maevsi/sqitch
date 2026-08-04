@@ -1,7 +1,7 @@
 BEGIN;
 
 SELECT id,
-       email_address,
+       address,
        status,
        reason,
        created_at,
@@ -9,7 +9,7 @@ SELECT id,
        updated_by
 FROM vibetype_private.email_address WHERE FALSE;
 
-\set role_service_vibetype_username `cat /run/secrets/postgres_role_service_vibetype_username`
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
 
 DO $$

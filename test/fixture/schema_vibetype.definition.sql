@@ -230,6 +230,7 @@ COMMENT ON TYPE vibetype.social_network IS 'Social networks.';
 --
 
 CREATE TYPE vibetype_private.email_address_status AS ENUM (
+    'active',
     'bounced',
     'complained',
     'unsubscribed'
@@ -242,7 +243,7 @@ ALTER TYPE vibetype_private.email_address_status OWNER TO ci;
 -- Name: TYPE email_address_status; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TYPE vibetype_private.email_address_status IS 'Email deliverability statuses: bounced, complained, or unsubscribed.';
+COMMENT ON TYPE vibetype_private.email_address_status IS 'Email deliverability statuses: active, bounced, complained, or unsubscribed.';
 
 
 --
@@ -4812,13 +4813,14 @@ COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_function IS 'The na
 
 CREATE TABLE vibetype_private.email_address (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    email_address text NOT NULL,
+    address text NOT NULL,
     status vibetype_private.email_address_status NOT NULL,
     reason text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    CONSTRAINT email_address_email_address_check CHECK ((char_length(email_address) <= 254))
+    CONSTRAINT email_address_address_check CHECK ((char_length(address) <= 254)),
+    CONSTRAINT email_address_reason_check CHECK (((reason IS NULL) OR (char_length(reason) <= 512)))
 );
 
 
@@ -4839,24 +4841,24 @@ COMMENT ON COLUMN vibetype_private.email_address.id IS 'Unique row identifier.';
 
 
 --
--- Name: COLUMN email_address.email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN email_address.address; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email_address.email_address IS 'The affected email address. At most 254 characters (RFC 5321).';
+COMMENT ON COLUMN vibetype_private.email_address.address IS 'The affected email address. At most 254 characters (RFC 5321).';
 
 
 --
 -- Name: COLUMN email_address.status; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
+COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: active (no issue), bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
 
 
 --
 -- Name: COLUMN email_address.reason; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email_address.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type).';
+COMMENT ON COLUMN vibetype_private.email_address.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type). At most 512 characters.';
 
 
 --
@@ -5510,11 +5512,11 @@ ALTER TABLE ONLY vibetype_private.audit_log
 
 
 --
--- Name: email_address email_address_email_address_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: email_address email_address_address_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype_private.email_address
-    ADD CONSTRAINT email_address_email_address_key UNIQUE (email_address);
+    ADD CONSTRAINT email_address_address_key UNIQUE (address);
 
 
 --
