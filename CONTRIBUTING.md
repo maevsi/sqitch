@@ -32,6 +32,43 @@ Check out [GitHub's Guide to Contributing](https://docs.github.com/en/get-starte
 Edit the source code to improve the project.
 Be sure to follow any project-specific guidelines.
 
+#### Naming & Sorting Conventions
+
+To keep the schema predictable as the project grows, follow these conventions when naming columns, parameters, and other SQL identifiers.
+
+**Name the entity first, add a qualifier only if needed**
+
+Lead with the noun the identifier describes, then append a qualifier or data-type hint, but only if the name would otherwise be ambiguous:
+
+- Timestamps end in `_at`: `created_at`, `updated_at`
+- Foreign keys end in `_id`: `address_id`, `guest_id`
+- Booleans start with `is_`: `is_archived`, `is_in_person`
+- Counts end in `_count`, optionally followed by a further qualifier: `guest_count_maximum`
+
+**Sort alphabetically, except when it doesn't make sense**
+
+Sort elements alphabetically wherever their order carries no semantic meaning:
+
+- Columns in a `CREATE TABLE` statement: `id` comes first, then domain columns alphabetically, then audit columns (`created_at`, `created_by`, `updated_at`, `updated_by`, ...) alphabetically as their own group, e.g. (`src/deploy/table_event.sql`):
+  ```sql
+  CREATE TABLE vibetype.event (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+    address_id          UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
+    description         TEXT CHECK (...),
+    ...
+    visibility          vibetype.event_visibility NOT NULL,
+
+    created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by          UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
+    search_vector       TSVECTOR
+  );
+  ```
+- Function parameters, e.g. `vibetype.account_registration(birth_date, email_address, language, legal_term_id, password, username)` (`src/deploy/function_account_registration.sql`)
+- Composite type fields, e.g. `vibetype.jwt`'s `attendances, exp, guests, jti, role, sub, username` (`src/deploy/type_jwt.sql`)
+
+Alphabetical order doesn't make sense when values have an inherent sequence. Enum values, for example, follow their real-world progression instead, e.g. `vibetype.event_size`'s `small, medium, large, huge` (`src/deploy/enum_event_size.sql`).
+
 #### Adding a Database Migration
 
 1. **Naming Convention**: Use descriptive names following patterns:
