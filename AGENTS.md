@@ -45,6 +45,12 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - `.squawk.toml` excludes `require-lock-timeout`/`require-statement-timeout`: every deploy migration already runs inside an explicit `BEGIN`/`COMMIT` block, so those rules would fire on nearly every statement; revisit once tables are large enough for lock duration to matter in production
 - CI (`.github/workflows/ci.yml`, job `lint_migrations`) only lints migration files changed in a PR/push, not the whole directory, since old deploy files are append-only and can't be edited after merging to `main`
 
+## Benchmarking
+
+- `test/benchmark/run.sh`/`queries.sql`/`compare.sh`: single-client, low-noise query latency measurement. Runs on every PR (`.github/workflows/benchmark.yml`), diffs base vs. PR, and posts the comparison as a PR comment
+- `test/benchmark/load.sh`/`pgbench/*.sql`: concurrent throughput and latency via [pgbench](https://www.postgresql.org/docs/current/pgbench.html), surfacing lock contention and per-row RLS cost that a single connection can't. Runs weekly and on-demand (`.github/workflows/benchmark-load.yml`), not per PR, since concurrent throughput on shared CI runners is too noisy to gate on; read its results as a trend, not diffed strictly run-to-run
+- See `test/benchmark/pgbench/README.md` for pgbench-specific conventions (every script sets its own role, `:var` substitution doesn't support psql's quoted `:'var'` form)
+
 ## Workflow
 
 1. Edit SQL files, keeping the plan in sync

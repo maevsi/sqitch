@@ -1,0 +1,73 @@
+name: Benchmark (load)
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, not per-PR: concurrent throughput on shared GitHub Actions
+    # runners is too noisy to gate PRs on. See test/benchmark/pgbench/README.md.
+    - cron: "0 3 * * 1"
+
+env:
+  # renovate: datasource=deb distro=ubuntu depName=postgresql-client suite=noble
+  APT_POSTGRESQL_CLIENT: 16+257build1.1
+  # renovate: datasource=deb distro=ubuntu depName=sqitch suite=noble
+  APT_SQITCH: 1.4.1-1
+
+concurrency:
+  cancel-in-progress: false
+  group: ${{ github.workflow }}
+
+jobs:
+  load:
+    name: Concurrent load
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgis/postgis:18-3.6
+        env:
+          POSTGRES_DB: ci_database
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: ci
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Create role secrets
+        run: |
+          sudo mkdir -p /run/secrets
+          for role in grafana postgraphile reccoom vibetype zammad; do
+            echo "$role" | sudo tee "/run/secrets/postgres-role-service-${role}-username" > /dev/null
+            echo "placeholder" | sudo tee "/run/secrets/postgres-role-service-${role}-password" > /dev/null
+          done
+
+      - name: Install Sqitch and pgbench
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client=${{ env.APT_POSTGRESQL_CLIENT }} sqitch=${{ env.APT_SQITCH }}
+
+      - name: Deploy migrations
+        run: sqitch --chdir src deploy --target db:pg://ci:postgres@localhost/ci_database
+
+      - name: Run load benchmark
+        run: ./test/benchmark/load.sh /tmp/benchmark_load.txt
+
+      - name: Publish report
+        if: always()
+        run: |
+          {
+            echo "## Database Load Benchmark"
+            echo ""
+            echo "\`\`\`"
+            cat /tmp/benchmark_load.txt
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
