@@ -8,6 +8,7 @@ CREATE TABLE vibetype_private.email_address (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   address      TEXT NOT NULL UNIQUE CHECK (char_length(address) <= 254),
+  address_hash TEXT GENERATED ALWAYS AS (lower(address)) STORED,
   status       vibetype_private.email_address_status NOT NULL,
   reason       TEXT CHECK (reason IS NULL OR char_length(reason) <= 512),
 
@@ -22,6 +23,7 @@ COMMENT ON TYPE vibetype_private.email_address_status IS 'Email deliverability s
 COMMENT ON TABLE vibetype_private.email_address IS 'Tracks email addresses with a deliverability issue: hard bounces, spam complaints, or explicit unsubscribes.';
 COMMENT ON COLUMN vibetype_private.email_address.id IS 'Unique row identifier.';
 COMMENT ON COLUMN vibetype_private.email_address.address IS 'The affected email address. At most 254 characters (RFC 5321).';
+COMMENT ON COLUMN vibetype_private.email_address.address_hash IS 'Lowercased version of the address, generated for case-insensitive lookups.';
 COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: active (no issue), bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
 COMMENT ON COLUMN vibetype_private.email_address.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type). At most 512 characters.';
 COMMENT ON COLUMN vibetype_private.email_address.created_at IS 'Timestamp when this status was first recorded.';

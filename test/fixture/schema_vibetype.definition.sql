@@ -4814,6 +4814,7 @@ COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_function IS 'The na
 CREATE TABLE vibetype_private.email_address (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     address text NOT NULL,
+    address_hash text GENERATED ALWAYS AS (lower(address)) STORED,
     status vibetype_private.email_address_status NOT NULL,
     reason text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -4845,6 +4846,13 @@ COMMENT ON COLUMN vibetype_private.email_address.id IS 'Unique row identifier.';
 --
 
 COMMENT ON COLUMN vibetype_private.email_address.address IS 'The affected email address. At most 254 characters (RFC 5321).';
+
+
+--
+-- Name: COLUMN email_address.address_hash; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.address_hash IS 'Lowercased version of the address, generated for case-insensitive lookups.';
 
 
 --

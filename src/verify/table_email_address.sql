@@ -2,6 +2,7 @@ BEGIN;
 
 SELECT id,
        address,
+       address_hash,
        status,
        reason,
        created_at,
