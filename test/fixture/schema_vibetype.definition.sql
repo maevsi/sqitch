@@ -6064,6 +6064,20 @@ COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on
 
 
 --
+-- Name: idx_email_address_hash; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_email_address_hash ON vibetype_private.email USING btree (address_hash);
+
+
+--
+-- Name: INDEX idx_email_address_hash; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_email_address_hash IS 'Index on the lowercased address for case-insensitive lookups.';
+
+
+--
 -- Name: idx_email_updated_by; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 

@@ -17,6 +17,7 @@ CREATE TABLE vibetype_private.email (
   updated_by     UUID REFERENCES vibetype.account(id) ON DELETE SET NULL -- TODO: remove when metadata trigger is changed to optionally include this field
 );
 
+CREATE INDEX idx_email_address_hash ON vibetype_private.email USING btree (address_hash);
 CREATE INDEX idx_email_updated_by ON vibetype_private.email USING btree (updated_by);
 
 COMMENT ON TYPE vibetype_private.email_status IS 'Email deliverability statuses: active, bounced, complained, or unsubscribed.';
@@ -29,6 +30,7 @@ COMMENT ON COLUMN vibetype_private.email.reason IS 'Optional human-readable reas
 COMMENT ON COLUMN vibetype_private.email.created_at IS 'Timestamp when this status was first recorded.';
 COMMENT ON COLUMN vibetype_private.email.updated_at IS 'Timestamp when this status was last updated.';
 COMMENT ON COLUMN vibetype_private.email.updated_by IS 'Account that last updated this row, or NULL for service-triggered updates.';
+COMMENT ON INDEX vibetype_private.idx_email_address_hash IS 'Index on the lowercased address for case-insensitive lookups.';
 COMMENT ON INDEX vibetype_private.idx_email_updated_by IS 'Index on the updated_by column to optimize queries filtering by the account that last updated the email address status.';
 
 ALTER TABLE vibetype_private.email ENABLE ROW LEVEL SECURITY;
