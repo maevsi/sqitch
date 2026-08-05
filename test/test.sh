@@ -6,6 +6,12 @@ IMAGE="maevsi/sqitch"
 PLAN_FILE="$THIS/../src/sqitch.plan"
 MIGRATION_LINE="data_test 1970-01-01T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Add test data."
 
+if docker info > /dev/null 2>&1; then
+  DOCKER="docker"
+else
+  DOCKER="sudo docker"
+fi
+
 add_data_test() {
   cp "$THIS/data/deploy.sql" "$THIS/../src/deploy/data_test.sql"
   cp "$THIS/data/revert.sql" "$THIS/../src/revert/data_test.sql"
@@ -25,16 +31,16 @@ remove_data_test() {
 }
 
 update_schemas() {
-  sudo docker build -t "$IMAGE:build" --target test-build "$THIS/.." # --no-cache --progress plain
+  $DOCKER build -t "$IMAGE:build" --target test-build "$THIS/.." # --no-cache --progress plain
 
-  CONTAINER_ID=$(sudo docker create "$IMAGE:build")
-  sudo docker cp "$CONTAINER_ID:/srv/app/schema_other.sql" "$THIS/fixture/schema_other.definition.sql"
-  sudo docker cp "$CONTAINER_ID:/srv/app/schema_vibetype.sql" "$THIS/fixture/schema_vibetype.definition.sql"
-  sudo docker rm -v "$CONTAINER_ID"
+  CONTAINER_ID=$($DOCKER create "$IMAGE:build")
+  $DOCKER cp "$CONTAINER_ID:/srv/app/schema_other.sql" "$THIS/fixture/schema_other.definition.sql"
+  $DOCKER cp "$CONTAINER_ID:/srv/app/schema_vibetype.sql" "$THIS/fixture/schema_vibetype.definition.sql"
+  $DOCKER rm -v "$CONTAINER_ID"
 }
 
 build_test_image() {
-  sudo docker build -t "$IMAGE:test" --target test "$THIS/.." # --no-cache --progress plain
+  $DOCKER build -t "$IMAGE:test" --target test "$THIS/.." # --no-cache --progress plain
 }
 
 case "$1" in

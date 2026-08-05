@@ -5,6 +5,12 @@ THIS=$(dirname "$(readlink -f "$0")")
 ROOT="$THIS/../.."
 IMAGE="maevsi/sqitch"
 
+if docker info > /dev/null 2>&1; then
+  DOCKER="docker"
+else
+  DOCKER="sudo docker"
+fi
+
 usage() {
   echo "Usage: $0 [--compare]"
   echo ""
@@ -18,13 +24,13 @@ run_benchmark() {
   local output_file="$2"
 
   echo "[$label] Building benchmark Docker stage..."
-  sudo docker build -t "$IMAGE:benchmark-$label" --target benchmark "$ROOT"
+  $DOCKER build -t "$IMAGE:benchmark-$label" --target benchmark "$ROOT"
 
   echo "[$label] Extracting results..."
   local container_id
-  container_id=$(sudo docker create "$IMAGE:benchmark-$label")
-  sudo docker cp "$container_id:/srv/app/benchmark_results.json" "$output_file"
-  sudo docker rm -v "$container_id" > /dev/null
+  container_id=$($DOCKER create "$IMAGE:benchmark-$label")
+  $DOCKER cp "$container_id:/srv/app/benchmark_results.json" "$output_file"
+  $DOCKER rm -v "$container_id" > /dev/null
 
   echo "[$label] Results saved to $output_file"
 }
