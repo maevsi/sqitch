@@ -131,7 +131,7 @@ RLS policy conditions are evaluated per row.
 When the entire policy logic is wrapped in a `SECURITY DEFINER` function that takes a row parameter, PostgreSQL treats the function as a black box and evaluates it independently for every row.
 Any helper functions called *inside* that wrapper are also re-evaluated per row, even if they return the same result regardless of the row.
 
-For example, a policy like `USING (vibetype_private.event_policy_select(event.*))` that internally calls `events_invited()` (which takes ~18 ms) will take `18 ms × number_of_rows` to evaluate — resulting in **765 ms for just 100 events**.
+For example, a policy like `USING (vibetype_private.event_policy_select(event.*))` that internally calls `events_invited()` (which takes ~18 ms per call) will take roughly `18 ms × number_of_rows` to evaluate: around **1,800 ms for just 100 events**, since the wrapper forces a fresh call per row instead of the single call an inlined `SubPlan` would produce.
 
 The preferred approach is to **inline the policy logic** directly in the `USING` clause.
 When helper functions appear directly in inline policy expressions, PostgreSQL's optimizer can hoist them into *SubPlans* that are computed once and reused across all rows.
