@@ -5798,6 +5798,13 @@ CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
 
 
 --
+-- Name: idx_event_end; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_end ON vibetype.event USING btree ("end") WHERE ("end" IS NOT NULL);
+
+
+--
 -- Name: idx_event_favorite_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 

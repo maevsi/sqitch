@@ -26,6 +26,8 @@ CREATE TABLE vibetype.event (
 
 CREATE INDEX idx_event_address_id ON vibetype.event USING btree (address_id);
 CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+CREATE INDEX idx_event_end ON vibetype.event USING btree ("end")
+  WHERE "end" IS NOT NULL;
 CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
 
