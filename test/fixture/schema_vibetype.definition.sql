@@ -7482,6 +7482,7 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.guest TO vibetype_account;
 GRANT SELECT,UPDATE ON TABLE vibetype.guest TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.guest TO reccoom;
 
 
 --
@@ -7929,6 +7930,7 @@ GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO reccoom;
 
 
 --
