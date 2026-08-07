@@ -3283,6 +3283,7 @@ CREATE TABLE vibetype.contact (
     created_by uuid NOT NULL,
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
@@ -3406,6 +3407,13 @@ Timestamp when the contact was created. Defaults to the current timestamp.';
 --
 
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
+
+
+--
+-- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 
 --
@@ -5795,6 +5803,13 @@ CREATE INDEX idx_event_category_mapping_event_id ON vibetype.event_category_mapp
 --
 
 CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+
+
+--
+-- Name: idx_event_end; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_end ON vibetype.event USING btree ("end") WHERE ("end" IS NOT NULL);
 
 
 --
