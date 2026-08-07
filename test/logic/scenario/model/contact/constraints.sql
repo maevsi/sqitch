@@ -57,8 +57,8 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, url)
-  VALUES (accountA, url_2000)
+  INSERT INTO vibetype.contact(created_by, email_address, url)
+  VALUES (accountA, 'b@example.com', url_2000)
   RETURNING id INTO contact_id;
 
   IF contact_id IS NULL THEN
@@ -78,8 +78,8 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   BEGIN
-    INSERT INTO vibetype.contact(created_by, url)
-    VALUES (accountA, url_2001);
+    INSERT INTO vibetype.contact(created_by, email_address, url)
+    VALUES (accountA, 'b@example.com', url_2001);
     RAISE EXCEPTION 'Test failed (contact_insert_url_too_long): url with 2001 characters accepted';
   EXCEPTION
     WHEN check_violation THEN
