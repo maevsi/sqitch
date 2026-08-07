@@ -1,3 +1,5 @@
+## [12.2.1](https://github.com/maevsi/sqitch/compare/12.2.0...12.2.1) (2026-08-07)
+
 ## [12.2.0](https://github.com/maevsi/sqitch/compare/12.1.0...12.2.0) (2026-08-07)
 
 ## [12.1.0](https://github.com/maevsi/sqitch/compare/12.0.2...12.1.0) (2026-08-05)
