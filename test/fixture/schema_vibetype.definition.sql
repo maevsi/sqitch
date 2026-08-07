@@ -998,7 +998,8 @@ ALTER TABLE vibetype.event OWNER TO ci;
 -- Name: TABLE event; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event IS 'An event.';
+COMMENT ON TABLE vibetype.event IS '@behavior +filter
+An event.';
 
 
 --
@@ -1027,7 +1028,8 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must 
 -- Name: COLUMN event."end"; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event."end" IS '@behavior +filterBy
+The event''s end date and time, with time zone.';
 
 
 --
@@ -1076,7 +1078,8 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be 
 -- Name: COLUMN event.start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.start IS '@behavior +filterBy
+The event''s start date and time, with time zone.';
 
 
 --

@@ -31,7 +31,7 @@ ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
 ENV POSTGRES_USER=ci
 
 # renovate: datasource=deb distro=debian depName=jq suite=trixie
-ENV JQ_VERSION="1.7.1-6+deb13u2"
+ENV JQ_VERSION="1.7.1-6+deb13u3"
 # renovate: datasource=deb distro=debian depName=sqitch suite=trixie
 ENV SQITCH_VERSION="1.5.2-1"
 
