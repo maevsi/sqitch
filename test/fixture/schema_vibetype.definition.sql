@@ -1406,7 +1406,7 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_id, email_address, language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1450,7 +1450,7 @@ BEGIN
             'id', _guest.id
           )
         ),
-        'template', jsonb_build_object('language', COALESCE(_contact.language, language))
+        'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
       ))
     );
 END;
