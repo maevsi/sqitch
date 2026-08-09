@@ -455,11 +455,11 @@ COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS
 
 
 --
--- Name: account_password_reset_request(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: account_password_reset_request(text, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text) RETURNS void
-    LANGUAGE sql STRICT SECURITY DEFINER
+CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC'::text) RETURNS void
+    LANGUAGE sql SECURITY DEFINER
     AS $$
   WITH updated AS (
     UPDATE vibetype_private.account
@@ -477,28 +477,28 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
       'password_reset_verification', u.password_reset_verification,
       'password_reset_verification_valid_until', u.password_reset_verification_valid_until
     ),
-    'template', jsonb_build_object('language', account_password_reset_request.language)
+    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', COALESCE(account_password_reset_request.time_zone, 'UTC'))
     ))
   FROM updated u
   JOIN vibetype.account a ON a.id = u.id;
 $$;
 
 
-ALTER FUNCTION vibetype.account_password_reset_request(email_address text, language text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_password_reset_request(email_address text, language text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_password_reset_request(email_address text, language text, time_zone text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, language text) IS 'Sets a new password reset verification code for an account.';
+COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) IS 'Sets a new password reset verification code for an account.';
 
 
 --
--- Name: account_registration(date, text, text, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: account_registration(date, text, text, uuid, text, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC'::text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
@@ -546,7 +546,7 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', account_registration.language)
+      'template', jsonb_build_object('language', account_registration.language, 'time_zone', COALESCE(account_registration.time_zone, 'UTC'))
     ))
   );
 
@@ -555,13 +555,13 @@ END;
 $$;
 
 
-ALTER FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
+COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
 
 
 --
@@ -7413,21 +7413,21 @@ GRANT ALL ON FUNCTION vibetype.account_password_reset(code uuid, password text) 
 
 
 --
--- Name: FUNCTION account_password_reset_request(email_address text, language text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_password_reset_request(email_address text, language text, time_zone text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_password_reset_request(email_address text, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text, language text) TO vibetype_anonymous;
-GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text, language text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) TO vibetype_account;
 
 
 --
--- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_anonymous;
-GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) TO vibetype_account;
 
 
 --
