@@ -5,11 +5,11 @@ BEGIN;
 SAVEPOINT function_privileges_for_roles;
 DO $$
 BEGIN
-  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT)', 'EXECUTE')) THEN
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT)', 'EXECUTE')) THEN
     RAISE EXCEPTION 'Test function_privileges_for_roles failed: vibetype_account does not have EXECUTE privilege';
   END IF;
 
-  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT)', 'EXECUTE')) THEN
+  IF NOT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT)', 'EXECUTE')) THEN
     RAISE EXCEPTION 'Test function_privileges_for_roles failed: vibetype_anonymous does not have EXECUTE privilege';
   END IF;
 END $$;
@@ -131,5 +131,33 @@ BEGIN
 
 END $$;
 ROLLBACK TO SAVEPOINT notification;
+
+SAVEPOINT time_zone;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'email@example.com', 'en', _legal_term_id, 'password', 'username-tz', 'Europe/Berlin');
+
+  IF NOT EXISTS (SELECT 1 FROM vibetype.account WHERE username = 'username-tz') THEN
+    RAISE EXCEPTION 'Test failed: account not created when a time zone is given';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT time_zone;
+
+SAVEPOINT time_zone_omitted;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'email@example.com', 'en', _legal_term_id, 'password', 'username-no-tz');
+
+  IF NOT EXISTS (SELECT 1 FROM vibetype.account WHERE username = 'username-no-tz') THEN
+    RAISE EXCEPTION 'Test failed: account not created when the time zone is omitted';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT time_zone_omitted;
 
 ROLLBACK;
