@@ -160,4 +160,18 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT time_zone_omitted;
 
+SAVEPOINT time_zone_explicit_null;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'email@example.com', 'en', _legal_term_id, 'password', 'username-null-tz', NULL);
+
+  IF EXISTS (SELECT 1 FROM vibetype.account WHERE username = 'username-null-tz') THEN
+    RAISE EXCEPTION 'Test failed: account created despite an explicit NULL time zone (function is STRICT)';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT time_zone_explicit_null;
+
 ROLLBACK;
