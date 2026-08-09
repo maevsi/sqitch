@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC') RETURNS void
-    LANGUAGE sql SECURITY DEFINER
+    LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
   WITH updated AS (
     UPDATE vibetype_private.account
@@ -19,7 +19,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
       'password_reset_verification', u.password_reset_verification,
       'password_reset_verification_valid_until', u.password_reset_verification_valid_until
     ),
-    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', COALESCE(account_password_reset_request.time_zone, 'UTC'))
+    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
     ))
   FROM updated u
   JOIN vibetype.account a ON a.id = u.id;

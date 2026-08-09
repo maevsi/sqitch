@@ -39,6 +39,18 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT time_zone_omitted;
 
+SAVEPOINT time_zone_explicit_null;
+DO $$
+BEGIN
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
+  PERFORM vibetype.account_password_reset_request('email@example.com', 'en', NULL);
+
+  IF vibetype_test.account_password_reset_verification_get('email@example.com') IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed: password reset verification set despite an explicit NULL time zone (function is STRICT)';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT time_zone_explicit_null;
+
 SAVEPOINT unknown_email_address;
 DO $$
 BEGIN

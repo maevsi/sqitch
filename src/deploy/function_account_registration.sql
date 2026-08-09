@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC') RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
@@ -49,7 +49,7 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', account_registration.language, 'time_zone', COALESCE(account_registration.time_zone, 'UTC'))
+      'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     ))
   );
 
