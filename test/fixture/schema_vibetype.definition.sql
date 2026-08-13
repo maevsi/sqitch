@@ -1856,6 +1856,26 @@ COMMENT ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean
 
 
 --
+-- Name: outbox_is_acknowledged(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.outbox_is_acknowledged(id uuid) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(is_acknowledged, FALSE) FROM vibetype_private.outbox WHERE "outbox".id = outbox_is_acknowledged.id;
+$$;
+
+
+ALTER FUNCTION vibetype.outbox_is_acknowledged(id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_is_acknowledged(id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) IS 'Returns the acknowledgement state of an outbox event, or null if no outbox event with the given id exists.';
+
+
+--
 -- Name: profile_picture_set(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -7698,6 +7718,14 @@ REVOKE ALL ON FUNCTION vibetype.legal_term_change() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION outbox_is_acknowledged(id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) TO vibetype_anonymous;
 
 
 --
