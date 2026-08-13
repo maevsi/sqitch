@@ -2179,6 +2179,36 @@ COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enf
 
 
 --
+-- Name: trigger_upload_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+    'upload',
+    jsonb_build_object(
+      'id', OLD.id,
+      'op', 'd',
+      'storage_key', OLD.storage_key
+    )
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_upload_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_upload_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event on the "upload" channel whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
+
+
+--
 -- Name: account_block_ids(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -4480,8 +4510,6 @@ CREATE TABLE vibetype.upload (
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
 
-ALTER TABLE ONLY vibetype.upload REPLICA IDENTITY FULL;
-
 
 ALTER TABLE vibetype.upload OWNER TO ci;
 
@@ -6215,6 +6243,13 @@ CREATE TRIGGER outbox AFTER INSERT OR DELETE OR UPDATE ON vibetype.event FOR EAC
 
 
 --
+-- Name: upload outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox AFTER DELETE ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_outbox();
+
+
+--
 -- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -7800,6 +7835,14 @@ GRANT ALL ON FUNCTION vibetype.trigger_metadata_update() TO vibetype_account;
 
 REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_upload_outbox(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_upload_outbox() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_upload_outbox() TO vibetype_account;
 
 
 --
