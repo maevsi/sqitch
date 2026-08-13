@@ -45,12 +45,12 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
     'account_registration',
-    jsonb_pretty(jsonb_build_object(
+    jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
-    ))
+    )
   );
 
   -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration

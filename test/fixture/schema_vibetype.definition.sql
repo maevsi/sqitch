@@ -467,10 +467,10 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     WHERE email_address = account_password_reset_request.email_address
     RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
   )
-  INSERT INTO vibetype_private.notification (channel, payload)
+  INSERT INTO vibetype_private.outbox (channel, payload)
   SELECT
     'account_password_reset_request',
-    jsonb_pretty(jsonb_build_object(
+    jsonb_build_object(
     'account', jsonb_build_object(
       'username', a.username,
       'email_address', u.email_address,
@@ -478,7 +478,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
       'password_reset_verification_valid_until', u.password_reset_verification_valid_until
     ),
     'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
-    ))
+    )
   FROM updated u
   JOIN vibetype.account a ON a.id = u.id;
 $$;
@@ -542,12 +542,12 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
     'account_registration',
-    jsonb_pretty(jsonb_build_object(
+    jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
-    ))
+    )
   );
 
   -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration
@@ -600,12 +600,12 @@ BEGIN
     FROM updated, vibetype.account
     WHERE updated.id = account.id;
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
     'account_registration',
-    jsonb_pretty(jsonb_build_object(
+    jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+    )
   );
 END;
 $$;
@@ -1443,10 +1443,10 @@ BEGIN
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
   SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
-  INSERT INTO vibetype_private.notification (channel, payload)
+  INSERT INTO vibetype_private.outbox (channel, payload)
     VALUES (
       'event_invitation',
-      jsonb_pretty(jsonb_build_object(
+      jsonb_build_object(
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,
@@ -1460,7 +1460,7 @@ BEGIN
           )
         ),
         'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
-      ))
+      )
     );
 END;
 $$;
@@ -1472,7 +1472,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 
 --
@@ -1830,29 +1830,29 @@ $$;
 ALTER FUNCTION vibetype.legal_term_change() OWNER TO ci;
 
 --
--- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: outbox_acknowledge(uuid, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
+CREATE FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
-    UPDATE vibetype_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
+  IF (EXISTS (SELECT 1 FROM vibetype_private.outbox WHERE "outbox".id = outbox_acknowledge.id)) THEN
+    UPDATE vibetype_private.outbox SET is_acknowledged = outbox_acknowledge.is_acknowledged WHERE "outbox".id = outbox_acknowledge.id;
   ELSE
-    RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
+    RAISE 'Outbox event with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;
 $$;
 
 
-ALTER FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO ci;
+ALTER FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) OWNER TO ci;
 
 --
--- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.\n\nError codes:\n- **P0002** when no notification with the given id is found.';
+COMMENT ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of an outbox event.\n\nError codes:\n- **P0002** when no outbox event with the given id is found.';
 
 
 --
@@ -1980,6 +1980,35 @@ ALTER FUNCTION vibetype.trigger_device_update_fcm_token() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
+
+
+--
+-- Name: trigger_event_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+    'event',
+    jsonb_build_object(
+      'id', COALESCE(NEW.id, OLD.id),
+      'op', CASE TG_OP WHEN 'INSERT' THEN 'c' WHEN 'UPDATE' THEN 'u' WHEN 'DELETE' THEN 'd' END
+    )
+  );
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_event_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_event_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Publishes an outbox event on the "event" channel whenever an event is created, updated or deleted.';
 
 
 --
@@ -4982,61 +5011,61 @@ COMMENT ON COLUMN vibetype_private.jwt.updated_by IS 'Account ID of the user who
 
 
 --
--- Name: notification; Type: TABLE; Schema: vibetype_private; Owner: ci
+-- Name: outbox; Type: TABLE; Schema: vibetype_private; Owner: ci
 --
 
-CREATE TABLE vibetype_private.notification (
+CREATE TABLE vibetype_private.outbox (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     channel text NOT NULL,
     is_acknowledged boolean,
-    payload text NOT NULL,
+    payload jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
+    CONSTRAINT outbox_payload_check CHECK ((pg_column_size(payload) <= 8000))
 );
 
 
-ALTER TABLE vibetype_private.notification OWNER TO ci;
+ALTER TABLE vibetype_private.outbox OWNER TO ci;
 
 --
--- Name: TABLE notification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: TABLE outbox; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TABLE vibetype_private.notification IS 'A notification.';
-
-
---
--- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.id IS 'The notification''s internal id.';
+COMMENT ON TABLE vibetype_private.outbox IS 'An outbox event, captured via change data capture and published downstream.';
 
 
 --
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.channel IS 'The notification''s channel.';
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+COMMENT ON COLUMN vibetype_private.outbox.id IS 'The outbox event''s internal id.';
 
 
 --
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.channel; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.payload IS 'The notification''s payload.';
+COMMENT ON COLUMN vibetype_private.outbox.channel IS 'The outbox event''s channel.';
 
 
 --
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.is_acknowledged; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+COMMENT ON COLUMN vibetype_private.outbox.is_acknowledged IS 'Whether the outbox event was acknowledged.';
+
+
+--
+-- Name: COLUMN outbox.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.payload IS 'The outbox event''s payload.';
+
+
+--
+-- Name: COLUMN outbox.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.created_at IS 'The timestamp of the outbox event''s creation.';
 
 
 --
@@ -5570,11 +5599,11 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 
 --
--- Name: notification notification_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: outbox outbox_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype_private.notification
-    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY vibetype_private.outbox
+    ADD CONSTRAINT outbox_pkey PRIMARY KEY (id);
 
 
 --
@@ -6156,6 +6185,13 @@ CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE 
 --
 
 CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
+
+
+--
+-- Name: event outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox AFTER INSERT OR DELETE OR UPDATE ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_outbox();
 
 
 --
@@ -7657,11 +7693,11 @@ REVOKE ALL ON FUNCTION vibetype.legal_term_change() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
 
 
 --
@@ -7694,6 +7730,14 @@ GRANT ALL ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_a
 
 REVOKE ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_event_outbox(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_event_outbox() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_event_outbox() TO vibetype_account;
 
 
 --
@@ -8137,10 +8181,10 @@ GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email TO vibetype;
 
 
 --
--- Name: TABLE notification; Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: TABLE outbox; Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-GRANT SELECT ON TABLE vibetype_private.notification TO grafana;
+GRANT SELECT ON TABLE vibetype_private.outbox TO grafana;
 
 
 --

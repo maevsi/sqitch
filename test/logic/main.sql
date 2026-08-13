@@ -34,6 +34,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/jwt/generated_columns.sql
 \i scenario/database/account_block_ids.sql
 \i scenario/database/audit_log.sql
+\i scenario/database/event_outbox.sql
 \i scenario/database/events_invited.sql
 \i scenario/database/index.sql
 

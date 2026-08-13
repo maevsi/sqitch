@@ -82,10 +82,10 @@ BEGIN
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
   SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
-  INSERT INTO vibetype_private.notification (channel, payload)
+  INSERT INTO vibetype_private.outbox (channel, payload)
     VALUES (
       'event_invitation',
-      jsonb_pretty(jsonb_build_object(
+      jsonb_build_object(
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,
@@ -99,12 +99,12 @@ BEGIN
           )
         ),
         'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
-      ))
+      )
     );
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an outbox event for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 

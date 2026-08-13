@@ -26,12 +26,12 @@ BEGIN
     FROM updated, vibetype.account
     WHERE updated.id = account.id;
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
     'account_registration',
-    jsonb_pretty(jsonb_build_object(
+    jsonb_build_object(
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+    )
   );
 END;
 $$;
