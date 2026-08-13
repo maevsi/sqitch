@@ -561,7 +561,13 @@ ALTER FUNCTION vibetype.account_registration(birth_date date, email_address text
 -- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
+COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) IS '@turnstileProtected
+Creates a contact and registers an account referencing it.
+
+Error codes:
+- **VTBDA** when the birth date is not at least 18 years old.
+- **VTPLL** when the password length does not reach its minimum.
+- **VTAUV** when an account with the given username already exists.';
 
 
 --
@@ -1565,7 +1571,8 @@ ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
 -- Name: FUNCTION jwt_create(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS '@turnstileProtected
+Creates a JWT token that will securely identify an account and give it certain permissions.';
 
 
 --
