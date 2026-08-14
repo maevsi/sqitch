@@ -462,10 +462,10 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
   WITH outbox_id AS (
-    SELECT gen_random_uuid() AS id
+    SELECT public.gen_random_uuid() AS id
   ), updated AS (
     UPDATE vibetype_private.account
-    SET password_reset_verification = gen_random_uuid()
+    SET password_reset_verification = public.gen_random_uuid()
     WHERE email_address = account_password_reset_request.email_address
     RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
   )
@@ -511,7 +511,7 @@ DECLARE
   _new_account_private vibetype_private.account;
   _new_account_public vibetype.account;
   _new_account_notify RECORD;
-  _outbox_id UUID := gen_random_uuid();
+  _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
     RAISE EXCEPTION 'The birth date must be at least 18 years in the past'
@@ -592,7 +592,7 @@ CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language 
     AS $$
 DECLARE
   _new_account_notify RECORD;
-  _outbox_id UUID := gen_random_uuid();
+  _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
@@ -1391,7 +1391,7 @@ DECLARE
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
-  _outbox_id UUID := gen_random_uuid();
+  _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   -- Guest UUID
   SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;
@@ -1862,9 +1862,9 @@ CREATE FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) RE
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype_private.outbox WHERE "outbox".id = outbox_acknowledge.id)) THEN
-    UPDATE vibetype_private.outbox SET is_acknowledged = outbox_acknowledge.is_acknowledged WHERE "outbox".id = outbox_acknowledge.id;
-  ELSE
+  UPDATE vibetype_private.outbox SET is_acknowledged = outbox_acknowledge.is_acknowledged WHERE "outbox".id = outbox_acknowledge.id;
+
+  IF NOT FOUND THEN
     RAISE 'Outbox event with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;
@@ -2037,6 +2037,10 @@ CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
 DECLARE
   _type TEXT := 'event.' || CASE TG_OP WHEN 'INSERT' THEN 'created' WHEN 'UPDATE' THEN 'updated' WHEN 'DELETE' THEN 'deleted' END;
 BEGIN
+  IF (TG_TABLE_SCHEMA != 'vibetype' OR TG_TABLE_NAME != 'event') THEN
+    RAISE EXCEPTION 'vibetype.trigger_event_outbox() must only be used as a trigger on vibetype.event!';
+  END IF;
+
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'event',
     COALESCE(NEW.id, OLD.id),
@@ -2215,6 +2219,10 @@ CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
+  IF (TG_TABLE_SCHEMA != 'vibetype' OR TG_TABLE_NAME != 'upload') THEN
+    RAISE EXCEPTION 'vibetype.trigger_upload_outbox() must only be used as a trigger on vibetype.upload!';
+  END IF;
+
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'upload',
     OLD.id,

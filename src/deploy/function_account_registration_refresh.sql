@@ -5,7 +5,7 @@ CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language 
     AS $$
 DECLARE
   _new_account_notify RECORD;
-  _outbox_id UUID := gen_random_uuid();
+  _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 

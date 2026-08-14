@@ -11,7 +11,7 @@ DECLARE
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
-  _outbox_id UUID := gen_random_uuid();
+  _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   -- Guest UUID
   SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;

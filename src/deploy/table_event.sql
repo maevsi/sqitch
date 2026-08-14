@@ -82,6 +82,10 @@ CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS TRIGGER
 DECLARE
   _type TEXT := 'event.' || CASE TG_OP WHEN 'INSERT' THEN 'created' WHEN 'UPDATE' THEN 'updated' WHEN 'DELETE' THEN 'deleted' END;
 BEGIN
+  IF (TG_TABLE_SCHEMA != 'vibetype' OR TG_TABLE_NAME != 'event') THEN
+    RAISE EXCEPTION 'vibetype.trigger_event_outbox() must only be used as a trigger on vibetype.event!';
+  END IF;
+
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'event',
     COALESCE(NEW.id, OLD.id),

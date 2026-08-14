@@ -4,10 +4,10 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
   WITH outbox_id AS (
-    SELECT gen_random_uuid() AS id
+    SELECT public.gen_random_uuid() AS id
   ), updated AS (
     UPDATE vibetype_private.account
-    SET password_reset_verification = gen_random_uuid()
+    SET password_reset_verification = public.gen_random_uuid()
     WHERE email_address = account_password_reset_request.email_address
     RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
   )

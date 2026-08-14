@@ -7,7 +7,7 @@ DECLARE
   _new_account_private vibetype_private.account;
   _new_account_public vibetype.account;
   _new_account_notify RECORD;
-  _outbox_id UUID := gen_random_uuid();
+  _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
     RAISE EXCEPTION 'The birth date must be at least 18 years in the past'

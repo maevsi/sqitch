@@ -4,9 +4,9 @@ CREATE FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) RE
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype_private.outbox WHERE "outbox".id = outbox_acknowledge.id)) THEN
-    UPDATE vibetype_private.outbox SET is_acknowledged = outbox_acknowledge.is_acknowledged WHERE "outbox".id = outbox_acknowledge.id;
-  ELSE
+  UPDATE vibetype_private.outbox SET is_acknowledged = outbox_acknowledge.is_acknowledged WHERE "outbox".id = outbox_acknowledge.id;
+
+  IF NOT FOUND THEN
     RAISE 'Outbox event with given id not found!' USING ERRCODE = 'no_data_found';
   END IF;
 END;

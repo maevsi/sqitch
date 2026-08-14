@@ -82,6 +82,10 @@ CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
+  IF (TG_TABLE_SCHEMA != 'vibetype' OR TG_TABLE_NAME != 'upload') THEN
+    RAISE EXCEPTION 'vibetype.trigger_upload_outbox() must only be used as a trigger on vibetype.upload!';
+  END IF;
+
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'upload',
     OLD.id,
