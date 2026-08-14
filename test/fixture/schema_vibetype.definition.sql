@@ -561,7 +561,13 @@ ALTER FUNCTION vibetype.account_registration(birth_date date, email_address text
 -- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
+COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) IS '@turnstileProtected
+Creates a contact and registers an account referencing it.
+
+Error codes:
+- **VTBDA** when the birth date is not at least 18 years old.
+- **VTPLL** when the password length does not reach its minimum.
+- **VTAUV** when an account with the given username already exists.';
 
 
 --
@@ -998,7 +1004,8 @@ ALTER TABLE vibetype.event OWNER TO ci;
 -- Name: TABLE event; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event IS 'An event.';
+COMMENT ON TABLE vibetype.event IS '@behavior +filter
+An event.';
 
 
 --
@@ -1027,7 +1034,8 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must 
 -- Name: COLUMN event."end"; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event."end" IS '@behavior +filterBy
+The event''s end date and time, with time zone.';
 
 
 --
@@ -1076,7 +1084,8 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be 
 -- Name: COLUMN event.start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.start IS '@behavior +filterBy
+The event''s start date and time, with time zone.';
 
 
 --
@@ -1562,7 +1571,8 @@ ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
 -- Name: FUNCTION jwt_create(username text, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.jwt_create(username text, password text) IS '@turnstileProtected
+Creates a JWT token that will securely identify an account and give it certain permissions.';
 
 
 --
@@ -7494,6 +7504,7 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.guest TO vibetype_account;
 GRANT SELECT,UPDATE ON TABLE vibetype.guest TO vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.guest TO reccoom;
 
 
 --
@@ -7941,6 +7952,7 @@ GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO reccoom;
 
 
 --

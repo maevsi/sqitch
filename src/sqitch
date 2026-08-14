@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # source: https://raw.githubusercontent.com/sqitchers/docker-sqitch/main/docker-sqitch.sh
 
+THIS=$(dirname "$(readlink -f "$0")")
+SECRETS="$THIS/../../stack/artifacts/secrets"
+
 # Determine which Docker image to run.
 SQITCH_IMAGE=${SQITCH_IMAGE:=sqitch/sqitch:latest}
 
-SQITCH_TARGET="db:pg://postgres:postgres@127.0.0.1/vibetype"
+SQITCH_TARGET="db:pg://$(cat "$SECRETS/postgres-user"):$(cat "$SECRETS/postgres-password")@127.0.0.1/$(cat "$SECRETS/postgres-db")"
 export SQITCH_TARGET
 
 # Set up required pass-through variables.
@@ -65,8 +68,6 @@ elif [ ! -t 0 ]; then
     passopt+=(--interactive)
 fi
 
-THIS=$(dirname "$(readlink -f "$0")")
-
 function docker_sudo() {
     if id -nG | grep -qw "docker"; then
         docker "$@"
@@ -79,14 +80,14 @@ function docker_sudo() {
 docker_sudo run --rm --network host \
     --mount "type=bind,src=$THIS,dst=/repo" \
     --mount "type=bind,src=$HOME,dst=$homedst" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-grafana-password.secret,dst=/run/secrets/postgres-role-service-grafana-password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-grafana-username.secret,dst=/run/secrets/postgres-role-service-grafana-username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-postgraphile-password.secret,dst=/run/secrets/postgres-role-service-postgraphile-password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-postgraphile-username.secret,dst=/run/secrets/postgres-role-service-postgraphile-username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-reccoom-password.secret,dst=/run/secrets/postgres-role-service-reccoom-password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-reccoom-username.secret,dst=/run/secrets/postgres-role-service-reccoom-username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-vibetype-password.secret,dst=/run/secrets/postgres-role-service-vibetype-password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-vibetype-username.secret,dst=/run/secrets/postgres-role-service-vibetype-username" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-zammad-password.secret,dst=/run/secrets/postgres-role-service-zammad-password" \
-    --mount "type=bind,src=$THIS/../../stack/src/development/secrets/postgres/role-service-zammad-username.secret,dst=/run/secrets/postgres-role-service-zammad-username" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-grafana-password,dst=/run/secrets/postgres-role-service-grafana-password" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-grafana-username,dst=/run/secrets/postgres-role-service-grafana-username" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-postgraphile-password,dst=/run/secrets/postgres-role-service-postgraphile-password" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-postgraphile-username,dst=/run/secrets/postgres-role-service-postgraphile-username" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-reccoom-password,dst=/run/secrets/postgres-role-service-reccoom-password" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-reccoom-username,dst=/run/secrets/postgres-role-service-reccoom-username" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-vibetype-password,dst=/run/secrets/postgres-role-service-vibetype-password" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-vibetype-username,dst=/run/secrets/postgres-role-service-vibetype-username" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-zammad-password,dst=/run/secrets/postgres-role-service-zammad-password" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-zammad-username,dst=/run/secrets/postgres-role-service-zammad-username" \
     "${passopt[@]}" "$SQITCH_IMAGE" "$@"

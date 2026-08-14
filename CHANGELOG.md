@@ -8,6 +8,12 @@
 
 ## [13.0.0-beta.1](https://github.com/maevsi/sqitch/compare/12.1.0...13.0.0-beta.1) (2026-08-07)
 
+## [12.3.0](https://github.com/maevsi/sqitch/compare/12.2.1...12.3.0) (2026-08-14)
+
+## [12.2.1](https://github.com/maevsi/sqitch/compare/12.2.0...12.2.1) (2026-08-07)
+
+## [12.2.0](https://github.com/maevsi/sqitch/compare/12.1.0...12.2.0) (2026-08-07)
+
 ## [12.1.0](https://github.com/maevsi/sqitch/compare/12.0.2...12.1.0) (2026-08-05)
 
 ## [12.0.2](https://github.com/maevsi/sqitch/compare/12.0.1...12.0.2) (2026-08-01)

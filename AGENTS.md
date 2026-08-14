@@ -36,7 +36,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 - Ensure SQL logic is always covered by tests
 - Use the test framework in `test/` rather than `src/verify/` scripts
-- Prefer the unit test-like SAVEPOINT/ROLLBACK pattern used in existing tests
+- Prefer the unit test-like `SAVEPOINT`/`ROLLBACK` pattern used in existing tests
 
 ## Workflow
 
@@ -56,4 +56,4 @@ Note: if branching off of `beta`, migrations can be edited in-place. If branchin
 - Code style
   - Sort any elements (imports, object properties, functions, ...), e.g. alphabetically, except when it doesn't make sense.
 - Agents
-  - After making changes to the codebase, ensure AGENTS.md is in sync with your knowledge of the project.
+  - After making changes to the codebase, ensure `AGENTS.md` is in sync with your knowledge of the project.
