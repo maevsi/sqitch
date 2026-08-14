@@ -39,6 +39,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/events_invited.sql
 \i scenario/database/index.sql
 \i scenario/database/outbox_acknowledge.sql
+\i scenario/database/outbox_payload.sql
 \i scenario/database/upload_outbox.sql
 
 \echo ==========================================================

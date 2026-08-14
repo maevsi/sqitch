@@ -7,9 +7,6 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_creator_profile_picture_upload_id UUID;
-  _event_creator_profile_picture_upload_storage_key TEXT;
-  _event_creator_username TEXT;
   _guest RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
@@ -76,13 +73,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event creator username
-  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
-
-  -- Event creator profile picture storage key
-  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
-
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
     VALUES (
       _outbox_id,
@@ -91,19 +81,8 @@ BEGIN
       'guest.invited',
       jsonb_build_object(
         'id', _outbox_id,
+        'guest_id', _guest.id,
         'type', 'guest.invited',
-        'data', jsonb_build_object(
-          'contact', jsonb_build_object(
-            'emailAddress', _email_address,
-            'timeZone', _contact.time_zone
-          ),
-          'event', _event,
-          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
-          'eventCreatorUsername', _event_creator_username,
-          'guest', jsonb_build_object(
-            'id', _guest.id
-          )
-        ),
         'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
       )
     );

@@ -9,7 +9,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     UPDATE vibetype_private.account
     SET password_reset_verification = public.gen_random_uuid()
     WHERE email_address = account_password_reset_request.email_address
-    RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
+    RETURNING id
   )
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
   SELECT
@@ -18,18 +18,12 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     u.id,
     'account.password_reset_requested',
     jsonb_build_object(
-    'id', o.id,
-    'type', 'account.password_reset_requested',
-    'account', jsonb_build_object(
-      'username', a.username,
-      'email_address', u.email_address,
-      'password_reset_verification', u.password_reset_verification,
-      'password_reset_verification_valid_until', u.password_reset_verification_valid_until
-    ),
-    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
+      'id', o.id,
+      'account_id', u.id,
+      'type', 'account.password_reset_requested',
+      'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
     )
-  FROM outbox_id o, updated u
-  JOIN vibetype.account a ON a.id = u.id;
+  FROM outbox_id o, updated u;
 $$;
 
 COMMENT ON FUNCTION vibetype.account_password_reset_request(TEXT, TEXT, TEXT) IS 'Sets a new password reset verification code for an account.';

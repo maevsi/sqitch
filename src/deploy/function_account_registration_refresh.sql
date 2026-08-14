@@ -4,7 +4,6 @@ CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language 
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _new_account_notify RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
@@ -13,19 +12,9 @@ BEGIN
     RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET email_address_verification = DEFAULT
-      WHERE account.id = account_registration_refresh.account_id
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.email_address_verification,
-    updated.email_address_verification_valid_until
-    INTO _new_account_notify
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id;
+  UPDATE vibetype_private.account
+    SET email_address_verification = DEFAULT
+    WHERE account.id = account_registration_refresh.account_id;
 
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
     _outbox_id,
@@ -34,8 +23,8 @@ BEGIN
     'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
+      'account_id', account_registration_refresh.account_id,
       'type', 'account.registered',
-      'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
     )
   );

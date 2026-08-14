@@ -467,7 +467,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     UPDATE vibetype_private.account
     SET password_reset_verification = public.gen_random_uuid()
     WHERE email_address = account_password_reset_request.email_address
-    RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
+    RETURNING id
   )
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
   SELECT
@@ -476,18 +476,12 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     u.id,
     'account.password_reset_requested',
     jsonb_build_object(
-    'id', o.id,
-    'type', 'account.password_reset_requested',
-    'account', jsonb_build_object(
-      'username', a.username,
-      'email_address', u.email_address,
-      'password_reset_verification', u.password_reset_verification,
-      'password_reset_verification_valid_until', u.password_reset_verification_valid_until
-    ),
-    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
+      'id', o.id,
+      'account_id', u.id,
+      'type', 'account.password_reset_requested',
+      'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
     )
-  FROM outbox_id o, updated u
-  JOIN vibetype.account a ON a.id = u.id;
+  FROM outbox_id o, updated u;
 $$;
 
 
@@ -509,8 +503,6 @@ CREATE FUNCTION vibetype.account_registration(birth_date date, email_address tex
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
-  _new_account_notify RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
@@ -535,15 +527,7 @@ BEGIN
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
-    (_new_account_private.id, account_registration.username)
-    RETURNING * INTO _new_account_public;
-
-  SELECT
-    _new_account_public.username,
-    _new_account_private.email_address,
-    _new_account_private.email_address_verification,
-    _new_account_private.email_address_verification_valid_until
-  INTO _new_account_notify;
+    (_new_account_private.id, account_registration.username);
 
   INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
     (_new_account_private.id, account_registration.legal_term_id);
@@ -557,8 +541,8 @@ BEGIN
     'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
+      'account_id', _new_account_private.id,
       'type', 'account.registered',
-      'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )
   );
@@ -591,7 +575,6 @@ CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language 
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  _new_account_notify RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
@@ -600,19 +583,9 @@ BEGIN
     RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET email_address_verification = DEFAULT
-      WHERE account.id = account_registration_refresh.account_id
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.email_address_verification,
-    updated.email_address_verification_valid_until
-    INTO _new_account_notify
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id;
+  UPDATE vibetype_private.account
+    SET email_address_verification = DEFAULT
+    WHERE account.id = account_registration_refresh.account_id;
 
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
     _outbox_id,
@@ -621,8 +594,8 @@ BEGIN
     'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
+      'account_id', account_registration_refresh.account_id,
       'type', 'account.registered',
-      'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
     )
   );
@@ -1387,9 +1360,6 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
-  _event_creator_profile_picture_upload_id UUID;
-  _event_creator_profile_picture_upload_storage_key TEXT;
-  _event_creator_username TEXT;
   _guest RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
@@ -1456,13 +1426,6 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event creator username
-  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
-
-  -- Event creator profile picture storage key
-  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
-
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
     VALUES (
       _outbox_id,
@@ -1471,19 +1434,8 @@ BEGIN
       'guest.invited',
       jsonb_build_object(
         'id', _outbox_id,
+        'guest_id', _guest.id,
         'type', 'guest.invited',
-        'data', jsonb_build_object(
-          'contact', jsonb_build_object(
-            'emailAddress', _email_address,
-            'timeZone', _contact.time_zone
-          ),
-          'event', _event,
-          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
-          'eventCreatorUsername', _event_creator_username,
-          'guest', jsonb_build_object(
-            'id', _guest.id
-          )
-        ),
         'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
       )
     );
@@ -1898,6 +1850,84 @@ ALTER FUNCTION vibetype.outbox_is_acknowledged(id uuid) OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) IS 'Returns the acknowledgement state of an outbox event, or null if no outbox event with the given id exists.';
+
+
+--
+-- Name: outbox_payload_account(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.outbox_payload_account(account_id uuid) RETURNS TABLE(email_address text, email_address_verification uuid, email_address_verification_valid_until timestamp with time zone, password_reset_verification uuid, password_reset_verification_valid_until timestamp with time zone, username text)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT
+    ap.email_address,
+    ap.email_address_verification,
+    ap.email_address_verification_valid_until,
+    ap.password_reset_verification,
+    ap.password_reset_verification_valid_until,
+    a.username
+  FROM vibetype_private.account ap
+  JOIN vibetype.account a ON a.id = ap.id
+  WHERE ap.id = outbox_payload_account.account_id;
+$$;
+
+
+ALTER FUNCTION vibetype.outbox_payload_account(account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_payload_account(account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.outbox_payload_account(account_id uuid) IS 'Fetches the account data needed to compose account-related outbox emails (registration, password reset), keyed by account id. Kept out of the outbox payload itself so this personal data never reaches the CDC log.';
+
+
+--
+-- Name: outbox_payload_guest_invitation(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) RETURNS TABLE(contact_email_address text, contact_time_zone text, event jsonb, event_creator_profile_picture_upload_storage_key text, event_creator_username text)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT
+    COALESCE(a.email_address, c.email_address),
+    c.time_zone,
+    jsonb_build_object(
+      'id', e.id,
+      'addressId', e.address_id,
+      'description', e.description,
+      'end', e."end",
+      'guestCountMaximum', e.guest_count_maximum,
+      'isArchived', e.is_archived,
+      'isInPerson', e.is_in_person,
+      'isRemote', e.is_remote,
+      'name', e.name,
+      'slug', e.slug,
+      'start', e.start,
+      'url', e.url,
+      'visibility', e.visibility,
+      'createdAt', e.created_at,
+      'createdBy', e.created_by
+    ),
+    up.storage_key,
+    ea.username
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  LEFT JOIN vibetype_private.account a ON a.id = c.account_id
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.account ea ON ea.id = e.created_by
+  LEFT JOIN vibetype.profile_picture pp ON pp.account_id = e.created_by
+  LEFT JOIN vibetype.upload up ON up.id = pp.upload_id
+  WHERE g.id = outbox_payload_guest_invitation.guest_id;
+$$;
+
+
+ALTER FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_payload_guest_invitation(guest_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) IS 'Fetches the contact, event and event creator data needed to compose a guest invitation email, keyed by guest id. Kept out of the outbox payload itself so this personal data never reaches the CDC log.';
 
 
 --
@@ -7823,6 +7853,22 @@ GRANT ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boole
 
 REVOKE ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION outbox_payload_account(account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.outbox_payload_account(account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_payload_account(account_id uuid) TO vibetype;
+
+
+--
+-- Name: FUNCTION outbox_payload_guest_invitation(guest_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) TO vibetype;
 
 
 --

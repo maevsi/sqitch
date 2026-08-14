@@ -34,6 +34,14 @@ BEGIN
   IF outbox_row.payload ->> 'type' != outbox_row.type THEN
     RAISE EXCEPTION 'Test failed (account_registration_outbox): payload type % does not match outbox event type %', outbox_row.payload ->> 'type', outbox_row.type;
   END IF;
+
+  IF outbox_row.payload ? 'account' THEN
+    RAISE EXCEPTION 'Test failed (account_registration_outbox): payload must not carry an "account" object';
+  END IF;
+
+  IF outbox_row.payload ->> 'account_id' != accountA::text THEN
+    RAISE EXCEPTION 'Test failed (account_registration_outbox): payload account_id % does not match %', outbox_row.payload ->> 'account_id', accountA;
+  END IF;
 END $$;
 ROLLBACK TO SAVEPOINT account_registration_outbox;
 

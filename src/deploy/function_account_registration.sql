@@ -5,8 +5,6 @@ CREATE FUNCTION vibetype.account_registration(birth_date date, email_address tex
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
-  _new_account_notify RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
@@ -31,15 +29,7 @@ BEGIN
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
-    (_new_account_private.id, account_registration.username)
-    RETURNING * INTO _new_account_public;
-
-  SELECT
-    _new_account_public.username,
-    _new_account_private.email_address,
-    _new_account_private.email_address_verification,
-    _new_account_private.email_address_verification_valid_until
-  INTO _new_account_notify;
+    (_new_account_private.id, account_registration.username);
 
   INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
     (_new_account_private.id, account_registration.legal_term_id);
@@ -53,8 +43,8 @@ BEGIN
     'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
+      'account_id', _new_account_private.id,
       'type', 'account.registered',
-      'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )
   );
