@@ -22,5 +22,5 @@
     "test:update": "pnpm run test --update"
   },
   "type": "module",
-  "version": "12.2.1"
+  "version": "12.3.0"
 }
