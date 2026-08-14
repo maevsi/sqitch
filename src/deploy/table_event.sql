@@ -80,7 +80,8 @@ CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload) VALUES (
+    COALESCE(NEW.id, OLD.id),
     'event',
     jsonb_build_object(
       'id', COALESCE(NEW.id, OLD.id),

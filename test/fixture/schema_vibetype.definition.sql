@@ -461,16 +461,21 @@ COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC'::text) RETURNS void
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
-  WITH updated AS (
+  WITH outbox_id AS (
+    SELECT gen_random_uuid() AS id
+  ), updated AS (
     UPDATE vibetype_private.account
     SET password_reset_verification = gen_random_uuid()
     WHERE email_address = account_password_reset_request.email_address
     RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
   )
-  INSERT INTO vibetype_private.outbox (channel, payload)
+  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload)
   SELECT
+    o.id,
+    u.id,
     'account_password_reset_request',
     jsonb_build_object(
+    'id', o.id,
     'account', jsonb_build_object(
       'username', a.username,
       'email_address', u.email_address,
@@ -479,7 +484,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     ),
     'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
     )
-  FROM updated u
+  FROM outbox_id o, updated u
   JOIN vibetype.account a ON a.id = u.id;
 $$;
 
@@ -504,6 +509,7 @@ DECLARE
   _new_account_private vibetype_private.account;
   _new_account_public vibetype.account;
   _new_account_notify RECORD;
+  _outbox_id UUID := gen_random_uuid();
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
     RAISE EXCEPTION 'The birth date must be at least 18 years in the past'
@@ -542,9 +548,12 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload) VALUES (
+    _outbox_id,
+    _new_account_private.id,
     'account_registration',
     jsonb_build_object(
+      'id', _outbox_id,
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )
@@ -579,6 +588,7 @@ CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language 
     AS $$
 DECLARE
   _new_account_notify RECORD;
+  _outbox_id UUID := gen_random_uuid();
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
@@ -600,9 +610,12 @@ BEGIN
     FROM updated, vibetype.account
     WHERE updated.id = account.id;
 
-  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload) VALUES (
+    _outbox_id,
+    account_registration_refresh.account_id,
     'account_registration',
     jsonb_build_object(
+      'id', _outbox_id,
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
     )
@@ -1372,6 +1385,7 @@ DECLARE
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
+  _outbox_id UUID := gen_random_uuid();
 BEGIN
   -- Guest UUID
   SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;
@@ -1443,10 +1457,13 @@ BEGIN
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
   SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
-  INSERT INTO vibetype_private.outbox (channel, payload)
+  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload)
     VALUES (
+      _outbox_id,
+      _guest.id,
       'event_invitation',
       jsonb_build_object(
+        'id', _outbox_id,
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,
@@ -2010,7 +2027,8 @@ CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload) VALUES (
+    COALESCE(NEW.id, OLD.id),
     'event',
     jsonb_build_object(
       'id', COALESCE(NEW.id, OLD.id),
@@ -2186,7 +2204,8 @@ CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload) VALUES (
+    OLD.id,
     'upload',
     jsonb_build_object(
       'id', OLD.id,
@@ -5064,6 +5083,7 @@ COMMENT ON COLUMN vibetype_private.jwt.updated_by IS 'Account ID of the user who
 
 CREATE TABLE vibetype_private.outbox (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    aggregate_id uuid NOT NULL,
     channel text NOT NULL,
     is_acknowledged boolean,
     payload jsonb NOT NULL,
@@ -5086,6 +5106,13 @@ COMMENT ON TABLE vibetype_private.outbox IS 'An outbox event, captured via chang
 --
 
 COMMENT ON COLUMN vibetype_private.outbox.id IS 'The outbox event''s internal id.';
+
+
+--
+-- Name: COLUMN outbox.aggregate_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.aggregate_id IS 'The id of the entity this outbox event is about, e.g. the event, account or guest id, depending on channel. Not a foreign key since it references a different table depending on channel; also used as the Kafka partitioning key so that events about the same entity stay ordered relative to each other.';
 
 
 --
@@ -6219,6 +6246,13 @@ CREATE INDEX idx_jwt_updated_by ON vibetype_private.jwt USING btree (updated_by)
 --
 
 COMMENT ON INDEX vibetype_private.idx_jwt_updated_by IS 'B-Tree index to optimize lookups by updater (account ID of last updater).';
+
+
+--
+-- Name: idx_outbox_aggregate_id; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_outbox_aggregate_id ON vibetype_private.outbox USING btree (aggregate_id);
 
 
 --

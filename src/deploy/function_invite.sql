@@ -11,6 +11,7 @@ DECLARE
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
   _guest RECORD;
+  _outbox_id UUID := gen_random_uuid();
 BEGIN
   -- Guest UUID
   SELECT * INTO _guest FROM vibetype.guest WHERE guest.id = invite.guest_id;
@@ -82,10 +83,13 @@ BEGIN
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
   SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
-  INSERT INTO vibetype_private.outbox (channel, payload)
+  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload)
     VALUES (
+      _outbox_id,
+      _guest.id,
       'event_invitation',
       jsonb_build_object(
+        'id', _outbox_id,
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,

@@ -1,6 +1,7 @@
 BEGIN;
 
 SELECT id,
+       aggregate_id,
        channel,
        is_acknowledged,
        payload,

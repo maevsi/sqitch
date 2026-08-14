@@ -7,6 +7,7 @@ DECLARE
   _new_account_private vibetype_private.account;
   _new_account_public vibetype.account;
   _new_account_notify RECORD;
+  _outbox_id UUID := gen_random_uuid();
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
     RAISE EXCEPTION 'The birth date must be at least 18 years in the past'
@@ -45,9 +46,12 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.outbox (channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload) VALUES (
+    _outbox_id,
+    _new_account_private.id,
     'account_registration',
     jsonb_build_object(
+      'id', _outbox_id,
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )

@@ -23,7 +23,8 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE channel = 'upload'
+    WHERE aggregate_id = uploadA
+      AND channel = 'upload'
       AND payload = jsonb_build_object('id', uploadA, 'op', 'd', 'storage_key', 'test-storage-key');
 
   IF outbox_count != 1 THEN

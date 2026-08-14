@@ -15,7 +15,8 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE channel = 'event'
+    WHERE aggregate_id = eventA
+      AND channel = 'event'
       AND payload = jsonb_build_object('id', eventA, 'op', 'c');
 
   IF outbox_count != 1 THEN
@@ -41,7 +42,8 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE channel = 'event'
+    WHERE aggregate_id = eventA
+      AND channel = 'event'
       AND payload = jsonb_build_object('id', eventA, 'op', 'u');
 
   IF outbox_count != 1 THEN
@@ -67,7 +69,8 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE channel = 'event'
+    WHERE aggregate_id = eventA
+      AND channel = 'event'
       AND payload = jsonb_build_object('id', eventA, 'op', 'd');
 
   IF outbox_count != 1 THEN
