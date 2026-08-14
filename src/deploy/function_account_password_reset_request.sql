@@ -11,13 +11,15 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     WHERE email_address = account_password_reset_request.email_address
     RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
   )
-  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload)
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
   SELECT
     o.id,
+    'account',
     u.id,
     'account_password_reset_request',
     jsonb_build_object(
     'id', o.id,
+    'type', 'account_password_reset_request',
     'account', jsonb_build_object(
       'username', a.username,
       'email_address', u.email_address,

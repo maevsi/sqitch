@@ -23,9 +23,10 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE aggregate_id = uploadA
-      AND channel = 'upload'
-      AND payload = jsonb_build_object('id', uploadA, 'op', 'd', 'storage_key', 'test-storage-key');
+    WHERE aggregate_type = 'upload'
+      AND aggregate_id = uploadA
+      AND type = 'upload'
+      AND payload = jsonb_build_object('id', uploadA, 'type', 'upload', 'op', 'd', 'storage_key', 'test-storage-key');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (upload_outbox_delete): expected 1 outbox event, got %', outbox_count;
@@ -52,7 +53,7 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE channel = 'upload'
+    WHERE type = 'upload'
       AND payload ->> 'id' = uploadA::text;
 
   IF outbox_count != 0 THEN

@@ -15,9 +15,10 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE aggregate_id = eventA
-      AND channel = 'event'
-      AND payload = jsonb_build_object('id', eventA, 'op', 'c');
+    WHERE aggregate_type = 'event'
+      AND aggregate_id = eventA
+      AND type = 'event'
+      AND payload = jsonb_build_object('id', eventA, 'type', 'event', 'op', 'c');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (event_outbox_insert): expected 1 outbox event, got %', outbox_count;
@@ -42,9 +43,10 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE aggregate_id = eventA
-      AND channel = 'event'
-      AND payload = jsonb_build_object('id', eventA, 'op', 'u');
+    WHERE aggregate_type = 'event'
+      AND aggregate_id = eventA
+      AND type = 'event'
+      AND payload = jsonb_build_object('id', eventA, 'type', 'event', 'op', 'u');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (event_outbox_update): expected 1 outbox event, got %', outbox_count;
@@ -69,9 +71,10 @@ BEGIN
 
   SELECT count(*) INTO outbox_count
     FROM vibetype_private.outbox
-    WHERE aggregate_id = eventA
-      AND channel = 'event'
-      AND payload = jsonb_build_object('id', eventA, 'op', 'd');
+    WHERE aggregate_type = 'event'
+      AND aggregate_id = eventA
+      AND type = 'event'
+      AND payload = jsonb_build_object('id', eventA, 'type', 'event', 'op', 'd');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (event_outbox_delete): expected 1 outbox event, got %', outbox_count;

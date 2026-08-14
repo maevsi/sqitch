@@ -469,13 +469,15 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     WHERE email_address = account_password_reset_request.email_address
     RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
   )
-  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload)
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
   SELECT
     o.id,
+    'account',
     u.id,
     'account_password_reset_request',
     jsonb_build_object(
     'id', o.id,
+    'type', 'account_password_reset_request',
     'account', jsonb_build_object(
       'username', a.username,
       'email_address', u.email_address,
@@ -548,12 +550,14 @@ BEGIN
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
     _outbox_id,
+    'account',
     _new_account_private.id,
     'account_registration',
     jsonb_build_object(
       'id', _outbox_id,
+      'type', 'account_registration',
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )
@@ -610,12 +614,14 @@ BEGIN
     FROM updated, vibetype.account
     WHERE updated.id = account.id;
 
-  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
     _outbox_id,
+    'account',
     account_registration_refresh.account_id,
     'account_registration',
     jsonb_build_object(
       'id', _outbox_id,
+      'type', 'account_registration',
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
     )
@@ -1457,13 +1463,15 @@ BEGIN
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
   SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
-  INSERT INTO vibetype_private.outbox (id, aggregate_id, channel, payload)
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
     VALUES (
       _outbox_id,
+      'guest',
       _guest.id,
       'event_invitation',
       jsonb_build_object(
         'id', _outbox_id,
+        'type', 'event_invitation',
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,
@@ -1489,7 +1497,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type "event_invitation".\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 
 --
@@ -2027,11 +2035,13 @@ CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
+    'event',
     COALESCE(NEW.id, OLD.id),
     'event',
     jsonb_build_object(
       'id', COALESCE(NEW.id, OLD.id),
+      'type', 'event',
       'op', CASE TG_OP WHEN 'INSERT' THEN 'c' WHEN 'UPDATE' THEN 'u' WHEN 'DELETE' THEN 'd' END
     )
   );
@@ -2046,7 +2056,7 @@ ALTER FUNCTION vibetype.trigger_event_outbox() OWNER TO ci;
 -- Name: FUNCTION trigger_event_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Publishes an outbox event on the "event" channel whenever an event is created, updated or deleted.';
+COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Publishes an outbox event of type "event" whenever an event is created, updated or deleted.';
 
 
 --
@@ -2204,11 +2214,13 @@ CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload) VALUES (
+  INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
+    'upload',
     OLD.id,
     'upload',
     jsonb_build_object(
       'id', OLD.id,
+      'type', 'upload',
       'op', 'd',
       'storage_key', OLD.storage_key
     )
@@ -2224,7 +2236,7 @@ ALTER FUNCTION vibetype.trigger_upload_outbox() OWNER TO ci;
 -- Name: FUNCTION trigger_upload_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event on the "upload" channel whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event of type "upload" whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
 
 
 --
@@ -5083,8 +5095,9 @@ COMMENT ON COLUMN vibetype_private.jwt.updated_by IS 'Account ID of the user who
 
 CREATE TABLE vibetype_private.outbox (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    aggregate_type text NOT NULL,
     aggregate_id uuid NOT NULL,
-    channel text NOT NULL,
+    type text NOT NULL,
     is_acknowledged boolean,
     payload jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
@@ -5109,17 +5122,24 @@ COMMENT ON COLUMN vibetype_private.outbox.id IS 'The outbox event''s internal id
 
 
 --
+-- Name: COLUMN outbox.aggregate_type; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.aggregate_type IS 'The kind of entity this outbox event is about, e.g. "account", "event", "guest" or "upload". Used as the Kafka routing key, so all types about the same aggregate type share one topic.';
+
+
+--
 -- Name: COLUMN outbox.aggregate_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.outbox.aggregate_id IS 'The id of the entity this outbox event is about, e.g. the event, account or guest id, depending on channel. Not a foreign key since it references a different table depending on channel; also used as the Kafka partitioning key so that events about the same entity stay ordered relative to each other.';
+COMMENT ON COLUMN vibetype_private.outbox.aggregate_id IS 'The id of the entity this outbox event is about. Not a foreign key since it references a different table depending on aggregate_type; also used as the Kafka partitioning key so that events about the same entity stay ordered relative to each other.';
 
 
 --
--- Name: COLUMN outbox.channel; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.type; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.outbox.channel IS 'The outbox event''s channel.';
+COMMENT ON COLUMN vibetype_private.outbox.type IS 'The specific kind of event, e.g. "account_registration" or "event_invitation". Embedded in the payload too, since aggregate_type-based Kafka topics can carry more than one type.';
 
 
 --

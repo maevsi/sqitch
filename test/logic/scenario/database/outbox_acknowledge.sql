@@ -9,8 +9,8 @@ DECLARE
   outbox_id UUID;
   result BOOLEAN;
 BEGIN
-  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload)
-    VALUES (gen_random_uuid(), 'event', '{}')
+  INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload)
+    VALUES ('event', gen_random_uuid(), 'event', '{}')
     RETURNING id INTO outbox_id;
 
   result := vibetype.outbox_is_acknowledged(outbox_id);
@@ -28,8 +28,8 @@ DECLARE
   outbox_id UUID;
   result BOOLEAN;
 BEGIN
-  INSERT INTO vibetype_private.outbox (aggregate_id, channel, payload)
-    VALUES (gen_random_uuid(), 'event', '{}')
+  INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload)
+    VALUES ('event', gen_random_uuid(), 'event', '{}')
     RETURNING id INTO outbox_id;
 
   PERFORM vibetype.outbox_acknowledge(outbox_id, TRUE);

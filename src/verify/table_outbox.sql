@@ -1,8 +1,9 @@
 BEGIN;
 
 SELECT id,
+       aggregate_type,
        aggregate_id,
-       channel,
+       type,
        is_acknowledged,
        payload,
        created_at
