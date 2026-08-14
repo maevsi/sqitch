@@ -31,10 +31,10 @@ BEGIN
     _outbox_id,
     'account',
     account_registration_refresh.account_id,
-    'account_registration',
+    'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
-      'type', 'account_registration',
+      'type', 'account.registered',
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
     )

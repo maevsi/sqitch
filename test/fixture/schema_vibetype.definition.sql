@@ -474,10 +474,10 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     o.id,
     'account',
     u.id,
-    'account_password_reset_request',
+    'account.password_reset_requested',
     jsonb_build_object(
     'id', o.id,
-    'type', 'account_password_reset_request',
+    'type', 'account.password_reset_requested',
     'account', jsonb_build_object(
       'username', a.username,
       'email_address', u.email_address,
@@ -554,10 +554,10 @@ BEGIN
     _outbox_id,
     'account',
     _new_account_private.id,
-    'account_registration',
+    'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
-      'type', 'account_registration',
+      'type', 'account.registered',
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )
@@ -618,10 +618,10 @@ BEGIN
     _outbox_id,
     'account',
     account_registration_refresh.account_id,
-    'account_registration',
+    'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
-      'type', 'account_registration',
+      'type', 'account.registered',
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration_refresh.language)
     )
@@ -1468,10 +1468,10 @@ BEGIN
       _outbox_id,
       'guest',
       _guest.id,
-      'event_invitation',
+      'guest.invited',
       jsonb_build_object(
         'id', _outbox_id,
-        'type', 'event_invitation',
+        'type', 'guest.invited',
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,
@@ -1497,7 +1497,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type "event_invitation".\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type "guest.invited".\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 
 --
@@ -2034,15 +2034,16 @@ COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger funct
 CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
+DECLARE
+  _type TEXT := 'event.' || CASE TG_OP WHEN 'INSERT' THEN 'created' WHEN 'UPDATE' THEN 'updated' WHEN 'DELETE' THEN 'deleted' END;
 BEGIN
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'event',
     COALESCE(NEW.id, OLD.id),
-    'event',
+    _type,
     jsonb_build_object(
       'id', COALESCE(NEW.id, OLD.id),
-      'type', 'event',
-      'op', CASE TG_OP WHEN 'INSERT' THEN 'c' WHEN 'UPDATE' THEN 'u' WHEN 'DELETE' THEN 'd' END
+      'type', _type
     )
   );
   RETURN NULL;
@@ -2056,7 +2057,7 @@ ALTER FUNCTION vibetype.trigger_event_outbox() OWNER TO ci;
 -- Name: FUNCTION trigger_event_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Publishes an outbox event of type "event" whenever an event is created, updated or deleted.';
+COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Publishes an outbox event of type "event.created", "event.updated" or "event.deleted" whenever an event is created, updated or deleted.';
 
 
 --
@@ -2217,11 +2218,10 @@ BEGIN
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'upload',
     OLD.id,
-    'upload',
+    'upload.deleted',
     jsonb_build_object(
       'id', OLD.id,
-      'type', 'upload',
-      'op', 'd',
+      'type', 'upload.deleted',
       'storage_key', OLD.storage_key
     )
   );
@@ -2236,7 +2236,7 @@ ALTER FUNCTION vibetype.trigger_upload_outbox() OWNER TO ci;
 -- Name: FUNCTION trigger_upload_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event of type "upload" whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event of type "upload.deleted" whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
 
 
 --

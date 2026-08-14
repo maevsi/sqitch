@@ -88,10 +88,10 @@ BEGIN
       _outbox_id,
       'guest',
       _guest.id,
-      'event_invitation',
+      'guest.invited',
       jsonb_build_object(
         'id', _outbox_id,
-        'type', 'event_invitation',
+        'type', 'guest.invited',
         'data', jsonb_build_object(
           'contact', jsonb_build_object(
             'emailAddress', _email_address,
@@ -110,7 +110,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an outbox event of type "event_invitation".\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an outbox event of type "guest.invited".\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
 
 GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 

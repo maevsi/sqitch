@@ -2,7 +2,7 @@
 
 BEGIN;
 
--- Test that creating an event publishes an outbox event with op 'c'
+-- Test that creating an event publishes an outbox event of type event.created
 SAVEPOINT event_outbox_insert;
 DO $$
 DECLARE
@@ -17,8 +17,8 @@ BEGIN
     FROM vibetype_private.outbox
     WHERE aggregate_type = 'event'
       AND aggregate_id = eventA
-      AND type = 'event'
-      AND payload = jsonb_build_object('id', eventA, 'type', 'event', 'op', 'c');
+      AND type = 'event.created'
+      AND payload = jsonb_build_object('id', eventA, 'type', 'event.created');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (event_outbox_insert): expected 1 outbox event, got %', outbox_count;
@@ -26,7 +26,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_outbox_insert;
 
--- Test that updating an event publishes an outbox event with op 'u'
+-- Test that updating an event publishes an outbox event of type event.updated
 SAVEPOINT event_outbox_update;
 DO $$
 DECLARE
@@ -45,8 +45,8 @@ BEGIN
     FROM vibetype_private.outbox
     WHERE aggregate_type = 'event'
       AND aggregate_id = eventA
-      AND type = 'event'
-      AND payload = jsonb_build_object('id', eventA, 'type', 'event', 'op', 'u');
+      AND type = 'event.updated'
+      AND payload = jsonb_build_object('id', eventA, 'type', 'event.updated');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (event_outbox_update): expected 1 outbox event, got %', outbox_count;
@@ -54,7 +54,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_outbox_update;
 
--- Test that deleting an event publishes an outbox event with op 'd'
+-- Test that deleting an event publishes an outbox event of type event.deleted
 SAVEPOINT event_outbox_delete;
 DO $$
 DECLARE
@@ -73,8 +73,8 @@ BEGIN
     FROM vibetype_private.outbox
     WHERE aggregate_type = 'event'
       AND aggregate_id = eventA
-      AND type = 'event'
-      AND payload = jsonb_build_object('id', eventA, 'type', 'event', 'op', 'd');
+      AND type = 'event.deleted'
+      AND payload = jsonb_build_object('id', eventA, 'type', 'event.deleted');
 
   IF outbox_count != 1 THEN
     RAISE EXCEPTION 'Test failed (event_outbox_delete): expected 1 outbox event, got %', outbox_count;

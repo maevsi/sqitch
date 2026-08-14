@@ -16,7 +16,7 @@ BEGIN
 
   SELECT id, aggregate_type, aggregate_id, type, payload INTO outbox_row
     FROM vibetype_private.outbox
-    WHERE type = 'account_registration'
+    WHERE type = 'account.registered'
       AND aggregate_id = accountA;
 
   IF outbox_row IS NULL THEN

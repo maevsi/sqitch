@@ -50,10 +50,10 @@ BEGIN
     _outbox_id,
     'account',
     _new_account_private.id,
-    'account_registration',
+    'account.registered',
     jsonb_build_object(
       'id', _outbox_id,
-      'type', 'account_registration',
+      'type', 'account.registered',
       'account', row_to_json(_new_account_notify),
       'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     )

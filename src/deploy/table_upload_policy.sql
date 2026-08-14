@@ -85,18 +85,17 @@ BEGIN
   INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
     'upload',
     OLD.id,
-    'upload',
+    'upload.deleted',
     jsonb_build_object(
       'id', OLD.id,
-      'type', 'upload',
-      'op', 'd',
+      'type', 'upload.deleted',
       'storage_key', OLD.storage_key
     )
   );
   RETURN NULL;
 END;
 $$;
-COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event of type "upload" whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event of type "upload.deleted" whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_upload_outbox() TO vibetype_account;
 
 CREATE TRIGGER outbox

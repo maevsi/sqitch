@@ -16,10 +16,10 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     o.id,
     'account',
     u.id,
-    'account_password_reset_request',
+    'account.password_reset_requested',
     jsonb_build_object(
     'id', o.id,
-    'type', 'account_password_reset_request',
+    'type', 'account.password_reset_requested',
     'account', jsonb_build_object(
       'username', a.username,
       'email_address', u.email_address,
