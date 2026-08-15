@@ -992,7 +992,6 @@ CREATE TABLE vibetype.event (
     visibility vibetype.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    search_vector tsvector,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1121,14 +1120,6 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 
 
 --
--- Name: COLUMN event.search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event.search_vector IS '@behavior -insert -select -update
-A vector used for full-text search on events, merged across all supported languages.';
-
-
---
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1236,28 +1227,17 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
-  -- Tried across every language `search_vector` is merged from, so the caller does not need to know
-  -- (or guess) which language a given event was authored in; see `table_event`'s search_vector trigger,
-  -- which derives its language list dynamically. This list is kept static (not derived the same way)
-  -- since this function runs on every search request, and there's no built-in aggregate to OR together
-  -- a dynamic number of tsqueries; revisit if more real (non-'simple') configurations are added.
-  WITH q AS (
-    SELECT
-      vibetype_private.tsquery_prefix('german', event_search.query)
-      || vibetype_private.tsquery_prefix('english', event_search.query)
-      || vibetype_private.tsquery_prefix('simple', event_search.query)
-      AS tsquery
-  )
+  -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from
+  -- event_search_rank(). The caller does not need to know (or guess) which language a given event was
+  -- authored in; see vibetype_private.event_search_vector and the trigger that populates it.
   SELECT e.*
-  FROM vibetype.event e, q
+  FROM vibetype.event e
+  LEFT JOIN vibetype_private.event_search_rank(event_search.query) r ON r.event_id = e.id
   WHERE
-    e.search_vector @@ q.tsquery
+    r.rank IS NOT NULL
     OR e.name % event_search.query
   ORDER BY
-    GREATEST(
-      ts_rank_cd(e.search_vector, q.tsquery),
-      similarity(e.name, event_search.query)
-    ) DESC
+    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC
   LIMIT 50;
 $$;
 
@@ -2008,23 +1988,29 @@ CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
-  ts_config regconfig;
+  _ts_config regconfig;
 BEGIN
-  -- Merged across every language `vibetype.language_iso_full_text_search()` currently maps to (derived
-  -- from the `vibetype.language` enum, so this automatically picks up newly supported languages), plus
-  -- 'simple' as a fallback for languages not yet mapped to a real configuration. This way search matches
-  -- regardless of which language the searcher's query happens to be stemmed in; see `event_search()`.
-  NEW.search_vector := ''::tsvector;
-
-  FOR ts_config IN
+  -- One row per language `vibetype.language_iso_full_text_search()` currently maps to (derived from the
+  -- `vibetype.language` enum, so this automatically picks up newly supported languages, deduplicated by
+  -- configuration), plus 'simple' as a fallback for languages not yet mapped to a real configuration.
+  -- Keeping one pure, single-configuration vector per row (rather than merging all of them into one,
+  -- as an earlier version of this migration did) keeps `ts_rank_cd` scoring undiluted by cross-language
+  -- lexeme noise; see `event_search_rank()` for how these get searched without knowing the event's
+  -- language up front.
+  FOR _ts_config IN
     SELECT DISTINCT vibetype.language_iso_full_text_search(language)
     FROM unnest(enum_range(NULL::vibetype.language)) AS language
     UNION
     SELECT 'simple'::regconfig
   LOOP
-    NEW.search_vector := NEW.search_vector ||
-      setweight(to_tsvector(ts_config, NEW.name), 'A') ||
-      setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+    INSERT INTO vibetype_private.event_search_vector (event_id, ts_config, search_vector)
+    VALUES (
+      NEW.id,
+      _ts_config,
+      setweight(to_tsvector(_ts_config, NEW.name), 'A') ||
+        setweight(to_tsvector(_ts_config, coalesce(NEW.description, '')), 'B')
+    )
+    ON CONFLICT (event_id, ts_config) DO UPDATE SET search_vector = EXCLUDED.search_vector;
   END LOOP;
 
   RETURN NEW;
@@ -2038,7 +2024,7 @@ ALTER FUNCTION vibetype.trigger_event_search_vector() OWNER TO ci;
 -- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and merged across all supported languages.';
+COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Populates vibetype_private.event_search_vector with one row per supported text search configuration, based on the name and description columns weighted by their relevance.';
 
 
 --
@@ -2283,6 +2269,43 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.attendance_via_own_events() OWNER TO ci;
+
+--
+-- Name: event_search_rank(text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.event_search_rank(query text) RETURNS TABLE(event_id uuid, rank real)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own
+  -- ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring;
+  -- see table_event_search_vector's migration). Each `@@` branch uses a literal, call-time-constant
+  -- config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the
+  -- SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use
+  -- the row's actual esv.ts_config directly. The list of configs tried is static rather than derived the
+  -- same way the vector-populating trigger does, since this runs on every search request and there is no
+  -- built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple')
+  -- configurations are added.
+  SELECT
+    esv.event_id,
+    MAX(ts_rank_cd(esv.search_vector, vibetype_private.tsquery_prefix(esv.ts_config, event_search_rank.query))) AS rank
+  FROM vibetype_private.event_search_vector esv
+  WHERE
+    (esv.ts_config = 'german'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('german', event_search_rank.query))
+    OR (esv.ts_config = 'english'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('english', event_search_rank.query))
+    OR (esv.ts_config = 'simple'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('simple', event_search_rank.query))
+  GROUP BY esv.event_id;
+$$;
+
+
+ALTER FUNCTION vibetype_private.event_search_rank(query text) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_search_rank(query text); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.event_search_rank(query text) IS 'Returns event ids matching the given query by prefix, across every text search configuration event_search_vector rows are stored in, with their relevance rank.';
+
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -4964,6 +4987,47 @@ COMMENT ON COLUMN vibetype_private.email.updated_by IS 'Account that last update
 
 
 --
+-- Name: event_search_vector; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.event_search_vector (
+    event_id uuid NOT NULL,
+    ts_config regconfig NOT NULL,
+    search_vector tsvector NOT NULL
+);
+
+
+ALTER TABLE vibetype_private.event_search_vector OWNER TO ci;
+
+--
+-- Name: TABLE event_search_vector; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.event_search_vector IS 'A per-text-search-configuration search vector for an event: one row per configuration `vibetype.language_iso_full_text_search()` currently maps a supported language to (deduplicated), plus a ''simple'' fallback row. Populated by `vibetype.event`''s search_vector trigger; not directly accessible to application roles, only through `vibetype_private.event_search_rank()`.';
+
+
+--
+-- Name: COLUMN event_search_vector.event_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.event_search_vector.event_id IS 'The event this search vector belongs to.';
+
+
+--
+-- Name: COLUMN event_search_vector.ts_config; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.event_search_vector.ts_config IS 'The text search configuration this vector was built with.';
+
+
+--
+-- Name: COLUMN event_search_vector.search_vector; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.event_search_vector.search_vector IS 'A vector used for full-text search on the event, built with ts_config.';
+
+
+--
 -- Name: jwt; Type: TABLE; Schema: vibetype_private; Owner: ci
 --
 
@@ -5609,6 +5673,14 @@ ALTER TABLE ONLY vibetype_private.email
 
 
 --
+-- Name: event_search_vector event_search_vector_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.event_search_vector
+    ADD CONSTRAINT event_search_vector_pkey PRIMARY KEY (event_id, ts_config);
+
+
+--
 -- Name: jwt jwt_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
@@ -5934,20 +6006,6 @@ CREATE INDEX idx_event_recommendation_event_id ON vibetype.event_recommendation 
 
 
 --
--- Name: idx_event_search_vector; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
-
-
---
--- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON INDEX vibetype.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
-
-
---
 -- Name: idx_event_start; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6186,6 +6244,34 @@ COMMENT ON INDEX vibetype_private.idx_email_updated_by IS 'Index on the updated_
 
 
 --
+-- Name: idx_event_search_vector; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_event_search_vector ON vibetype_private.event_search_vector USING gin (search_vector);
+
+
+--
+-- Name: INDEX idx_event_search_vector; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
+
+
+--
+-- Name: idx_event_search_vector_event_id; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_event_search_vector_event_id ON vibetype_private.event_search_vector USING btree (event_id);
+
+
+--
+-- Name: INDEX idx_event_search_vector_event_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id for efficient cascading deletes; the primary key''s composite index does not satisfy this on its own since it also includes ts_config.';
+
+
+--
 -- Name: idx_jwt_subject; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
@@ -6231,7 +6317,7 @@ CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNC
 -- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE OF name, description ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
+CREATE TRIGGER search_vector AFTER INSERT OR UPDATE OF name, description ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
 
 
 --
@@ -6762,6 +6848,14 @@ ALTER TABLE ONLY vibetype.upload
 
 ALTER TABLE ONLY vibetype_private.email
     ADD CONSTRAINT email_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
+
+
+--
+-- Name: event_search_vector event_search_vector_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.event_search_vector
+    ADD CONSTRAINT event_search_vector_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
 
 
 --
@@ -7846,6 +7940,15 @@ GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_a
 
 
 --
+-- Name: FUNCTION event_search_rank(query text); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.event_search_rank(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_search_rank(query text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.event_search_rank(query text) TO vibetype_anonymous;
+
+
+--
 -- Name: FUNCTION events_invited(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -7974,8 +8077,6 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) TO vibetype_anonymous;
 
 
 --
