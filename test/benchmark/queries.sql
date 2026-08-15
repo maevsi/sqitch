@@ -146,7 +146,7 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('account_search',             'SELECT * FROM vibetype.account_search(''benchmark'')',                                               TRUE),
   ('attendance_claim_array',     'SELECT vibetype.attendance_claim_array()',                                                           FALSE),
   ('event_guest_count_maximum',  'SELECT vibetype.event_guest_count_maximum(''' || current_setting('benchmark.event_id') || '''::UUID)', FALSE),
-  ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')',                                         FALSE),
+  ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                                 FALSE),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                              FALSE),
   ('guest_claim_array',          'SELECT vibetype.guest_claim_array()',                                                                FALSE),
   ('guest_count',                'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)',              FALSE),

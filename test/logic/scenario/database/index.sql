@@ -154,7 +154,7 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['event_created_by_slug_key', 'idx_event_end', 'idx_event_search_vector']
+  ARRAY ['event_created_by_slug_key', 'idx_event_end', 'idx_event_name_trgm', 'idx_event_search_vector']
 );
 
 SELECT vibetype_test.index_existence(
