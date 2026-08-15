@@ -30,6 +30,7 @@ CREATE INDEX idx_event_end ON vibetype.event USING btree ("end")
   WHERE "end" IS NOT NULL;
 CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 CREATE INDEX idx_event_search_vector ON vibetype.event USING gin (search_vector);
+CREATE INDEX idx_event_name_trgm ON vibetype.event USING gin (name gin_trgm_ops);
 
 COMMENT ON TABLE vibetype.event IS 'An event.';
 COMMENT ON COLUMN vibetype.event.id IS E'@behavior -insert -update\nThe event''s internal id.';
@@ -47,8 +48,9 @@ COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. 
 COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN vibetype.event.created_at IS E'@behavior -insert -update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
-COMMENT ON COLUMN vibetype.event.search_vector IS E'@behavior -insert -select -update\nA vector used for full-text search on events.';
+COMMENT ON COLUMN vibetype.event.search_vector IS E'@behavior -insert -select -update\nA vector used for full-text search on events, merged across all supported languages.';
 COMMENT ON INDEX vibetype.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
+COMMENT ON INDEX vibetype.idx_event_name_trgm IS 'GIN trigram index on the name, used for prefix and typo-tolerant search fallback.';
 
 CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
@@ -56,22 +58,33 @@ CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER
 DECLARE
   ts_config regconfig;
 BEGIN
-  ts_config := vibetype.language_iso_full_text_search(NEW.language);
+  -- Merged across every language `vibetype.language_iso_full_text_search()` currently maps to (derived
+  -- from the `vibetype.language` enum, so this automatically picks up newly supported languages), plus
+  -- 'simple' as a fallback for languages not yet mapped to a real configuration. This way search matches
+  -- regardless of which language the searcher's query happens to be stemmed in; see `event_search()`.
+  NEW.search_vector := ''::tsvector;
 
-  NEW.search_vector :=
-    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
-    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+  FOR ts_config IN
+    SELECT DISTINCT vibetype.language_iso_full_text_search(language)
+    FROM unnest(enum_range(NULL::vibetype.language)) AS language
+    UNION
+    SELECT 'simple'::regconfig
+  LOOP
+    NEW.search_vector := NEW.search_vector ||
+      setweight(to_tsvector(ts_config, NEW.name), 'A') ||
+      setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+  END LOOP;
 
   RETURN NEW;
 END;
 $$;
-COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
+COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and merged across all supported languages.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_event_search_vector() TO vibetype_account, vibetype_anonymous;
 
 CREATE TRIGGER search_vector
   BEFORE
        INSERT
-    OR UPDATE OF name, description, language
+    OR UPDATE OF name, description
   ON vibetype.event
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_event_search_vector();

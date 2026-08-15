@@ -18,5 +18,8 @@ SELECT id,
        search_vector
 FROM vibetype.event WHERE FALSE;
 
+SELECT 1/COUNT(*)
+FROM pg_indexes
+WHERE schemaname = 'vibetype' AND indexname = 'idx_event_name_trgm';
 
 ROLLBACK;
