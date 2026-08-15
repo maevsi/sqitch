@@ -14,7 +14,7 @@ COMMENT ON COLUMN vibetype.account.description IS 'The account''s description. M
 COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL. Must start with "https://" and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.account.username IS E'@behavior -update\nThe account''s username. Must be alphanumeric with hyphens and not exceed 100 characters.';
 
-CREATE INDEX idx_account_username_like ON vibetype.account USING gin(username gin_trgm_ops);
-COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+CREATE INDEX idx_account_username_trgm ON vibetype.account USING gist(username gist_trgm_ops);
+COMMENT ON INDEX vibetype.idx_account_username_trgm IS 'GiST trigram index on username, used for LIKE/ILIKE matching and (unlike a GIN trigram index) for index-assisted similarity-distance ordering (the <-> operator) in account_search.';
 
 COMMIT;

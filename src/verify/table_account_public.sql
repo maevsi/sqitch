@@ -8,6 +8,6 @@ FROM vibetype.account WHERE FALSE;
 
 SELECT 1/COUNT(*)
 FROM pg_indexes
-WHERE schemaname = 'vibetype' AND indexname = 'idx_account_username_like';
+WHERE schemaname = 'vibetype' AND indexname = 'idx_account_username_trgm';
 
 ROLLBACK;
