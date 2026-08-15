@@ -1,15 +1,5 @@
 BEGIN;
 
--- `event_search()` below is SECURITY INVOKER (required for RLS on `vibetype.event` to apply to the
--- caller, not the function owner), and any statement in an invoker-security function's body, in any
--- language, checks privileges against the calling role, including schema-level name resolution. So the
--- caller needs USAGE on `vibetype_private` to even reference this function, not just EXECUTE on it.
--- (RLS policies are a special case that doesn't apply here: a policy expression is pre-bound once at
--- CREATE POLICY time and only re-checks EXECUTE on the referenced function at each use, which is why
--- e.g. `vibetype_private.events_with_claimed_attendance()`, only ever called from `event_select`'s
--- policy, needs no such grant. tsquery_prefix() is called from a plain function body, not a policy.)
-GRANT USAGE ON SCHEMA vibetype_private TO vibetype_account, vibetype_anonymous;
-
 CREATE FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) RETURNS tsquery
     LANGUAGE sql STABLE STRICT
     AS $$
@@ -24,33 +14,51 @@ $$;
 
 COMMENT ON FUNCTION vibetype_private.tsquery_prefix(regconfig, TEXT) IS 'Converts free text into a prefix-matching tsquery for the given text search configuration.';
 
-GRANT EXECUTE ON FUNCTION vibetype_private.tsquery_prefix(regconfig, TEXT) TO vibetype_account, vibetype_anonymous;
+-- SECURITY DEFINER: runs against vibetype_private.event_search_vector, which application roles have no
+-- grant on at all (see that table's migration). Only vibetype_account/vibetype_anonymous need EXECUTE on
+-- this function itself; tsquery_prefix() above needs no direct grant to them since it is now only ever
+-- called from here, running as this function's owner.
+CREATE FUNCTION vibetype_private.event_search_rank(query text) RETURNS TABLE(event_id UUID, rank REAL)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own
+  -- ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring;
+  -- see table_event_search_vector's migration). Each `@@` branch uses a literal, call-time-constant
+  -- config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the
+  -- SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use
+  -- the row's actual esv.ts_config directly. The list of configs tried is static rather than derived the
+  -- same way the vector-populating trigger does, since this runs on every search request and there is no
+  -- built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple')
+  -- configurations are added.
+  SELECT
+    esv.event_id,
+    MAX(ts_rank_cd(esv.search_vector, vibetype_private.tsquery_prefix(esv.ts_config, event_search_rank.query))) AS rank
+  FROM vibetype_private.event_search_vector esv
+  WHERE
+    (esv.ts_config = 'german'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('german', event_search_rank.query))
+    OR (esv.ts_config = 'english'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('english', event_search_rank.query))
+    OR (esv.ts_config = 'simple'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('simple', event_search_rank.query))
+  GROUP BY esv.event_id;
+$$;
+
+COMMENT ON FUNCTION vibetype_private.event_search_rank(TEXT) IS 'Returns event ids matching the given query by prefix, across every text search configuration event_search_vector rows are stored in, with their relevance rank.';
+
+GRANT EXECUTE ON FUNCTION vibetype_private.event_search_rank(TEXT) TO vibetype_account, vibetype_anonymous;
 
 CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
-  -- Tried across every language `search_vector` is merged from, so the caller does not need to know
-  -- (or guess) which language a given event was authored in; see `table_event`'s search_vector trigger,
-  -- which derives its language list dynamically. This list is kept static (not derived the same way)
-  -- since this function runs on every search request, and there's no built-in aggregate to OR together
-  -- a dynamic number of tsqueries; revisit if more real (non-'simple') configurations are added.
-  WITH q AS (
-    SELECT
-      vibetype_private.tsquery_prefix('german', event_search.query)
-      || vibetype_private.tsquery_prefix('english', event_search.query)
-      || vibetype_private.tsquery_prefix('simple', event_search.query)
-      AS tsquery
-  )
+  -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from
+  -- event_search_rank(). The caller does not need to know (or guess) which language a given event was
+  -- authored in; see vibetype_private.event_search_vector and the trigger that populates it.
   SELECT e.*
-  FROM vibetype.event e, q
+  FROM vibetype.event e
+  LEFT JOIN vibetype_private.event_search_rank(event_search.query) r ON r.event_id = e.id
   WHERE
-    e.search_vector @@ q.tsquery
+    r.rank IS NOT NULL
     OR e.name % event_search.query
   ORDER BY
-    GREATEST(
-      ts_rank_cd(e.search_vector, q.tsquery),
-      similarity(e.name, event_search.query)
-    ) DESC
+    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC
   LIMIT 50;
 $$;
 
@@ -58,6 +66,7 @@ COMMENT ON FUNCTION vibetype.event_search(TEXT) IS 'Searches events by name and 
 
 GRANT EXECUTE ON FUNCTION similarity(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 GRANT EXECUTE ON FUNCTION similarity_op(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
+GRANT USAGE ON SCHEMA vibetype_private TO vibetype_account, vibetype_anonymous;
 GRANT EXECUTE ON FUNCTION vibetype.event_search(TEXT) TO vibetype_account, vibetype_anonymous;
 
 COMMIT;
