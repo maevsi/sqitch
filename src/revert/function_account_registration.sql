@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT);
+DROP FUNCTION vibetype.account_registration(UUID, DATE, UUID, TEXT, TEXT);
 
 COMMIT;

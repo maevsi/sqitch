@@ -16,14 +16,18 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
         WHEN position('@' IN jwt_create.username) = 0 THEN
           (SELECT id FROM vibetype.account WHERE username = jwt_create.username)
         ELSE
-          (SELECT id FROM vibetype_private.account WHERE email_address = jwt_create.username)
+          (SELECT aea.account_id
+             FROM vibetype_private.email_address ea
+             JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
+             WHERE ea.address = jwt_create.username AND aea.is_primary)
       END AS id
   ),
+  -- no email-verified check here: accounts only ever come into existence already verified,
+  -- since email confirmation now happens before account_registration creates the account at all
   _account_validation AS (
     SELECT
       account_lookup.id,
       public_account.username,
-      private_account.email_address_verification IS NOT NULL AS email_not_verified,
       private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash) AS password_valid
     FROM _account_lookup account_lookup
     INNER JOIN vibetype.account public_account ON public_account.id = account_lookup.id
@@ -34,7 +38,6 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     SELECT id, username
     FROM _account_validation
     WHERE password_valid = true
-      AND email_not_verified = false
   ),
   _account_activity_update AS (
     UPDATE vibetype_private.account

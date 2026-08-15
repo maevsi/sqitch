@@ -11,8 +11,8 @@ CREATE VIEW vibetype.guest_flat WITH (security_invoker) AS
     contact.id                  AS contact_id,
     contact.account_id          AS contact_account_id,
     contact.address_id          AS contact_address_id,
-    contact.email_address       AS contact_email_address,
-    contact.email_address_hash  AS contact_email_address_hash,
+    contact_email.address       AS contact_email_address,
+    contact_email.address_hash  AS contact_email_address_hash,
     contact.first_name          AS contact_first_name ,
     contact.last_name           AS contact_last_name,
     contact.phone_number        AS contact_phone_number,
@@ -35,7 +35,11 @@ CREATE VIEW vibetype.guest_flat WITH (security_invoker) AS
     event.created_by            AS event_created_by
   FROM vibetype.guest
     JOIN vibetype.contact ON guest.contact_id = contact.id
-    JOIN vibetype.event   ON guest.event_id   = event.id;
+    JOIN vibetype.event   ON guest.event_id   = event.id
+    LEFT JOIN vibetype.contact_email_address contact_email_link
+      ON contact_email_link.contact_id = contact.id AND contact_email_link.is_primary
+    LEFT JOIN vibetype_private.email_address contact_email
+      ON contact_email.id = contact_email_link.email_address_id;
 
 COMMENT ON VIEW vibetype.guest_flat IS 'View returning flattened guests.';
 

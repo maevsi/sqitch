@@ -303,45 +303,6 @@ COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete 
 
 
 --
--- Name: account_email_address_verification(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.account_email_address_verification(code uuid) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _account vibetype_private.account;
-BEGIN
-  SELECT *
-    FROM vibetype_private.account
-    INTO _account
-    WHERE account.email_address_verification = account_email_address_verification.code;
-
-  IF (_account IS NULL) THEN
-    RAISE 'Unknown verification code!' USING ERRCODE = 'no_data_found';
-  END IF;
-
-  IF (_account.email_address_verification_valid_until < CURRENT_TIMESTAMP) THEN
-    RAISE 'Verification code expired!' USING ERRCODE = 'object_not_in_prerequisite_state';
-  END IF;
-
-  UPDATE vibetype_private.account
-    SET email_address_verification = NULL
-    WHERE email_address_verification = account_email_address_verification.code;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.account_email_address_verification(code uuid) OWNER TO ci;
-
---
--- Name: FUNCTION account_email_address_verification(code uuid); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.\n\nError codes:\n- **P0002** when the verification code is unknown.\n- **55000** when the verification code has expired.';
-
-
---
 -- Name: account_location_update(double precision, double precision); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -459,29 +420,50 @@ COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS
 --
 
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC'::text) RETURNS void
-    LANGUAGE sql STRICT SECURITY DEFINER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
-  WITH outbox_id AS (
-    SELECT public.gen_random_uuid() AS id
-  ), updated AS (
-    UPDATE vibetype_private.account
+DECLARE
+  _account_id UUID;
+  _subject_id UUID;
+  _password_reset_verification UUID;
+  _password_reset_verification_valid_until TIMESTAMP WITH TIME ZONE;
+  _outbox_id UUID := public.gen_random_uuid();
+BEGIN
+  SELECT aea.account_id, ea.subject_id INTO _account_id, _subject_id
+    FROM vibetype_private.email_address ea
+    JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
+    WHERE ea.address = account_password_reset_request.email_address
+      AND aea.is_primary
+      AND aea.verification IS NULL;
+
+  IF (_account_id IS NULL) THEN
+    RETURN; -- silent no-op, matching the existing anti-enumeration pattern for unknown addresses
+  END IF;
+
+  UPDATE vibetype_private.account
     SET password_reset_verification = public.gen_random_uuid()
-    WHERE email_address = account_password_reset_request.email_address
-    RETURNING id
-  )
-  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
-  SELECT
-    o.id,
+    WHERE id = _account_id
+    RETURNING password_reset_verification, password_reset_verification_valid_until
+    INTO _password_reset_verification, _password_reset_verification_valid_until;
+
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
+    _outbox_id,
     'account',
-    u.id,
+    _account_id,
     'account.password_reset_requested',
     jsonb_build_object(
-      'id', o.id,
-      'account_id', u.id,
+      'id', _outbox_id,
+      'account_id', _account_id,
       'type', 'account.password_reset_requested',
+      'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
+        'emailAddress', account_password_reset_request.email_address,
+        'passwordResetVerification', _password_reset_verification,
+        'passwordResetVerificationValidUntil', _password_reset_verification_valid_until
+      )), 'base64'),
       'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
     )
-  FROM outbox_id o, updated u;
+  );
+END;
 $$;
 
 
@@ -495,16 +477,31 @@ COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, 
 
 
 --
--- Name: account_registration(date, text, text, uuid, text, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: account_registration(uuid, date, uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC'::text) RETURNS void
+CREATE FUNCTION vibetype.account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
+  _email_address_id UUID;
+  _email_address TEXT;
+  _language TEXT;
+  _time_zone TEXT;
   _new_account_private vibetype_private.account;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
+  SELECT ea.id, ea.address, eav.language, eav.time_zone
+    INTO _email_address_id, _email_address, _language, _time_zone
+    FROM vibetype_private.email_address_verification eav
+    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+    WHERE eav.id = account_registration.email_address_verification_id
+      AND eav.confirmed_at IS NOT NULL;
+
+  IF (_email_address_id IS NULL) THEN
+    RAISE 'Email address verification not found or not confirmed!' USING ERRCODE = 'no_data_found';
+  END IF;
+
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
     RAISE EXCEPTION 'The birth date must be at least 18 years in the past'
       USING ERRCODE = 'VTBDA';
@@ -518,21 +515,26 @@ BEGIN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'VTAUV';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
-    RETURN; -- silent fail as we cannot return meta information about users' email addresses
+  IF (EXISTS (SELECT 1 FROM vibetype_private.account_email_address WHERE email_address_id = _email_address_id)) THEN
+    RETURN; -- silent fail, e.g. if the same confirmed verification is somehow consumed twice
   END IF;
 
-  INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
+  INSERT INTO vibetype_private.account(birth_date, password_hash, last_activity) VALUES
+    (account_registration.birth_date, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
     (_new_account_private.id, account_registration.username);
 
+  INSERT INTO vibetype_private.account_email_address (account_id, email_address_id, verification) VALUES
+    (_new_account_private.id, _email_address_id, NULL);
+
   INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
     (_new_account_private.id, account_registration.legal_term_id);
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
+
+  DELETE FROM vibetype_private.email_address_verification WHERE id = account_registration.email_address_verification_id;
 
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
     _outbox_id,
@@ -543,73 +545,33 @@ BEGIN
       'id', _outbox_id,
       'account_id', _new_account_private.id,
       'type', 'account.registered',
-      'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
+      'encrypted', encode(vibetype_private.outbox_encrypt(
+        (SELECT subject_id FROM vibetype_private.email_address WHERE id = _email_address_id),
+        jsonb_build_object('emailAddress', _email_address, 'username', account_registration.username)
+      ), 'base64'),
+      'template', jsonb_build_object('language', _language, 'time_zone', _time_zone)
     )
   );
 
-  -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration
+  -- not possible to return data here as this would make the silent return above distinguishable from a successful registration
 END;
 $$;
 
 
-ALTER FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) IS '@turnstileProtected
-Creates a contact and registers an account referencing it.
+COMMENT ON FUNCTION vibetype.account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text) IS '@turnstileProtected
+Completes registration for a confirmed email address verification: creates the account, contact, and legal term acceptance, and fires a welcome email.
 
 Error codes:
+- **P0002** when the email address verification is not found or not confirmed.
 - **VTBDA** when the birth date is not at least 18 years old.
 - **VTPLL** when the password length does not reach its minimum.
 - **VTAUV** when an account with the given username already exists.';
-
-
---
--- Name: account_registration_refresh(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-DECLARE
-  _outbox_id UUID := public.gen_random_uuid();
-BEGIN
-  RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
-
-  IF (NOT EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = account_registration_refresh.account_id)) THEN
-    RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
-  END IF;
-
-  UPDATE vibetype_private.account
-    SET email_address_verification = DEFAULT
-    WHERE account.id = account_registration_refresh.account_id;
-
-  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
-    _outbox_id,
-    'account',
-    account_registration_refresh.account_id,
-    'account.registered',
-    jsonb_build_object(
-      'id', _outbox_id,
-      'account_id', account_registration_refresh.account_id,
-      'type', 'account.registered',
-      'template', jsonb_build_object('language', account_registration_refresh.language)
-    )
-  );
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) OWNER TO ci;
-
---
--- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) IS 'Refreshes an account''s email address verification validity period.\n\nError codes:\n- **01P01** in all cases right now as refreshing registrations is currently not available due to missing rate limiting.\n- **22023** when an account with this account id does not exist.';
 
 
 SET default_tablespace = '';
@@ -854,6 +816,30 @@ COMMENT ON FUNCTION vibetype.attendance_guard() IS 'Ensures that checking out ca
 
 
 --
+-- Name: contact_identity_check(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.contact_identity_check(contact_id uuid) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM vibetype.contact c
+    WHERE c.id = contact_identity_check.contact_id
+      AND (
+        c.account_id IS NOT NULL
+        OR EXISTS (SELECT 1 FROM vibetype.contact_email_address cea WHERE cea.contact_id = c.id)
+      )
+  ) THEN
+    RAISE EXCEPTION 'A contact must be reachable via a linked account or at least one email address.' USING ERRCODE = 'check_violation';
+  END IF;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.contact_identity_check(contact_id uuid) OWNER TO ci;
+
+--
 -- Name: guest; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -958,6 +944,103 @@ ALTER FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) OWNER T
 --
 
 COMMENT ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) IS 'Function for inserting multiple guest records.';
+
+
+--
+-- Name: email_address_verification(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.email_address_verification(code uuid) RETURNS uuid
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  UPDATE vibetype_private.email_address_verification eav
+    SET confirmed_at = CURRENT_TIMESTAMP
+    WHERE eav.code = email_address_verification.code
+      AND eav.valid_until > CURRENT_TIMESTAMP
+    RETURNING eav.id INTO _id;
+
+  IF _id IS NULL THEN
+    RAISE 'Verification code not found or expired!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  RETURN _id;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.email_address_verification(code uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION email_address_verification(code uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.email_address_verification(code uuid) IS 'Confirms a pending email address verification code. Returns the verification''s own id for the caller to carry forward into whichever flow consumes it (e.g. account registration).\n\nError codes:\n- **P0002** when the code is unknown or expired.';
+
+
+--
+-- Name: email_address_verification_request(text, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.email_address_verification_request(email_address text, language text, time_zone text DEFAULT 'UTC'::text) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _email_address_id UUID;
+  _subject_id UUID;
+  _verification_code UUID;
+  _verification_valid_until TIMESTAMP WITH TIME ZONE;
+  _outbox_id UUID := public.gen_random_uuid();
+BEGIN
+  SELECT id, subject_id INTO _email_address_id, _subject_id
+    FROM vibetype_private.email_address
+    WHERE address = email_address_verification_request.email_address;
+
+  IF _email_address_id IS NULL THEN
+    INSERT INTO vibetype_private.subject DEFAULT VALUES RETURNING id INTO _subject_id;
+    INSERT INTO vibetype_private.email_address (subject_id, address) VALUES (_subject_id, email_address_verification_request.email_address)
+      RETURNING id INTO _email_address_id;
+  ELSIF (EXISTS (SELECT 1 FROM vibetype_private.account_email_address aea WHERE aea.email_address_id = _email_address_id)) THEN
+    RETURN; -- silent no-op, matching the existing anti-enumeration pattern for already-registered addresses
+  END IF;
+
+  -- only one pending verification per address; a repeated request invalidates any earlier code
+  DELETE FROM vibetype_private.email_address_verification WHERE email_address_id = _email_address_id AND confirmed_at IS NULL;
+
+  INSERT INTO vibetype_private.email_address_verification (email_address_id, language, time_zone) VALUES
+    (_email_address_id, email_address_verification_request.language, email_address_verification_request.time_zone)
+    RETURNING code, valid_until INTO _verification_code, _verification_valid_until;
+
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload) VALUES (
+    _outbox_id,
+    'email_address',
+    _email_address_id,
+    'email_address_verification.requested',
+    jsonb_build_object(
+      'id', _outbox_id,
+      'email_address_id', _email_address_id,
+      'type', 'email_address_verification.requested',
+      'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
+        'emailAddress', email_address_verification_request.email_address,
+        'code', _verification_code,
+        'validUntil', _verification_valid_until
+      )), 'base64'),
+      'template', jsonb_build_object('language', email_address_verification_request.language, 'time_zone', email_address_verification_request.time_zone)
+    )
+  );
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.email_address_verification_request(email_address text, language text, time_zone text) OWNER TO ci;
+
+--
+-- Name: FUNCTION email_address_verification_request(email_address text, language text, time_zone text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.email_address_verification_request(email_address text, language text, time_zone text) IS 'Requests a proof-of-ownership confirmation email for an address, before any account exists. Calling it again for an address with a still-pending verification issues a fresh code and invalidates the previous one.';
 
 
 --
@@ -1359,7 +1442,11 @@ CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
 DECLARE
   _contact RECORD;
   _email_address TEXT;
+  _subject_id UUID;
   _event RECORD;
+  _event_creator_profile_picture_upload_id UUID;
+  _event_creator_profile_picture_upload_storage_key TEXT;
+  _event_creator_username TEXT;
   _guest RECORD;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
@@ -1405,26 +1492,37 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_id, email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT id, account_id, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
-  IF (_contact IS NULL) THEN
+  IF (_contact.id IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (_contact.account_id IS NULL) THEN
-    IF (_contact.email_address IS NULL) THEN
-      RAISE 'Contact email address not accessible!' USING ERRCODE = 'no_data_found';
-    ELSE
-      _email_address := _contact.email_address;
-    END IF;
-  ELSE
-    -- Account
-    SELECT email_address INTO _email_address FROM vibetype_private.account WHERE account.id = _contact.account_id;
-
-    IF (_email_address IS NULL) THEN
-      RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
-    END IF;
+  -- Prefer the linked account's own verified email; fall back to the contact's own listed email.
+  IF (_contact.account_id IS NOT NULL) THEN
+    SELECT ea.address, ea.subject_id INTO _email_address, _subject_id
+      FROM vibetype_private.account_email_address aea
+      JOIN vibetype_private.email_address ea ON ea.id = aea.email_address_id
+      WHERE aea.account_id = _contact.account_id AND aea.is_primary;
   END IF;
+
+  IF (_email_address IS NULL) THEN
+    SELECT ea.address, ea.subject_id INTO _email_address, _subject_id
+      FROM vibetype.contact_email_address cea
+      JOIN vibetype_private.email_address ea ON ea.id = cea.email_address_id
+      WHERE cea.contact_id = _guest.contact_id AND cea.is_primary;
+  END IF;
+
+  IF (_email_address IS NULL) THEN
+    RAISE 'Contact email address not accessible!' USING ERRCODE = 'no_data_found';
+  END IF;
+
+  -- Event creator username
+  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
+
+  -- Event creator profile picture storage key
+  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
+  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
 
   INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
     VALUES (
@@ -1436,6 +1534,29 @@ BEGIN
         'id', _outbox_id,
         'guest_id', _guest.id,
         'type', 'guest.invited',
+        'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
+          'contactEmailAddress', _email_address,
+          'contactTimeZone', _contact.time_zone,
+          'event', jsonb_build_object(
+            'id', _event.id,
+            'addressId', _event.address_id,
+            'description', _event.description,
+            'end', _event."end",
+            'guestCountMaximum', _event.guest_count_maximum,
+            'isArchived', _event.is_archived,
+            'isInPerson', _event.is_in_person,
+            'isRemote', _event.is_remote,
+            'name', _event.name,
+            'slug', _event.slug,
+            'start', _event.start,
+            'url', _event.url,
+            'visibility', _event.visibility,
+            'createdAt', _event.created_at,
+            'createdBy', _event.created_by
+          ),
+          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
+          'eventCreatorUsername', _event_creator_username
+        )), 'base64'),
         'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
       )
     );
@@ -1449,7 +1570,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type "guest.invited".\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type "guest.invited".\n\nError codes:\n- **P0002** when the guest, event, or contact is not accessible, or no email address can be resolved for the contact.';
 
 
 --
@@ -1492,14 +1613,18 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
         WHEN position('@' IN jwt_create.username) = 0 THEN
           (SELECT id FROM vibetype.account WHERE username = jwt_create.username)
         ELSE
-          (SELECT id FROM vibetype_private.account WHERE email_address = jwt_create.username)
+          (SELECT aea.account_id
+             FROM vibetype_private.email_address ea
+             JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
+             WHERE ea.address = jwt_create.username AND aea.is_primary)
       END AS id
   ),
+  -- no email-verified check here: accounts only ever come into existence already verified,
+  -- since email confirmation now happens before account_registration creates the account at all
   _account_validation AS (
     SELECT
       account_lookup.id,
       public_account.username,
-      private_account.email_address_verification IS NOT NULL AS email_not_verified,
       private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash) AS password_valid
     FROM _account_lookup account_lookup
     INNER JOIN vibetype.account public_account ON public_account.id = account_lookup.id
@@ -1510,7 +1635,6 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     SELECT id, username
     FROM _account_validation
     WHERE password_valid = true
-      AND email_not_verified = false
   ),
   _account_activity_update AS (
     UPDATE vibetype_private.account
@@ -1853,84 +1977,6 @@ COMMENT ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) IS 'Returns the ack
 
 
 --
--- Name: outbox_payload_account(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.outbox_payload_account(account_id uuid) RETURNS TABLE(email_address text, email_address_verification uuid, email_address_verification_valid_until timestamp with time zone, password_reset_verification uuid, password_reset_verification_valid_until timestamp with time zone, username text)
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT
-    ap.email_address,
-    ap.email_address_verification,
-    ap.email_address_verification_valid_until,
-    ap.password_reset_verification,
-    ap.password_reset_verification_valid_until,
-    a.username
-  FROM vibetype_private.account ap
-  JOIN vibetype.account a ON a.id = ap.id
-  WHERE ap.id = outbox_payload_account.account_id;
-$$;
-
-
-ALTER FUNCTION vibetype.outbox_payload_account(account_id uuid) OWNER TO ci;
-
---
--- Name: FUNCTION outbox_payload_account(account_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.outbox_payload_account(account_id uuid) IS 'Fetches the account data needed to compose account-related outbox emails (registration, password reset), keyed by account id. Kept out of the outbox payload itself so this personal data never reaches the CDC log.';
-
-
---
--- Name: outbox_payload_guest_invitation(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) RETURNS TABLE(contact_email_address text, contact_time_zone text, event jsonb, event_creator_profile_picture_upload_storage_key text, event_creator_username text)
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT
-    COALESCE(a.email_address, c.email_address),
-    c.time_zone,
-    jsonb_build_object(
-      'id', e.id,
-      'addressId', e.address_id,
-      'description', e.description,
-      'end', e."end",
-      'guestCountMaximum', e.guest_count_maximum,
-      'isArchived', e.is_archived,
-      'isInPerson', e.is_in_person,
-      'isRemote', e.is_remote,
-      'name', e.name,
-      'slug', e.slug,
-      'start', e.start,
-      'url', e.url,
-      'visibility', e.visibility,
-      'createdAt', e.created_at,
-      'createdBy', e.created_by
-    ),
-    up.storage_key,
-    ea.username
-  FROM vibetype.guest g
-  JOIN vibetype.contact c ON c.id = g.contact_id
-  LEFT JOIN vibetype_private.account a ON a.id = c.account_id
-  JOIN vibetype.event e ON e.id = g.event_id
-  JOIN vibetype.account ea ON ea.id = e.created_by
-  LEFT JOIN vibetype.profile_picture pp ON pp.account_id = e.created_by
-  LEFT JOIN vibetype.upload up ON up.id = pp.upload_id
-  WHERE g.id = outbox_payload_guest_invitation.guest_id;
-$$;
-
-
-ALTER FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) OWNER TO ci;
-
---
--- Name: FUNCTION outbox_payload_guest_invitation(guest_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) IS 'Fetches the contact, event and event creator data needed to compose a guest invitation email, keyed by guest id. Kept out of the outbox payload itself so this personal data never reaches the CDC log.';
-
-
---
 -- Name: profile_picture_set(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1984,6 +2030,45 @@ ALTER FUNCTION vibetype.trigger_contact_check_time_zone() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates that the time zone provided in the contact is a valid IANA time zone.';
+
+
+--
+-- Name: trigger_contact_email_address_identity_check(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_contact_email_address_identity_check() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  PERFORM vibetype.contact_identity_check(OLD.contact_id);
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_contact_email_address_identity_check() OWNER TO ci;
+
+--
+-- Name: trigger_contact_identity_check(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_contact_identity_check() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  PERFORM vibetype.contact_identity_check(NEW.id);
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_contact_identity_check() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_contact_identity_check(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_contact_identity_check() IS 'Ensures each contact is reachable via a linked account or at least one email address, to satisfy the GDPR duty to inform data subjects whose personal data is stored. Shared by triggers on both vibetype.contact and vibetype.contact_email_address.';
 
 
 --
@@ -2546,6 +2631,35 @@ $$;
 ALTER FUNCTION vibetype_private.guests_via_own_events_unblocked() OWNER TO ci;
 
 --
+-- Name: outbox_encrypt(uuid, jsonb); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_encrypt(subject_id uuid, data jsonb) RETURNS bytea
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  WITH iv AS (
+    SELECT public.gen_random_bytes(16) AS bytes
+  )
+  SELECT iv.bytes || public.encrypt_iv(
+    convert_to(outbox_encrypt.data::text, 'UTF8'),
+    (SELECT key FROM vibetype_private.subject WHERE id = outbox_encrypt.subject_id),
+    iv.bytes,
+    'aes'
+  )
+  FROM iv;
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_encrypt(subject_id uuid, data jsonb) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_encrypt(subject_id uuid, data jsonb); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_encrypt(subject_id uuid, data jsonb) IS 'Encrypts data for the outbox payload under the given subject''s key, using AES-CBC with a fresh random IV prepended to the ciphertext (first 16 bytes). Destroying the subject''s key (crypto-shredding) makes every past outbox message encrypted this way permanently unrecoverable.';
+
+
+--
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -2553,11 +2667,11 @@ CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_vali
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
   BEGIN
-    IF (NEW.email_address_verification IS NULL) THEN
-      NEW.email_address_verification_valid_until = NULL;
+    IF (NEW.verification IS NULL) THEN
+      NEW.verification_valid_until = NULL;
     ELSE
-      IF ((OLD IS NULL) OR (OLD.email_address_verification IS DISTINCT FROM NEW.email_address_verification)) THEN
-        NEW.email_address_verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
+      IF ((OLD IS NULL) OR (OLD.verification IS DISTINCT FROM NEW.verification)) THEN
+        NEW.verification_valid_until = (SELECT (CURRENT_TIMESTAMP + INTERVAL '1 day')::TIMESTAMP WITH TIME ZONE);
       END IF;
     END IF;
 
@@ -2572,7 +2686,7 @@ ALTER FUNCTION vibetype_private.trigger_account_email_address_verification_valid
 -- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to its default value.';
+COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the verification to its default value.';
 
 
 --
@@ -3427,8 +3541,6 @@ CREATE TABLE vibetype.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid,
     address_id uuid,
-    email_address text,
-    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
     language vibetype.language,
     last_name text,
@@ -3439,9 +3551,7 @@ CREATE TABLE vibetype.contact (
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
-    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
@@ -3479,21 +3589,6 @@ COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an assoc
 --
 
 COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-
-
---
--- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-
-
---
--- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
-Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 
 
 --
@@ -3568,10 +3663,44 @@ COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that 
 
 
 --
--- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: contact_email_address; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+CREATE TABLE vibetype.contact_email_address (
+    contact_id uuid NOT NULL,
+    email_address_id uuid NOT NULL,
+    is_primary boolean DEFAULT true NOT NULL
+);
+
+
+ALTER TABLE vibetype.contact_email_address OWNER TO ci;
+
+--
+-- Name: TABLE contact_email_address; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact_email_address IS 'Links a contact to an email address it lists. No verification: contacts describe third parties, so nobody proves ownership of the address before it can be listed. Modeled as a many-to-many join so a future "multiple emails per contact" feature is additive; today, exactly one is_primary row exists per contact.';
+
+
+--
+-- Name: COLUMN contact_email_address.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_email_address.contact_id IS 'The contact''s id.';
+
+
+--
+-- Name: COLUMN contact_email_address.email_address_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_email_address.email_address_id IS 'The listed email address''s id.';
+
+
+--
+-- Name: COLUMN contact_email_address.is_primary; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_email_address.is_primary IS 'Whether this is the contact''s primary email address. At most one primary address per contact.';
 
 
 --
@@ -4089,6 +4218,97 @@ The account that updated the friend relation''s status.';
 
 
 --
+-- Name: email_address; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.email_address (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    subject_id uuid NOT NULL,
+    address text NOT NULL,
+    address_hash text GENERATED ALWAYS AS (md5(lower("substring"(address, '\S(?:.*\S)*'::text)))) STORED,
+    status vibetype_private.email_status DEFAULT 'active'::vibetype_private.email_status NOT NULL,
+    status_reason text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at timestamp with time zone,
+    updated_by uuid,
+    CONSTRAINT email_address_address_check CHECK ((char_length(address) <= 254)),
+    CONSTRAINT email_address_status_reason_check CHECK (((status_reason IS NULL) OR (char_length(status_reason) <= 512)))
+);
+
+
+ALTER TABLE vibetype_private.email_address OWNER TO ci;
+
+--
+-- Name: TABLE email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.email_address IS 'The canonical entity for an email address and its lifecycle state: deliverability status, and (via account_email_address/email_address_verification) verification. Every reference to an email address elsewhere in the schema goes through this table.';
+
+
+--
+-- Name: COLUMN email_address.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.id IS 'The email address''s internal id.';
+
+
+--
+-- Name: COLUMN email_address.subject_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.subject_id IS 'The real-world person this address belongs to. Shared across every email address the same person has used, so a single subject key destruction erases outbox data for all of them at once.';
+
+
+--
+-- Name: COLUMN email_address.address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.address IS 'The email address. Must not exceed 254 characters (RFC 5321).';
+
+
+--
+-- Name: COLUMN email_address.address_hash; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.address_hash IS 'Hash of the address, generated using md5 on the lowercased trimmed version. Useful for case-insensitive lookups and to display a profile picture from Gravatar.';
+
+
+--
+-- Name: COLUMN email_address.status; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.status IS 'The deliverability status: active (no issue), bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
+
+
+--
+-- Name: COLUMN email_address.status_reason; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.status_reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type). At most 512 characters.';
+
+
+--
+-- Name: COLUMN email_address.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.created_at IS 'Timestamp when this address was first recorded.';
+
+
+--
+-- Name: COLUMN email_address.updated_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.updated_at IS 'Timestamp when this address''s status was last updated.';
+
+
+--
+-- Name: COLUMN email_address.updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address.updated_by IS 'Account that last updated this address''s status, or NULL for service-triggered updates.';
+
+
+--
 -- Name: guest_flat; Type: VIEW; Schema: vibetype; Owner: ci
 --
 
@@ -4101,8 +4321,8 @@ CREATE VIEW vibetype.guest_flat WITH (security_invoker='true') AS
     contact.id AS contact_id,
     contact.account_id AS contact_account_id,
     contact.address_id AS contact_address_id,
-    contact.email_address AS contact_email_address,
-    contact.email_address_hash AS contact_email_address_hash,
+    contact_email.address AS contact_email_address,
+    contact_email.address_hash AS contact_email_address_hash,
     contact.first_name AS contact_first_name,
     contact.last_name AS contact_last_name,
     contact.phone_number AS contact_phone_number,
@@ -4122,9 +4342,11 @@ CREATE VIEW vibetype.guest_flat WITH (security_invoker='true') AS
     event.url AS event_url,
     event.visibility AS event_visibility,
     event.created_by AS event_created_by
-   FROM ((vibetype.guest
+   FROM ((((vibetype.guest
      JOIN vibetype.contact ON ((guest.contact_id = contact.id)))
-     JOIN vibetype.event ON ((guest.event_id = event.id)));
+     JOIN vibetype.event ON ((guest.event_id = event.id)))
+     LEFT JOIN vibetype.contact_email_address contact_email_link ON (((contact_email_link.contact_id = contact.id) AND contact_email_link.is_primary)))
+     LEFT JOIN vibetype_private.email_address contact_email ON ((contact_email.id = contact_email_link.email_address_id)));
 
 
 ALTER VIEW vibetype.guest_flat OWNER TO ci;
@@ -4650,17 +4872,13 @@ COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
 CREATE TABLE vibetype_private.account (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     birth_date date,
-    email_address text NOT NULL,
-    email_address_verification uuid DEFAULT gen_random_uuid(),
-    email_address_verification_valid_until timestamp with time zone,
     location public.geography(Point,4326),
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp with time zone,
     upload_quota_bytes bigint DEFAULT 1073741824 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT account_email_address_check CHECK ((char_length(email_address) <= 254))
+    last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
@@ -4685,27 +4903,6 @@ COMMENT ON COLUMN vibetype_private.account.id IS 'The account''s internal id.';
 --
 
 COMMENT ON COLUMN vibetype_private.account.birth_date IS 'The account owner''s date of birth.';
-
-
---
--- Name: COLUMN account.email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.account.email_address IS 'The account''s email address for account related information. Must not exceed 254 characters (RFC 5321).';
-
-
---
--- Name: COLUMN account.email_address_verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';
-
-
---
--- Name: COLUMN account.email_address_verification_valid_until; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
 
 
 --
@@ -4755,6 +4952,71 @@ COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the
 --
 
 COMMENT ON COLUMN vibetype_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
+
+
+--
+-- Name: account_email_address; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.account_email_address (
+    account_id uuid NOT NULL,
+    email_address_id uuid NOT NULL,
+    is_primary boolean DEFAULT true NOT NULL,
+    verification uuid DEFAULT gen_random_uuid(),
+    verification_valid_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype_private.account_email_address OWNER TO ci;
+
+--
+-- Name: TABLE account_email_address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.account_email_address IS 'Links an account to an email address it claims. Verification lives here, not on email_address, since it proves this account''s claim on the address rather than being a property of the address itself. Modeled as a many-to-many join so a future "add a second email" feature is additive; today, exactly one is_primary row exists per account.';
+
+
+--
+-- Name: COLUMN account_email_address.account_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account_email_address.account_id IS 'The claiming account''s id.';
+
+
+--
+-- Name: COLUMN account_email_address.email_address_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account_email_address.email_address_id IS 'The claimed email address''s id.';
+
+
+--
+-- Name: COLUMN account_email_address.is_primary; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account_email_address.is_primary IS 'Whether this is the account''s primary email address. At most one primary address per account.';
+
+
+--
+-- Name: COLUMN account_email_address.verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account_email_address.verification IS 'The UUID used to verify this account''s claim on the address, or null if already verified.';
+
+
+--
+-- Name: COLUMN account_email_address.verification_valid_until; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account_email_address.verification_valid_until IS 'The timestamp until which this verification is valid.';
+
+
+--
+-- Name: COLUMN account_email_address.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account_email_address.created_at IS 'Timestamp at which this address was linked to the account.';
 
 
 --
@@ -4972,86 +5234,84 @@ COMMENT ON COLUMN vibetype_private.audit_log_trigger.trigger_function IS 'The na
 
 
 --
--- Name: email; Type: TABLE; Schema: vibetype_private; Owner: ci
+-- Name: email_address_verification; Type: TABLE; Schema: vibetype_private; Owner: ci
 --
 
-CREATE TABLE vibetype_private.email (
+CREATE TABLE vibetype_private.email_address_verification (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    address text NOT NULL,
-    address_hash text GENERATED ALWAYS AS (lower(address)) STORED,
-    status vibetype_private.email_status NOT NULL,
-    reason text,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid,
-    CONSTRAINT email_address_check CHECK ((char_length(address) <= 254)),
-    CONSTRAINT email_reason_check CHECK (((reason IS NULL) OR (char_length(reason) <= 512)))
+    email_address_id uuid NOT NULL,
+    code uuid DEFAULT gen_random_uuid() NOT NULL,
+    valid_until timestamp with time zone DEFAULT (CURRENT_TIMESTAMP + '1 day'::interval) NOT NULL,
+    confirmed_at timestamp with time zone,
+    language text NOT NULL,
+    time_zone text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
-ALTER TABLE vibetype_private.email OWNER TO ci;
+ALTER TABLE vibetype_private.email_address_verification OWNER TO ci;
 
 --
--- Name: TABLE email; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: TABLE email_address_verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TABLE vibetype_private.email IS 'Tracks email addresses with a deliverability issue: hard bounces, spam complaints, or explicit unsubscribes.';
-
-
---
--- Name: COLUMN email.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.email.id IS 'Unique row identifier.';
+COMMENT ON TABLE vibetype_private.email_address_verification IS 'A pending or confirmed proof-of-ownership challenge for an email address. Purpose-agnostic: used to confirm an address before registration completes today, and reusable unchanged for a future "add another email to my account" flow.';
 
 
 --
--- Name: COLUMN email.address; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN email_address_verification.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email.address IS 'The affected email address. At most 254 characters (RFC 5321).';
-
-
---
--- Name: COLUMN email.address_hash; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.email.address_hash IS 'Lowercased version of the address, generated for case-insensitive lookups.';
+COMMENT ON COLUMN vibetype_private.email_address_verification.id IS 'The verification''s internal id, referenced by whichever flow consumes a confirmed verification.';
 
 
 --
--- Name: COLUMN email.status; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN email_address_verification.email_address_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email.status IS 'The deliverability status: active (no issue), bounced (hard/permanent bounce reported by SES), complained (spam complaint reported by SES), or unsubscribed (explicit user opt-out).';
-
-
---
--- Name: COLUMN email.reason; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.email.reason IS 'Optional human-readable reason (e.g. bounce subtype or complaint feedback type). At most 512 characters.';
+COMMENT ON COLUMN vibetype_private.email_address_verification.email_address_id IS 'The email address being verified.';
 
 
 --
--- Name: COLUMN email.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN email_address_verification.code; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email.created_at IS 'Timestamp when this status was first recorded.';
-
-
---
--- Name: COLUMN email.updated_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.email.updated_at IS 'Timestamp when this status was last updated.';
+COMMENT ON COLUMN vibetype_private.email_address_verification.code IS 'The UUID sent to the address owner to prove control of the inbox.';
 
 
 --
--- Name: COLUMN email.updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN email_address_verification.valid_until; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.email.updated_by IS 'Account that last updated this row, or NULL for service-triggered updates.';
+COMMENT ON COLUMN vibetype_private.email_address_verification.valid_until IS 'The timestamp until which the code can be confirmed.';
+
+
+--
+-- Name: COLUMN email_address_verification.confirmed_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address_verification.confirmed_at IS 'Timestamp at which the code was confirmed, or null if still pending.';
+
+
+--
+-- Name: COLUMN email_address_verification.language; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address_verification.language IS 'The locale requested at verification time, carried forward for whichever flow consumes this verification (e.g. an account registration welcome email), since it is not re-collected later.';
+
+
+--
+-- Name: COLUMN email_address_verification.time_zone; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address_verification.time_zone IS 'The time zone requested at verification time, carried forward the same way as language.';
+
+
+--
+-- Name: COLUMN email_address_verification.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.email_address_verification.created_at IS 'Timestamp at which this verification was requested.';
 
 
 --
@@ -5139,7 +5399,7 @@ CREATE TABLE vibetype_private.outbox (
     is_acknowledged boolean,
     payload jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT outbox_payload_check CHECK ((pg_column_size(payload) <= 8000))
+    CONSTRAINT outbox_payload_check CHECK ((pg_column_size(payload) <= 16000))
 );
 
 
@@ -5199,6 +5459,47 @@ COMMENT ON COLUMN vibetype_private.outbox.payload IS 'The outbox event''s payloa
 --
 
 COMMENT ON COLUMN vibetype_private.outbox.created_at IS 'The timestamp of the outbox event''s creation.';
+
+
+--
+-- Name: subject; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.subject (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key bytea DEFAULT public.gen_random_bytes(32) NOT NULL,
+    merged_into uuid
+);
+
+
+ALTER TABLE vibetype_private.subject OWNER TO ci;
+
+--
+-- Name: TABLE subject; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.subject IS 'A real-world person the system holds personal data about. Its key encrypts outbox payloads concerning that person; destroying the key permanently and irrecoverably erases that data from every past outbox message (crypto-shredding), satisfying GDPR erasure without touching Kafka''s append-only log.';
+
+
+--
+-- Name: COLUMN subject.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.subject.id IS 'The subject''s internal id.';
+
+
+--
+-- Name: COLUMN subject.key; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.subject.key IS 'AES-256 key material used to encrypt outbox payloads concerning this subject.';
+
+
+--
+-- Name: COLUMN subject.merged_into; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.subject.merged_into IS 'When two subjects are later discovered to be the same person, points at the subject they were merged into. Always null today; reserved for future subject-merge support.';
 
 
 --
@@ -5324,6 +5625,14 @@ ALTER TABLE ONLY vibetype.contact
 --
 
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
+
+
+--
+-- Name: contact_email_address contact_email_address_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_email_address
+    ADD CONSTRAINT contact_email_address_pkey PRIMARY KEY (contact_id, email_address_id);
 
 
 --
@@ -5660,11 +5969,19 @@ ALTER TABLE ONLY vibetype.upload
 
 
 --
--- Name: account account_email_address_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: account_email_address account_email_address_email_address_id_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype_private.account
-    ADD CONSTRAINT account_email_address_key UNIQUE (email_address);
+ALTER TABLE ONLY vibetype_private.account_email_address
+    ADD CONSTRAINT account_email_address_email_address_id_key UNIQUE (email_address_id);
+
+
+--
+-- Name: account_email_address account_email_address_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.account_email_address
+    ADD CONSTRAINT account_email_address_pkey PRIMARY KEY (account_id, email_address_id);
 
 
 --
@@ -5700,19 +6017,27 @@ ALTER TABLE ONLY vibetype_private.audit_log
 
 
 --
--- Name: email email_address_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: email_address email_address_address_key; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype_private.email
-    ADD CONSTRAINT email_address_key UNIQUE (address);
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_address_key UNIQUE (address);
 
 
 --
--- Name: email email_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: email_address email_address_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype_private.email
-    ADD CONSTRAINT email_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: email_address_verification email_address_verification_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address_verification
+    ADD CONSTRAINT email_address_verification_pkey PRIMARY KEY (id);
 
 
 --
@@ -5737,6 +6062,14 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 ALTER TABLE ONLY vibetype_private.outbox
     ADD CONSTRAINT outbox_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: subject subject_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.subject
+    ADD CONSTRAINT subject_pkey PRIMARY KEY (id);
 
 
 --
@@ -5884,6 +6217,27 @@ CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id)
 --
 
 CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
+
+
+--
+-- Name: idx_contact_email_address_email_address_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_email_address_email_address_id ON vibetype.contact_email_address USING btree (email_address_id);
+
+
+--
+-- Name: idx_contact_email_address_primary; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_contact_email_address_primary ON vibetype.contact_email_address USING btree (contact_id) WHERE is_primary;
+
+
+--
+-- Name: INDEX idx_contact_email_address_primary; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_contact_email_address_primary IS 'Ensures at most one primary email address per contact.';
 
 
 --
@@ -6237,6 +6591,20 @@ CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
 
 
 --
+-- Name: idx_account_email_address_primary; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_email_address_primary ON vibetype_private.account_email_address USING btree (account_id) WHERE is_primary;
+
+
+--
+-- Name: INDEX idx_account_email_address_primary; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_account_email_address_primary IS 'Ensures at most one primary email address per account.';
+
+
+--
 -- Name: idx_account_private_location; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
@@ -6251,31 +6619,38 @@ COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on
 
 
 --
--- Name: idx_email_address_hash; Type: INDEX; Schema: vibetype_private; Owner: ci
+-- Name: idx_email_address_address_hash; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
-CREATE INDEX idx_email_address_hash ON vibetype_private.email USING btree (address_hash);
-
-
---
--- Name: INDEX idx_email_address_hash; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON INDEX vibetype_private.idx_email_address_hash IS 'Index on the lowercased address for case-insensitive lookups.';
+CREATE INDEX idx_email_address_address_hash ON vibetype_private.email_address USING btree (address_hash);
 
 
 --
--- Name: idx_email_updated_by; Type: INDEX; Schema: vibetype_private; Owner: ci
+-- Name: idx_email_address_subject_id; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
-CREATE INDEX idx_email_updated_by ON vibetype_private.email USING btree (updated_by);
+CREATE INDEX idx_email_address_subject_id ON vibetype_private.email_address USING btree (subject_id);
 
 
 --
--- Name: INDEX idx_email_updated_by; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: idx_email_address_updated_by; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON INDEX vibetype_private.idx_email_updated_by IS 'Index on the updated_by column to optimize queries filtering by the account that last updated the email address status.';
+CREATE INDEX idx_email_address_updated_by ON vibetype_private.email_address USING btree (updated_by);
+
+
+--
+-- Name: idx_email_address_verification_code; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_email_address_verification_code ON vibetype_private.email_address_verification USING btree (code);
+
+
+--
+-- Name: idx_email_address_verification_email_address_id; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_email_address_verification_email_address_id ON vibetype_private.email_address_verification USING btree (email_address_id);
 
 
 --
@@ -6311,6 +6686,34 @@ COMMENT ON INDEX vibetype_private.idx_jwt_updated_by IS 'B-Tree index to optimiz
 --
 
 CREATE INDEX idx_outbox_aggregate_id ON vibetype_private.outbox USING btree (aggregate_id);
+
+
+--
+-- Name: idx_subject_merged_into; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE INDEX idx_subject_merged_into ON vibetype_private.subject USING btree (merged_into);
+
+
+--
+-- Name: INDEX idx_subject_merged_into; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_subject_merged_into IS 'Covers the merged_into foreign key.';
+
+
+--
+-- Name: contact contact_identity_check; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE CONSTRAINT TRIGGER contact_identity_check AFTER INSERT OR UPDATE OF account_id ON vibetype.contact DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_identity_check();
+
+
+--
+-- Name: contact_email_address contact_identity_check; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE CONSTRAINT TRIGGER contact_identity_check AFTER DELETE ON vibetype.contact_email_address DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_email_address_identity_check();
 
 
 --
@@ -6419,13 +6822,6 @@ CREATE TRIGGER vibetype_trigger_attendance_metadata_update BEFORE UPDATE ON vibe
 
 
 --
--- Name: account email_address_verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
---
-
-CREATE TRIGGER email_address_verification BEFORE INSERT OR UPDATE OF email_address_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
-
-
---
 -- Name: account password_reset_verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
 --
 
@@ -6433,10 +6829,10 @@ CREATE TRIGGER password_reset_verification BEFORE INSERT OR UPDATE OF password_r
 
 
 --
--- Name: email update; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+-- Name: email_address update; Type: TRIGGER; Schema: vibetype_private; Owner: ci
 --
 
-CREATE TRIGGER update BEFORE UPDATE ON vibetype_private.email FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+CREATE TRIGGER update BEFORE UPDATE ON vibetype_private.email_address FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
 
 --
@@ -6444,6 +6840,13 @@ CREATE TRIGGER update BEFORE UPDATE ON vibetype_private.email FOR EACH ROW EXECU
 --
 
 CREATE TRIGGER update BEFORE UPDATE ON vibetype_private.jwt FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+
+
+--
+-- Name: account_email_address verification; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER verification BEFORE INSERT OR UPDATE OF verification ON vibetype_private.account_email_address FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
 
 
 --
@@ -6556,6 +6959,22 @@ ALTER TABLE ONLY vibetype.contact
 
 ALTER TABLE ONLY vibetype.contact
     ADD CONSTRAINT contact_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact_email_address contact_email_address_contact_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_email_address
+    ADD CONSTRAINT contact_email_address_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES vibetype.contact(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact_email_address contact_email_address_email_address_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_email_address
+    ADD CONSTRAINT contact_email_address_email_address_id_fkey FOREIGN KEY (email_address_id) REFERENCES vibetype_private.email_address(id) ON DELETE CASCADE;
 
 
 --
@@ -6871,11 +7290,43 @@ ALTER TABLE ONLY vibetype.upload
 
 
 --
--- Name: email email_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: account_email_address account_email_address_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype_private.email
-    ADD CONSTRAINT email_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
+ALTER TABLE ONLY vibetype_private.account_email_address
+    ADD CONSTRAINT account_email_address_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_email_address account_email_address_email_address_id_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.account_email_address
+    ADD CONSTRAINT account_email_address_email_address_id_fkey FOREIGN KEY (email_address_id) REFERENCES vibetype_private.email_address(id) ON DELETE CASCADE;
+
+
+--
+-- Name: email_address email_address_subject_id_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_subject_id_fkey FOREIGN KEY (subject_id) REFERENCES vibetype_private.subject(id);
+
+
+--
+-- Name: email_address email_address_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address
+    ADD CONSTRAINT email_address_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
+
+
+--
+-- Name: email_address_verification email_address_verification_email_address_id_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.email_address_verification
+    ADD CONSTRAINT email_address_verification_email_address_id_fkey FOREIGN KEY (email_address_id) REFERENCES vibetype_private.email_address(id) ON DELETE CASCADE;
 
 
 --
@@ -6892,6 +7343,14 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 ALTER TABLE ONLY vibetype_private.jwt
     ADD CONSTRAINT jwt_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
+
+
+--
+-- Name: subject subject_merged_into_fkey; Type: FK CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.subject
+    ADD CONSTRAINT subject_merged_into_fkey FOREIGN KEY (merged_into) REFERENCES vibetype_private.subject(id);
 
 
 --
@@ -7044,6 +7503,21 @@ ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((created_by = vibetype.invoker_account_id()) AND (account_id IS DISTINCT FROM vibetype.invoker_account_id())));
+
+
+--
+-- Name: contact_email_address; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.contact_email_address ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: contact_email_address contact_email_address_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY contact_email_address_all ON vibetype.contact_email_address USING ((EXISTS ( SELECT 1
+   FROM vibetype.contact c
+  WHERE ((c.id = contact_email_address.contact_id) AND (c.created_by = vibetype.invoker_account_id())))));
 
 
 --
@@ -7525,16 +7999,28 @@ CREATE POLICY achievement_code_select ON vibetype_private.achievement_code FOR S
 
 
 --
--- Name: email; Type: ROW SECURITY; Schema: vibetype_private; Owner: ci
+-- Name: email_address; Type: ROW SECURITY; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE vibetype_private.email ENABLE ROW LEVEL SECURITY;
+ALTER TABLE vibetype_private.email_address ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: email email_service_vibetype_all; Type: POLICY; Schema: vibetype_private; Owner: ci
+-- Name: email_address email_address_select; Type: POLICY; Schema: vibetype_private; Owner: ci
 --
 
-CREATE POLICY email_service_vibetype_all ON vibetype_private.email TO vibetype USING (true);
+CREATE POLICY email_address_select ON vibetype_private.email_address FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM vibetype_private.account_email_address aea
+  WHERE ((aea.email_address_id = email_address.id) AND (aea.account_id = vibetype.invoker_account_id())))) OR (EXISTS ( SELECT 1
+   FROM (vibetype.contact_email_address cea
+     JOIN vibetype.contact c ON ((c.id = cea.contact_id)))
+  WHERE ((cea.email_address_id = email_address.id) AND (c.created_by = vibetype.invoker_account_id()))))));
+
+
+--
+-- Name: email_address email_address_service_vibetype_all; Type: POLICY; Schema: vibetype_private; Owner: ci
+--
+
+CREATE POLICY email_address_service_vibetype_all ON vibetype_private.email_address TO vibetype USING (true);
 
 
 --
@@ -7572,15 +8058,6 @@ GRANT ALL ON FUNCTION vibetype.account_delete(password text) TO vibetype_account
 
 
 --
--- Name: FUNCTION account_email_address_verification(code uuid); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_anonymous;
-
-
---
 -- Name: FUNCTION account_location_update(latitude double precision, longitude double precision); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7615,20 +8092,12 @@ GRANT ALL ON FUNCTION vibetype.account_password_reset_request(email_address text
 
 
 --
--- Name: FUNCTION account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) TO vibetype_anonymous;
-GRANT ALL ON FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text) TO vibetype_account;
-
-
---
--- Name: FUNCTION account_registration_refresh(account_id uuid, language text); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.account_registration(email_address_verification_id uuid, birth_date date, legal_term_id uuid, password text, username text) TO vibetype_account;
 
 
 --
@@ -7682,6 +8151,13 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 
 
 --
+-- Name: FUNCTION contact_identity_check(contact_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.contact_identity_check(contact_id uuid) FROM PUBLIC;
+
+
+--
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7696,6 +8172,24 @@ GRANT SELECT ON TABLE vibetype.guest TO reccoom;
 
 REVOKE ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION email_address_verification(code uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.email_address_verification(code uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.email_address_verification(code uuid) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.email_address_verification(code uuid) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION email_address_verification_request(email_address text, language text, time_zone text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.email_address_verification_request(email_address text, language text, time_zone text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.email_address_verification_request(email_address text, language text, time_zone text) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.email_address_verification_request(email_address text, language text, time_zone text) TO vibetype_account;
 
 
 --
@@ -7856,22 +8350,6 @@ GRANT ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) TO vibetype_anony
 
 
 --
--- Name: FUNCTION outbox_payload_account(account_id uuid); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.outbox_payload_account(account_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.outbox_payload_account(account_id uuid) TO vibetype;
-
-
---
--- Name: FUNCTION outbox_payload_guest_invitation(guest_id uuid); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.outbox_payload_guest_invitation(guest_id uuid) TO vibetype;
-
-
---
 -- Name: FUNCTION profile_picture_set(upload_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7885,6 +8363,20 @@ GRANT ALL ON FUNCTION vibetype.profile_picture_set(upload_id uuid) TO vibetype_a
 
 REVOKE ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_contact_email_address_identity_check(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_contact_email_address_identity_check() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_contact_identity_check(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_contact_identity_check() FROM PUBLIC;
 
 
 --
@@ -8042,11 +8534,17 @@ GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibe
 
 
 --
+-- Name: FUNCTION outbox_encrypt(subject_id uuid, data jsonb); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_encrypt(subject_id uuid, data jsonb) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() TO vibetype_account;
 
 
 --
@@ -8179,6 +8677,14 @@ GRANT SELECT ON TABLE vibetype.contact TO reccoom;
 
 
 --
+-- Name: TABLE contact_email_address; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.contact_email_address TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact_email_address TO vibetype_account;
+
+
+--
 -- Name: TABLE device; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8258,6 +8764,16 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: TABLE email_address; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype_private.email_address TO grafana;
+GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email_address TO vibetype;
+GRANT SELECT ON TABLE vibetype_private.email_address TO vibetype_account;
+GRANT SELECT ON TABLE vibetype_private.email_address TO vibetype_anonymous;
 
 
 --
@@ -8346,6 +8862,13 @@ GRANT SELECT ON TABLE vibetype_private.account TO grafana;
 
 
 --
+-- Name: TABLE account_email_address; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype_private.account_email_address TO grafana;
+
+
+--
 -- Name: TABLE achievement_code; Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -8353,10 +8876,10 @@ GRANT SELECT ON TABLE vibetype_private.achievement_code TO vibetype;
 
 
 --
--- Name: TABLE email; Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: TABLE email_address_verification; Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email TO vibetype;
+GRANT SELECT ON TABLE vibetype_private.email_address_verification TO grafana;
 
 
 --
@@ -8364,6 +8887,13 @@ GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email TO vibetype;
 --
 
 GRANT SELECT ON TABLE vibetype_private.outbox TO grafana;
+
+
+--
+-- Name: TABLE subject; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype_private.subject TO vibetype;
 
 
 --

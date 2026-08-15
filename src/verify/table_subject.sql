@@ -1,0 +1,15 @@
+BEGIN;
+
+SELECT id, key, merged_into FROM vibetype_private.subject WHERE FALSE;
+
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
+SET local role.vibetype_username TO :'role_service_vibetype_username';
+
+DO $$
+BEGIN
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.subject', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype_private.subject', 'SELECT'));
+  ASSERT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype_private.subject', 'SELECT'));
+END $$;
+
+ROLLBACK;

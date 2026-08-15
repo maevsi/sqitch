@@ -7,7 +7,7 @@ CREATE TABLE vibetype_private.outbox (
 
   type               TEXT NOT NULL,
   is_acknowledged    BOOLEAN,
-  payload            JSONB NOT NULL CHECK (pg_column_size(payload) <= 8000),
+  payload            JSONB NOT NULL CHECK (pg_column_size(payload) <= 16000), -- base64'd encrypted content (see outbox_encrypt) needs more room than the plaintext payloads this cap was originally sized for
 
   created_at         TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

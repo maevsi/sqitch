@@ -25,9 +25,11 @@ CREATE OR REPLACE FUNCTION vibetype_test.account_password_reset_verification_get
 RETURNS UUID
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT password_reset_verification
-  FROM vibetype_private.account
-  WHERE email_address = _email_address;
+  SELECT a.password_reset_verification
+  FROM vibetype_private.account a
+  JOIN vibetype_private.account_email_address aea ON aea.account_id = a.id AND aea.is_primary
+  JOIN vibetype_private.email_address ea ON ea.id = aea.email_address_id
+  WHERE ea.address = _email_address;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_password_reset_verification_get(TEXT) TO vibetype_account;
@@ -59,10 +61,11 @@ RETURNS UUID
 DECLARE
   _account_id UUID;
 BEGIN
-  SELECT id
+  SELECT aea.account_id
   INTO _account_id
-  FROM vibetype_private.account
-  WHERE email_address = _email_address;
+  FROM vibetype_private.email_address ea
+  JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
+  WHERE ea.address = _email_address AND aea.is_primary;
 
   RETURN _account_id;
 END;

@@ -1,12 +1,13 @@
 BEGIN;
 
+-- TODO: consider moving this table to the `vibetype_private` schema, since it holds PII about
+-- individuals (name, email, phone number, ...) who may not be platform users and never consented
+-- to being on the platform, unlike the account holder who created the entry.
 CREATE TABLE vibetype.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   account_id            UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
   address_id            UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
-  email_address         TEXT CHECK (char_length(email_address) <= 254), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
-  email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
   language              vibetype.language,
   last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) <= 100),
@@ -19,8 +20,7 @@ CREATE TABLE vibetype.contact (
   created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by            UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
-  UNIQUE (created_by, account_id),
-  CONSTRAINT contact_identity_check CHECK (account_id IS NOT NULL OR email_address IS NOT NULL)
+  UNIQUE (created_by, account_id)
 );
 
 CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
@@ -33,8 +33,6 @@ COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to acco
 COMMENT ON COLUMN vibetype.contact.id IS E'@behavior -insert -update\nPrimary key, uniquely identifies each contact.';
 COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
 COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS E'@behavior -insert -update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
 COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
@@ -46,9 +44,50 @@ COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must
 COMMENT ON COLUMN vibetype.contact.created_at IS E'@behavior -insert -update\nTimestamp when the contact was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 -- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.
+
+-- Email addresses now live in the contact_email_address join table (table_contact_email_address),
+-- so the old `contact_identity_check` column CHECK became a constraint trigger: it must look up a
+-- separate table instead of comparing columns on the same row. Deferred to the end of the
+-- transaction so a contact and its first contact_email_address row can be inserted in either
+-- order within the same statement/transaction.
+--
+-- The check itself is a plain function taking a contact id, not a trigger function, since it's
+-- fired from two different tables (this one, and contact_email_address on DELETE) whose row types
+-- don't share a common field name to read the contact id from.
+CREATE FUNCTION vibetype.contact_identity_check(contact_id uuid) RETURNS void
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM vibetype.contact c
+    WHERE c.id = contact_identity_check.contact_id
+      AND (
+        c.account_id IS NOT NULL
+        OR EXISTS (SELECT 1 FROM vibetype.contact_email_address cea WHERE cea.contact_id = c.id)
+      )
+  ) THEN
+    RAISE EXCEPTION 'A contact must be reachable via a linked account or at least one email address.' USING ERRCODE = 'check_violation';
+  END IF;
+END;
+$$;
+
+CREATE FUNCTION vibetype.trigger_contact_identity_check() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  PERFORM vibetype.contact_identity_check(NEW.id);
+  RETURN NULL;
+END;
+$$;
+COMMENT ON FUNCTION vibetype.trigger_contact_identity_check() IS 'Ensures each contact is reachable via a linked account or at least one email address, to satisfy the GDPR duty to inform data subjects whose personal data is stored. Shared by triggers on both vibetype.contact and vibetype.contact_email_address.';
+
+CREATE CONSTRAINT TRIGGER contact_identity_check
+  AFTER INSERT OR UPDATE OF account_id ON vibetype.contact
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  EXECUTE FUNCTION vibetype.trigger_contact_identity_check();
 
 CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER

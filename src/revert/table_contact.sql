@@ -1,5 +1,9 @@
 BEGIN;
 
+DROP TRIGGER contact_identity_check ON vibetype.contact;
+DROP FUNCTION vibetype.trigger_contact_identity_check();
+DROP FUNCTION vibetype.contact_identity_check(UUID);
+
 DROP TRIGGER update_account_id ON vibetype.contact;
 DROP FUNCTION vibetype.trigger_contact_update_account_id();
 
