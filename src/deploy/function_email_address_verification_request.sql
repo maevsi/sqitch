@@ -38,10 +38,10 @@ BEGIN
       'id', _outbox_id,
       'email_address_id', _email_address_id,
       'type', 'email_address_verification.requested',
+      'valid_until', _verification_valid_until,
       'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
         'emailAddress', email_address_verification_request.email_address,
-        'code', _verification_code,
-        'validUntil', _verification_valid_until
+        'code', _verification_code
       )), 'base64'),
       'template', jsonb_build_object('language', email_address_verification_request.language, 'time_zone', email_address_verification_request.time_zone)
     )

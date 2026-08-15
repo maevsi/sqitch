@@ -455,10 +455,10 @@ BEGIN
       'id', _outbox_id,
       'account_id', _account_id,
       'type', 'account.password_reset_requested',
+      'password_reset_verification_valid_until', _password_reset_verification_valid_until,
       'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
         'emailAddress', account_password_reset_request.email_address,
-        'passwordResetVerification', _password_reset_verification,
-        'passwordResetVerificationValidUntil', _password_reset_verification_valid_until
+        'passwordResetVerification', _password_reset_verification
       )), 'base64'),
       'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
     )
@@ -1022,10 +1022,10 @@ BEGIN
       'id', _outbox_id,
       'email_address_id', _email_address_id,
       'type', 'email_address_verification.requested',
+      'valid_until', _verification_valid_until,
       'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
         'emailAddress', email_address_verification_request.email_address,
-        'code', _verification_code,
-        'validUntil', _verification_valid_until
+        'code', _verification_code
       )), 'base64'),
       'template', jsonb_build_object('language', email_address_verification_request.language, 'time_zone', email_address_verification_request.time_zone)
     )
@@ -1534,26 +1534,26 @@ BEGIN
         'id', _outbox_id,
         'guest_id', _guest.id,
         'type', 'guest.invited',
+        'contact_time_zone', _contact.time_zone,
+        'event', jsonb_build_object(
+          'id', _event.id,
+          'address_id', _event.address_id,
+          'description', _event.description,
+          'end', _event."end",
+          'guest_count_maximum', _event.guest_count_maximum,
+          'is_archived', _event.is_archived,
+          'is_in_person', _event.is_in_person,
+          'is_remote', _event.is_remote,
+          'name', _event.name,
+          'slug', _event.slug,
+          'start', _event.start,
+          'url', _event.url,
+          'visibility', _event.visibility,
+          'created_at', _event.created_at,
+          'created_by', _event.created_by
+        ),
         'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
           'contactEmailAddress', _email_address,
-          'contactTimeZone', _contact.time_zone,
-          'event', jsonb_build_object(
-            'id', _event.id,
-            'addressId', _event.address_id,
-            'description', _event.description,
-            'end', _event."end",
-            'guestCountMaximum', _event.guest_count_maximum,
-            'isArchived', _event.is_archived,
-            'isInPerson', _event.is_in_person,
-            'isRemote', _event.is_remote,
-            'name', _event.name,
-            'slug', _event.slug,
-            'start', _event.start,
-            'url', _event.url,
-            'visibility', _event.visibility,
-            'createdAt', _event.created_at,
-            'createdBy', _event.created_by
-          ),
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username
         )), 'base64'),

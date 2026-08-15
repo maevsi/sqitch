@@ -2,8 +2,62 @@
 
 BEGIN;
 
--- Test that a password reset request's outbox payload carries no plaintext PII, and that its
--- encrypted content decrypts to the expected data under the resolved subject's key.
+-- Test that an email address verification request's outbox payload only encrypts the address and
+-- the verification code, leaving the non-PII expiry timestamp as plaintext for analytics.
+SAVEPOINT outbox_payload_email_address_verification;
+DO $$
+DECLARE
+  outbox_row RECORD;
+  subject_key BYTEA;
+  encrypted_bytes BYTEA;
+  decrypted JSONB;
+BEGIN
+  PERFORM vibetype.email_address_verification_request('verify@example.com', 'en', 'Europe/Berlin');
+
+  SELECT o.id, o.aggregate_id, o.payload INTO outbox_row
+    FROM vibetype_private.outbox o
+    WHERE o.type = 'email_address_verification.requested'
+      AND o.aggregate_id = (SELECT id FROM vibetype_private.email_address WHERE address = 'verify@example.com');
+
+  IF outbox_row IS NULL THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): no outbox event found';
+  END IF;
+
+  IF outbox_row.payload ? 'emailAddress' OR outbox_row.payload ? 'code' THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): payload must not carry plaintext PII or credentials';
+  END IF;
+
+  IF NOT (outbox_row.payload ? 'valid_until') THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): payload must carry the non-PII valid_until as plaintext';
+  END IF;
+
+  SELECT s.key INTO subject_key
+    FROM vibetype_private.email_address ea
+    JOIN vibetype_private.subject s ON s.id = ea.subject_id
+    WHERE ea.address = 'verify@example.com';
+
+  IF subject_key IS NULL THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): could not resolve subject key';
+  END IF;
+
+  encrypted_bytes := decode(outbox_row.payload ->> 'encrypted', 'base64');
+  decrypted := convert_from(
+    public.decrypt_iv(substring(encrypted_bytes FROM 17), subject_key, substring(encrypted_bytes FROM 1 FOR 16), 'aes'),
+    'UTF8'
+  )::jsonb;
+
+  IF decrypted ->> 'emailAddress' != 'verify@example.com' THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): decrypted emailAddress % does not match', decrypted ->> 'emailAddress';
+  END IF;
+
+  IF decrypted ->> 'code' IS NULL THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): decrypted code must not be null';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT outbox_payload_email_address_verification;
+
+-- Test that a password reset request's outbox payload only encrypts PII and the credential
+-- itself, leaving the non-PII expiry timestamp as plaintext for analytics.
 SAVEPOINT outbox_payload_account_password_reset;
 DO $$
 DECLARE
@@ -27,7 +81,11 @@ BEGIN
   END IF;
 
   IF outbox_row.payload ? 'emailAddress' OR outbox_row.payload ? 'passwordResetVerification' THEN
-    RAISE EXCEPTION 'Test failed (outbox_payload_account_password_reset): payload must not carry plaintext PII';
+    RAISE EXCEPTION 'Test failed (outbox_payload_account_password_reset): payload must not carry plaintext PII or credentials';
+  END IF;
+
+  IF NOT (outbox_row.payload ? 'password_reset_verification_valid_until') THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_account_password_reset): payload must carry the non-PII password_reset_verification_valid_until as plaintext';
   END IF;
 
   IF outbox_row.payload ->> 'account_id' != accountA::text THEN
@@ -60,8 +118,9 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT outbox_payload_account_password_reset;
 
--- Test that a guest invitation's outbox payload carries no plaintext PII, and that its encrypted
--- content decrypts to the expected data under the resolved subject's key.
+-- Test that a guest invitation's outbox payload only encrypts the contact's email address and the
+-- event creator's identifying fields (username, profile picture), leaving the event's own
+-- business data (not PII of the invitee) as plaintext for analytics.
 SAVEPOINT outbox_payload_guest_invitation;
 DO $$
 DECLARE
@@ -92,8 +151,16 @@ BEGIN
     RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): no outbox event found';
   END IF;
 
-  IF outbox_row.payload ? 'contactEmailAddress' OR outbox_row.payload ? 'event' THEN
+  IF outbox_row.payload ? 'contactEmailAddress' OR outbox_row.payload ? 'eventCreatorUsername' OR outbox_row.payload ? 'eventCreatorProfilePictureUploadStorageKey' THEN
     RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): payload must not carry plaintext PII';
+  END IF;
+
+  IF NOT (outbox_row.payload ? 'contact_time_zone' AND outbox_row.payload ? 'event') THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): payload must carry the non-PII contact_time_zone and event data as plaintext';
+  END IF;
+
+  IF outbox_row.payload -> 'event' ->> 'name' != 'Test Event' THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): plaintext event name % does not match', outbox_row.payload -> 'event' ->> 'name';
   END IF;
 
   IF outbox_row.payload ->> 'guest_id' != guestAB::text THEN
@@ -122,10 +189,6 @@ BEGIN
 
   IF decrypted ->> 'eventCreatorUsername' != 'a' THEN
     RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): decrypted eventCreatorUsername % does not match', decrypted ->> 'eventCreatorUsername';
-  END IF;
-
-  IF decrypted -> 'event' ->> 'name' != 'Test Event' THEN
-    RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): decrypted event name % does not match', decrypted -> 'event' ->> 'name';
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT outbox_payload_guest_invitation;
