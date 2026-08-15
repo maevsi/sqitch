@@ -683,25 +683,28 @@ The account''s username. Must be alphanumeric with hyphens and not exceed 100 ch
 -- Name: account_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.account_search(search_string text) RETURNS SETOF vibetype.account
+CREATE FUNCTION vibetype.account_search(query text) RETURNS SETOF vibetype.account
     LANGUAGE sql STABLE
     AS $$
   SELECT *
   FROM vibetype.account
   WHERE
-    username ILIKE '%' || account_search.search_string || '%'
+    username ILIKE '%' || account_search.query || '%'
   ORDER BY
-    username;
+    similarity(username, account_search.query) DESC,
+    username
+  LIMIT 50;
 $$;
 
 
-ALTER FUNCTION vibetype.account_search(search_string text) OWNER TO ci;
+ALTER FUNCTION vibetype.account_search(query text) OWNER TO ci;
 
 --
--- Name: FUNCTION account_search(search_string text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_search(search_string text) IS 'Returns all accounts with a username containing a given substring.';
+COMMENT ON FUNCTION vibetype.account_search(query text) IS 'Returns accounts with a username containing a given substring, closest matches first, capped at 50 results.
+Queries under 3 characters match few trigrams and so scan a larger share of the index; keep that in mind if this backs search-as-you-type.';
 
 
 --
@@ -1122,7 +1125,7 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 --
 
 COMMENT ON COLUMN vibetype.event.search_vector IS '@behavior -insert -select -update
-A vector used for full-text search on events.';
+A vector used for full-text search on events, merged across all supported languages.';
 
 
 --
@@ -1227,30 +1230,45 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
--- Name: event_search(text, vibetype.language); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: event_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.event_search(query text, language vibetype.language) RETURNS SETOF vibetype.event
+CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
+  -- Tried across every language `search_vector` is merged from, so the caller does not need to know
+  -- (or guess) which language a given event was authored in; see `table_event`'s search_vector trigger,
+  -- which derives its language list dynamically. This list is kept static (not derived the same way)
+  -- since this function runs on every search request, and there's no built-in aggregate to OR together
+  -- a dynamic number of tsqueries; revisit if more real (non-'simple') configurations are added.
+  WITH q AS (
+    SELECT
+      vibetype_private.tsquery_prefix('german', event_search.query)
+      || vibetype_private.tsquery_prefix('english', event_search.query)
+      || vibetype_private.tsquery_prefix('simple', event_search.query)
+      AS tsquery
+  )
   SELECT e.*
-  FROM
-    vibetype.event e,
-    (SELECT vibetype.language_iso_full_text_search(event_search.language) AS ts_config) t
+  FROM vibetype.event e, q
   WHERE
-    e.search_vector @@ websearch_to_tsquery(t.ts_config, event_search.query)
+    e.search_vector @@ q.tsquery
+    OR e.name % event_search.query
   ORDER BY
-    ts_rank_cd(e.search_vector, websearch_to_tsquery(t.ts_config, event_search.query)) DESC;
+    GREATEST(
+      ts_rank_cd(e.search_vector, q.tsquery),
+      similarity(e.name, event_search.query)
+    ) DESC
+  LIMIT 50;
 $$;
 
 
-ALTER FUNCTION vibetype.event_search(query text, language vibetype.language) OWNER TO ci;
+ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
 
 --
--- Name: FUNCTION event_search(query text, language vibetype.language); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text, language vibetype.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
+COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Returns at most 50 events ordered by relevance.';
 
 
 --
@@ -1992,11 +2010,22 @@ CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS trigger
 DECLARE
   ts_config regconfig;
 BEGIN
-  ts_config := vibetype.language_iso_full_text_search(NEW.language);
+  -- Merged across every language `vibetype.language_iso_full_text_search()` currently maps to (derived
+  -- from the `vibetype.language` enum, so this automatically picks up newly supported languages), plus
+  -- 'simple' as a fallback for languages not yet mapped to a real configuration. This way search matches
+  -- regardless of which language the searcher's query happens to be stemmed in; see `event_search()`.
+  NEW.search_vector := ''::tsvector;
 
-  NEW.search_vector :=
-    setweight(to_tsvector(ts_config, NEW.name), 'A') ||
-    setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+  FOR ts_config IN
+    SELECT DISTINCT vibetype.language_iso_full_text_search(language)
+    FROM unnest(enum_range(NULL::vibetype.language)) AS language
+    UNION
+    SELECT 'simple'::regconfig
+  LOOP
+    NEW.search_vector := NEW.search_vector ||
+      setweight(to_tsvector(ts_config, NEW.name), 'A') ||
+      setweight(to_tsvector(ts_config, coalesce(NEW.description, '')), 'B');
+  END LOOP;
 
   RETURN NEW;
 END;
@@ -2009,7 +2038,7 @@ ALTER FUNCTION vibetype.trigger_event_search_vector() OWNER TO ci;
 -- Name: FUNCTION trigger_event_search_vector(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and language configuration.';
+COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Generates a search vector for the event based on the name and description columns, weighted by their relevance and merged across all supported languages.';
 
 
 --
@@ -2833,6 +2862,32 @@ ALTER FUNCTION vibetype_private.trigger_audit_log_enable_multiple() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Function enabling all audit log triggers that are currently disabled.';
+
+
+--
+-- Name: tsquery_prefix(regconfig, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) RETURNS tsquery
+    LANGUAGE sql STABLE STRICT
+    AS $$
+  -- Builds an AND of prefix-matched lexemes (e.g. 'conc:*') so the last, possibly incomplete,
+  -- word of a live-typed query matches by prefix instead of requiring a full word.
+  SELECT COALESCE(
+    string_agg(lexeme || ':*', ' & ')::tsquery,
+    ''::tsquery
+  )
+  FROM unnest(tsvector_to_array(to_tsvector(tsquery_prefix.ts_config, tsquery_prefix.search_text))) AS lexeme;
+$$;
+
+
+ALTER FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) OWNER TO ci;
+
+--
+-- Name: FUNCTION tsquery_prefix(ts_config regconfig, search_text text); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) IS 'Converts free text into a prefix-matching tsquery for the given text search configuration.';
 
 
 --
@@ -5851,6 +5906,20 @@ CREATE INDEX idx_event_format_mapping_format_id ON vibetype.event_format_mapping
 
 
 --
+-- Name: idx_event_name_trgm; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_name_trgm ON vibetype.event USING gin (name public.gin_trgm_ops);
+
+
+--
+-- Name: INDEX idx_event_name_trgm; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_event_name_trgm IS 'GIN trigram index on the name, used for prefix and typo-tolerant search fallback.';
+
+
+--
 -- Name: idx_event_recommendation_account_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6162,7 +6231,7 @@ CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNC
 -- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE OF name, description, language ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
+CREATE TRIGGER search_vector BEFORE INSERT OR UPDATE OF name, description ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_search_vector();
 
 
 --
@@ -7369,6 +7438,8 @@ GRANT USAGE ON SCHEMA vibetype TO vibetype;
 --
 
 GRANT USAGE ON SCHEMA vibetype_private TO grafana;
+GRANT USAGE ON SCHEMA vibetype_private TO vibetype_account;
+GRANT USAGE ON SCHEMA vibetype_private TO vibetype_anonymous;
 GRANT USAGE ON SCHEMA vibetype_private TO vibetype;
 
 
@@ -7457,11 +7528,12 @@ GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 
 
 --
--- Name: FUNCTION account_search(search_string text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION account_search(query text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.account_search(search_string text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_search(search_string text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.account_search(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_search(query text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.account_search(query text) TO vibetype_anonymous;
 
 
 --
@@ -7551,12 +7623,12 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 
 --
--- Name: FUNCTION event_search(query text, language vibetype.language); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.event_search(query text, language vibetype.language) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.event_search(query text, language vibetype.language) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.event_search(query text, language vibetype.language) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_anonymous;
 
 
 --
@@ -7895,6 +7967,15 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name tex
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION tsquery_prefix(ts_config regconfig, search_text text); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) TO vibetype_anonymous;
 
 
 --

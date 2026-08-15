@@ -1152,6 +1152,8 @@ REVOKE ALL ON FUNCTION public.show_trgm(text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.similarity(text, text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.similarity(text, text) TO vibetype_account;
+GRANT ALL ON FUNCTION public.similarity(text, text) TO vibetype_anonymous;
 
 
 --
@@ -1166,6 +1168,8 @@ REVOKE ALL ON FUNCTION public.similarity_dist(text, text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION public.similarity_op(text, text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.similarity_op(text, text) TO vibetype_account;
+GRANT ALL ON FUNCTION public.similarity_op(text, text) TO vibetype_anonymous;
 
 
 --
