@@ -28,7 +28,10 @@ BEGIN
 
   FOREACH _search_string IN ARRAY _search_strings
   LOOP
-    _search_result := ARRAY(SELECT username FROM vibetype.account_search(_search_string));
+    -- Sorted alphabetically here since result ORDER is now by trigram similarity (closest match
+    -- first, see the dedicated `account_search_order` test below), not alphabetical; this loop only
+    -- asserts which accounts match, independent of the order they come back in.
+    _search_result := ARRAY(SELECT username FROM vibetype.account_search(_search_string) ORDER BY username);
 
     _search_result_expected :=
       CASE _search_string
@@ -47,5 +50,27 @@ BEGIN
   END LOOP;
 
 END $$;
+
+SAVEPOINT account_search_order;
+DO $$
+DECLARE
+  _account_close UUID;
+  _search_result TEXT[];
+BEGIN
+  -- An exact match always scores the maximum possible trigram similarity (1.0), so it must rank
+  -- first regardless of how many other, looser matches also exist.
+  _account_close := vibetype_test.account_registration_verified('concert', 'concert@example.com');
+  PERFORM vibetype_test.account_registration_verified('disconnect', 'disconnect@example.com');
+  PERFORM vibetype_test.account_registration_verified('conclave', 'conclave@example.com');
+
+  PERFORM vibetype_test.invoker_set(_account_close);
+
+  _search_result := ARRAY(SELECT username FROM vibetype.account_search('concert'));
+
+  IF _search_result[1] <> 'concert' THEN
+    RAISE EXCEPTION E'Test failed: exact username match should rank first.\nReturned: %', _search_result;
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT account_search_order;
 
 ROLLBACK;
