@@ -285,6 +285,7 @@ BEGIN
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
+    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_address IS NULL; -- contacts with no email fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -692,8 +693,7 @@ CREATE FUNCTION vibetype.account_search(query text) RETURNS SETOF vibetype.accou
     username ILIKE '%' || account_search.query || '%'
   ORDER BY
     similarity(username, account_search.query) DESC,
-    username
-  LIMIT 50;
+    username;
 $$;
 
 
@@ -703,7 +703,8 @@ ALTER FUNCTION vibetype.account_search(query text) OWNER TO ci;
 -- Name: FUNCTION account_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_search(query text) IS 'Returns accounts with a username containing a given substring, closest matches first, capped at 50 results.
+COMMENT ON FUNCTION vibetype.account_search(query text) IS 'Returns accounts with a username containing a given substring, closest matches first.
+Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.
 Queries under 3 characters match few trigrams and so scan a larger share of the index; keep that in mind if this backs search-as-you-type.';
 
 
@@ -1227,9 +1228,8 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
-  -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from
-  -- event_search_rank(). The caller does not need to know (or guess) which language a given event was
-  -- authored in; see vibetype_private.event_search_vector and the trigger that populates it.
+  -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from event_search_rank().
+  -- The caller does not need to know (or guess) which language a given event was authored in; see vibetype_private.event_search_vector and the trigger that populates it.
   SELECT e.*
   FROM vibetype.event e
   LEFT JOIN vibetype.event_search_rank(event_search.query) r ON r.event_id = e.id
@@ -1237,8 +1237,8 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     r.rank IS NOT NULL
     OR e.name % event_search.query
   ORDER BY
-    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC
-  LIMIT 50;
+    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC,
+    e.id;
 $$;
 
 
@@ -1248,7 +1248,7 @@ ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
 -- Name: FUNCTION event_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Returns at most 50 events ordered by relevance.';
+COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -1258,15 +1258,9 @@ COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by nam
 CREATE FUNCTION vibetype.event_search_rank(query text) RETURNS TABLE(event_id uuid, rank real)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own
-  -- ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring;
-  -- see table_event_search_vector's migration). Each `@@` branch uses a literal, call-time-constant
-  -- config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the
-  -- SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use
-  -- the row's actual esv.ts_config directly. The list of configs tried is static rather than derived the
-  -- same way the vector-populating trigger does, since this runs on every search request and there is no
-  -- built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple')
-  -- configurations are added.
+  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring; see table_event_search_vector's migration).
+  -- Each `@@` branch uses a literal, call-time-constant config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use the row's actual esv.ts_config directly.
+  -- The list of configs tried is static rather than derived the same way the vector-populating trigger does, since this runs on every search request and there is no built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple') configurations are added.
   SELECT
     esv.event_id,
     MAX(ts_rank_cd(esv.search_vector, vibetype_private.tsquery_prefix(esv.ts_config, event_search_rank.query))) AS rank
@@ -2028,13 +2022,8 @@ CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS trigger
 DECLARE
   _ts_config regconfig;
 BEGIN
-  -- One row per language `vibetype.language_iso_full_text_search()` currently maps to (derived from the
-  -- `vibetype.language` enum, so this automatically picks up newly supported languages, deduplicated by
-  -- configuration), plus 'simple' as a fallback for languages not yet mapped to a real configuration.
-  -- Keeping one pure, single-configuration vector per row (rather than merging all of them into one,
-  -- as an earlier version of this migration did) keeps `ts_rank_cd` scoring undiluted by cross-language
-  -- lexeme noise; see `event_search_rank()` for how these get searched without knowing the event's
-  -- language up front.
+  -- One row per language `vibetype.language_iso_full_text_search()` currently maps to (derived from the `vibetype.language` enum, so this automatically picks up newly supported languages, deduplicated by configuration), plus 'simple' as a fallback for languages not yet mapped to a real configuration.
+  -- Keeping one pure, single-configuration vector per row (rather than merging all of them into one, as an earlier version of this migration did) keeps `ts_rank_cd` scoring undiluted by cross-language lexeme noise; see `event_search_rank()` for how these get searched without knowing the event's language up front.
   FOR _ts_config IN
     SELECT DISTINCT vibetype.language_iso_full_text_search(language)
     FROM unnest(enum_range(NULL::vibetype.language)) AS language
@@ -2895,8 +2884,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Fun
 CREATE FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text text) RETURNS tsquery
     LANGUAGE sql STABLE STRICT
     AS $$
-  -- Builds an AND of prefix-matched lexemes (e.g. 'conc:*') so the last, possibly incomplete,
-  -- word of a live-typed query matches by prefix instead of requiring a full word.
+  -- Builds an AND of prefix-matched lexemes (e.g. 'conc:*') so the last, possibly incomplete, word of a live-typed query matches by prefix instead of requiring a full word.
   SELECT COALESCE(
     string_agg(lexeme || ':*', ' & ')::tsquery,
     ''::tsquery
@@ -6269,7 +6257,7 @@ CREATE INDEX idx_event_search_vector_event_id ON vibetype_private.event_search_v
 -- Name: INDEX idx_event_search_vector_event_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id for efficient cascading deletes; the primary key''s composite index does not satisfy this on its own since it also includes ts_config.';
+COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id, required because the FK-index convention (see vibetype_test.index_on_foreign_key_check()) needs an index matching the FK''s columns exactly; the primary key''s composite index does not qualify since it also includes ts_config.';
 
 
 --
@@ -7626,7 +7614,6 @@ GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 
 REVOKE ALL ON FUNCTION vibetype.account_search(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_search(query text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.account_search(query text) TO vibetype_anonymous;
 
 
 --
@@ -7721,7 +7708,6 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_anonymous;
 
 
 --
@@ -7730,7 +7716,6 @@ GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_anonymous;
 
 REVOKE ALL ON FUNCTION vibetype.event_search_rank(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_search_rank(query text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype.event_search_rank(query text) TO vibetype_anonymous;
 
 
 --
