@@ -82,6 +82,18 @@ jq -n \
   [$rows[] | select(.base_total == "error :x:" or .pr_total == "error :x:")] as $error_rows |
   ($error_rows | length) as $error_count |
 
+  # Relevant rows are those flagged as a regression or improvement; the rest are noise.
+  [$rows[] | select(.icon != "")] as $relevant_rows |
+  [$rows[] | select(.icon == "")] as $irrelevant_rows |
+  ($irrelevant_rows | length) as $irrelevant_count |
+
+  def render_table($table_rows):
+    "| Query | Role | Base (ms) | PR (ms) | Delta |\n" +
+    "|-------|------|-----------|---------|-------|\n" +
+    ([$table_rows[] |
+      "| `\(.name)` | \(.role | split("_") | last) | \(.base_total) | \(.pr_total) | \(.delta)\(.icon) |"
+    ] | join("\n"));
+
   # Build markdown
   "## Database Query Performance\n\n" +
   (if $regression_count > 0 then
@@ -93,12 +105,17 @@ jq -n \
     ":x: **\($error_count) query/queries errored** (function signature mismatch between branches)\n\n"
   else ""
   end) +
-  "| Query | Role | Base (ms) | PR (ms) | Delta |\n" +
-  "|-------|------|-----------|---------|-------|\n" +
-  ([$rows[] |
-    "| `\(.name)` | \(.role | split("_") | last) | \(.base_total) | \(.pr_total) | \(.delta)\(.icon) |"
-  ] | join("\n")) +
-  "\n\n" +
+  (if ($relevant_rows | length) > 0 then
+    render_table($relevant_rows) + "\n\n"
+  else
+    ":mag: No queries with a significant delta (all within ±\($threshold)%)\n\n"
+  end) +
+  (if $irrelevant_count > 0 then
+    "<details>\n<summary>\($irrelevant_count) query/queries without a significant delta</summary>\n\n" +
+    render_table($irrelevant_rows) +
+    "\n\n</details>\n\n"
+  else ""
+  end) +
   "<details>\n<summary>Details</summary>\n\n" +
   "- Threshold for regression warnings: >\($threshold)% and ≥\($min_abs)ms absolute change\n" +
   "- Deltas in parentheses indicate that the absolute change is below the minimum threshold\n" +
