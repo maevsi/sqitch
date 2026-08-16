@@ -107,8 +107,7 @@ jq -n \
   end) +
   (if ($relevant_rows | length) > 0 then
     render_table($relevant_rows) + "\n\n"
-  else
-    ":mag: No queries with a significant delta (all within ±\($threshold)%)\n\n"
+  else ""
   end) +
   (if $irrelevant_count > 0 then
     "<details>\n<summary>\($irrelevant_count) query/queries without a significant delta</summary>\n\n" +
