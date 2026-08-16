@@ -54,13 +54,8 @@ CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER
 DECLARE
   _ts_config regconfig;
 BEGIN
-  -- One row per language `vibetype.language_iso_full_text_search()` currently maps to (derived from the
-  -- `vibetype.language` enum, so this automatically picks up newly supported languages, deduplicated by
-  -- configuration), plus 'simple' as a fallback for languages not yet mapped to a real configuration.
-  -- Keeping one pure, single-configuration vector per row (rather than merging all of them into one,
-  -- as an earlier version of this migration did) keeps `ts_rank_cd` scoring undiluted by cross-language
-  -- lexeme noise; see `event_search_rank()` for how these get searched without knowing the event's
-  -- language up front.
+  -- One row per language `vibetype.language_iso_full_text_search()` currently maps to (derived from the `vibetype.language` enum, so this automatically picks up newly supported languages, deduplicated by configuration), plus 'simple' as a fallback for languages not yet mapped to a real configuration.
+  -- Keeping one pure, single-configuration vector per row (rather than merging all of them into one, as an earlier version of this migration did) keeps `ts_rank_cd` scoring undiluted by cross-language lexeme noise; see `event_search_rank()` for how these get searched without knowing the event's language up front.
   FOR _ts_config IN
     SELECT DISTINCT vibetype.language_iso_full_text_search(language)
     FROM unnest(enum_range(NULL::vibetype.language)) AS language
