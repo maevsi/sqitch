@@ -51,11 +51,10 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     OR e.name % event_search.query
   ORDER BY
     GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC,
-    e.id
-  LIMIT 50;
+    e.id;
 $$;
 
-COMMENT ON FUNCTION vibetype.event_search(TEXT) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Returns at most 50 events ordered by relevance.';
+COMMENT ON FUNCTION vibetype.event_search(TEXT) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 GRANT EXECUTE ON FUNCTION similarity(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 GRANT EXECUTE ON FUNCTION similarity_op(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
