@@ -70,6 +70,7 @@ jq -n \
     {
       name: $name,
       role: $role,
+      has_baseline: ($base_entry != null),
       base_total: (if $base_entry then ($base_entry.total_time_ms | format_time) else "—" end),
       pr_total: ($pr_total | format_time),
       delta: $delta_display,
@@ -77,14 +78,21 @@ jq -n \
     }
   ] as $rows |
 
+  # Rows with no same-named query on the base side (new, renamed, or signature-changed
+  # queries) cannot be compared at all; keep them separate instead of mixing them into
+  # the delta buckets below.
+  [$rows[] | select(.has_baseline)] as $compared_rows |
+  [$rows[] | select(.has_baseline | not)] as $new_rows |
+  ($new_rows | length) as $new_count |
+
   # Count regressions and errors
-  [$rows[] | select(.icon == " :warning:")] | length as $regression_count |
+  [$compared_rows[] | select(.icon == " :warning:")] | length as $regression_count |
   [$rows[] | select(.base_total == "error :x:" or .pr_total == "error :x:")] as $error_rows |
   ($error_rows | length) as $error_count |
 
   # Relevant rows are those flagged as a regression or improvement; the rest are noise.
-  [$rows[] | select(.icon != "")] as $relevant_rows |
-  [$rows[] | select(.icon == "")] as $irrelevant_rows |
+  [$compared_rows[] | select(.icon != "")] as $relevant_rows |
+  [$compared_rows[] | select(.icon == "")] as $irrelevant_rows |
   ($irrelevant_rows | length) as $irrelevant_count |
 
   def render_table($table_rows):
@@ -92,6 +100,13 @@ jq -n \
     "|-------|------|-----------|---------|-------|\n" +
     ([$table_rows[] |
       "| `\(.name)` | \(.role | split("_") | last) | \(.base_total) | \(.pr_total) | \(.delta)\(.icon) |"
+    ] | join("\n"));
+
+  def render_new_table($table_rows):
+    "| Query | Role | PR (ms) |\n" +
+    "|-------|------|---------|\n" +
+    ([$table_rows[] |
+      "| `\(.name)` | \(.role | split("_") | last) | \(.pr_total) |"
     ] | join("\n"));
 
   # Build markdown
@@ -102,11 +117,16 @@ jq -n \
     ":white_check_mark: No significant regressions detected\n\n"
   end) +
   (if $error_count > 0 then
-    ":x: **\($error_count) query/queries errored** (function signature mismatch between branches)\n\n"
+    ":x: **\($error_count) query/queries errored**\n\n"
   else ""
   end) +
   (if ($relevant_rows | length) > 0 then
     render_table($relevant_rows) + "\n\n"
+  else ""
+  end) +
+  (if $new_count > 0 then
+    "**\($new_count) quer" + (if $new_count == 1 then "y has" else "ies have" end) + " no baseline** (new or changed since the base branch, shown without a delta)\n\n" +
+    render_new_table($new_rows) + "\n\n"
   else ""
   end) +
   (if $irrelevant_count > 0 then
