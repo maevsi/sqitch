@@ -16,6 +16,6 @@ COMMENT ON COLUMN vibetype_private.event_search_vector.event_id IS 'The event th
 COMMENT ON COLUMN vibetype_private.event_search_vector.ts_config IS 'The text search configuration this vector was built with.';
 COMMENT ON COLUMN vibetype_private.event_search_vector.search_vector IS 'A vector used for full-text search on the event, built with ts_config.';
 COMMENT ON INDEX vibetype_private.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
-COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id for efficient cascading deletes; the primary key''s composite index does not satisfy this on its own since it also includes ts_config.';
+COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id, required because the FK-index convention (see vibetype_test.index_on_foreign_key_check()) needs an index matching the FK''s columns exactly; the primary key''s composite index does not qualify since it also includes ts_config.';
 
 COMMIT;
