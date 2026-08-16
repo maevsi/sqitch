@@ -175,4 +175,21 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_search_rank_configs_covered;
 
+SAVEPOINT event_search_anonymous;
+DO $$
+BEGIN
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  BEGIN
+    PERFORM vibetype.event_search('a');
+    RAISE EXCEPTION 'Test failed (event_search_anonymous): anonymous invoker was able to search events.';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT event_search_anonymous;
+
 ROLLBACK;

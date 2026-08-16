@@ -13,10 +13,10 @@ $$;
 
 COMMENT ON FUNCTION vibetype_private.tsquery_prefix(regconfig, TEXT) IS 'Converts free text into a prefix-matching tsquery for the given text search configuration.';
 
--- Lives in the public vibetype schema (not vibetype_private) so vibetype_account/vibetype_anonymous can call it with a plain EXECUTE grant, without needing USAGE on vibetype_private, which would make every other vibetype_private function already EXECUTE-granted to them (e.g. account_block_ids(), used in RLS policies) directly callable too.
+-- Lives in the public vibetype schema (not vibetype_private) so vibetype_account can call it with a plain EXECUTE grant, without needing USAGE on vibetype_private, which would make every other vibetype_private function already EXECUTE-granted to it (e.g. account_block_ids(), used in RLS policies) directly callable too.
 -- @omit keeps it out of the GraphQL schema; it exists only for event_search() below to call.
 -- SECURITY DEFINER: runs against vibetype_private.event_search_vector, which application roles have no grant on at all (see that table's migration).
--- Only vibetype_account/vibetype_anonymous need EXECUTE on this function itself; tsquery_prefix() above needs no direct grant to them since it is now only ever called from here, running as this function's owner.
+-- Only vibetype_account needs EXECUTE on this function itself; tsquery_prefix() above needs no direct grant to it since it is now only ever called from here, running as this function's owner.
 CREATE FUNCTION vibetype.event_search_rank(query text) RETURNS TABLE(event_id UUID, rank REAL)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
@@ -36,7 +36,7 @@ $$;
 
 COMMENT ON FUNCTION vibetype.event_search_rank(TEXT) IS E'@omit\nReturns event ids matching the given query by prefix, across every text search configuration event_search_vector rows are stored in, with their relevance rank.';
 
-GRANT EXECUTE ON FUNCTION vibetype.event_search_rank(TEXT) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.event_search_rank(TEXT) TO vibetype_account;
 
 CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
@@ -56,8 +56,8 @@ $$;
 
 COMMENT ON FUNCTION vibetype.event_search(TEXT) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
-GRANT EXECUTE ON FUNCTION similarity(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
-GRANT EXECUTE ON FUNCTION similarity_op(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
-GRANT EXECUTE ON FUNCTION vibetype.event_search(TEXT) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION similarity(TEXT, TEXT) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION similarity_op(TEXT, TEXT) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype.event_search(TEXT) TO vibetype_account;
 
 COMMIT;

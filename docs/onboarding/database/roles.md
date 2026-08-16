@@ -59,7 +59,7 @@ GRANT EXECUTE ON FUNCTION vibetype.account_delete(TEXT) TO vibetype_account;
 
 GRANT EXECUTE ON FUNCTION vibetype.account_registration_refresh(UUID, TEXT) TO vibetype_anonymous;
 
-GRANT EXECUTE ON FUNCTION vibetype.event_search(TEXT) TO vibetype_account, vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.event_search(TEXT) TO vibetype_account;
 
 GRANT SELECT ON TABLE vibetype.address TO vibetype_anonymous;
 GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.address TO vibetype_account;

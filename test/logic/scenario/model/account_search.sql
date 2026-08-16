@@ -80,4 +80,21 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_search_order;
 
+SAVEPOINT account_search_anonymous;
+DO $$
+BEGIN
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  BEGIN
+    PERFORM vibetype.account_search('a');
+    RAISE EXCEPTION 'Test failed (account_search_anonymous): anonymous invoker was able to search accounts.';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT account_search_anonymous;
+
 ROLLBACK;

@@ -143,10 +143,10 @@ GRANT SELECT ON vibetype_test.benchmark_queries TO vibetype_anonymous, vibetype_
 
 INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only) VALUES
   ('account_block_ids',          'SELECT vibetype_test.account_block_ids()',                                                           FALSE),
-  ('account_search',             'SELECT * FROM vibetype.account_search(''benchmark'')',                                               FALSE),
+  ('account_search',             'SELECT * FROM vibetype.account_search(''benchmark'')',                                               TRUE),
   ('attendance_claim_array',     'SELECT vibetype.attendance_claim_array()',                                                           FALSE),
   ('event_guest_count_maximum',  'SELECT vibetype.event_guest_count_maximum(''' || current_setting('benchmark.event_id') || '''::UUID)', FALSE),
-  ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                                 FALSE),
+  ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                                 TRUE),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                              FALSE),
   ('guest_claim_array',          'SELECT vibetype.guest_claim_array()',                                                                FALSE),
   ('guest_count',                'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)',              FALSE),
