@@ -227,7 +227,11 @@ DECLARE
 BEGIN
   SELECT count(*) INTO _accounts FROM vibetype.account WHERE username LIKE 'benchmark-%';
   SELECT count(*) INTO _events FROM vibetype.event WHERE slug LIKE 'benchmark-%';
-  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_address LIKE 'contact-%';
+  SELECT count(*) INTO _contacts
+    FROM vibetype.contact ct
+    JOIN vibetype.contact_email_address cea ON cea.contact_id = ct.id
+    JOIN vibetype_private.email_address ea ON ea.id = cea.email_address_id
+    WHERE ea.address LIKE 'contact-%';
   SELECT count(*) INTO _guests FROM vibetype.guest;
   SELECT count(*) INTO _attendances FROM vibetype.attendance;
   RAISE NOTICE 'Benchmark seed complete: % accounts, % events, % contacts, % guests, % attendances',
