@@ -156,4 +156,23 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_search_typo;
 
+SAVEPOINT event_search_rank_configs_covered;
+DO $$
+DECLARE
+  _derived_configs regconfig[];
+  _handled_configs regconfig[] := ARRAY['german', 'english', 'simple']::regconfig[];
+BEGIN
+  SELECT ARRAY(
+    SELECT DISTINCT vibetype.language_iso_full_text_search(language)
+    FROM unnest(enum_range(NULL::vibetype.language)) AS language
+    UNION
+    SELECT 'simple'::regconfig
+  ) INTO _derived_configs;
+
+  IF NOT (_derived_configs <@ _handled_configs) THEN
+    RAISE EXCEPTION 'Test failed: vibetype.language_iso_full_text_search() now produces % which vibetype.event_search_rank() does not have a matching OR branch for (it only handles %). Add a matching literal branch to event_search_rank()''s WHERE clause in function_event_search.sql.', _derived_configs, _handled_configs;
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT event_search_rank_configs_covered;
+
 ROLLBACK;

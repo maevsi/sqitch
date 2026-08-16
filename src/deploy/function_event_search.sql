@@ -63,7 +63,8 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
     r.rank IS NOT NULL
     OR e.name % event_search.query
   ORDER BY
-    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC
+    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC,
+    e.id
   LIMIT 50;
 $$;
 
