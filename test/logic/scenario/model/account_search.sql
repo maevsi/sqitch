@@ -59,13 +59,20 @@ DECLARE
 BEGIN
   -- An exact match always scores the maximum possible trigram similarity (1.0), so it must rank
   -- first regardless of how many other, looser matches also exist.
+  -- 'concerto' and 'disconcert' both contain 'concert' as a substring, so they also match the
+  -- ILIKE filter, ensuring the ORDER BY ranking is genuinely exercised rather than trivially
+  -- passing because only the exact match was returned.
   _account_close := vibetype_test.account_registration_verified('concert', 'concert@example.com');
-  PERFORM vibetype_test.account_registration_verified('disconnect', 'disconnect@example.com');
-  PERFORM vibetype_test.account_registration_verified('conclave', 'conclave@example.com');
+  PERFORM vibetype_test.account_registration_verified('concerto', 'concerto@example.com');
+  PERFORM vibetype_test.account_registration_verified('disconcert', 'disconcert@example.com');
 
   PERFORM vibetype_test.invoker_set(_account_close);
 
   _search_result := ARRAY(SELECT username FROM vibetype.account_search('concert'));
+
+  IF array_length(_search_result, 1) <> 3 THEN
+    RAISE EXCEPTION E'Test failed: all three matching usernames should be returned.\nReturned: %', _search_result;
+  END IF;
 
   IF _search_result[1] <> 'concert' THEN
     RAISE EXCEPTION E'Test failed: exact username match should rank first.\nReturned: %', _search_result;
