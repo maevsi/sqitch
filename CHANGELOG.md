@@ -1,3 +1,7 @@
+## [13.0.0-beta.7](https://github.com/maevsi/sqitch/compare/13.0.0-beta.6...13.0.0-beta.7) (2026-08-16)
+
+## [13.0.0-beta.6](https://github.com/maevsi/sqitch/compare/13.0.0-beta.5...13.0.0-beta.6) (2026-08-14)
+
 ## [13.0.0-beta.5](https://github.com/maevsi/sqitch/compare/13.0.0-beta.4...13.0.0-beta.5) (2026-08-09)
 
 ## [13.0.0-beta.4](https://github.com/maevsi/sqitch/compare/13.0.0-beta.3...13.0.0-beta.4) (2026-08-09)

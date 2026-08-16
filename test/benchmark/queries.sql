@@ -82,42 +82,22 @@ $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.benchmark_measure(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 
--- Wrappers for private-schema functions that user roles need to benchmark.
--- Handle both UUID[] (current) and TABLE (base branch) return types.
-CREATE FUNCTION vibetype_test.events_invited() RETURNS UUID[]
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-  result UUID[];
-BEGIN
-  BEGIN
-    result := vibetype_private.events_invited();
-  EXCEPTION WHEN OTHERS THEN
-    SELECT COALESCE(array_agg(event_id), ARRAY[]::UUID[]) INTO result
-      FROM vibetype_private.events_invited();
-  END;
-  RETURN result;
-END;
-$$;
-
+-- vibetype_anonymous/vibetype_account have no USAGE on vibetype_private, so these
+-- private-schema functions need a security definer proxy to be benchmarkable at all.
 CREATE FUNCTION vibetype_test.account_block_ids() RETURNS UUID[]
-    LANGUAGE plpgsql SECURITY DEFINER
+    LANGUAGE sql SECURITY DEFINER
     AS $$
-DECLARE
-  result UUID[];
-BEGIN
-  BEGIN
-    result := vibetype_private.account_block_ids();
-  EXCEPTION WHEN OTHERS THEN
-    SELECT COALESCE(array_agg(id), ARRAY[]::UUID[]) INTO result
-      FROM vibetype_private.account_block_ids();
-  END;
-  RETURN result;
-END;
+  SELECT vibetype_private.account_block_ids();
 $$;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.events_invited() TO vibetype_anonymous, vibetype_account;
+CREATE FUNCTION vibetype_test.events_invited() RETURNS UUID[]
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT vibetype_private.events_invited();
+$$;
+
 GRANT EXECUTE ON FUNCTION vibetype_test.account_block_ids() TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.events_invited() TO vibetype_anonymous, vibetype_account;
 
 -- Resolve benchmark IDs.
 DO $$
@@ -146,7 +126,7 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('account_search',             'SELECT * FROM vibetype.account_search(''benchmark'')',                                               TRUE),
   ('attendance_claim_array',     'SELECT vibetype.attendance_claim_array()',                                                           FALSE),
   ('event_guest_count_maximum',  'SELECT vibetype.event_guest_count_maximum(''' || current_setting('benchmark.event_id') || '''::UUID)', FALSE),
-  ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'', ''en'')',                                         FALSE),
+  ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                                 TRUE),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                              FALSE),
   ('guest_claim_array',          'SELECT vibetype.guest_claim_array()',                                                                FALSE),
   ('guest_count',                'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)',              FALSE),
