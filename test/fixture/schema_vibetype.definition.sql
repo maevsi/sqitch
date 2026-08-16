@@ -1232,7 +1232,7 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
   -- authored in; see vibetype_private.event_search_vector and the trigger that populates it.
   SELECT e.*
   FROM vibetype.event e
-  LEFT JOIN vibetype_private.event_search_rank(event_search.query) r ON r.event_id = e.id
+  LEFT JOIN vibetype.event_search_rank(event_search.query) r ON r.event_id = e.id
   WHERE
     r.rank IS NOT NULL
     OR e.name % event_search.query
@@ -1249,6 +1249,44 @@ ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Returns at most 50 events ordered by relevance.';
+
+
+--
+-- Name: event_search_rank(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_search_rank(query text) RETURNS TABLE(event_id uuid, rank real)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own
+  -- ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring;
+  -- see table_event_search_vector's migration). Each `@@` branch uses a literal, call-time-constant
+  -- config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the
+  -- SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use
+  -- the row's actual esv.ts_config directly. The list of configs tried is static rather than derived the
+  -- same way the vector-populating trigger does, since this runs on every search request and there is no
+  -- built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple')
+  -- configurations are added.
+  SELECT
+    esv.event_id,
+    MAX(ts_rank_cd(esv.search_vector, vibetype_private.tsquery_prefix(esv.ts_config, event_search_rank.query))) AS rank
+  FROM vibetype_private.event_search_vector esv
+  WHERE
+    (esv.ts_config = 'german'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('german', event_search_rank.query))
+    OR (esv.ts_config = 'english'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('english', event_search_rank.query))
+    OR (esv.ts_config = 'simple'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('simple', event_search_rank.query))
+  GROUP BY esv.event_id;
+$$;
+
+
+ALTER FUNCTION vibetype.event_search_rank(query text) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_search_rank(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_search_rank(query text) IS '@omit
+Returns event ids matching the given query by prefix, across every text search configuration event_search_vector rows are stored in, with their relevance rank.';
 
 
 --
@@ -2269,43 +2307,6 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.attendance_via_own_events() OWNER TO ci;
-
---
--- Name: event_search_rank(text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.event_search_rank(query text) RETURNS TABLE(event_id uuid, rank real)
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own
-  -- ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring;
-  -- see table_event_search_vector's migration). Each `@@` branch uses a literal, call-time-constant
-  -- config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the
-  -- SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use
-  -- the row's actual esv.ts_config directly. The list of configs tried is static rather than derived the
-  -- same way the vector-populating trigger does, since this runs on every search request and there is no
-  -- built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple')
-  -- configurations are added.
-  SELECT
-    esv.event_id,
-    MAX(ts_rank_cd(esv.search_vector, vibetype_private.tsquery_prefix(esv.ts_config, event_search_rank.query))) AS rank
-  FROM vibetype_private.event_search_vector esv
-  WHERE
-    (esv.ts_config = 'german'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('german', event_search_rank.query))
-    OR (esv.ts_config = 'english'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('english', event_search_rank.query))
-    OR (esv.ts_config = 'simple'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('simple', event_search_rank.query))
-  GROUP BY esv.event_id;
-$$;
-
-
-ALTER FUNCTION vibetype_private.event_search_rank(query text) OWNER TO ci;
-
---
--- Name: FUNCTION event_search_rank(query text); Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype_private.event_search_rank(query text) IS 'Returns event ids matching the given query by prefix, across every text search configuration event_search_vector rows are stored in, with their relevance rank.';
-
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -5003,7 +5004,7 @@ ALTER TABLE vibetype_private.event_search_vector OWNER TO ci;
 -- Name: TABLE event_search_vector; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TABLE vibetype_private.event_search_vector IS 'A per-text-search-configuration search vector for an event: one row per configuration `vibetype.language_iso_full_text_search()` currently maps a supported language to (deduplicated), plus a ''simple'' fallback row. Populated by `vibetype.event`''s search_vector trigger; not directly accessible to application roles, only through `vibetype_private.event_search_rank()`.';
+COMMENT ON TABLE vibetype_private.event_search_vector IS 'A per-text-search-configuration search vector for an event: one row per configuration `vibetype.language_iso_full_text_search()` currently maps a supported language to (deduplicated), plus a ''simple'' fallback row. Populated by `vibetype.event`''s search_vector trigger; not directly accessible to application roles, only through `vibetype.event_search_rank()`.';
 
 
 --
@@ -7532,8 +7533,6 @@ GRANT USAGE ON SCHEMA vibetype TO vibetype;
 --
 
 GRANT USAGE ON SCHEMA vibetype_private TO grafana;
-GRANT USAGE ON SCHEMA vibetype_private TO vibetype_account;
-GRANT USAGE ON SCHEMA vibetype_private TO vibetype_anonymous;
 GRANT USAGE ON SCHEMA vibetype_private TO vibetype;
 
 
@@ -7723,6 +7722,15 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION event_search_rank(query text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_search_rank(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_search_rank(query text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.event_search_rank(query text) TO vibetype_anonymous;
 
 
 --
@@ -7937,15 +7945,6 @@ GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_contact() TO vibetype_
 REVOKE ALL ON FUNCTION vibetype_private.attendance_via_own_events() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION event_search_rank(query text); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.event_search_rank(query text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.event_search_rank(query text) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.event_search_rank(query text) TO vibetype_anonymous;
 
 
 --
