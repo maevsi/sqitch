@@ -31,6 +31,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - Performance is key: always consider query planner optimizations when writing SQL
 - Prefer SQL over PL/pgSQL, except where it doesn't make sense
 - Foreign keys must have corresponding indexes
+- Query timings are benchmarked against the merge base on every PR; see [docs/advanced/database/benchmarking.md](docs/advanced/database/benchmarking.md)
 
 ## Testing
 
