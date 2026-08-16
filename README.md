@@ -58,6 +58,7 @@ To fully understand the quick start commands above and Vibetype's database conce
 1. **Database concepts**
     1. [Row Level Security](./docs/advanced/database/row_level_security.md)
     1. [Vacuuming](./docs/advanced/database/vacuum.md)
+    1. [Query Performance Benchmarking](./docs/advanced/database/benchmarking.md)
 
 ## 🚀 Preview
 

@@ -62,7 +62,7 @@ jobs:
         run: sqitch --chdir base/src deploy --target db:pg://ci:postgres@localhost/ci_database
 
       - name: Run base benchmarks
-        run: ./test/benchmark/run.sh /tmp/benchmark_base.json "pg://ci:postgres@localhost/ci_database"
+        run: ./base/test/benchmark/run.sh /tmp/benchmark_base.json "pg://ci:postgres@localhost/ci_database"
 
       - name: Revert base migrations
         run: sqitch --chdir base/src revert --target db:pg://ci:postgres@localhost/ci_database -y
