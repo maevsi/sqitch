@@ -686,15 +686,12 @@ The account''s username. Must be alphanumeric with hyphens and not exceed 100 ch
 CREATE FUNCTION vibetype.account_search(query text) RETURNS SETOF vibetype.account
     LANGUAGE sql STABLE
     AS $$
-  -- Ordering by the <-> distance operator (rather than similarity(...) DESC, which is equivalent but
-  -- not index-assisted) lets idx_account_username_trgm's GiST index serve both the WHERE filter and the
-  -- ORDER BY in a single index scan, instead of a full sort over every ILIKE-matched row.
   SELECT *
   FROM vibetype.account
   WHERE
     username ILIKE '%' || account_search.query || '%'
   ORDER BY
-    username <-> account_search.query,
+    similarity(username, account_search.query) DESC,
     username
   LIMIT 50;
 $$;
@@ -5729,17 +5726,17 @@ CREATE INDEX idx_account_social_network_account_id ON vibetype.account_social_ne
 
 
 --
--- Name: idx_account_username_trgm; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_account_username_trgm ON vibetype.account USING gist (username public.gist_trgm_ops);
+CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username public.gin_trgm_ops);
 
 
 --
--- Name: INDEX idx_account_username_trgm; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: INDEX idx_account_username_like; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON INDEX vibetype.idx_account_username_trgm IS 'GiST trigram index on username, used for LIKE/ILIKE matching and (unlike a GIN trigram index) for index-assisted similarity-distance ordering (the <-> operator) in account_search.';
+COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
 
 
 --

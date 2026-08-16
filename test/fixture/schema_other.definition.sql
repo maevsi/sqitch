@@ -1161,8 +1161,6 @@ GRANT ALL ON FUNCTION public.similarity(text, text) TO vibetype_anonymous;
 --
 
 REVOKE ALL ON FUNCTION public.similarity_dist(text, text) FROM PUBLIC;
-GRANT ALL ON FUNCTION public.similarity_dist(text, text) TO vibetype_account;
-GRANT ALL ON FUNCTION public.similarity_dist(text, text) TO vibetype_anonymous;
 
 
 --
