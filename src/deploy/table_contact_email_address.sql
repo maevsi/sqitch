@@ -64,7 +64,8 @@ USING (
 );
 
 -- Keeps contact_identity_check's invariant (a contact must be reachable via a linked account or
--- at least one email address) intact when a contact's last email address link is removed.
+-- at least one email address) intact when a contact's last email address link is removed, or
+-- reassigned to a different contact via UPDATE OF contact_id.
 CREATE FUNCTION vibetype.trigger_contact_email_address_identity_check() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
@@ -75,7 +76,7 @@ END;
 $$;
 
 CREATE CONSTRAINT TRIGGER contact_identity_check
-  AFTER DELETE ON vibetype.contact_email_address
+  AFTER DELETE OR UPDATE OF contact_id ON vibetype.contact_email_address
   DEFERRABLE INITIALLY DEFERRED
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_contact_email_address_identity_check();

@@ -160,4 +160,39 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_identity_account_only;
 
+-- Test that reassigning a contact_email_address row's contact_id away from a contact that has no
+-- account_id and no other email address is rejected, the same way deleting that row already is.
+SAVEPOINT contact_email_address_update_identity_missing;
+DO $$
+DECLARE
+  accountA UUID;
+  contactA UUID;
+  contactB UUID;
+  _email_address_id UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  contactA := vibetype_test.contact_create(accountA, 'b@example.com');
+  -- contactB has its own, separate email link, so its own identity check is unaffected by this test.
+  contactB := vibetype_test.contact_create(accountA, 'c@example.com');
+
+  SELECT email_address_id INTO _email_address_id FROM vibetype.contact_email_address WHERE contact_id = contactA;
+
+  BEGIN
+    SET CONSTRAINTS vibetype.contact_identity_check IMMEDIATE;
+    -- is_primary is also cleared here so the move doesn't collide with contactB's own primary row.
+    UPDATE vibetype.contact_email_address
+      SET contact_id = contactB, is_primary = FALSE
+      WHERE contact_id = contactA AND email_address_id = _email_address_id;
+    RAISE EXCEPTION 'Test failed (contact_email_address_update_identity_missing): reassigning the only email address away from a contact without an account_id was accepted';
+  EXCEPTION
+    WHEN check_violation THEN
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT contact_email_address_update_identity_missing;
+
 ROLLBACK;
