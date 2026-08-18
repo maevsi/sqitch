@@ -74,6 +74,20 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_select_by_email_address(TEXT) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.account_email_address_verification_pend(_account_id UUID)
+RETURNS VOID
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  UPDATE vibetype_private.account_email_address
+  SET verification = public.gen_random_uuid()
+  WHERE account_id = _account_id AND is_primary;
+$$;
+
+COMMENT ON FUNCTION vibetype_test.account_email_address_verification_pend(UUID) IS 'Puts an account''s primary email address back into a pending (re-)verification state, e.g. to test that login by email is rejected while a re-verification is pending.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_email_address_verification_pend(UUID) TO vibetype_account;
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_event_distance(
   _event_id UUID,
   _distance_max DOUBLE PRECISION

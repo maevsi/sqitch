@@ -16,13 +16,16 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
         WHEN position('@' IN jwt_create.username) = 0 THEN
           (SELECT id FROM vibetype.account WHERE username = jwt_create.username)
         ELSE
+          -- aea.verification IS NULL excludes a primary address that's still pending
+          -- (re-)verification, matching account_password_reset_request's same lookup.
           (SELECT aea.account_id
              FROM vibetype_private.email_address ea
              JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
-             WHERE ea.address = jwt_create.username AND aea.is_primary)
+             WHERE ea.address = jwt_create.username AND aea.is_primary AND aea.verification IS NULL)
       END AS id
   ),
-  -- no email-verified check here: accounts only ever come into existence already verified,
+  -- no further email-verified check needed here: _account_lookup above already filters out an
+  -- unverified primary address, and accounts only ever come into existence already verified,
   -- since email confirmation now happens before account_registration creates the account at all
   _account_validation AS (
     SELECT
