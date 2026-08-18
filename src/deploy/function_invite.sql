@@ -98,6 +98,7 @@ BEGIN
         'id', _outbox_id,
         'guest_id', _guest.id,
         'type', 'guest.invited',
+        'subject_id', _subject_id,
         'contact_time_zone', _contact.time_zone,
         'event', jsonb_build_object(
           'id', _event.id,

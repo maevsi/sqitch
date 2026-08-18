@@ -50,6 +50,7 @@ BEGIN
       'id', _outbox_id,
       'email_address_id', _email_address_id,
       'type', 'email_address.verification_requested',
+      'subject_id', _subject_id,
       'valid_until', _verification_valid_until,
       'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
         'emailAddress', email_address_verification_request.email_address,

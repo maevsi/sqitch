@@ -9,6 +9,7 @@ DO $$
 DECLARE
   outbox_row RECORD;
   subject_key BYTEA;
+  subject_id UUID;
   encrypted_bytes BYTEA;
   decrypted JSONB;
 BEGIN
@@ -31,13 +32,17 @@ BEGIN
     RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): payload must carry the non-PII valid_until as plaintext';
   END IF;
 
-  SELECT s.key INTO subject_key
+  SELECT s.id, s.key INTO subject_id, subject_key
     FROM vibetype_private.email_address ea
     JOIN vibetype_private.subject s ON s.id = ea.subject_id
     WHERE ea.address = 'verify@example.com';
 
   IF subject_key IS NULL THEN
     RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): could not resolve subject key';
+  END IF;
+
+  IF outbox_row.payload ->> 'subject_id' != subject_id::text THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_email_address_verification): payload subject_id % does not match %', outbox_row.payload ->> 'subject_id', subject_id;
   END IF;
 
   encrypted_bytes := decode(outbox_row.payload ->> 'encrypted', 'base64');
@@ -64,6 +69,7 @@ DECLARE
   accountA UUID;
   outbox_row RECORD;
   subject_key BYTEA;
+  subject_id UUID;
   encrypted_bytes BYTEA;
   decrypted JSONB;
 BEGIN
@@ -92,7 +98,7 @@ BEGIN
     RAISE EXCEPTION 'Test failed (outbox_payload_account_password_reset): payload account_id % does not match %', outbox_row.payload ->> 'account_id', accountA;
   END IF;
 
-  SELECT s.key INTO subject_key
+  SELECT s.id, s.key INTO subject_id, subject_key
     FROM vibetype_private.account_email_address aea
     JOIN vibetype_private.email_address ea ON ea.id = aea.email_address_id
     JOIN vibetype_private.subject s ON s.id = ea.subject_id
@@ -100,6 +106,10 @@ BEGIN
 
   IF subject_key IS NULL THEN
     RAISE EXCEPTION 'Test failed (outbox_payload_account_password_reset): could not resolve subject key';
+  END IF;
+
+  IF outbox_row.payload ->> 'subject_id' != subject_id::text THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_account_password_reset): payload subject_id % does not match %', outbox_row.payload ->> 'subject_id', subject_id;
   END IF;
 
   encrypted_bytes := decode(outbox_row.payload ->> 'encrypted', 'base64');
@@ -130,6 +140,7 @@ DECLARE
   guestAB UUID;
   outbox_row RECORD;
   subject_key BYTEA;
+  subject_id UUID;
   encrypted_bytes BYTEA;
   decrypted JSONB;
 BEGIN
@@ -174,7 +185,7 @@ BEGIN
     RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): template time_zone % does not match', outbox_row.payload -> 'template' ->> 'time_zone';
   END IF;
 
-  SELECT s.key INTO subject_key
+  SELECT s.id, s.key INTO subject_id, subject_key
     FROM vibetype.contact_email_address cea
     JOIN vibetype_private.email_address ea ON ea.id = cea.email_address_id
     JOIN vibetype_private.subject s ON s.id = ea.subject_id
@@ -182,6 +193,10 @@ BEGIN
 
   IF subject_key IS NULL THEN
     RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): could not resolve subject key';
+  END IF;
+
+  IF outbox_row.payload ->> 'subject_id' != subject_id::text THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): payload subject_id % does not match %', outbox_row.payload ->> 'subject_id', subject_id;
   END IF;
 
   encrypted_bytes := decode(outbox_row.payload ->> 'encrypted', 'base64');

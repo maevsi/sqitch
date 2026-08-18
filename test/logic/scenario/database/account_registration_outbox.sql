@@ -42,6 +42,18 @@ BEGIN
   IF outbox_row.payload ->> 'account_id' != accountA::text THEN
     RAISE EXCEPTION 'Test failed (account_registration_outbox): payload account_id % does not match %', outbox_row.payload ->> 'account_id', accountA;
   END IF;
+
+  -- subject_id lets the consumer fetch the decryption key by a stable id instead of re-deriving
+  -- "the current primary email" at consumption time.
+  IF outbox_row.payload ->> 'subject_id' != (
+    SELECT s.id::text
+    FROM vibetype_private.account_email_address aea
+    JOIN vibetype_private.email_address ea ON ea.id = aea.email_address_id
+    JOIN vibetype_private.subject s ON s.id = ea.subject_id
+    WHERE aea.account_id = accountA AND aea.is_primary
+  ) THEN
+    RAISE EXCEPTION 'Test failed (account_registration_outbox): payload subject_id % does not match the account''s primary email subject', outbox_row.payload ->> 'subject_id';
+  END IF;
 END $$;
 ROLLBACK TO SAVEPOINT account_registration_outbox;
 

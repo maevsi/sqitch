@@ -7,12 +7,13 @@ DECLARE
   _email_address_id UUID;
   _email_address TEXT;
   _language TEXT;
+  _subject_id UUID;
   _time_zone TEXT;
   _new_account_private vibetype_private.account;
   _outbox_id UUID := public.gen_random_uuid();
 BEGIN
-  SELECT ea.id, ea.address, eav.language, eav.time_zone
-    INTO _email_address_id, _email_address, _language, _time_zone
+  SELECT ea.id, ea.address, eav.language, eav.time_zone, ea.subject_id
+    INTO _email_address_id, _email_address, _language, _time_zone, _subject_id
     FROM vibetype_private.email_address_verification eav
     JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
     WHERE eav.id = account_registration.email_address_verification_id
@@ -68,8 +69,9 @@ BEGIN
       'id', _outbox_id,
       'account_id', _new_account_private.id,
       'type', 'account.registered',
+      'subject_id', _subject_id,
       'encrypted', encode(vibetype_private.outbox_encrypt(
-        (SELECT subject_id FROM vibetype_private.email_address WHERE id = _email_address_id),
+        _subject_id,
         jsonb_build_object('emailAddress', _email_address, 'username', account_registration.username)
       ), 'base64'),
       'template', jsonb_build_object('language', _language, 'time_zone', _time_zone)

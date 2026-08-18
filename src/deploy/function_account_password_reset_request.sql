@@ -36,6 +36,7 @@ BEGIN
       'id', _outbox_id,
       'account_id', _account_id,
       'type', 'account.password_reset_requested',
+      'subject_id', _subject_id,
       'password_reset_verification_valid_until', _password_reset_verification_valid_until,
       'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
         'emailAddress', account_password_reset_request.email_address,
