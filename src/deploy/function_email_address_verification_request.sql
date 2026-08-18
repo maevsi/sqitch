@@ -22,6 +22,18 @@ BEGIN
     RETURN; -- silent no-op, matching the existing anti-enumeration pattern for already-registered addresses
   END IF;
 
+  -- Resend cooldown: if a pending (unconfirmed) verification was issued for this address within
+  -- the last minute, don't delete and reissue it. Without this, an attacker who doesn't control
+  -- the inbox could keep invalidating a victim's in-flight code by repeatedly requesting a new one.
+  IF EXISTS (
+    SELECT 1 FROM vibetype_private.email_address_verification
+    WHERE email_address_id = _email_address_id
+      AND confirmed_at IS NULL
+      AND created_at > CURRENT_TIMESTAMP - INTERVAL '60 seconds'
+  ) THEN
+    RETURN; -- silent no-op, same anti-enumeration/no-signal pattern as above
+  END IF;
+
   -- only one pending verification per address; a repeated request invalidates any earlier code
   DELETE FROM vibetype_private.email_address_verification WHERE email_address_id = _email_address_id AND confirmed_at IS NULL;
 

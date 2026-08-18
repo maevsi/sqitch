@@ -72,6 +72,22 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.email_address_verification_expire(UUID) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.email_address_verification_age(
+  _verification_id UUID,
+  _age INTERVAL
+) RETURNS VOID
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  UPDATE vibetype_private.email_address_verification
+  SET created_at = CURRENT_TIMESTAMP - _age
+  WHERE id = _verification_id;
+$$;
+
+COMMENT ON FUNCTION vibetype_test.email_address_verification_age(UUID, INTERVAL) IS 'Backdates a pending verification''s created_at, e.g. to test the email_address_verification_request resend cooldown past its window.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.email_address_verification_age(UUID, INTERVAL) TO vibetype_account;
+
+
 CREATE FUNCTION vibetype_test.account_registration_verified (
   _username TEXT,
   _email_address TEXT

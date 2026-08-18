@@ -4,4 +4,6 @@ COMMENT ON FUNCTION vibetype.jwt_create(TEXT, TEXT) IS E'@turnstileProtected\nCr
 
 COMMENT ON FUNCTION vibetype.account_registration(UUID, DATE, UUID, TEXT, TEXT) IS E'@turnstileProtected\nCompletes registration for a confirmed email address verification: creates the account, contact, and legal term acceptance, and fires a welcome email.\n\nError codes:\n- **P0002** when the email address verification is not found or not confirmed.\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
 
+COMMENT ON FUNCTION vibetype.email_address_verification_request(TEXT, TEXT, TEXT) IS E'@turnstileProtected\nRequests a proof-of-ownership confirmation email for an address, before any account exists. Calling it again for an address with a still-pending verification issues a fresh code and invalidates the previous one.';
+
 COMMIT;

@@ -142,6 +142,52 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT email_uniqueness;
 
+-- A repeated request within the resend cooldown must not delete and reissue the still-fresh
+-- pending code (e.g. an attacker repeatedly invalidating a victim's in-flight verification).
+SAVEPOINT email_address_verification_request_cooldown;
+DO $$
+DECLARE
+  _first_id UUID;
+  _second_id UUID;
+BEGIN
+  _first_id := vibetype_test.email_address_verification_pending('cooldown@example.com', 'en', 'UTC');
+
+  PERFORM vibetype.email_address_verification_request('cooldown@example.com', 'en', 'UTC');
+
+  SELECT eav.id INTO _second_id
+    FROM vibetype_private.email_address_verification eav
+    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+    WHERE ea.address = 'cooldown@example.com';
+
+  IF _second_id != _first_id THEN
+    RAISE EXCEPTION 'Test failed (email_address_verification_request_cooldown): a repeated request within the cooldown replaced the still-fresh pending verification';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT email_address_verification_request_cooldown;
+
+-- Once the cooldown window has passed, a repeated request must delete and reissue as before.
+SAVEPOINT email_address_verification_request_cooldown_expired;
+DO $$
+DECLARE
+  _first_id UUID;
+  _second_id UUID;
+BEGIN
+  _first_id := vibetype_test.email_address_verification_pending('cooldown@example.com', 'en', 'UTC');
+  PERFORM vibetype_test.email_address_verification_age(_first_id, INTERVAL '61 seconds');
+
+  PERFORM vibetype.email_address_verification_request('cooldown@example.com', 'en', 'UTC');
+
+  SELECT eav.id INTO _second_id
+    FROM vibetype_private.email_address_verification eav
+    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+    WHERE ea.address = 'cooldown@example.com';
+
+  IF _second_id = _first_id THEN
+    RAISE EXCEPTION 'Test failed (email_address_verification_request_cooldown_expired): a request past the cooldown window did not reissue a fresh verification';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT email_address_verification_request_cooldown_expired;
+
 SAVEPOINT username_null;
 DO $$
 DECLARE
