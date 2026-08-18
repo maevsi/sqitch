@@ -55,6 +55,25 @@ EXCEPTION WHEN SQLSTATE 'P0002' THEN
 END $$;
 ROLLBACK TO SAVEPOINT registration_requires_confirmation;
 
+-- A confirmed verification whose validity window has since passed (e.g. confirmed long ago and
+-- never completed) must not be usable to complete registration either.
+SAVEPOINT registration_requires_unexpired_verification;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+  _verification_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  _verification_id := vibetype_test.email_address_verification_confirmed('email@example.com', 'en', 'UTC');
+  PERFORM vibetype_test.email_address_verification_expire(_verification_id);
+
+  PERFORM vibetype.account_registration(_verification_id, '1970-01-01', _legal_term_id, 'password', 'username');
+  RAISE EXCEPTION 'Test failed: registration completed with an expired, confirmed email address verification';
+EXCEPTION WHEN SQLSTATE 'P0002' THEN
+  NULL;
+END $$;
+ROLLBACK TO SAVEPOINT registration_requires_unexpired_verification;
+
 SAVEPOINT birth_date_age;
 DO $$
 DECLARE

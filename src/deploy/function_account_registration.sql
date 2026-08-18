@@ -16,7 +16,10 @@ BEGIN
     FROM vibetype_private.email_address_verification eav
     JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
     WHERE eav.id = account_registration.email_address_verification_id
-      AND eav.confirmed_at IS NOT NULL;
+      AND eav.confirmed_at IS NOT NULL
+      -- A confirmed verification can still be long abandoned; require it to also still be within
+      -- its validity window, so a stale confirmed link can't complete registration indefinitely.
+      AND CURRENT_TIMESTAMP <= eav.valid_until;
 
   IF (_email_address_id IS NULL) THEN
     RAISE 'Email address verification not found or not confirmed!' USING ERRCODE = 'no_data_found';

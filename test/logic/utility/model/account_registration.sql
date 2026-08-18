@@ -59,6 +59,19 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.email_address_verification_exists(TEXT) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.email_address_verification_expire (
+  _verification_id UUID
+) RETURNS VOID
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  UPDATE vibetype_private.email_address_verification
+  SET valid_until = CURRENT_TIMESTAMP - INTERVAL '1 second'
+  WHERE id = _verification_id;
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.email_address_verification_expire(UUID) TO vibetype_account;
+
+
 CREATE FUNCTION vibetype_test.account_registration_verified (
   _username TEXT,
   _email_address TEXT
