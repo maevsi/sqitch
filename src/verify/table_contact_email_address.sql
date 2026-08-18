@@ -13,6 +13,11 @@ BEGIN
 
   ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.email_address', 'SELECT'));
   ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype_private.email_address', 'SELECT'));
+  ASSERT (SELECT pg_catalog.has_schema_privilege('vibetype_account', 'vibetype_private', 'USAGE'));
+  ASSERT (SELECT pg_catalog.has_schema_privilege('vibetype_anonymous', 'vibetype_private', 'USAGE'));
+  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype_private.email_address_readable(UUID)', 'EXECUTE'));
+  ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype_private.email_address_readable(UUID)', 'EXECUTE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype_private.account_email_address', 'SELECT'));
 END $$;
 
 ROLLBACK;

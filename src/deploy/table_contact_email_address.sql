@@ -84,30 +84,49 @@ CREATE CONSTRAINT TRIGGER contact_identity_check
 -- Both account_email_address and contact_email_address now exist, so email_address's own read
 -- access can be scoped to whichever addresses the caller is entitled to see through either join
 -- (their own account's, or their own contacts'), instead of leaving that private schema
--- unreadable to vibetype_account/vibetype_anonymous entirely.
+-- unreadable to vibetype_account/vibetype_anonymous entirely. USAGE on the schema itself is
+-- required too: GRANT on the table alone still leaves schema-qualified lookups (as PostGraphile
+-- issues them) failing with "permission denied for schema vibetype_private".
+GRANT USAGE ON SCHEMA vibetype_private TO vibetype_account, vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype_private.email_address TO vibetype_account, vibetype_anonymous;
+
+-- Needs SECURITY DEFINER: account_email_address carries each account's own email verification
+-- secret and is intentionally never granted to app roles directly (unlike email_address itself,
+-- just above), so this check has to run with elevated privileges to see whether a row exists,
+-- without exposing the table itself. contact_email_address and contact are both readable already,
+-- but are folded in here too to avoid a second per-row policy call and to also bypass their own
+-- RLS while checking, matching the vibetype_private.guest_row_visible precedent (table_guest_policy.sql).
+CREATE FUNCTION vibetype_private.email_address_readable(_email_address_id UUID) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT (
+    EXISTS (
+      SELECT 1 FROM vibetype_private.account_email_address aea
+      WHERE aea.email_address_id = _email_address_id AND aea.account_id = vibetype.invoker_account_id()
+    )
+    OR EXISTS (
+      SELECT 1 FROM vibetype.contact_email_address cea
+      JOIN vibetype.contact c ON c.id = cea.contact_id
+      WHERE cea.email_address_id = _email_address_id AND c.created_by = vibetype.invoker_account_id()
+    )
+    -- A guest reading their own invite must reach the same email address rows contact_email_address
+    -- already exposes to them via its own guest_contact_ids() branch above; otherwise the join from
+    -- contact_email_address to this table would come back empty for a guest.
+    OR EXISTS (
+      SELECT 1 FROM vibetype.contact_email_address cea
+      JOIN vibetype.guest_contact_ids() gci ON gci.contact_id = cea.contact_id
+      WHERE cea.email_address_id = _email_address_id
+    )
+  );
+$$;
+
+COMMENT ON FUNCTION vibetype_private.email_address_readable(UUID) IS 'Whether the invoker is entitled to read the given email address, through their own account, a contact they created, or a guest claim on that contact.';
+
+GRANT EXECUTE ON FUNCTION vibetype_private.email_address_readable(UUID) TO vibetype_account, vibetype_anonymous;
 
 CREATE POLICY email_address_select ON vibetype_private.email_address FOR SELECT
 USING (
-  EXISTS (
-    SELECT 1 FROM vibetype_private.account_email_address aea
-    WHERE aea.email_address_id = email_address.id AND aea.account_id = vibetype.invoker_account_id()
-  )
-  OR
-  EXISTS (
-    SELECT 1 FROM vibetype.contact_email_address cea
-    JOIN vibetype.contact c ON c.id = cea.contact_id
-    WHERE cea.email_address_id = email_address.id AND c.created_by = vibetype.invoker_account_id()
-  )
-  OR
-  -- A guest reading their own invite must reach the same email address rows contact_email_address
-  -- already exposes to them via its own guest_contact_ids() branch above; otherwise the join from
-  -- contact_email_address to this table would come back empty for a guest.
-  EXISTS (
-    SELECT 1 FROM vibetype.contact_email_address cea
-    JOIN vibetype.guest_contact_ids() gci ON gci.contact_id = cea.contact_id
-    WHERE cea.email_address_id = email_address.id
-  )
+  vibetype_private.email_address_readable(email_address.id)
 );
 
 COMMIT;
