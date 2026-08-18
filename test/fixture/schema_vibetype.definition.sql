@@ -285,7 +285,7 @@ BEGIN
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
-    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND NOT EXISTS (SELECT 1 FROM vibetype.contact_email_address cea WHERE cea.contact_id = contact.id); -- contacts with no email fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
+    UPDATE vibetype.contact SET account_deleted = TRUE WHERE account_id = _current_account_id; -- marks peer contacts (created by other accounts) that reference this account, before the FK's ON DELETE SET NULL clears account_id below, so contact_identity_check always sees a valid state and these contacts survive the deletion instead of being wiped from someone else's contact book
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -300,7 +300,7 @@ ALTER FUNCTION vibetype.account_delete(password text) OWNER TO ci;
 -- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
+COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account. Peer contacts that other accounts created referencing this account are kept, with account_id cleared and account_deleted set to true, instead of being deleted.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
 
 
 --
@@ -839,9 +839,13 @@ BEGIN
       AND (
         c.account_id IS NOT NULL
         OR EXISTS (SELECT 1 FROM vibetype.contact_email_address cea WHERE cea.contact_id = c.id)
+        -- The account this contact used to be reachable through was deleted (see
+        -- vibetype.account_delete): account_deleted stands in for the now-cleared account_id so the
+        -- contact itself is kept instead of being wiped from someone else's contact book.
+        OR (c.account_id IS NULL AND c.account_deleted)
       )
   ) THEN
-    RAISE EXCEPTION 'A contact must be reachable via a linked account or at least one email address.' USING ERRCODE = 'check_violation';
+    RAISE EXCEPTION 'A contact must be reachable via a linked account, at least one email address, or a deleted-account marker.' USING ERRCODE = 'check_violation';
   END IF;
 END;
 $$;
@@ -1985,49 +1989,46 @@ $$;
 ALTER FUNCTION vibetype.legal_term_change() OWNER TO ci;
 
 --
--- Name: outbox_acknowledge(uuid, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: outbox_is_processed(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  UPDATE vibetype_private.outbox SET is_acknowledged = outbox_acknowledge.is_acknowledged WHERE "outbox".id = outbox_acknowledge.id;
-
-  IF NOT FOUND THEN
-    RAISE 'Outbox event with given id not found!' USING ERRCODE = 'no_data_found';
-  END IF;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) OWNER TO ci;
-
---
--- Name: FUNCTION outbox_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of an outbox event.\n\nError codes:\n- **P0002** when no outbox event with the given id is found.';
-
-
---
--- Name: outbox_is_acknowledged(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.outbox_is_acknowledged(id uuid) RETURNS boolean
+CREATE FUNCTION vibetype.outbox_is_processed(outbox_id uuid) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT COALESCE(is_acknowledged, FALSE) FROM vibetype_private.outbox WHERE "outbox".id = outbox_is_acknowledged.id;
+  SELECT EXISTS (
+    SELECT 1 FROM vibetype_private.outbox_processed WHERE "outbox_processed".outbox_id = outbox_is_processed.outbox_id
+  );
 $$;
 
 
-ALTER FUNCTION vibetype.outbox_is_acknowledged(id uuid) OWNER TO ci;
+ALTER FUNCTION vibetype.outbox_is_processed(outbox_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION outbox_is_acknowledged(id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_is_processed(outbox_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) IS 'Returns the acknowledgement state of an outbox event, or null if no outbox event with the given id exists.';
+COMMENT ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) IS 'Returns whether an outbox event has been marked as processed by this consumer.';
+
+
+--
+-- Name: outbox_mark_processed(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) RETURNS void
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  INSERT INTO vibetype_private.outbox_processed (outbox_id) VALUES (outbox_mark_processed.outbox_id)
+  ON CONFLICT (outbox_id) DO NOTHING;
+$$;
+
+
+ALTER FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_mark_processed(outbox_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) IS 'Marks an outbox event as processed by this consumer. Idempotent: a repeat call for an already-processed id is a no-op.';
 
 
 --
@@ -2122,7 +2123,7 @@ ALTER FUNCTION vibetype.trigger_contact_identity_check() OWNER TO ci;
 -- Name: FUNCTION trigger_contact_identity_check(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_contact_identity_check() IS 'Ensures each contact is reachable via a linked account or at least one email address, to satisfy the GDPR duty to inform data subjects whose personal data is stored. Shared by triggers on both vibetype.contact and vibetype.contact_email_address.';
+COMMENT ON FUNCTION vibetype.trigger_contact_identity_check() IS 'Ensures each contact is reachable via a linked account, at least one email address, or a deleted-account marker, to satisfy the GDPR duty to inform data subjects whose personal data is stored. Shared by triggers on both vibetype.contact and vibetype.contact_email_address.';
 
 
 --
@@ -3668,6 +3669,7 @@ Who last changed this entry. This may be empty if done without signing in.';
 
 CREATE TABLE vibetype.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_deleted boolean DEFAULT false NOT NULL,
     account_id uuid,
     address_id uuid,
     first_name text,
@@ -3704,6 +3706,14 @@ COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to acco
 
 COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
 Primary key, uniquely identifies each contact.';
+
+
+--
+-- Name: COLUMN contact.account_deleted; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.account_deleted IS '@behavior -insert -update
+Whether this contact''s linked account was deleted. Set by vibetype.account_delete when it clears account_id, so the contact stays reachable for contact_identity_check without keeping the deleted account''s id around.';
 
 
 --
@@ -5516,7 +5526,6 @@ CREATE TABLE vibetype_private.outbox (
     aggregate_type text NOT NULL,
     aggregate_id uuid NOT NULL,
     type text NOT NULL,
-    is_acknowledged boolean,
     payload jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     CONSTRAINT outbox_payload_check CHECK ((pg_column_size(payload) <= 16000))
@@ -5561,13 +5570,6 @@ COMMENT ON COLUMN vibetype_private.outbox.type IS 'The specific kind of event, e
 
 
 --
--- Name: COLUMN outbox.is_acknowledged; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.outbox.is_acknowledged IS 'Whether the outbox event was acknowledged.';
-
-
---
 -- Name: COLUMN outbox.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
@@ -5579,6 +5581,39 @@ COMMENT ON COLUMN vibetype_private.outbox.payload IS 'The outbox event''s payloa
 --
 
 COMMENT ON COLUMN vibetype_private.outbox.created_at IS 'The timestamp of the outbox event''s creation.';
+
+
+--
+-- Name: outbox_processed; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.outbox_processed (
+    outbox_id uuid NOT NULL,
+    processed_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype_private.outbox_processed OWNER TO ci;
+
+--
+-- Name: TABLE outbox_processed; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.outbox_processed IS 'A per-consumer idempotency marker recording that an outbox event has been processed. Deliberately not foreign-keyed to vibetype_private.outbox, since it must outlive that table''s retention purge.';
+
+
+--
+-- Name: COLUMN outbox_processed.outbox_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox_processed.outbox_id IS 'The processed outbox event''s id.';
+
+
+--
+-- Name: COLUMN outbox_processed.processed_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox_processed.processed_at IS 'The timestamp the outbox event was marked as processed.';
 
 
 --
@@ -6190,6 +6225,14 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 ALTER TABLE ONLY vibetype_private.outbox
     ADD CONSTRAINT outbox_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: outbox_processed outbox_processed_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.outbox_processed
+    ADD CONSTRAINT outbox_processed_pkey PRIMARY KEY (outbox_id);
 
 
 --
@@ -8531,19 +8574,19 @@ REVOKE ALL ON FUNCTION vibetype.legal_term_change() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION outbox_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_is_processed(outbox_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.outbox_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) TO vibetype_anonymous;
 
 
 --
--- Name: FUNCTION outbox_is_acknowledged(id uuid); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_mark_processed(outbox_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.outbox_is_acknowledged(id uuid) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) TO vibetype_anonymous;
 
 
 --
@@ -9092,6 +9135,7 @@ GRANT SELECT ON TABLE vibetype_private.email_address_verification TO grafana;
 --
 
 GRANT SELECT ON TABLE vibetype_private.outbox TO grafana;
+GRANT DELETE ON TABLE vibetype_private.outbox TO jobber;
 
 
 --
