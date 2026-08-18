@@ -160,6 +160,28 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_identity_account_only;
 
+-- Test that account_id IS NULL together with account_deleted alone satisfies the identity
+-- constraint, the state left behind by vibetype.account_delete for a peer contact without an
+-- email fallback.
+SAVEPOINT contact_insert_identity_account_deleted_only;
+DO $$
+DECLARE
+  accountA UUID;
+  contact_id UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.contact(created_by, account_deleted)
+  VALUES (accountA, TRUE)
+  RETURNING id INTO contact_id;
+
+  IF contact_id IS NULL THEN
+    RAISE EXCEPTION 'Test failed (contact_insert_identity_account_deleted_only): contact not created';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT contact_insert_identity_account_deleted_only;
+
 -- Test that reassigning a contact_email_address row's contact_id away from a contact that has no
 -- account_id and no other email address is rejected, the same way deleting that row already is.
 SAVEPOINT contact_email_address_update_identity_missing;

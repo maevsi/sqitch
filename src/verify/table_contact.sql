@@ -1,6 +1,7 @@
 BEGIN;
 
 SELECT id,
+       account_deleted,
        account_id,
        address_id,
        first_name,

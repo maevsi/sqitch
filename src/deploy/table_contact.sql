@@ -6,6 +6,7 @@ BEGIN;
 CREATE TABLE vibetype.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
+  account_deleted       BOOLEAN NOT NULL DEFAULT FALSE,
   account_id            UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
   address_id            UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
@@ -31,6 +32,7 @@ CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
 
 COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
 COMMENT ON COLUMN vibetype.contact.id IS E'@behavior -insert -update\nPrimary key, uniquely identifies each contact.';
+COMMENT ON COLUMN vibetype.contact.account_deleted IS E'@behavior -insert -update\nWhether this contact''s linked account was deleted. Set by vibetype.account_delete when it clears account_id, so the contact stays reachable for contact_identity_check without keeping the deleted account''s id around.';
 COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
 COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
 COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
@@ -66,9 +68,13 @@ BEGIN
       AND (
         c.account_id IS NOT NULL
         OR EXISTS (SELECT 1 FROM vibetype.contact_email_address cea WHERE cea.contact_id = c.id)
+        -- The account this contact used to be reachable through was deleted (see
+        -- vibetype.account_delete): account_deleted stands in for the now-cleared account_id so the
+        -- contact itself is kept instead of being wiped from someone else's contact book.
+        OR (c.account_id IS NULL AND c.account_deleted)
       )
   ) THEN
-    RAISE EXCEPTION 'A contact must be reachable via a linked account or at least one email address.' USING ERRCODE = 'check_violation';
+    RAISE EXCEPTION 'A contact must be reachable via a linked account, at least one email address, or a deleted-account marker.' USING ERRCODE = 'check_violation';
   END IF;
 END;
 $$;
@@ -81,7 +87,7 @@ BEGIN
   RETURN NULL;
 END;
 $$;
-COMMENT ON FUNCTION vibetype.trigger_contact_identity_check() IS 'Ensures each contact is reachable via a linked account or at least one email address, to satisfy the GDPR duty to inform data subjects whose personal data is stored. Shared by triggers on both vibetype.contact and vibetype.contact_email_address.';
+COMMENT ON FUNCTION vibetype.trigger_contact_identity_check() IS 'Ensures each contact is reachable via a linked account, at least one email address, or a deleted-account marker, to satisfy the GDPR duty to inform data subjects whose personal data is stored. Shared by triggers on both vibetype.contact and vibetype.contact_email_address.';
 
 CREATE CONSTRAINT TRIGGER contact_identity_check
   AFTER INSERT OR UPDATE OF account_id ON vibetype.contact

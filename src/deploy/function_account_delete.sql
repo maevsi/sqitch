@@ -10,7 +10,7 @@ BEGIN
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
-    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND NOT EXISTS (SELECT 1 FROM vibetype.contact_email_address cea WHERE cea.contact_id = contact.id); -- contacts with no email fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
+    UPDATE vibetype.contact SET account_deleted = TRUE WHERE account_id = _current_account_id; -- marks peer contacts (created by other accounts) that reference this account, before the FK's ON DELETE SET NULL clears account_id below, so contact_identity_check always sees a valid state and these contacts survive the deletion instead of being wiped from someone else's contact book
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -18,7 +18,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.account_delete(TEXT) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
+COMMENT ON FUNCTION vibetype.account_delete(TEXT) IS 'Allows to delete an account. Peer contacts that other accounts created referencing this account are kept, with account_id cleared and account_deleted set to true, instead of being deleted.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_delete(TEXT) TO vibetype_account;
 

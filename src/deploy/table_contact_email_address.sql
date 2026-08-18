@@ -63,9 +63,9 @@ USING (
   )
 );
 
--- Keeps contact_identity_check's invariant (a contact must be reachable via a linked account or
--- at least one email address) intact when a contact's last email address link is removed, or
--- reassigned to a different contact via UPDATE OF contact_id.
+-- Keeps contact_identity_check's invariant (a contact must be reachable via a linked account, at
+-- least one email address, or a deleted-account marker) intact when a contact's last email
+-- address link is removed, or reassigned to a different contact via UPDATE OF contact_id.
 CREATE FUNCTION vibetype.trigger_contact_email_address_identity_check() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$

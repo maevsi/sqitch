@@ -20,7 +20,8 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_delete_with_own_contact;
 
--- When an account is deleted, peer contacts linking to it must have account_id set to NULL.
+-- When an account is deleted, peer contacts linking to it must have account_id set to NULL and
+-- account_deleted set to TRUE, but must not be deleted themselves.
 SAVEPOINT account_delete_nullifies_peer_contact;
 DO $$
 DECLARE
@@ -28,6 +29,7 @@ DECLARE
   accountB UUID;
   contact_id UUID;
   remaining_account_id UUID;
+  remaining_account_deleted BOOLEAN;
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
@@ -39,23 +41,32 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(accountB);
 
-  SELECT account_id INTO remaining_account_id
+  SELECT account_id, account_deleted INTO remaining_account_id, remaining_account_deleted
   FROM vibetype.contact
   WHERE id = contact_id;
 
   IF remaining_account_id IS NOT NULL THEN
     RAISE EXCEPTION 'Test failed (account_delete_nullifies_peer_contact): expected account_id = NULL, got %', remaining_account_id;
   END IF;
+
+  IF remaining_account_deleted IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'Test failed (account_delete_nullifies_peer_contact): expected account_deleted = true, got %', remaining_account_deleted;
+  END IF;
 END $$;
 ROLLBACK TO SAVEPOINT account_delete_nullifies_peer_contact;
 
--- Deleting an account must also delete peer contacts that reference it via account_id only (no email_address fallback), which would otherwise violate contact_identity_check once ON DELETE SET NULL nullifies account_id.
-SAVEPOINT account_delete_deletes_peer_contact_without_email_fallback;
+-- Deleting an account must keep peer contacts that reference it via account_id only (no
+-- email_address fallback), instead of deleting them: account_deleted now stands in for the
+-- cleared account_id to satisfy contact_identity_check, so the contact survives in the other
+-- person's contact book.
+SAVEPOINT account_delete_keeps_peer_contact_without_email_fallback;
 DO $$
 DECLARE
   accountA UUID;
   accountB UUID;
   contact_id UUID;
+  remaining_account_id UUID;
+  remaining_account_deleted BOOLEAN;
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
@@ -69,16 +80,28 @@ BEGIN
   PERFORM vibetype.account_delete('password');
 
   IF EXISTS (SELECT 1 FROM vibetype.account WHERE id = accountA) THEN
-    RAISE EXCEPTION 'Test failed (account_delete_deletes_peer_contact_without_email_fallback): account still exists after deletion';
+    RAISE EXCEPTION 'Test failed (account_delete_keeps_peer_contact_without_email_fallback): account still exists after deletion';
   END IF;
 
   PERFORM vibetype_test.invoker_set(accountB);
 
-  IF EXISTS (SELECT 1 FROM vibetype.contact WHERE id = contact_id) THEN
-    RAISE EXCEPTION 'Test failed (account_delete_deletes_peer_contact_without_email_fallback): contact without email fallback still exists after referenced account deletion';
+  SELECT account_id, account_deleted INTO remaining_account_id, remaining_account_deleted
+  FROM vibetype.contact
+  WHERE id = contact_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Test failed (account_delete_keeps_peer_contact_without_email_fallback): contact without email fallback was deleted after referenced account deletion';
+  END IF;
+
+  IF remaining_account_id IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed (account_delete_keeps_peer_contact_without_email_fallback): expected account_id = NULL, got %', remaining_account_id;
+  END IF;
+
+  IF remaining_account_deleted IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'Test failed (account_delete_keeps_peer_contact_without_email_fallback): expected account_deleted = true, got %', remaining_account_deleted;
   END IF;
 END $$;
-ROLLBACK TO SAVEPOINT account_delete_deletes_peer_contact_without_email_fallback;
+ROLLBACK TO SAVEPOINT account_delete_keeps_peer_contact_without_email_fallback;
 
 -- Deleting an account with the wrong password must fail.
 SAVEPOINT account_delete_wrong_password;
