@@ -121,7 +121,7 @@ BEGIN
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username
         )), 'base64'),
-        'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
+        'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language), 'time_zone', _contact.time_zone)
       )
     );
 END;

@@ -139,6 +139,7 @@ BEGIN
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
   PERFORM vibetype_test.invoker_set(accountA);
+  UPDATE vibetype.contact SET time_zone = 'Europe/Berlin' WHERE id = contactAB;
   PERFORM vibetype.invite(guestAB, 'de');
   PERFORM vibetype_test.invoker_set_previous();
 
@@ -165,6 +166,12 @@ BEGIN
 
   IF outbox_row.payload ->> 'guest_id' != guestAB::text THEN
     RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): payload guest_id % does not match %', outbox_row.payload ->> 'guest_id', guestAB;
+  END IF;
+
+  -- template must carry time_zone alongside language, consistent with account_registration,
+  -- account_password_reset_request, and email_address_verification_request's own template objects.
+  IF outbox_row.payload -> 'template' ->> 'time_zone' != 'Europe/Berlin' THEN
+    RAISE EXCEPTION 'Test failed (outbox_payload_guest_invitation): template time_zone % does not match', outbox_row.payload -> 'template' ->> 'time_zone';
   END IF;
 
   SELECT s.key INTO subject_key
