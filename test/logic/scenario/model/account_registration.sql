@@ -154,10 +154,7 @@ BEGIN
 
   PERFORM vibetype.email_address_verification_request('cooldown@example.com', 'en', 'UTC');
 
-  SELECT eav.id INTO _second_id
-    FROM vibetype_private.email_address_verification eav
-    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
-    WHERE ea.address = 'cooldown@example.com';
+  _second_id := vibetype_test.email_address_verification_id_for('cooldown@example.com');
 
   IF _second_id != _first_id THEN
     RAISE EXCEPTION 'Test failed (email_address_verification_request_cooldown): a repeated request within the cooldown replaced the still-fresh pending verification';
@@ -177,10 +174,7 @@ BEGIN
 
   PERFORM vibetype.email_address_verification_request('cooldown@example.com', 'en', 'UTC');
 
-  SELECT eav.id INTO _second_id
-    FROM vibetype_private.email_address_verification eav
-    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
-    WHERE ea.address = 'cooldown@example.com';
+  _second_id := vibetype_test.email_address_verification_id_for('cooldown@example.com');
 
   IF _second_id = _first_id THEN
     RAISE EXCEPTION 'Test failed (email_address_verification_request_cooldown_expired): a request past the cooldown window did not reissue a fresh verification';

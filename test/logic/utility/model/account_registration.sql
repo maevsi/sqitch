@@ -88,6 +88,20 @@ COMMENT ON FUNCTION vibetype_test.email_address_verification_age(UUID, INTERVAL)
 GRANT EXECUTE ON FUNCTION vibetype_test.email_address_verification_age(UUID, INTERVAL) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.email_address_verification_id_for(
+  _email_address TEXT
+) RETURNS UUID
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT eav.id
+    FROM vibetype_private.email_address_verification eav
+    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+    WHERE ea.address = _email_address;
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.email_address_verification_id_for(TEXT) TO vibetype_account;
+
+
 CREATE FUNCTION vibetype_test.account_registration_verified (
   _username TEXT,
   _email_address TEXT
