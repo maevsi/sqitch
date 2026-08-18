@@ -16,7 +16,7 @@ BEGIN
 
   SELECT o.id, o.aggregate_id, o.payload INTO outbox_row
     FROM vibetype_private.outbox o
-    WHERE o.type = 'email_address_verification.requested'
+    WHERE o.type = 'email_address.verification_requested'
       AND o.aggregate_id = (SELECT id FROM vibetype_private.email_address WHERE address = 'verify@example.com');
 
   IF outbox_row IS NULL THEN

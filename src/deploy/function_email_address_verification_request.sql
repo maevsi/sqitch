@@ -33,11 +33,11 @@ BEGIN
     _outbox_id,
     'email_address',
     _email_address_id,
-    'email_address_verification.requested',
+    'email_address.verification_requested',
     jsonb_build_object(
       'id', _outbox_id,
       'email_address_id', _email_address_id,
-      'type', 'email_address_verification.requested',
+      'type', 'email_address.verification_requested',
       'valid_until', _verification_valid_until,
       'encrypted', encode(vibetype_private.outbox_encrypt(_subject_id, jsonb_build_object(
         'emailAddress', email_address_verification_request.email_address,
