@@ -23,7 +23,38 @@ GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.contact_email_address TO 
 
 ALTER TABLE vibetype.contact_email_address ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY contact_email_address_all ON vibetype.contact_email_address FOR ALL
+-- SELECT is split out from INSERT/UPDATE/DELETE (below) so a guest can read their own invite's
+-- email address without also being allowed to modify it, mirroring vibetype.contact's own
+-- contact_select/contact_insert/contact_update/contact_delete split (table_contact_policy.sql).
+CREATE POLICY contact_email_address_select ON vibetype.contact_email_address FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1 FROM vibetype.contact c
+    WHERE c.id = contact_email_address.contact_id
+      AND c.created_by = vibetype.invoker_account_id()
+  )
+  OR EXISTS (SELECT 1 FROM vibetype.guest_contact_ids() gci WHERE gci.contact_id = contact_email_address.contact_id)
+);
+
+CREATE POLICY contact_email_address_insert ON vibetype.contact_email_address FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM vibetype.contact c
+    WHERE c.id = contact_email_address.contact_id
+      AND c.created_by = vibetype.invoker_account_id()
+  )
+);
+
+CREATE POLICY contact_email_address_update ON vibetype.contact_email_address FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM vibetype.contact c
+    WHERE c.id = contact_email_address.contact_id
+      AND c.created_by = vibetype.invoker_account_id()
+  )
+);
+
+CREATE POLICY contact_email_address_delete ON vibetype.contact_email_address FOR DELETE
 USING (
   EXISTS (
     SELECT 1 FROM vibetype.contact c
@@ -66,6 +97,15 @@ USING (
     SELECT 1 FROM vibetype.contact_email_address cea
     JOIN vibetype.contact c ON c.id = cea.contact_id
     WHERE cea.email_address_id = email_address.id AND c.created_by = vibetype.invoker_account_id()
+  )
+  OR
+  -- A guest reading their own invite must reach the same email address rows contact_email_address
+  -- already exposes to them via its own guest_contact_ids() branch above; otherwise the join from
+  -- contact_email_address to this table would come back empty for a guest.
+  EXISTS (
+    SELECT 1 FROM vibetype.contact_email_address cea
+    JOIN vibetype.guest_contact_ids() gci ON gci.contact_id = cea.contact_id
+    WHERE cea.email_address_id = email_address.id
   )
 );
 

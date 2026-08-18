@@ -67,6 +67,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account_upload_quota_bytes.sql
 \i scenario/model/attendance_claim_array.sql
 \i scenario/model/contact.sql
+\i scenario/model/contact_email_address.sql
 \i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
 \i scenario/model/event_guest_count_maximum.sql
