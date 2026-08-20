@@ -57,6 +57,11 @@ RUN apt-get update \
     /run/secrets/postgres-role-service-zammad-password \
     /dev/null
 
+# Split into its own layer so adding a new role's dummy secret doesn't invalidate the (network
+# fetch-heavy) layer above.
+RUN echo "jobber" > /run/secrets/postgres-role-service-jobber-username \
+  && echo "placeholder" > /run/secrets/postgres-role-service-jobber-password
+
 COPY ./src ./src
 COPY ./test ./test
 

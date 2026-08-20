@@ -86,6 +86,40 @@ CREATE TRIGGER search_vector
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_event_search_vector();
 
+CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+DECLARE
+  _type TEXT := 'event.' || CASE TG_OP WHEN 'INSERT' THEN 'created' WHEN 'UPDATE' THEN 'updated' WHEN 'DELETE' THEN 'deleted' END;
+BEGIN
+  IF (TG_TABLE_SCHEMA != 'vibetype' OR TG_TABLE_NAME != 'event') THEN
+    RAISE EXCEPTION 'vibetype.trigger_event_outbox() must only be used as a trigger on vibetype.event!';
+  END IF;
+
+  INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
+    'event',
+    COALESCE(NEW.id, OLD.id),
+    _type,
+    jsonb_build_object(
+      'id', COALESCE(NEW.id, OLD.id),
+      'type', _type
+    )
+  );
+  RETURN NULL;
+END;
+$$;
+COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Publishes an outbox event of type "event.created", "event.updated" or "event.deleted" whenever an event is created, updated or deleted.';
+GRANT EXECUTE ON FUNCTION vibetype.trigger_event_outbox() TO vibetype_account;
+
+CREATE TRIGGER outbox
+  AFTER
+       INSERT
+    OR UPDATE
+    OR DELETE
+  ON vibetype.event
+  FOR EACH ROW
+  EXECUTE FUNCTION vibetype.trigger_event_outbox();
+
 -- GRANTs, RLS and POLICYs are specified in `table_event_policy`.
 
 COMMIT;

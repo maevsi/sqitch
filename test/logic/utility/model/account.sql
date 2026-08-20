@@ -25,9 +25,11 @@ CREATE OR REPLACE FUNCTION vibetype_test.account_password_reset_verification_get
 RETURNS UUID
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT password_reset_verification
-  FROM vibetype_private.account
-  WHERE email_address = _email_address;
+  SELECT a.password_reset_verification
+  FROM vibetype_private.account a
+  JOIN vibetype_private.account_email_address aea ON aea.account_id = a.id AND aea.is_primary
+  JOIN vibetype_private.email_address ea ON ea.id = aea.email_address_id
+  WHERE ea.address = _email_address;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_password_reset_verification_get(TEXT) TO vibetype_account;
@@ -59,16 +61,31 @@ RETURNS UUID
 DECLARE
   _account_id UUID;
 BEGIN
-  SELECT id
+  SELECT aea.account_id
   INTO _account_id
-  FROM vibetype_private.account
-  WHERE email_address = _email_address;
+  FROM vibetype_private.email_address ea
+  JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
+  WHERE ea.address = _email_address AND aea.is_primary;
 
   RETURN _account_id;
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_select_by_email_address(TEXT) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.account_email_address_verification_pend(_account_id UUID)
+RETURNS VOID
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  UPDATE vibetype_private.account_email_address
+  SET verification = public.gen_random_uuid()
+  WHERE account_id = _account_id AND is_primary;
+$$;
+
+COMMENT ON FUNCTION vibetype_test.account_email_address_verification_pend(UUID) IS 'Puts an account''s primary email address back into a pending (re-)verification state, e.g. to test that login by email is rejected while a re-verification is pending.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_email_address_verification_pend(UUID) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_event_distance(

@@ -25,8 +25,11 @@ ROLLBACK TO SAVEPOINT select_anonymous;
 SAVEPOINT insert_account;
 DO $$
 BEGIN
-  INSERT INTO vibetype_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
+  INSERT INTO vibetype_private.account(id, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
+  INSERT INTO vibetype_private.subject(id) VALUES ('00000000-0000-0000-0000-000000000001');
+  INSERT INTO vibetype_private.email_address(id, subject_id, address) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'email@example.com');
+  INSERT INTO vibetype_private.account_email_address(account_id, email_address_id, verification) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000002', NULL);
 
   SET LOCAL role TO vibetype_account;
   SET LOCAL jwt.claims.sub TO '00000000-0000-0000-0000-000000000000';
@@ -38,8 +41,11 @@ ROLLBACK TO SAVEPOINT insert_account;
 SAVEPOINT insert_anonymous;
 DO $$
 BEGIN
-  INSERT INTO vibetype_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
+  INSERT INTO vibetype_private.account(id, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
+  INSERT INTO vibetype_private.subject(id) VALUES ('00000000-0000-0000-0000-000000000001');
+  INSERT INTO vibetype_private.email_address(id, subject_id, address) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'email@example.com');
+  INSERT INTO vibetype_private.account_email_address(account_id, email_address_id, verification) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000002', NULL);
 
   SET LOCAL role TO vibetype_anonymous;
   INSERT INTO vibetype.account_social_network(account_id, social_network, social_network_username)
@@ -53,8 +59,11 @@ ROLLBACK TO SAVEPOINT insert_anonymous;
 SAVEPOINT update_account;
 DO $$
 BEGIN
-  INSERT INTO vibetype_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
+  INSERT INTO vibetype_private.account(id, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
+  INSERT INTO vibetype_private.subject(id) VALUES ('00000000-0000-0000-0000-000000000001');
+  INSERT INTO vibetype_private.email_address(id, subject_id, address) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'email@example.com');
+  INSERT INTO vibetype_private.account_email_address(account_id, email_address_id, verification) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000002', NULL);
   INSERT INTO vibetype.account_social_network(account_id, social_network, social_network_username) VALUES ('00000000-0000-0000-0000-000000000000', 'instagram', 'username');
 
   SET LOCAL role TO vibetype_account;
@@ -65,8 +74,11 @@ ROLLBACK TO SAVEPOINT update_account;
 SAVEPOINT update_anonymous;
 DO $$
 BEGIN
-  INSERT INTO vibetype_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
+  INSERT INTO vibetype_private.account(id, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
+  INSERT INTO vibetype_private.subject(id) VALUES ('00000000-0000-0000-0000-000000000001');
+  INSERT INTO vibetype_private.email_address(id, subject_id, address) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'email@example.com');
+  INSERT INTO vibetype_private.account_email_address(account_id, email_address_id, verification) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000002', NULL);
   INSERT INTO vibetype.account_social_network(account_id, social_network, social_network_username) VALUES ('00000000-0000-0000-0000-000000000000', 'instagram', 'username');
 
   SET LOCAL role TO vibetype_anonymous;
@@ -80,8 +92,11 @@ ROLLBACK TO SAVEPOINT update_anonymous;
 SAVEPOINT delete_account;
 DO $$
 BEGIN
-  INSERT INTO vibetype_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
+  INSERT INTO vibetype_private.account(id, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
+  INSERT INTO vibetype_private.subject(id) VALUES ('00000000-0000-0000-0000-000000000001');
+  INSERT INTO vibetype_private.email_address(id, subject_id, address) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'email@example.com');
+  INSERT INTO vibetype_private.account_email_address(account_id, email_address_id, verification) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000002', NULL);
   INSERT INTO vibetype.account_social_network(account_id, social_network, social_network_username) VALUES ('00000000-0000-0000-0000-000000000000', 'instagram', 'username');
 
   SET LOCAL role TO vibetype_account;
@@ -92,8 +107,11 @@ ROLLBACK TO SAVEPOINT delete_account;
 SAVEPOINT delete_anonymous;
 DO $$
 BEGIN
-  INSERT INTO vibetype_private.account(id, email_address, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', 'email@example.com', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
+  INSERT INTO vibetype_private.account(id, password_hash) VALUES ('00000000-0000-0000-0000-000000000000', '$2a$06$xdJFoht/HQ/4798obSknNOc6hiBe60HXriyW/Oa3Ch7Oo3F.9WGLe');
   INSERT INTO vibetype.account(id, username) VALUES ('00000000-0000-0000-0000-000000000000', 'username');
+  INSERT INTO vibetype_private.subject(id) VALUES ('00000000-0000-0000-0000-000000000001');
+  INSERT INTO vibetype_private.email_address(id, subject_id, address) VALUES ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'email@example.com');
+  INSERT INTO vibetype_private.account_email_address(account_id, email_address_id, verification) VALUES ('00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000002', NULL);
   INSERT INTO vibetype.account_social_network(account_id, social_network, social_network_username) VALUES ('00000000-0000-0000-0000-000000000000', 'instagram', 'username');
 
   SET LOCAL role TO vibetype_anonymous;

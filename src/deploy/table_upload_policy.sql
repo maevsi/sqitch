@@ -78,4 +78,32 @@ USING (
   created_by = vibetype.invoker_account_id()
 );
 
+CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS TRIGGER
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  IF (TG_TABLE_SCHEMA != 'vibetype' OR TG_TABLE_NAME != 'upload') THEN
+    RAISE EXCEPTION 'vibetype.trigger_upload_outbox() must only be used as a trigger on vibetype.upload!';
+  END IF;
+
+  INSERT INTO vibetype_private.outbox (aggregate_type, aggregate_id, type, payload) VALUES (
+    'upload',
+    OLD.id,
+    'upload.deleted',
+    jsonb_build_object(
+      'id', OLD.id,
+      'type', 'upload.deleted',
+      'storage_key', OLD.storage_key
+    )
+  );
+  RETURN NULL;
+END;
+$$;
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Publishes an outbox event of type "upload.deleted" whenever an upload is deleted, carrying its storage key for downstream file cleanup.';
+GRANT EXECUTE ON FUNCTION vibetype.trigger_upload_outbox() TO vibetype_account;
+
+CREATE TRIGGER outbox
+  AFTER DELETE ON vibetype.upload
+  FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_outbox();
+
 COMMIT;

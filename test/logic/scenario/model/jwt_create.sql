@@ -125,4 +125,33 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT email_password_incorrect;
 
+-- A primary email address that's pending (re-)verification must not be usable to log in, the same
+-- way account_password_reset_request already refuses to act on one (aea.verification IS NULL).
+SAVEPOINT email_verification_pending;
+DO $$
+DECLARE
+  _account_id UUID;
+  _jwt vibetype.jwt;
+BEGIN
+  _account_id := vibetype_test.account_registration_verified('username', 'email@example.com');
+  PERFORM vibetype_test.account_email_address_verification_pend(_account_id);
+
+  BEGIN
+    _jwt := vibetype.jwt_create('email@example.com', 'password');
+  EXCEPTION WHEN no_data_found THEN
+    NULL;
+  END;
+
+  IF _jwt IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed: Authentication by email should not have returned a JWT while verification is pending';
+  END IF;
+
+  -- Username-based login doesn't go through the email lookup, so it must be unaffected.
+  _jwt := vibetype.jwt_create('username', 'password');
+  IF _jwt IS NULL THEN
+    RAISE EXCEPTION 'Test failed: Authentication by username should still have returned a JWT while the email''s verification is pending';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT email_verification_pending;
+
 ROLLBACK;

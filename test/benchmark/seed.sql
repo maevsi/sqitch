@@ -5,8 +5,9 @@
 DO $$
 DECLARE
   _legal_term_id UUID;
-  _account_id UUID;
   _password_hash TEXT;
+  _code UUID;
+  _verification_id UUID;
   _i INT;
 BEGIN
   -- Legal term (required for account registration)
@@ -19,30 +20,33 @@ BEGIN
 
   -- Register 5 accounts properly (for benchmark subjects with full verification)
   FOR _i IN 1..5 LOOP
-    PERFORM vibetype.account_registration(
-      '1970-01-01'::DATE,
+    PERFORM vibetype.email_address_verification_request(
       'benchmark-' || _i || '@example.test',
       CASE WHEN _i % 2 = 0 THEN 'en' ELSE 'de' END,
+      'UTC'
+    );
+
+    SELECT eav.code INTO _code
+      FROM vibetype_private.email_address_verification eav
+      JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+      WHERE ea.address = 'benchmark-' || _i || '@example.test';
+
+    _verification_id := vibetype.email_address_verification(_code);
+
+    PERFORM vibetype.account_registration(
+      _verification_id,
+      '1970-01-01'::DATE,
       _legal_term_id,
       'benchmark-password',
       'benchmark-user-' || _i
     );
-
-    SELECT id INTO _account_id
-      FROM vibetype.account
-      WHERE username = 'benchmark-user-' || _i;
-
-    PERFORM vibetype.account_email_address_verification(
-      (SELECT email_address_verification FROM vibetype_private.account WHERE id = _account_id)
-    );
   END LOOP;
 
   -- Bulk insert 995 more accounts directly (bypassing slow bcrypt per-row)
-  INSERT INTO vibetype_private.account (id, birth_date, email_address, password_hash, last_activity)
+  INSERT INTO vibetype_private.account (id, birth_date, password_hash, last_activity)
     SELECT
       md5('benchmark-account-' || i)::UUID,
       '1990-01-01'::DATE,
-      'benchmark-' || i || '@example.test',
       _password_hash,
       '1970-01-01 00:00:00'::timestamp
     FROM generate_series(6, 1000) AS i;
@@ -51,6 +55,25 @@ BEGIN
     SELECT
       md5('benchmark-account-' || i)::UUID,
       'benchmark-user-' || i
+    FROM generate_series(6, 1000) AS i;
+
+  -- One subject + email address per bulk account, then link it as their primary (pre-verified) email
+  INSERT INTO vibetype_private.subject (id)
+    SELECT md5('benchmark-subject-' || i)::UUID
+    FROM generate_series(6, 1000) AS i;
+
+  INSERT INTO vibetype_private.email_address (id, subject_id, address)
+    SELECT
+      md5('benchmark-email-' || i)::UUID,
+      md5('benchmark-subject-' || i)::UUID,
+      'benchmark-' || i || '@example.test'
+    FROM generate_series(6, 1000) AS i;
+
+  INSERT INTO vibetype_private.account_email_address (account_id, email_address_id, verification)
+    SELECT
+      md5('benchmark-account-' || i)::UUID,
+      md5('benchmark-email-' || i)::UUID,
+      NULL
     FROM generate_series(6, 1000) AS i;
 
   -- Self-contacts for bulk accounts
@@ -104,20 +127,43 @@ CREATE TEMP TABLE _benchmark_events AS
   WHERE slug LIKE 'benchmark-event-%';
 
 -- 1000 contacts: first 20 accounts each create 50 contacts
-INSERT INTO vibetype.contact (email_address, first_name, last_name, created_by)
+WITH contact_source AS (
   SELECT
-    'contact-' || contact_num || '@example.test',
-    'First' || contact_num,
-    'Last' || contact_num,
-    a.id
+    ((owner_seq - 1) * 50 + contact_offset) AS contact_num,
+    a.id AS account_id
   FROM (
-    SELECT
-      ((owner_seq - 1) * 50 + contact_offset) AS contact_num,
-      owner_seq
+    SELECT owner_seq, contact_offset
     FROM generate_series(1, 20) AS owner_seq,
          generate_series(1, 50) AS contact_offset
   ) sub
-  JOIN _benchmark_accounts a ON a.seq = sub.owner_seq;
+  JOIN _benchmark_accounts a ON a.seq = sub.owner_seq
+), inserted_contacts AS (
+  INSERT INTO vibetype.contact (id, first_name, last_name, created_by)
+    SELECT
+      md5('benchmark-contact-' || contact_num)::UUID,
+      'First' || contact_num,
+      'Last' || contact_num,
+      account_id
+    FROM contact_source
+    RETURNING id
+), inserted_subjects AS (
+  INSERT INTO vibetype_private.subject (id)
+    SELECT md5('benchmark-contact-subject-' || contact_num)::UUID FROM contact_source
+    RETURNING id
+), inserted_email_addresses AS (
+  INSERT INTO vibetype_private.email_address (id, subject_id, address)
+    SELECT
+      md5('benchmark-contact-email-' || contact_num)::UUID,
+      md5('benchmark-contact-subject-' || contact_num)::UUID,
+      'contact-' || contact_num || '@example.test'
+    FROM contact_source
+    RETURNING id
+)
+INSERT INTO vibetype.contact_email_address (contact_id, email_address_id)
+  SELECT
+    md5('benchmark-contact-' || contact_num)::UUID,
+    md5('benchmark-contact-email-' || contact_num)::UUID
+  FROM contact_source;
 
 DO $$ BEGIN RAISE NOTICE 'Seeded 1000 contacts'; END $$;
 
@@ -181,7 +227,11 @@ DECLARE
 BEGIN
   SELECT count(*) INTO _accounts FROM vibetype.account WHERE username LIKE 'benchmark-%';
   SELECT count(*) INTO _events FROM vibetype.event WHERE slug LIKE 'benchmark-%';
-  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_address LIKE 'contact-%';
+  SELECT count(*) INTO _contacts
+    FROM vibetype.contact ct
+    JOIN vibetype.contact_email_address cea ON cea.contact_id = ct.id
+    JOIN vibetype_private.email_address ea ON ea.id = cea.email_address_id
+    WHERE ea.address LIKE 'contact-%';
   SELECT count(*) INTO _guests FROM vibetype.guest;
   SELECT count(*) INTO _attendances FROM vibetype.attendance;
   RAISE NOTICE 'Benchmark seed complete: % accounts, % events, % contacts, % guests, % attendances',

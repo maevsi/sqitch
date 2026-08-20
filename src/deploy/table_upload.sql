@@ -23,6 +23,4 @@ COMMENT ON COLUMN vibetype.upload.type IS E'@behavior -insert -update\nThe type 
 COMMENT ON COLUMN vibetype.upload.created_at IS E'@behavior -insert -update\nTimestamp of when the upload was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.upload.created_by IS 'The uploader''s account id.';
 
-ALTER TABLE vibetype.upload REPLICA IDENTITY FULL;
-
 COMMIT;

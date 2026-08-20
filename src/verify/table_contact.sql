@@ -1,10 +1,9 @@
 BEGIN;
 
 SELECT id,
+       account_deleted,
        account_id,
        address_id,
-       email_address,
-       email_address_hash,
        first_name,
        language,
        last_name,

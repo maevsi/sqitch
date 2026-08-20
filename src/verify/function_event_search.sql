@@ -27,13 +27,12 @@ BEGIN
     RAISE EXCEPTION 'Test privileges failed: vibetype_anonymous should not have direct EXECUTE privilege on tsquery_prefix';
   END IF;
 
-  IF (SELECT pg_catalog.has_schema_privilege('vibetype_account', 'vibetype_private', 'USAGE')) THEN
-    RAISE EXCEPTION 'Test privileges failed: vibetype_account should not have USAGE privilege on vibetype_private';
-  END IF;
-
-  IF (SELECT pg_catalog.has_schema_privilege('vibetype_anonymous', 'vibetype_private', 'USAGE')) THEN
-    RAISE EXCEPTION 'Test privileges failed: vibetype_anonymous should not have USAGE privilege on vibetype_private';
-  END IF;
+  -- vibetype_private stays a black box in general (no schema USAGE for app roles), but
+  -- table_contact_email_address.sql deliberately carves out one narrow, documented exception:
+  -- USAGE plus a table-level SELECT grant on vibetype_private.email_address, so a guest or
+  -- account holder can read the addresses they're already entitled to see through contact_email_address
+  -- or account_email_address. That grant would be unreachable without USAGE, so this hardening
+  -- check no longer holds and is intentionally not asserted here.
 END $$;
 ROLLBACK TO SAVEPOINT privileges;
 

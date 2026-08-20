@@ -10,6 +10,10 @@ DECLARE
   _contact_id_jonas UUID;
   _contact_id_peter UUID;
   _legal_term_id    UUID;
+  _code             UUID;
+  _verification_id  UUID;
+  _email_address_id UUID;
+  _subject_id       UUID;
 BEGIN
   SELECT id INTO _legal_term_id FROM vibetype.legal_term LIMIT 1;
 
@@ -19,36 +23,26 @@ BEGIN
       RETURNING id INTO _legal_term_id;
   END IF;
 
-  PERFORM vibetype.account_registration(
-    '1970-01-01',
-    'mail+sqitch-1@maev.si',
-    'en',
-    _legal_term_id,
-    'password',
-    'jonas'
-  );
+  PERFORM vibetype.email_address_verification_request('mail+sqitch-1@maev.si', 'en', 'UTC');
+  SELECT eav.code INTO _code
+    FROM vibetype_private.email_address_verification eav
+    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+    WHERE ea.address = 'mail+sqitch-1@maev.si';
+  _verification_id := vibetype.email_address_verification(_code);
+  PERFORM vibetype.account_registration(_verification_id, '1970-01-01', _legal_term_id, 'password', 'jonas');
 
   SELECT id
     INTO _account_id_jonas
     FROM vibetype.account
     WHERE username = 'jonas';
 
-  PERFORM vibetype.account_email_address_verification(
-    (
-      SELECT email_address_verification
-      FROM vibetype_private.account
-      WHERE id = _account_id_jonas
-    )
-  );
-
-  PERFORM vibetype.account_registration(
-    '1970-01-01',
-    'mail+sqitch-2@maev.si',
-    'de',
-    _legal_term_id,
-    'password',
-    'peter'
-  );
+  PERFORM vibetype.email_address_verification_request('mail+sqitch-2@maev.si', 'de', 'UTC');
+  SELECT eav.code INTO _code
+    FROM vibetype_private.email_address_verification eav
+    JOIN vibetype_private.email_address ea ON ea.id = eav.email_address_id
+    WHERE ea.address = 'mail+sqitch-2@maev.si';
+  _verification_id := vibetype.email_address_verification(_code);
+  PERFORM vibetype.account_registration(_verification_id, '1970-01-01', _legal_term_id, 'password', 'peter');
 
   SELECT id
     INTO _account_id_peter
@@ -68,7 +62,6 @@ BEGIN
   INSERT INTO vibetype.contact (
       "id",
       -- "address",
-      "email_address",
       "first_name",
       "last_name",
       "created_by"
@@ -76,11 +69,16 @@ BEGIN
     VALUES (
       '59462df6-10a9-11ea-bf8e-0f50c4d91a5a',
       -- e'A B\n12345 D',
-      'mail+sqitch-3@maev.si',
       'Max',
       'Mustermann',
       _account_id_jonas
     );
+
+  INSERT INTO vibetype_private.subject DEFAULT VALUES RETURNING id INTO _subject_id;
+  INSERT INTO vibetype_private.email_address (subject_id, address) VALUES (_subject_id, 'mail+sqitch-3@maev.si')
+    RETURNING id INTO _email_address_id;
+  INSERT INTO vibetype.contact_email_address (contact_id, email_address_id)
+    VALUES ('59462df6-10a9-11ea-bf8e-0f50c4d91a5a', _email_address_id);
 
   INSERT INTO vibetype.address (
     name,
