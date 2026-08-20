@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text) RETURNS void
+CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC') RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 DECLARE
@@ -49,7 +49,7 @@ BEGIN
     'account_registration',
     jsonb_pretty(jsonb_build_object(
       'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', account_registration.language)
+      'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
     ))
   );
 
@@ -57,8 +57,8 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
+COMMENT ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
 
-GRANT EXECUTE ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 
 COMMIT;

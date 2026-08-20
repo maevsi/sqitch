@@ -1,3 +1,17 @@
+## [13.0.0-beta.7](https://github.com/maevsi/sqitch/compare/13.0.0-beta.6...13.0.0-beta.7) (2026-08-16)
+
+## [13.0.0-beta.6](https://github.com/maevsi/sqitch/compare/13.0.0-beta.5...13.0.0-beta.6) (2026-08-14)
+
+## [13.0.0-beta.5](https://github.com/maevsi/sqitch/compare/13.0.0-beta.4...13.0.0-beta.5) (2026-08-09)
+
+## [13.0.0-beta.4](https://github.com/maevsi/sqitch/compare/13.0.0-beta.3...13.0.0-beta.4) (2026-08-09)
+
+## [13.0.0-beta.3](https://github.com/maevsi/sqitch/compare/13.0.0-beta.2...13.0.0-beta.3) (2026-08-07)
+
+## [13.0.0-beta.2](https://github.com/maevsi/sqitch/compare/13.0.0-beta.1...13.0.0-beta.2) (2026-08-07)
+
+## [13.0.0-beta.1](https://github.com/maevsi/sqitch/compare/12.1.0...13.0.0-beta.1) (2026-08-07)
+
 ## [12.3.0](https://github.com/maevsi/sqitch/compare/12.2.1...12.3.0) (2026-08-14)
 
 ## [12.2.1](https://github.com/maevsi/sqitch/compare/12.2.0...12.2.1) (2026-08-07)

@@ -6,7 +6,7 @@ BEGIN
     RAISE EXCEPTION 'vibetype.jwt_create is missing the @turnstileProtected tag';
   END IF;
 
-  IF obj_description('vibetype.account_registration(date, text, text, uuid, text, text)'::regprocedure, 'pg_proc') NOT LIKE '%@turnstileProtected%' THEN
+  IF obj_description('vibetype.account_registration(date, text, text, uuid, text, text, text)'::regprocedure, 'pg_proc') NOT LIKE '%@turnstileProtected%' THEN
     RAISE EXCEPTION 'vibetype.account_registration is missing the @turnstileProtected tag';
   END IF;
 END $$;

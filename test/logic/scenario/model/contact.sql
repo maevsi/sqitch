@@ -115,8 +115,8 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, time_zone)
-    VALUES (accountA, 'Europe/Berlin');
+  INSERT INTO vibetype.contact(created_by, email_address, time_zone)
+    VALUES (accountA, 'b@example.com', 'Europe/Berlin');
 END $$;
 ROLLBACK TO SAVEPOINT contact_create_time_zone;
 

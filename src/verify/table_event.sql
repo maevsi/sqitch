@@ -14,9 +14,11 @@ SELECT id,
        url,
        visibility,
        created_at,
-       created_by,
-       search_vector
+       created_by
 FROM vibetype.event WHERE FALSE;
 
+SELECT 1/COUNT(*)
+FROM pg_indexes
+WHERE schemaname = 'vibetype' AND indexname = 'idx_event_name_trgm';
 
 ROLLBACK;
