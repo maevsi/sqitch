@@ -25,16 +25,16 @@ remove_data_test() {
 }
 
 update_schemas() {
-  sudo docker build -t "$IMAGE:build" --target test-build "$THIS/.." # --no-cache --progress plain
+  "$THIS/scripts/docker.sh" build -t "$IMAGE:build" --target test-build "$THIS/.." # --no-cache --progress plain
 
-  CONTAINER_ID=$(sudo docker create "$IMAGE:build")
-  sudo docker cp "$CONTAINER_ID:/srv/app/schema_other.sql" "$THIS/fixture/schema_other.definition.sql"
-  sudo docker cp "$CONTAINER_ID:/srv/app/schema_vibetype.sql" "$THIS/fixture/schema_vibetype.definition.sql"
-  sudo docker rm -v "$CONTAINER_ID"
+  CONTAINER_ID=$("$THIS/scripts/docker.sh" create "$IMAGE:build")
+  "$THIS/scripts/docker.sh" cp "$CONTAINER_ID:/srv/app/schema_other.sql" "$THIS/fixture/schema_other.definition.sql"
+  "$THIS/scripts/docker.sh" cp "$CONTAINER_ID:/srv/app/schema_vibetype.sql" "$THIS/fixture/schema_vibetype.definition.sql"
+  "$THIS/scripts/docker.sh" rm -v "$CONTAINER_ID"
 }
 
 build_test_image() {
-  sudo docker build -t "$IMAGE:test" --target test "$THIS/.." # --no-cache --progress plain
+  "$THIS/scripts/docker.sh" build -t "$IMAGE:test" --target test "$THIS/.." # --no-cache --progress plain
 }
 
 case "$1" in
