@@ -1,3 +1,18 @@
+## [13.0.0-beta.8](https://github.com/maevsi/sqitch/compare/13.0.0-beta.7...13.0.0-beta.8) (2026-08-28)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** require turnstile verification for password reset
+* **sqitch:** merge incremental migrations into base migrations
+
+### Features
+
+* **account:** require turnstile verification for password reset ([e6ae9ed](https://github.com/maevsi/sqitch/commit/e6ae9ed323af5f8874c56a9e4802ca3530704fa7))
+
+### Code Refactoring
+
+* **sqitch:** merge incremental migrations into base migrations ([e8f9be2](https://github.com/maevsi/sqitch/commit/e8f9be2bf95c12f8053083d83f2d3c47df86f5a8))
+
 ## [13.0.0-beta.7](https://github.com/maevsi/sqitch/compare/13.0.0-beta.6...13.0.0-beta.7) (2026-08-16)
 
 ## [13.0.0-beta.6](https://github.com/maevsi/sqitch/compare/13.0.0-beta.5...13.0.0-beta.6) (2026-08-14)
