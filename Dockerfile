@@ -38,6 +38,8 @@ ENV SQITCH_VERSION="1.5.2-1"
 
 WORKDIR /srv/app
 
+RUN sed -i 's|http://apt.postgresql.org|https://apt.postgresql.org|' /etc/apt/sources.list.d/pgdg.list  # plain HTTP to apt.postgresql.org gets blocked with 403 behind TLS-inspecting proxies
+
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
     jq="${JQ_VERSION}" \
