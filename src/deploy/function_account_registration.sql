@@ -57,7 +57,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT) IS 'Creates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
+COMMENT ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT) IS E'@turnstileProtected\nCreates a contact and registers an account referencing it.\n\nError codes:\n- **VTBDA** when the birth date is not at least 18 years old.\n- **VTPLL** when the password length does not reach its minimum.\n- **VTAUV** when an account with the given username already exists.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_registration(DATE, TEXT, TEXT, UUID, TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 

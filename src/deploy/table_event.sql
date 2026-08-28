@@ -30,18 +30,22 @@ CREATE INDEX idx_event_end ON vibetype.event USING btree ("end")
 CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 CREATE INDEX idx_event_name_trgm ON vibetype.event USING gin (name gin_trgm_ops);
 
-COMMENT ON TABLE vibetype.event IS 'An event.';
+-- The event table and its `start`/`end` columns are opted into PostGraphile's
+-- connection filter plugin, which is configured to be opt-in by default
+-- (see `maevsi/postgraphile`'s `defaultBehavior`).
+-- No other table or column is affected: filtering stays disabled everywhere else.
+COMMENT ON TABLE vibetype.event IS E'@behavior +filter\nAn event.';
 COMMENT ON COLUMN vibetype.event.id IS E'@behavior -insert -update\nThe event''s internal id.';
 COMMENT ON COLUMN vibetype.event.address_id IS 'Optional reference to the physical address of the event.';
 COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must be non-empty and not exceed 10,000 characters.';
-COMMENT ON COLUMN vibetype.event.end IS 'The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.end IS E'@behavior +filterBy\nThe event''s end date and time, with time zone.';
 COMMENT ON COLUMN vibetype.event.guest_count_maximum IS 'The event''s maximum guest count. Must be greater than 0.';
 COMMENT ON COLUMN vibetype.event.is_archived IS 'Indicates whether the event is archived.';
 COMMENT ON COLUMN vibetype.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN vibetype.event.is_remote IS 'Indicates whether the event takes place remotely.';
 COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty and not exceed 100 characters.';
 COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be alphanumeric with hyphens and not exceed 100 characters.';
-COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.start IS E'@behavior +filterBy\nThe event''s start date and time, with time zone.';
 COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. Must start with "https://" and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN vibetype.event.created_at IS E'@behavior -insert -update\nTimestamp of when the event was created, defaults to the current timestamp.';

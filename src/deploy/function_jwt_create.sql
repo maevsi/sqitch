@@ -65,7 +65,7 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
   SELECT token FROM _jwt_insert;
 $$;
 
-COMMENT ON FUNCTION vibetype.jwt_create(TEXT, TEXT) IS 'Creates a JWT token that will securely identify an account and give it certain permissions.';
+COMMENT ON FUNCTION vibetype.jwt_create(TEXT, TEXT) IS E'@turnstileProtected\nCreates a JWT token that will securely identify an account and give it certain permissions.';
 
 GRANT EXECUTE ON FUNCTION vibetype.jwt_create(TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 
