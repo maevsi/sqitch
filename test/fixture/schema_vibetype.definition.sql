@@ -451,8 +451,7 @@ ALTER FUNCTION vibetype.account_password_reset(code uuid, password text) OWNER T
 -- Name: FUNCTION account_password_reset(code uuid, password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.\n\nError codes:\n- **22023** when the password is too short.\n- **P0002** when the reset code is unknown.\n- **55000** when the reset code has expired.
-';
+COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS 'Sets a new password for an account if there was a request to do so before that''s still up to date.\n\nError codes:\n- **22023** when the password is too short.\n- **P0002** when the reset code is unknown.\n- **55000** when the reset code has expired.';
 
 
 --
@@ -491,7 +490,8 @@ ALTER FUNCTION vibetype.account_password_reset_request(email_address text, langu
 -- Name: FUNCTION account_password_reset_request(email_address text, language text, time_zone text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) IS 'Sets a new password reset verification code for an account.';
+COMMENT ON FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text) IS '@turnstileProtected
+Sets a new password reset verification code for an account.';
 
 
 --

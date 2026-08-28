@@ -25,7 +25,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
   JOIN vibetype.account a ON a.id = u.id;
 $$;
 
-COMMENT ON FUNCTION vibetype.account_password_reset_request(TEXT, TEXT, TEXT) IS 'Sets a new password reset verification code for an account.';
+COMMENT ON FUNCTION vibetype.account_password_reset_request(TEXT, TEXT, TEXT) IS E'@turnstileProtected\nSets a new password reset verification code for an account.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_password_reset_request(TEXT, TEXT, TEXT) TO vibetype_anonymous, vibetype_account;
 
