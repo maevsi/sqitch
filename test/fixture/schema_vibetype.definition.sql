@@ -1130,7 +1130,7 @@ A vector used for full-text search on events.';
 -- Name: COLUMN event.effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior +filterBy
+COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -insert -update +filterBy
 The event''s end date and time, falling back to `end of time` when no explicit end is set.';
 
 

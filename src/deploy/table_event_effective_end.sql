@@ -10,6 +10,6 @@ ALTER TABLE vibetype.event
   ADD COLUMN effective_end timestamptz
   GENERATED ALWAYS AS (COALESCE("end", 'infinity'::timestamptz)) STORED;
 
-COMMENT ON COLUMN vibetype.event.effective_end IS E'@behavior +filterBy\nThe event''s end date and time, falling back to `end of time` when no explicit end is set.';
+COMMENT ON COLUMN vibetype.event.effective_end IS E'@behavior -insert -update +filterBy\nThe event''s end date and time, falling back to `end of time` when no explicit end is set.';
 
 COMMIT;
