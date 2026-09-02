@@ -60,8 +60,7 @@ Sort elements alphabetically wherever their order carries no semantic meaning:
     visibility          vibetype.event_visibility NOT NULL,
 
     created_at          TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_by          UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
-    search_vector       TSVECTOR
+    created_by          UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE
   );
   ```
 - Function parameters, e.g. `vibetype.account_registration(birth_date, email_address, language, legal_term_id, password, username)` (`src/deploy/function_account_registration.sql`)

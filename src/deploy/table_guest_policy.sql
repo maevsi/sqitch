@@ -1,7 +1,10 @@
 BEGIN;
 
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
+
 GRANT SELECT, UPDATE ON TABLE vibetype.guest TO vibetype_account, vibetype_anonymous;
 GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.guest TO :role_service_reccoom_username;
 
 ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 

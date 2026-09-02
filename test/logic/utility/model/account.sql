@@ -21,6 +21,18 @@ END $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_delete(TEXT) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.account_password_reset_verification_get(_email_address TEXT)
+RETURNS UUID
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT password_reset_verification
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_password_reset_verification_get(TEXT) TO vibetype_account;
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.account_select_address_coordinates(
   _account_id UUID
 )
