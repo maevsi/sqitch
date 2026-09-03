@@ -1,3 +1,9 @@
+## [13.0.0-beta.10](https://github.com/maevsi/sqitch/compare/13.0.0-beta.9...13.0.0-beta.10) (2026-09-03)
+
+### Bug Fixes
+
+* **database:** keep databases on revert ([190d2ad](https://github.com/maevsi/sqitch/commit/190d2ad6a12326322ee3d64db46c82cb6f11fb27))
+
 ## [13.0.0-beta.9](https://github.com/maevsi/sqitch/compare/13.0.0-beta.8...13.0.0-beta.9) (2026-09-03)
 
 ### Bug Fixes
