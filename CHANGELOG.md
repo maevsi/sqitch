@@ -1,3 +1,9 @@
+## [12.3.1](https://github.com/maevsi/sqitch/compare/12.3.0...12.3.1) (2026-09-03)
+
+### Bug Fixes
+
+* **role:** create roles without dropping existing ones ([d179925](https://github.com/maevsi/sqitch/commit/d17992575baa8da1a74ce520910684e548237181))
+
 ## [12.3.0](https://github.com/maevsi/sqitch/compare/12.2.1...12.3.0) (2026-08-14)
 
 ## [12.2.1](https://github.com/maevsi/sqitch/compare/12.2.0...12.2.1) (2026-08-07)
