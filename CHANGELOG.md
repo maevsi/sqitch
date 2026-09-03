@@ -1,3 +1,9 @@
+## [13.0.0-beta.9](https://github.com/maevsi/sqitch/compare/13.0.0-beta.8...13.0.0-beta.9) (2026-09-03)
+
+### Bug Fixes
+
+* **extension:** create extensions only if absent ([d5260e4](https://github.com/maevsi/sqitch/commit/d5260e43e1fe668dc1da12d807f5ac70f8b6a22e))
+
 ## [13.0.0-beta.8](https://github.com/maevsi/sqitch/compare/13.0.0-beta.7...13.0.0-beta.8) (2026-08-28)
 
 ### ⚠ BREAKING CHANGES
