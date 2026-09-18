@@ -18,7 +18,7 @@ concurrency:
 jobs:
   benchmark:
     name: Query performance
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       pull-requests: write
     services:
