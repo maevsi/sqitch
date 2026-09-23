@@ -6,10 +6,10 @@ on:
   pull_request:
 
 env:
-  # renovate: datasource=deb distro=ubuntu depName=jq suite=noble
-  APT_JQ: 1.7.1-3ubuntu0.24.04.2
-  # renovate: datasource=deb distro=ubuntu depName=sqitch suite=noble
-  APT_SQITCH: 1.4.1-1
+  # renovate: datasource=deb distro=ubuntu depName=jq suite=resolute
+  APT_JQ: 1.8.1-4ubuntu2
+  # renovate: datasource=deb distro=ubuntu depName=sqitch suite=resolute
+  APT_SQITCH: 1.6.1-1
 
 concurrency:
   cancel-in-progress: true
