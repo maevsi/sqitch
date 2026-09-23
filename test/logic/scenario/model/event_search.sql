@@ -118,4 +118,45 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_search_language;
 
+SAVEPOINT event_search_excludes_ended;
+DO $$
+DECLARE
+  accountA UUID;
+  eventEnded UUID;
+  eventOngoing UUID;
+  eventNoEnd UUID;
+  searchResults UUID[];
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+
+  eventEnded := vibetype_test.event_create(accountA, 'Ended Party', 'ended-party', '2000-01-01 20:00', 'public');
+  -- `event_create` is `SECURITY DEFINER`, so the invoker context it sets reverts to the definer
+  -- role as soon as it returns; re-assert it before each statement that relies on row ownership.
+  PERFORM vibetype_test.invoker_set(accountA);
+  UPDATE vibetype.event SET "end" = '2000-01-02 00:00' WHERE id = eventEnded;
+
+  eventOngoing := vibetype_test.event_create(accountA, 'Ongoing Party', 'ongoing-party', '2000-01-01 20:00', 'public');
+  PERFORM vibetype_test.invoker_set(accountA);
+  UPDATE vibetype.event SET "end" = '9999-01-01 00:00' WHERE id = eventOngoing;
+
+  eventNoEnd := vibetype_test.event_create(accountA, 'Open-Ended Party', 'open-ended-party', '2000-01-01 20:00', 'public');
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  searchResults := ARRAY(SELECT id FROM vibetype.event_search('party', NULL)); -- TODO: set language param (https://github.com/maevsi/sqitch/issues/164)
+
+  IF eventEnded = ANY(searchResults) THEN
+    RAISE EXCEPTION 'Test failed: search should exclude an event whose "end" is in the past';
+  END IF;
+
+  IF NOT (eventOngoing = ANY(searchResults)) THEN
+    RAISE EXCEPTION 'Test failed: search should include an event whose "end" is in the future';
+  END IF;
+
+  IF NOT (eventNoEnd = ANY(searchResults)) THEN
+    RAISE EXCEPTION 'Test failed: search should include an event with no "end" set';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT event_search_excludes_ended;
+
 ROLLBACK;
