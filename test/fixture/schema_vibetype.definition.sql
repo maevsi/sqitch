@@ -990,6 +990,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     search_vector tsvector,
+    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", 'infinity'::timestamp with time zone)) STORED,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1126,6 +1127,14 @@ A vector used for full-text search on events.';
 
 
 --
+-- Name: COLUMN event.effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -insert -update +filterBy
+The event''s end date and time, falling back to `end of time` when no explicit end is set.';
+
+
+--
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1239,6 +1248,7 @@ CREATE FUNCTION vibetype.event_search(query text, language vibetype.language) RE
     (SELECT vibetype.language_iso_full_text_search(event_search.language) AS ts_config) t
   WHERE
     e.search_vector @@ websearch_to_tsquery(t.ts_config, event_search.query)
+    AND e.effective_end >= now()
   ORDER BY
     ts_rank_cd(e.search_vector, websearch_to_tsquery(t.ts_config, event_search.query)) DESC;
 $$;
@@ -1250,7 +1260,7 @@ ALTER FUNCTION vibetype.event_search(query text, language vibetype.language) OWN
 -- Name: FUNCTION event_search(query text, language vibetype.language); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text, language vibetype.language) IS 'Performs a full-text search on the event table based on the provided query and language, returning event IDs ordered by relevance.';
+COMMENT ON FUNCTION vibetype.event_search(query text, language vibetype.language) IS 'Performs a full-text search on events that have not ended yet, based on the provided query and language, returning results ordered by relevance.';
 
 
 --
