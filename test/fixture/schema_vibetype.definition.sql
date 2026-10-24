@@ -2836,6 +2836,31 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Fun
 
 
 --
+-- Name: upload_is_own(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.upload_is_own(upload_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM vibetype.upload u
+    WHERE u.id = upload_is_own.upload_id
+      AND u.created_by = vibetype.invoker_account_id()
+  );
+$$;
+
+
+ALTER FUNCTION vibetype_private.upload_is_own(upload_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION upload_is_own(upload_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.upload_is_own(upload_id uuid) IS 'Returns whether the given upload was created by the invoker.';
+
+
+--
 -- Name: account_block; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -6782,6 +6807,20 @@ CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.in
 
 
 --
+-- Name: address address_delete_creator; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY address_delete_creator ON vibetype.address AS RESTRICTIVE FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: address address_update_creator; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY address_update_creator ON vibetype.address AS RESTRICTIVE FOR UPDATE USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
 -- Name: app; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7258,6 +7297,13 @@ CREATE POLICY profile_picture_select ON vibetype.profile_picture FOR SELECT USIN
 
 
 --
+-- Name: profile_picture profile_picture_upload_own; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY profile_picture_upload_own ON vibetype.profile_picture AS RESTRICTIVE USING (true) WITH CHECK (vibetype_private.upload_is_own(upload_id));
+
+
+--
 -- Name: report; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7487,9 +7533,25 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.guest TO vibetype_account;
-GRANT SELECT,UPDATE ON TABLE vibetype.guest TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.guest TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.guest TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.guest TO reccoom;
+
+
+--
+-- Name: COLUMN guest.feedback; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.feedback_paper; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 
 --
@@ -7883,6 +7945,14 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM
 
 
 --
+-- Name: FUNCTION upload_is_own(upload_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.upload_is_own(upload_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.upload_is_own(upload_id uuid) TO vibetype_account;
+
+
+--
 -- Name: TABLE account_block; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8101,10 +8171,66 @@ GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
 
 
 --
--- Name: TABLE account; Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN account.id; Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-GRANT SELECT ON TABLE vibetype_private.account TO grafana;
+GRANT SELECT(id) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.birth_date; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(birth_date) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.email_address; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(email_address) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.email_address_verification_valid_until; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(email_address_verification_valid_until) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.location; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(location) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.password_reset_verification_valid_until; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(password_reset_verification_valid_until) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.upload_quota_bytes; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(upload_quota_bytes) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.created_at; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(created_at) ON TABLE vibetype_private.account TO grafana;
+
+
+--
+-- Name: COLUMN account.last_activity; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(last_activity) ON TABLE vibetype_private.account TO grafana;
 
 
 --
@@ -8122,10 +8248,31 @@ GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email TO vibetype;
 
 
 --
--- Name: TABLE notification; Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN notification.id; Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-GRANT SELECT ON TABLE vibetype_private.notification TO grafana;
+GRANT SELECT(id) ON TABLE vibetype_private.notification TO grafana;
+
+
+--
+-- Name: COLUMN notification.channel; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(channel) ON TABLE vibetype_private.notification TO grafana;
+
+
+--
+-- Name: COLUMN notification.is_acknowledged; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(is_acknowledged) ON TABLE vibetype_private.notification TO grafana;
+
+
+--
+-- Name: COLUMN notification.created_at; Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+GRANT SELECT(created_at) ON TABLE vibetype_private.notification TO grafana;
 
 
 --
