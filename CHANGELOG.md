@@ -1,3 +1,9 @@
+## [12.3.7](https://github.com/maevsi/sqitch/compare/12.3.6...12.3.7) (2026-10-26)
+
+### Bug Fixes
+
+* **policy:** narrow write and column grants ([#337](https://github.com/maevsi/sqitch/issues/337)) ([caaa841](https://github.com/maevsi/sqitch/commit/caaa841ed9dfb15b6809820c41010e7d8b26633a))
+
 ## [12.3.6](https://github.com/maevsi/sqitch/compare/12.3.5...12.3.6) (2026-10-24)
 
 ### Bug Fixes
