@@ -106,3 +106,7 @@ table_email [schema_private function_trigger_metadata_update table_account_publi
 table_event_filter [table_event] 2026-08-07T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Allow filtering events by start and end via PostGraphile's connection filter plugin.
 role_reccoom_guest_contact_grant [role_reccoom table_guest_policy table_contact_policy] 2026-08-08T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Grant reccoom read access to the guest and contact tables, required for accurate recommendations.
 turnstile_protected_functions [function_jwt_create function_account_registration] 2026-08-13T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Tag the JWT creation and account registration functions as Turnstile-protected.
+table_address_policy_creator [table_address_policy] 2026-10-23T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Restrict address updates and deletes to the address creator.
+table_profile_picture_policy_upload [table_profile_picture table_upload_policy] 2026-10-23T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Only allow the invoker's own uploads as profile picture.
+table_guest_policy_update_column [table_guest_policy] 2026-10-23T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Restrict guest updates to the feedback columns.
+role_grafana_column_grant [role_grafana table_account_private table_notification] 2026-10-23T00:00:00Z Jonas Thelemann <e-mail@jonas-thelemann.de> # Limit grafana to the metadata columns its dashboards use.
