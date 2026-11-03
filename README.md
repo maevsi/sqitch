@@ -34,7 +34,7 @@ After setup, you can inspect and test GraphQL queries and mutations using Graphi
 
 > 💡 You can run `npm run sqitch <command> [options]` to access full Sqitch functionality.
 
-<!-- TODO: Add a way to inspect the schema without launching the full maevsi/stack. -->
+To inspect the schema without launching the full stack, read the generated definitions in [`test/fixture/`](test/fixture/).
 
 ## 📚 Documentation
 
