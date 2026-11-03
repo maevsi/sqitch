@@ -35,8 +35,20 @@ This will:
 
 All tests run in a containerized environment.
 
-<!-- TODO: explain test data directory -->
-<!-- TODO: explain test/test.sh -->
+### Test Directory
+
+The `test` directory holds everything the test commands use:
+
+- **`benchmark/`**: query timing benchmarks, explained in the [benchmarking guide](../advanced/database/benchmarking.md)
+- **`data/`**: a deploy, revert and verify script for the test data migration described below
+- **`fixture/`**: the expected schema definitions that each test run compares against
+- **`logic/`**: SQL tests for the database logic, started from `main.sql`
+- **`test.sh`**: the script behind all `test` package scripts
+
+The `test.sh` script builds the Docker image's test stage, which runs the steps listed above.
+With `--update`, it builds the stage that generates the schema definitions instead and copies them into `fixture/`.
+With `data add` or `data remove`, it only adds or removes the test data migration in your working directory.
+It refuses to run the tests while the test data migration is added, because the tests expect an exact set of rows.
 
 ### Data for Development
 
@@ -57,4 +69,7 @@ npm run test:update
 
 Be sure to include any resulting changes in your pull request.
 
-<!-- TODO: ## Developer Tooling, explain husky / why node is necessary -->
+## Developer Tooling
+
+Node.js and the package manager only provide the package scripts as short entry points.
+The project has no Node.js dependencies, so all actual work happens in Docker containers started by those scripts.
