@@ -116,20 +116,31 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_update_address_coordinates(
 RETURNS VOID
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
+DECLARE
+  _address_id UUID;
 BEGIN
-  WITH event AS (
-    SELECT address_id
-    FROM vibetype.event
-    WHERE id = _event_id
-  )
-  UPDATE vibetype.address
-  SET
-    location = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = (SELECT address_id FROM event);
+  SELECT address_id INTO _address_id
+  FROM vibetype.event
+  WHERE id = _event_id;
+
+  IF _address_id IS NULL THEN
+    INSERT INTO vibetype.address (name, location, created_by)
+      SELECT 'address', ST_Point(_longitude, _latitude, 4326), created_by
+      FROM vibetype.event
+      WHERE id = _event_id
+      RETURNING id INTO _address_id;
+
+    UPDATE vibetype.event
+    SET address_id = _address_id
+    WHERE id = _event_id;
+  ELSE
+    UPDATE vibetype.address
+    SET location = ST_Point(_longitude, _latitude, 4326)
+    WHERE id = _address_id;
+  END IF;
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Sets an event''s location based on latitude and longitude (GPS coordinates), creating its address if it has none.';
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
