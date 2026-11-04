@@ -1,3 +1,9 @@
+## [13.0.0-beta.11](https://github.com/maevsi/sqitch/compare/13.0.0-beta.10...13.0.0-beta.11) (2026-11-04)
+
+### Bug Fixes
+
+* **docker:** bump pinned jq to match debian-security ([#343](https://github.com/maevsi/sqitch/issues/343)) ([9e37398](https://github.com/maevsi/sqitch/commit/9e37398ef02c8c4d81649bd5f1cfbf6c4d66a63f))
+
 ## [13.0.0-beta.10](https://github.com/maevsi/sqitch/compare/13.0.0-beta.9...13.0.0-beta.10) (2026-09-03)
 
 ### Bug Fixes
