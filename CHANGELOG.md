@@ -1,3 +1,13 @@
+## [13.0.0-beta.12](https://github.com/maevsi/sqitch/compare/13.0.0-beta.11...13.0.0-beta.12) (2026-11-04)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** remove the superseded single location (#342)
+
+### Code Refactoring
+
+* **account:** remove the superseded single location ([#342](https://github.com/maevsi/sqitch/issues/342)) ([7dc4f7e](https://github.com/maevsi/sqitch/commit/7dc4f7e21b3af6f8bdab45baac070d76ec7a10f2))
+
 ## [13.0.0-beta.11](https://github.com/maevsi/sqitch/compare/13.0.0-beta.10...13.0.0-beta.11) (2026-11-04)
 
 ### Bug Fixes
