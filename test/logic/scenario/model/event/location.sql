@@ -21,7 +21,7 @@ BEGIN
 
   -- test coordinates
   _coordinates := vibetype_test.event_select_address_coordinates(_event_id);
-  IF NOT (round(_coordinates[1]::numeric, 3) = 50.113 AND round(_coordinates[2]::numeric, 3) = 8.650) THEN
+  IF NOT COALESCE(round(_coordinates[1]::numeric, 3) = 50.113 AND round(_coordinates[2]::numeric, 3) = 8.650, FALSE) THEN
     RAISE EXCEPTION 'Wrong event coordinates';
   END IF;
 END $$;
@@ -56,7 +56,7 @@ BEGIN
   -- test inclusion
   SELECT event_id INTO _id
     FROM vibetype_test.event_select_by_account_distance(_account_id, 250);
-  IF _id != _event_id THEN
+  IF _id IS DISTINCT FROM _event_id THEN
     RAISE EXCEPTION 'Function `event_select_by_account_distance` with radius 250 km should have returned `_event_id`';
   END IF;
 END $$;
