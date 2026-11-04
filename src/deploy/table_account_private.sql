@@ -9,7 +9,6 @@ CREATE TABLE vibetype_private.account (
   email_address                              TEXT NOT NULL CHECK (char_length(email_address) <= 254) UNIQUE, -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
   email_address_verification                 UUID DEFAULT gen_random_uuid(),
   email_address_verification_valid_until     TIMESTAMP WITH TIME ZONE,
-  location                                   GEOGRAPHY(Point, 4326),
   password_hash                              TEXT NOT NULL,
   password_reset_verification                UUID,
   password_reset_verification_valid_until    TIMESTAMP WITH TIME ZONE,
@@ -19,22 +18,18 @@ CREATE TABLE vibetype_private.account (
   last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_account_private_location ON vibetype_private.account USING gist (location);
-
 COMMENT ON TABLE vibetype_private.account IS 'Private account data.';
 COMMENT ON COLUMN vibetype_private.account.id IS 'The account''s internal id.';
 COMMENT ON COLUMN vibetype_private.account.birth_date IS 'The account owner''s date of birth.';
 COMMENT ON COLUMN vibetype_private.account.email_address IS 'The account''s email address for account related information. Must not exceed 254 characters (RFC 5321).';
 COMMENT ON COLUMN vibetype_private.account.email_address_verification IS 'The UUID used to verify an email address, or null if already verified.';
 COMMENT ON COLUMN vibetype_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
-COMMENT ON COLUMN vibetype_private.account.location IS 'The account''s geometric location.';
 COMMENT ON COLUMN vibetype_private.account.password_hash IS 'The account''s password, hashed and salted.';
 COMMENT ON COLUMN vibetype_private.account.password_reset_verification IS 'The UUID used to reset a password, or null if there is no pending reset request.';
 COMMENT ON COLUMN vibetype_private.account.password_reset_verification_valid_until IS 'The timestamp until which a password reset is valid.';
 COMMENT ON COLUMN vibetype_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
 COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the account was last active.';
 COMMENT ON COLUMN vibetype_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
-COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
 
 CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
