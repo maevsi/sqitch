@@ -44,7 +44,6 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \c - postgraphile
 
 \i scenario/model/account/constraints.sql
-\i scenario/model/account/location.sql
 \i scenario/model/account/policy.sql
 \i scenario/model/contact/constraints.sql
 \i scenario/model/device/constraints.sql

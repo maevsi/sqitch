@@ -1,5 +1,0 @@
-BEGIN;
-
-DROP FUNCTION vibetype.account_location_update(DOUBLE PRECISION, DOUBLE PRECISION);
-
-COMMIT;

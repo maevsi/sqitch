@@ -343,39 +343,6 @@ COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'S
 
 
 --
--- Name: account_location_update(double precision, double precision); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
-    AS $$
-BEGIN
-  UPDATE vibetype_private.account
-    SET location = ST_Point(account_location_update.longitude, account_location_update.latitude, 4326)
-    WHERE id = vibetype.invoker_account_id();
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Account not found'
-      USING ERRCODE = 'P0002'; -- no_data_found
-  END IF;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) OWNER TO ci;
-
---
--- Name: FUNCTION account_location_update(latitude double precision, longitude double precision); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) IS '@name update_account_location
-Sets the location for the invoker''s account.
-
-Error codes:
-- **P0002** when the account is not found.';
-
-
---
 -- Name: account_password_change(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -4574,7 +4541,6 @@ CREATE TABLE vibetype_private.account (
     email_address text NOT NULL,
     email_address_verification uuid DEFAULT gen_random_uuid(),
     email_address_verification_valid_until timestamp with time zone,
-    location public.geography(Point,4326),
     password_hash text NOT NULL,
     password_reset_verification uuid,
     password_reset_verification_valid_until timestamp with time zone,
@@ -4627,13 +4593,6 @@ COMMENT ON COLUMN vibetype_private.account.email_address_verification IS 'The UU
 --
 
 COMMENT ON COLUMN vibetype_private.account.email_address_verification_valid_until IS 'The timestamp until which an email address verification is valid.';
-
-
---
--- Name: COLUMN account.location; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.account.location IS 'The account''s geometric location.';
 
 
 --
@@ -6191,20 +6150,6 @@ CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
 
 
 --
--- Name: idx_account_private_location; Type: INDEX; Schema: vibetype_private; Owner: ci
---
-
-CREATE INDEX idx_account_private_location ON vibetype_private.account USING gist (location);
-
-
---
--- Name: INDEX idx_account_private_location; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON INDEX vibetype_private.idx_account_private_location IS 'GIST index on the location for efficient spatial queries.';
-
-
---
 -- Name: idx_email_address_hash; Type: INDEX; Schema: vibetype_private; Owner: ci
 --
 
@@ -7547,14 +7492,6 @@ GRANT ALL ON FUNCTION vibetype.account_delete(password text) TO vibetype_account
 REVOKE ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION account_location_update(latitude double precision, longitude double precision); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.account_location_update(latitude double precision, longitude double precision) TO vibetype_account;
 
 
 --
