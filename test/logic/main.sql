@@ -23,12 +23,14 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/contact.sql
 \i utility/model/event_category_mapping.sql
 \i utility/model/event_category.sql
+\i utility/model/event_format.sql
 \i utility/model/event.sql
 \i utility/model/friendship.sql
 \i utility/model/guest_claim_array.sql
 \i utility/model/guest_create_multiple.sql
 \i utility/model/guest.sql
 \i utility/model/legal_term.sql
+\i utility/model/preference.sql
 
 \i scenario/database/achievement_code/constraints.sql
 \i scenario/database/jwt/generated_columns.sql
@@ -78,6 +80,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/jwt_update_attendance_add.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
+\i scenario/model/preference.sql
 \i scenario/model/privilege.sql
 \i scenario/model/trigger_metadata_update.sql
 
