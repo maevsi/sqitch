@@ -52,6 +52,31 @@ COMMENT ON FUNCTION vibetype_test.event_select_address_coordinates(UUID) IS 'Ret
 GRANT EXECUTE ON FUNCTION vibetype_test.event_select_address_coordinates(UUID) TO vibetype_account;
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.event_select_by_preference_event_location(
+  _account_id UUID
+)
+RETURNS TABLE (
+  event_id UUID,
+  distance DOUBLE PRECISION
+) AS $$
+  SELECT
+    e.id AS event_id,
+    ST_Distance(p.location, addr.location) AS distance
+  FROM
+    vibetype.preference_event_location p,
+    vibetype.event e
+  JOIN
+    vibetype.address addr ON e.address_id = addr.id
+  WHERE
+    p.created_by = _account_id
+    AND ST_DWithin(p.location, addr.location, p.radius);
+$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
+
+COMMENT ON FUNCTION vibetype_test.event_select_by_preference_event_location(UUID) IS 'Returns events within the radius of any of the account''s preferred event locations, with their distance in meters.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.event_select_by_preference_event_location(UUID) TO vibetype_account;
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.event_test (
   _test_case TEXT,
   _account_id UUID,
@@ -86,20 +111,31 @@ CREATE OR REPLACE FUNCTION vibetype_test.event_update_address_coordinates(
 RETURNS VOID
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
+DECLARE
+  _address_id UUID;
 BEGIN
-  WITH event AS (
-    SELECT address_id
-    FROM vibetype.event
-    WHERE id = _event_id
-  )
-  UPDATE vibetype.address
-  SET
-    location = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = (SELECT address_id FROM event);
+  SELECT address_id INTO _address_id
+  FROM vibetype.event
+  WHERE id = _event_id;
+
+  IF _address_id IS NULL THEN
+    INSERT INTO vibetype.address (name, location, created_by)
+      SELECT 'address', ST_Point(_longitude, _latitude, 4326), created_by
+      FROM vibetype.event
+      WHERE id = _event_id
+      RETURNING id INTO _address_id;
+
+    UPDATE vibetype.event
+    SET address_id = _address_id
+    WHERE id = _event_id;
+  ELSE
+    UPDATE vibetype.address
+    SET location = ST_Point(_longitude, _latitude, 4326)
+    WHERE id = _address_id;
+  END IF;
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an event''s location based on latitude and longitude (GPS coordinates).';
+COMMENT ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Sets an event''s location based on latitude and longitude (GPS coordinates), creating its address if it has none.';
 
 GRANT EXECUTE ON FUNCTION vibetype_test.event_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
