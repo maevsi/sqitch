@@ -1,3 +1,16 @@
+## [13.0.0-beta.13](https://github.com/maevsi/sqitch/compare/13.0.0-beta.12...13.0.0-beta.13) (2026-11-07)
+
+### Bug Fixes
+
+* **policy:** narrow write and column grants ([#337](https://github.com/maevsi/sqitch/issues/337)) ([caaa841](https://github.com/maevsi/sqitch/commit/caaa841ed9dfb15b6809820c41010e7d8b26633a))
+* **role:** create roles without dropping existing ones ([d179925](https://github.com/maevsi/sqitch/commit/d17992575baa8da1a74ce520910684e548237181))
+* schedule release ([b6541ce](https://github.com/maevsi/sqitch/commit/b6541ce8049d22793af3992a7aeb95a561a4a2fc))
+* schedule release ([db4177a](https://github.com/maevsi/sqitch/commit/db4177a25ce32aa2446ffe836a90b2a15810b957))
+* schedule release ([1e10727](https://github.com/maevsi/sqitch/commit/1e1072703a850b787f27e31b7c646883cada3ccb))
+* schedule release ([767486b](https://github.com/maevsi/sqitch/commit/767486b2e805583a262868ad3c1289a8b7af9f4a))
+* schedule release ([966fc9e](https://github.com/maevsi/sqitch/commit/966fc9eb5621f06a046e7cce0c2d7990c2b26645))
+* schedule release ([b5f05a7](https://github.com/maevsi/sqitch/commit/b5f05a7137badc22361995e09d638d59c1178188))
+
 ## [13.0.0-beta.12](https://github.com/maevsi/sqitch/compare/13.0.0-beta.11...13.0.0-beta.12) (2026-11-04)
 
 ### ⚠ BREAKING CHANGES
