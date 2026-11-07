@@ -5,4 +5,6 @@ WHERE NOT EXISTS (
   SELECT FROM pg_database WHERE datname = 'zammad'
 )\gexec
 
+ALTER DATABASE zammad OWNER TO :"role_service_zammad_username";
+
 COMMENT ON DATABASE zammad IS 'The customer service database.';

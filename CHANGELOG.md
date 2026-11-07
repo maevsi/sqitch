@@ -1,45 +1,72 @@
-## [12.3.7](https://github.com/maevsi/sqitch/compare/12.3.6...12.3.7) (2026-10-26)
+## [13.0.0-beta.13](https://github.com/maevsi/sqitch/compare/13.0.0-beta.12...13.0.0-beta.13) (2026-11-07)
 
 ### Bug Fixes
 
 * **policy:** narrow write and column grants ([#337](https://github.com/maevsi/sqitch/issues/337)) ([caaa841](https://github.com/maevsi/sqitch/commit/caaa841ed9dfb15b6809820c41010e7d8b26633a))
-
-## [12.3.6](https://github.com/maevsi/sqitch/compare/12.3.5...12.3.6) (2026-10-24)
-
-### Bug Fixes
-
+* **role:** create roles without dropping existing ones ([d179925](https://github.com/maevsi/sqitch/commit/d17992575baa8da1a74ce520910684e548237181))
 * schedule release ([b6541ce](https://github.com/maevsi/sqitch/commit/b6541ce8049d22793af3992a7aeb95a561a4a2fc))
-
-## [12.3.5](https://github.com/maevsi/sqitch/compare/12.3.4...12.3.5) (2026-10-17)
-
-### Bug Fixes
-
 * schedule release ([db4177a](https://github.com/maevsi/sqitch/commit/db4177a25ce32aa2446ffe836a90b2a15810b957))
-
-## [12.3.4](https://github.com/maevsi/sqitch/compare/12.3.3...12.3.4) (2026-10-06)
-
-### Bug Fixes
-
 * schedule release ([1e10727](https://github.com/maevsi/sqitch/commit/1e1072703a850b787f27e31b7c646883cada3ccb))
 * schedule release ([767486b](https://github.com/maevsi/sqitch/commit/767486b2e805583a262868ad3c1289a8b7af9f4a))
-
-## [12.3.3](https://github.com/maevsi/sqitch/compare/12.3.2...12.3.3) (2026-09-19)
-
-### Bug Fixes
-
 * schedule release ([966fc9e](https://github.com/maevsi/sqitch/commit/966fc9eb5621f06a046e7cce0c2d7990c2b26645))
-
-## [12.3.2](https://github.com/maevsi/sqitch/compare/12.3.1...12.3.2) (2026-09-12)
-
-### Bug Fixes
-
 * schedule release ([b5f05a7](https://github.com/maevsi/sqitch/commit/b5f05a7137badc22361995e09d638d59c1178188))
 
-## [12.3.1](https://github.com/maevsi/sqitch/compare/12.3.0...12.3.1) (2026-09-03)
+## [13.0.0-beta.12](https://github.com/maevsi/sqitch/compare/13.0.0-beta.11...13.0.0-beta.12) (2026-11-04)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** remove the superseded single location (#342)
+
+### Code Refactoring
+
+* **account:** remove the superseded single location ([#342](https://github.com/maevsi/sqitch/issues/342)) ([7dc4f7e](https://github.com/maevsi/sqitch/commit/7dc4f7e21b3af6f8bdab45baac070d76ec7a10f2))
+
+## [13.0.0-beta.11](https://github.com/maevsi/sqitch/compare/13.0.0-beta.10...13.0.0-beta.11) (2026-11-04)
 
 ### Bug Fixes
 
-* **role:** create roles without dropping existing ones ([d179925](https://github.com/maevsi/sqitch/commit/d17992575baa8da1a74ce520910684e548237181))
+* **docker:** bump pinned jq to match debian-security ([#343](https://github.com/maevsi/sqitch/issues/343)) ([9e37398](https://github.com/maevsi/sqitch/commit/9e37398ef02c8c4d81649bd5f1cfbf6c4d66a63f))
+
+## [13.0.0-beta.10](https://github.com/maevsi/sqitch/compare/13.0.0-beta.9...13.0.0-beta.10) (2026-09-03)
+
+### Bug Fixes
+
+* **database:** keep databases on revert ([190d2ad](https://github.com/maevsi/sqitch/commit/190d2ad6a12326322ee3d64db46c82cb6f11fb27))
+
+## [13.0.0-beta.9](https://github.com/maevsi/sqitch/compare/13.0.0-beta.8...13.0.0-beta.9) (2026-09-03)
+
+### Bug Fixes
+
+* **extension:** create extensions only if absent ([d5260e4](https://github.com/maevsi/sqitch/commit/d5260e43e1fe668dc1da12d807f5ac70f8b6a22e))
+
+## [13.0.0-beta.8](https://github.com/maevsi/sqitch/compare/13.0.0-beta.7...13.0.0-beta.8) (2026-08-28)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** require turnstile verification for password reset
+* **sqitch:** merge incremental migrations into base migrations
+
+### Features
+
+* **account:** require turnstile verification for password reset ([e6ae9ed](https://github.com/maevsi/sqitch/commit/e6ae9ed323af5f8874c56a9e4802ca3530704fa7))
+
+### Code Refactoring
+
+* **sqitch:** merge incremental migrations into base migrations ([e8f9be2](https://github.com/maevsi/sqitch/commit/e8f9be2bf95c12f8053083d83f2d3c47df86f5a8))
+
+## [13.0.0-beta.7](https://github.com/maevsi/sqitch/compare/13.0.0-beta.6...13.0.0-beta.7) (2026-08-16)
+
+## [13.0.0-beta.6](https://github.com/maevsi/sqitch/compare/13.0.0-beta.5...13.0.0-beta.6) (2026-08-14)
+
+## [13.0.0-beta.5](https://github.com/maevsi/sqitch/compare/13.0.0-beta.4...13.0.0-beta.5) (2026-08-09)
+
+## [13.0.0-beta.4](https://github.com/maevsi/sqitch/compare/13.0.0-beta.3...13.0.0-beta.4) (2026-08-09)
+
+## [13.0.0-beta.3](https://github.com/maevsi/sqitch/compare/13.0.0-beta.2...13.0.0-beta.3) (2026-08-07)
+
+## [13.0.0-beta.2](https://github.com/maevsi/sqitch/compare/13.0.0-beta.1...13.0.0-beta.2) (2026-08-07)
+
+## [13.0.0-beta.1](https://github.com/maevsi/sqitch/compare/12.1.0...13.0.0-beta.1) (2026-08-07)
 
 ## [12.3.0](https://github.com/maevsi/sqitch/compare/12.2.1...12.3.0) (2026-08-14)
 

@@ -1,5 +1,7 @@
 BEGIN;
 
+\set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
+SET local role.reccoom_username TO :'role_service_reccoom_username';
 \set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 SET local role.vibetype_username TO :'role_service_vibetype_username';
 
@@ -17,6 +19,10 @@ BEGIN
   ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.contact', 'INSERT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.contact', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.vibetype_username'), 'vibetype.contact', 'DELETE'));
+  ASSERT (SELECT pg_catalog.has_table_privilege(current_setting('role.reccoom_username'), 'vibetype.contact', 'SELECT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.reccoom_username'), 'vibetype.contact', 'INSERT'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.reccoom_username'), 'vibetype.contact', 'UPDATE'));
+  ASSERT NOT (SELECT pg_catalog.has_table_privilege(current_setting('role.reccoom_username'), 'vibetype.contact', 'DELETE'));
 END $$;
 
 ROLLBACK;
