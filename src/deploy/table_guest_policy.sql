@@ -2,7 +2,9 @@ BEGIN;
 
 \set role_service_reccoom_username `cat /run/secrets/postgres-role-service-reccoom-username`
 
-GRANT SELECT, UPDATE ON TABLE vibetype.guest TO vibetype_account, vibetype_anonymous;
+GRANT SELECT ON TABLE vibetype.guest TO vibetype_account, vibetype_anonymous;
+-- A guest's event and contact are fixed once created, only the feedback columns are meant to change.
+GRANT UPDATE (feedback, feedback_paper) ON TABLE vibetype.guest TO vibetype_account, vibetype_anonymous;
 GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.guest TO :role_service_reccoom_username;
 

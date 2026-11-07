@@ -22,6 +22,8 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 - `ENABLE ROW LEVEL SECURITY` (RLS) policies to enforce access control on tables
 - Grant `EXECUTE` on functions to the appropriate roles only
+- A `FOR ALL` policy's `USING` clause also grants `UPDATE` and `DELETE`, so a broad visibility condition there needs a restrictive policy limiting writes
+- Grant `UPDATE` only on the columns that may change; `@behavior -update` only hides a column from GraphQL, it doesn't protect it
 - Ensure that PostGraphile Smart Comments properly control API exposure
 - Prefer `security invoker`; only use `security definer` when necessary
 - Use the `vibetype_private` schema for internal logic and especially protected content that should never be exposed directly

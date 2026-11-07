@@ -83,6 +83,16 @@ CREATE TRIGGER password_reset_verification
   FOR EACH ROW
   EXECUTE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until();
 
-GRANT SELECT ON TABLE vibetype_private.account TO :role_service_grafana_username;
+-- The dashboard only needs metadata columns for its statistics.
+GRANT SELECT (
+  id,
+  birth_date,
+  email_address,
+  email_address_verification_valid_until,
+  password_reset_verification_valid_until,
+  upload_quota_bytes,
+  created_at,
+  last_activity
+) ON TABLE vibetype_private.account TO :role_service_grafana_username;
 
 COMMIT;
