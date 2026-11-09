@@ -49,6 +49,37 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_delete_nullifies_peer_contact;
 
+-- Deleting an account must also delete peer contacts that reference it via account_id only (no email_address fallback), which would otherwise violate contact_identity_check once ON DELETE SET NULL nullifies account_id.
+SAVEPOINT account_delete_deletes_peer_contact_without_email_fallback;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  contact_id UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+
+  PERFORM vibetype_test.invoker_set(accountB);
+  INSERT INTO vibetype.contact (created_by, account_id)
+  VALUES (accountB, accountA)
+  RETURNING id INTO contact_id;
+
+  PERFORM vibetype_test.invoker_set(accountA);
+  PERFORM vibetype.account_delete('password');
+
+  IF EXISTS (SELECT 1 FROM vibetype.account WHERE id = accountA) THEN
+    RAISE EXCEPTION 'Test failed (account_delete_deletes_peer_contact_without_email_fallback): account still exists after deletion';
+  END IF;
+
+  PERFORM vibetype_test.invoker_set(accountB);
+
+  IF EXISTS (SELECT 1 FROM vibetype.contact WHERE id = contact_id) THEN
+    RAISE EXCEPTION 'Test failed (account_delete_deletes_peer_contact_without_email_fallback): contact without email fallback still exists after referenced account deletion';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT account_delete_deletes_peer_contact_without_email_fallback;
+
 -- Deleting an account with the wrong password must fail.
 SAVEPOINT account_delete_wrong_password;
 DO $$

@@ -52,34 +52,29 @@ COMMENT ON FUNCTION vibetype_test.event_select_address_coordinates(UUID) IS 'Ret
 GRANT EXECUTE ON FUNCTION vibetype_test.event_select_address_coordinates(UUID) TO vibetype_account;
 
 
-CREATE OR REPLACE FUNCTION vibetype_test.event_select_by_account_distance(
-  _account_id UUID,
-  _distance_max DOUBLE PRECISION
+CREATE OR REPLACE FUNCTION vibetype_test.event_select_by_preference_event_location(
+  _account_id UUID
 )
 RETURNS TABLE (
   event_id UUID,
   distance DOUBLE PRECISION
 ) AS $$
-  WITH account AS (
-    SELECT location
-    FROM vibetype_private.account
-    WHERE id = _account_id
-  )
   SELECT
     e.id AS event_id,
-    ST_Distance(a.location, addr.location) AS distance
+    ST_Distance(p.location, addr.location) AS distance
   FROM
-    account a,
+    vibetype.preference_event_location p,
     vibetype.event e
   JOIN
     vibetype.address addr ON e.address_id = addr.id
   WHERE
-    ST_DWithin(a.location, addr.location, _distance_max * 1000);
+    p.created_by = _account_id
+    AND ST_DWithin(p.location, addr.location, p.radius);
 $$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
 
-COMMENT ON FUNCTION vibetype_test.event_select_by_account_distance(UUID, DOUBLE PRECISION) IS  'Returns event locations within a given radius around the location of an account.';
+COMMENT ON FUNCTION vibetype_test.event_select_by_preference_event_location(UUID) IS 'Returns events within the radius of any of the account''s preferred event locations, with their distance in meters.';
 
-GRANT EXECUTE ON FUNCTION vibetype_test.event_select_by_account_distance(UUID, DOUBLE PRECISION) TO vibetype_account;
+GRANT EXECUTE ON FUNCTION vibetype_test.event_select_by_preference_event_location(UUID) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.event_test (

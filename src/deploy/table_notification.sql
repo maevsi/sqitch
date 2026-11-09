@@ -18,6 +18,12 @@ COMMENT ON COLUMN vibetype_private.notification.payload IS 'The notification''s 
 COMMENT ON COLUMN vibetype_private.notification.created_at IS 'The timestamp of the notification''s creation.';
 
 \set role_service_grafana_username `cat /run/secrets/postgres-role-service-grafana-username`
-GRANT SELECT ON TABLE vibetype_private.notification TO :role_service_grafana_username;
+-- The dashboard only needs metadata columns for its statistics.
+GRANT SELECT (
+  id,
+  channel,
+  is_acknowledged,
+  created_at
+) ON TABLE vibetype_private.notification TO :role_service_grafana_username;
 
 COMMIT;
