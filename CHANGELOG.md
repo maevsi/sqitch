@@ -1,3 +1,45 @@
+## [13.0.0](https://github.com/maevsi/sqitch/compare/12.3.7...13.0.0) (2026-11-09)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** remove the superseded single location (#342)
+* **account:** require turnstile verification for password reset
+* **sqitch:** merge incremental migrations into base migrations
+* **search:** rework event and account search (#327)
+* **account:** restore required fields on password reset request
+* **account:** restore required fields on registration
+* **account:** add time zone parameter to password reset request
+* **account:** add time zone parameter to registration
+* **invite:** correct language ambiguity
+* **contact:** require an account or an email address (#318)
+* **event:** add index on end (#315)
+
+### Features
+
+* **account:** add time zone parameter to password reset request ([aa1531d](https://github.com/maevsi/sqitch/commit/aa1531df056761c0b52bd4d25bac1b9b73eb2cd6))
+* **account:** add time zone parameter to registration ([ca463a2](https://github.com/maevsi/sqitch/commit/ca463a233ee66f5a158999b86997239629bd1d77))
+* **account:** require turnstile verification for password reset ([e6ae9ed](https://github.com/maevsi/sqitch/commit/e6ae9ed323af5f8874c56a9e4802ca3530704fa7))
+* **contact:** require an account or an email address ([#318](https://github.com/maevsi/sqitch/issues/318)) ([b06bd07](https://github.com/maevsi/sqitch/commit/b06bd07b43d07f47e997f3af7c59788cc0b36a66))
+* **invite:** correct language ambiguity ([228cb23](https://github.com/maevsi/sqitch/commit/228cb2301651aefcb4b51faeff6fdb00e7ce5dd4))
+* **search:** rework event and account search ([#327](https://github.com/maevsi/sqitch/issues/327)) ([a054e6d](https://github.com/maevsi/sqitch/commit/a054e6deff3e9bd49d4f0d262836359749b767ab))
+
+### Bug Fixes
+
+* **account:** restore required fields on password reset request ([dbba5a7](https://github.com/maevsi/sqitch/commit/dbba5a73d104775675fa705ded25a537946367f4))
+* **account:** restore required fields on registration ([b93a3a3](https://github.com/maevsi/sqitch/commit/b93a3a33000fcd853cb6d7835a9fb9e0acc44af6))
+* **database:** keep databases on revert ([190d2ad](https://github.com/maevsi/sqitch/commit/190d2ad6a12326322ee3d64db46c82cb6f11fb27))
+* **docker:** bump pinned jq to match debian-security ([#343](https://github.com/maevsi/sqitch/issues/343)) ([9e37398](https://github.com/maevsi/sqitch/commit/9e37398ef02c8c4d81649bd5f1cfbf6c4d66a63f))
+* **extension:** create extensions only if absent ([d5260e4](https://github.com/maevsi/sqitch/commit/d5260e43e1fe668dc1da12d807f5ac70f8b6a22e))
+
+### Performance Improvements
+
+* **event:** add index on end ([#315](https://github.com/maevsi/sqitch/issues/315)) ([da3bf09](https://github.com/maevsi/sqitch/commit/da3bf0942768630a5aeb37c2d11c418f198372e7))
+
+### Code Refactoring
+
+* **account:** remove the superseded single location ([#342](https://github.com/maevsi/sqitch/issues/342)) ([7dc4f7e](https://github.com/maevsi/sqitch/commit/7dc4f7e21b3af6f8bdab45baac070d76ec7a10f2))
+* **sqitch:** merge incremental migrations into base migrations ([e8f9be2](https://github.com/maevsi/sqitch/commit/e8f9be2bf95c12f8053083d83f2d3c47df86f5a8))
+
 ## [13.0.0-beta.13](https://github.com/maevsi/sqitch/compare/13.0.0-beta.12...13.0.0-beta.13) (2026-11-07)
 
 ### Bug Fixes
