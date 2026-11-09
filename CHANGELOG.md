@@ -1,3 +1,9 @@
+## [13.0.1](https://github.com/maevsi/sqitch/compare/13.0.0...13.0.1) (2026-11-09)
+
+### Performance Improvements
+
+* **event:** look up invited events through indexes ([#348](https://github.com/maevsi/sqitch/issues/348)) ([ad3fabb](https://github.com/maevsi/sqitch/commit/ad3fabb078302079fe31023754586a4c7c9d9c72))
+
 ## [13.0.0](https://github.com/maevsi/sqitch/compare/12.3.7...13.0.0) (2026-11-09)
 
 ### ⚠ BREAKING CHANGES
