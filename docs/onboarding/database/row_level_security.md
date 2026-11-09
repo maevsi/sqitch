@@ -162,7 +162,7 @@ When a SECURITY DEFINER helper function needs to check block status against mult
 use a `_blocked` CTE that stores the UUID array in a single row, cross-joined into the query:
 
 ```sql
-WITH _blocked AS (
+WITH _blocked AS MATERIALIZED (
   SELECT vibetype_private.account_block_ids() AS ids
 )
 SELECT ...
@@ -174,6 +174,15 @@ WHERE NOT (c.created_by = ANY(_blocked.ids))
 ```
 
 The `ANY(array)` ScalarArrayOp on a cross-joined single-row CTE is faster than correlated `NOT EXISTS` subqueries against a multi-row CTE because the array scan has lower per-row overhead than probing a materialized CTE.
+
+Mark the CTE `MATERIALIZED`.
+Without it, PostgreSQL inlines the single-row CTE and substitutes the function call for `_blocked.ids`, so `account_block_ids()` runs once per scanned row instead of once per query.
+
+#### Keep helper function calls out of sequential scan filters
+
+A STABLE function call in a `WHERE` clause runs once per row unless it ends up as an index condition.
+An `OR` between conditions on different tables usually forces a sequential scan, so a call like `g.id = ANY (vibetype.guest_claim_array())` in one branch then runs for every row of the table.
+Split such conditions into a `UNION ALL` of branches that can each use an index, as `vibetype_private.events_invited()` does.
 
 **NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
 

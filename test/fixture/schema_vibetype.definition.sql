@@ -2272,33 +2272,26 @@ CREATE FUNCTION vibetype_private.events_invited() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
   -- Return event IDs for events the invoker is invited to.
-  WITH _blocked AS (
+  WITH _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
   )
-  SELECT COALESCE(array_agg(DISTINCT g.event_id), ARRAY[]::UUID[])
-  FROM vibetype.guest g, _blocked
-  WHERE
-      -- Guest records explicitly known to the invoker (via guest claim).
-      g.id = ANY (vibetype.guest_claim_array())
-    OR
-    (
-      -- Guest whose contact belongs to the invoker and the contact wasn't created by a blocked account.
-      EXISTS (
-        SELECT 1
-        FROM vibetype.contact c
-        WHERE c.id = g.contact_id
-          AND c.account_id = vibetype.invoker_account_id()
-          AND NOT (c.created_by = ANY(_blocked.ids))
-      )
-      AND
-      -- And the corresponding event wasn't created by a blocked account.
-      EXISTS (
-        SELECT 1
-        FROM vibetype.event e
-        WHERE e.id = g.event_id
-          AND NOT (e.created_by = ANY(_blocked.ids))
-      )
-    );
+  SELECT COALESCE(array_agg(DISTINCT invited.event_id), ARRAY[]::UUID[])
+  FROM (
+    -- Guest records explicitly known to the invoker (via guest claim).
+    SELECT g.event_id
+    FROM vibetype.guest g
+    WHERE g.id = ANY (vibetype.guest_claim_array())
+    UNION ALL
+    -- Guest whose contact belongs to the invoker, with neither the contact nor the event created by a blocked account.
+    SELECT g.event_id
+    FROM vibetype.contact c
+    JOIN vibetype.guest g ON g.contact_id = c.id
+    JOIN vibetype.event e ON e.id = g.event_id,
+    _blocked
+    WHERE c.account_id = vibetype.invoker_account_id()
+      AND NOT (c.created_by = ANY (_blocked.ids))
+      AND NOT (e.created_by = ANY (_blocked.ids))
+  ) invited;
 $$;
 
 
