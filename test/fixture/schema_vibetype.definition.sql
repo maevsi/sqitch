@@ -758,8 +758,9 @@ CREATE FUNCTION vibetype.attendance_claim_array() RETURNS uuid[]
   _claimed_attendance_ids AS (
     SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.attendances', true), '')::json)::UUID AS id
   ),
-  _blocked AS (
+  _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
+    WHERE EXISTS (SELECT 1 FROM _claimed_attendance_ids)
   ),
   _accessible_attendances AS (
     SELECT attendance.id
@@ -1261,8 +1262,9 @@ CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
   _claimed_guest_ids AS (
     SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.guests', true), '')::json)::UUID AS id
   ),
-  _blocked AS (
+  _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
+    WHERE EXISTS (SELECT 1 FROM _claimed_guest_ids)
   ),
   _accessible_guests AS (
     SELECT guest.id
