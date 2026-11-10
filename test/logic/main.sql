@@ -15,32 +15,32 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \i utility/database/index.sql
 \i utility/database/invoker.sql
+\i utility/database/outbox.sql
 \i utility/database/uuid.sql
 \i utility/model/account_block.sql
 \i utility/model/account_registration.sql
 \i utility/model/account.sql
+\i utility/model/attendance.sql
 \i utility/model/attendance_claim_array.sql
 \i utility/model/contact.sql
 \i utility/model/event_category_mapping.sql
 \i utility/model/event_category.sql
+\i utility/model/event_format.sql
 \i utility/model/event.sql
 \i utility/model/friendship.sql
 \i utility/model/guest_claim_array.sql
 \i utility/model/guest_create_multiple.sql
 \i utility/model/guest.sql
 \i utility/model/legal_term.sql
+\i utility/model/preference.sql
 
 \i scenario/database/achievement_code/constraints.sql
 \i scenario/database/jwt/generated_columns.sql
 \i scenario/database/account_block_ids.sql
-\i scenario/database/account_registration_outbox.sql
 \i scenario/database/audit_log.sql
-\i scenario/database/event_outbox.sql
 \i scenario/database/events_invited.sql
 \i scenario/database/index.sql
-\i scenario/database/outbox_processed.sql
-\i scenario/database/outbox_payload.sql
-\i scenario/database/upload_outbox.sql
+\i scenario/database/outbox.sql
 
 \echo ==========================================================
 \echo connect as user postgraphile and run tests
@@ -49,7 +49,6 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \c - postgraphile
 
 \i scenario/model/account/constraints.sql
-\i scenario/model/account/location.sql
 \i scenario/model/account/policy.sql
 \i scenario/model/contact/constraints.sql
 \i scenario/model/device/constraints.sql
@@ -65,9 +64,9 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account_search.sql
 \i scenario/model/account_social_network.sql
 \i scenario/model/account_upload_quota_bytes.sql
+\i scenario/model/attendance.sql
 \i scenario/model/attendance_claim_array.sql
 \i scenario/model/contact.sql
-\i scenario/model/contact_email_address.sql
 \i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
 \i scenario/model/event_guest_count_maximum.sql
@@ -85,6 +84,8 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/jwt_update_attendance_add.sql
 -- \i scenario/model/invite.sql -- TODO: remove comment when PR "feat(notification)!: inherit invitations" has been merged
 \i scenario/model/language_iso_full_text_search.sql
+\i scenario/model/preference.sql
+\i scenario/model/privilege.sql
 \i scenario/model/trigger_metadata_update.sql
 
 \echo all tests completed successfully.

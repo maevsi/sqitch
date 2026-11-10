@@ -1,7 +1,5 @@
 BEGIN;
 
-DROP TRIGGER outbox ON vibetype.upload;
-DROP FUNCTION vibetype.trigger_upload_outbox();
 DROP POLICY upload_delete ON vibetype.upload;
 DROP POLICY upload_select ON vibetype.upload;
 DROP POLICY upload_insert ON vibetype.upload;

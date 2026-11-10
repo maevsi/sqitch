@@ -2,7 +2,7 @@
 # check=skip=SecretsUsedInArgOrEnv
 
 ##############################
-FROM sqitch/sqitch:v1.6.1.3 AS prepare
+FROM sqitch/sqitch:v1.6.1.4 AS prepare
 
 WORKDIR /srv/app
 
@@ -32,11 +32,13 @@ ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
 ENV POSTGRES_USER=ci
 
 # renovate: datasource=deb distro=debian depName=jq suite=trixie
-ENV JQ_VERSION="1.7.1-6+deb13u3"
+ENV JQ_VERSION="1.7.1-6+deb13u4"
 # renovate: datasource=deb distro=debian depName=sqitch suite=trixie
 ENV SQITCH_VERSION="1.5.2-1"
 
 WORKDIR /srv/app
+
+RUN sed -i 's|http://apt.postgresql.org|https://apt.postgresql.org|' /etc/apt/sources.list.d/pgdg.list  # plain HTTP to apt.postgresql.org gets blocked with 403 behind TLS-inspecting proxies
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
@@ -56,11 +58,6 @@ RUN apt-get update \
     /run/secrets/postgres-role-service-vibetype-password \
     /run/secrets/postgres-role-service-zammad-password \
     /dev/null
-
-# Split into its own layer so adding a new role's dummy secret doesn't invalidate the (network
-# fetch-heavy) layer above.
-RUN echo "jobber" > /run/secrets/postgres-role-service-jobber-username \
-  && echo "placeholder" > /run/secrets/postgres-role-service-jobber-password
 
 COPY ./src ./src
 COPY ./test ./test

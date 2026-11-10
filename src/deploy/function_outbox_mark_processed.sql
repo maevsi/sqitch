@@ -1,5 +1,7 @@
 BEGIN;
 
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
+
 CREATE FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) RETURNS void
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
@@ -7,8 +9,8 @@ CREATE FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) RETURNS void
   ON CONFLICT (outbox_id) DO NOTHING;
 $$;
 
-COMMENT ON FUNCTION vibetype.outbox_mark_processed(UUID) IS 'Marks an outbox event as processed by this consumer. Idempotent: a repeat call for an already-processed id is a no-op.';
+COMMENT ON FUNCTION vibetype.outbox_mark_processed(UUID) IS 'Marks an outbox event as processed. Marking an already processed event again has no effect.';
 
-GRANT EXECUTE ON FUNCTION vibetype.outbox_mark_processed(UUID) TO vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.outbox_mark_processed(UUID) TO :role_service_vibetype_username;
 
 COMMIT;

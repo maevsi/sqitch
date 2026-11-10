@@ -96,7 +96,7 @@ Before committing, validate your migration:
 
 ```sh
 # Run full test suite (deploys, tests, reverts) and updates schema fixtures
-npm run test:update
+pnpm run test:update
 ```
 
 The test suite:
@@ -105,7 +105,7 @@ The test suite:
 3. Reverts all migrations
 4. Compares generated schemas against [test/fixture/](test/fixture/) fixtures
 
-If `npm run test` fails with schema differences, review the output and run `npm run test:update` to regenerate fixtures, then commit the updated fixtures with your changes.
+If `pnpm run test` fails with schema differences, review the output and run `pnpm run test:update` to regenerate fixtures, then commit the updated fixtures with your changes.
 
 ### 5. Commit Using Semantic Versioning
 
@@ -120,7 +120,7 @@ The creator of a pull request is tasked with ensuring no merge conflicts with th
 **Include in your PR**:
 - All three migration files (deploy/revert/verify)
 - Updated `src/sqitch.plan`
-- Updated schema fixtures from `npm run test:update` (if schema changed)
+- Updated schema fixtures from `pnpm run test:update` (if schema changed)
 
 
 ## Code of Conduct

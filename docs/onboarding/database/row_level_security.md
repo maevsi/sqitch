@@ -136,6 +136,17 @@ For example, a policy like `USING (vibetype_private.event_policy_select(event.*)
 The preferred approach is to **inline the policy logic** directly in the `USING` clause.
 When helper functions appear directly in inline policy expressions, PostgreSQL's optimizer can hoist them into *SubPlans* that are computed once and reused across all rows.
 
+The same applies to a helper that takes row columns as the last branch of an `OR`.
+It runs for every row the earlier branches reject, which on an unfiltered read is nearly the whole table.
+A former `guest_select` branch `vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)` ran about 100,000 times for 100,000 guests and took about 2 seconds.
+
+#### Rows inserted by the current statement
+
+A STABLE helper sees the snapshot taken at the start of the statement, so an array of ids read from the policy's own table misses a row inserted by that statement, and `INSERT ... RETURNING` then fails the select policy.
+Do not add a per-row fallback for this case.
+Instead, build the arrays from the tables the row references and match the row's foreign key columns against them, as `guest_select` does with `vibetype_private.contacts_referring_invoker()` and `vibetype_private.events_organized()`.
+Those rows already exist when the new row is inserted.
+
 ### Use helper functions returning arrays with the unnest pattern
 
 Helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays.
@@ -156,13 +167,19 @@ NOT EXISTS (
 
 This pattern is inherently NULL-safe: when a column is NULL, `b = NULL` never matches, so `NOT EXISTS` correctly returns TRUE. No `IS NULL OR` guard is needed.
 
+`column = ANY ((SELECT f())::UUID[])` computes the array once as well and can become an index condition, but PostgreSQL only hashes `= ANY` for constant arrays.
+Every row that reaches the filter then scans the whole array, which grows quadratically for arrays like all guests of the invoker's events.
+With a 5,000 element array over 100,000 guests, that filter took about 3.8 seconds against about 40 ms for the hashed `EXISTS` form.
+Prefer the hashed `EXISTS` form in policies.
+Writing `ANY ((SELECT f()))` without the cast parses as `ANY (subquery)` and fails with `operator does not exist: uuid = uuid[]`.
+
 #### In helper functions: _blocked CTE + ANY (when 2+ block checks are needed)
 
 When a SECURITY DEFINER helper function needs to check block status against multiple columns,
 use a `_blocked` CTE that stores the UUID array in a single row, cross-joined into the query:
 
 ```sql
-WITH _blocked AS (
+WITH _blocked AS MATERIALIZED (
   SELECT vibetype_private.account_block_ids() AS ids
 )
 SELECT ...
@@ -175,7 +192,23 @@ WHERE NOT (c.created_by = ANY(_blocked.ids))
 
 The `ANY(array)` ScalarArrayOp on a cross-joined single-row CTE is faster than correlated `NOT EXISTS` subqueries against a multi-row CTE because the array scan has lower per-row overhead than probing a materialized CTE.
 
+Mark the CTE `MATERIALIZED`.
+Without it, PostgreSQL inlines the single-row CTE and substitutes the function call for `_blocked.ids`, so `account_block_ids()` runs once per scanned row instead of once per query.
+
+#### Keep helper function calls out of sequential scan filters
+
+A STABLE function call in a `WHERE` clause runs once per row unless it ends up as an index condition.
+An `OR` between conditions on different tables usually forces a sequential scan, so a call like `g.id = ANY (vibetype.guest_claim_array())` in one branch then runs for every row of the table.
+Split such conditions into a `UNION ALL` of branches that can each use an index, as `vibetype_private.events_invited()` does.
+When the result must keep one row per source row, collect the ids from the branches and select the rows with `id IN (...)`, as `vibetype.guest_contact_ids()` does, so a row matching both branches is not returned twice.
+
 **NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
+
+#### Let the planner inline trivial helpers
+
+PostgreSQL inlines a simple SQL function into the calling query, but it skips a `STRICT` function whose body is not strict, for example because it uses `NULLIF`.
+A function without arguments gains nothing from `STRICT`, so leave it off, as `vibetype.invoker_account_id()` does.
+Otherwise every filter that is not an index condition calls the function once per row: on 200,000 rows the strict version took about 660 ms and the inlined one about 180 ms.
 
 ### When SECURITY DEFINER helpers are still needed
 

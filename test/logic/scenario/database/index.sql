@@ -132,11 +132,6 @@ COMMIT;
 -- test for the existence of individual indexes
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['idx_account_private_location'],
-  'vibetype_private'
-);
-
-SELECT vibetype_test.index_existence(
   ARRAY ['idx_jwt_subject', 'idx_jwt_updated_by'],
   'vibetype_private'
 );

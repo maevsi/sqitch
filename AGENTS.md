@@ -22,6 +22,8 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 - `ENABLE ROW LEVEL SECURITY` (RLS) policies to enforce access control on tables
 - Grant `EXECUTE` on functions to the appropriate roles only
+- A `FOR ALL` policy's `USING` clause also grants `UPDATE` and `DELETE`, so a broad visibility condition there needs a restrictive policy limiting writes
+- Grant `UPDATE` only on the columns that may change; `@behavior -update` only hides a column from GraphQL, it doesn't protect it
 - Ensure that PostGraphile Smart Comments properly control API exposure
 - Prefer `security invoker`; only use `security definer` when necessary
 - Use the `vibetype_private` schema for internal logic and especially protected content that should never be exposed directly
@@ -44,7 +46,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 1. Edit SQL files, keeping the plan in sync
 2. Ensure correctness of security and permissions
 3. Ensure proper test coverage
-4. Run `npm run test:update` to build the Docker test image, deploy all migrations, run test SQL, revert, and update schema fixture files
+4. Run `pnpm run test:update` to build the Docker test image, deploy all migrations, run test SQL, revert, and update schema fixture files
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
 

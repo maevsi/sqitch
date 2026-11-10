@@ -25,33 +25,12 @@ CREATE OR REPLACE FUNCTION vibetype_test.account_password_reset_verification_get
 RETURNS UUID
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT a.password_reset_verification
-  FROM vibetype_private.account a
-  JOIN vibetype_private.account_email_address aea ON aea.account_id = a.id AND aea.is_primary
-  JOIN vibetype_private.email_address ea ON ea.id = aea.email_address_id
-  WHERE ea.address = _email_address;
+  SELECT password_reset_verification
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_password_reset_verification_get(TEXT) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.account_select_address_coordinates(
-  _account_id UUID
-)
-RETURNS DOUBLE PRECISION[] AS $$
-  SELECT ARRAY[
-    ST_Y(location::geometry), -- latitude
-    ST_X(location::geometry) -- longitude
-  ]
-  FROM
-    vibetype_private.account
-  WHERE
-    id = _account_id;
-$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
-
-COMMENT ON FUNCTION vibetype_test.account_select_address_coordinates(UUID) IS 'Returns an array with latitude and longitude of the account''s current location data';
-
-GRANT EXECUTE ON FUNCTION vibetype_test.account_select_address_coordinates(UUID) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_email_address(_email_address text)
@@ -61,82 +40,16 @@ RETURNS UUID
 DECLARE
   _account_id UUID;
 BEGIN
-  SELECT aea.account_id
+  SELECT id
   INTO _account_id
-  FROM vibetype_private.email_address ea
-  JOIN vibetype_private.account_email_address aea ON aea.email_address_id = ea.id
-  WHERE ea.address = _email_address AND aea.is_primary;
+  FROM vibetype_private.account
+  WHERE email_address = _email_address;
 
   RETURN _account_id;
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.account_select_by_email_address(TEXT) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.account_email_address_verification_pend(_account_id UUID)
-RETURNS VOID
-    LANGUAGE sql STRICT SECURITY DEFINER
-    AS $$
-  UPDATE vibetype_private.account_email_address
-  SET verification = public.gen_random_uuid()
-  WHERE account_id = _account_id AND is_primary;
-$$;
-
-COMMENT ON FUNCTION vibetype_test.account_email_address_verification_pend(UUID) IS 'Puts an account''s primary email address back into a pending (re-)verification state, e.g. to test that login by email is rejected while a re-verification is pending.';
-
-GRANT EXECUTE ON FUNCTION vibetype_test.account_email_address_verification_pend(UUID) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_event_distance(
-  _event_id UUID,
-  _distance_max DOUBLE PRECISION
-)
-RETURNS TABLE (
-  account_id UUID,
-  distance DOUBLE PRECISION
-) AS $$
-  WITH event AS (
-    SELECT address_id
-    FROM vibetype.event
-    WHERE id = _event_id
-  ),
-  event_address AS (
-    SELECT location
-    FROM vibetype.address
-    WHERE id = (SELECT address_id FROM event)
-  )
-  SELECT
-    a.id AS account_id,
-    ST_Distance(e.location, a.location) AS distance
-  FROM
-    event_address e,
-    vibetype_private.account a
-  WHERE
-    ST_DWithin(e.location, a.location, _distance_max * 1000);
-$$ LANGUAGE sql STABLE STRICT SECURITY DEFINER;
-
-COMMENT ON FUNCTION vibetype_test.account_select_by_event_distance(UUID, DOUBLE PRECISION) IS 'Returns account locations within a given radius around the location of an event.';
-
-GRANT EXECUTE ON FUNCTION vibetype_test.account_select_by_event_distance(UUID, DOUBLE PRECISION) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.account_update_address_coordinates(
-  _account_id UUID,
-  _latitude DOUBLE PRECISION,
-  _longitude DOUBLE PRECISION
-)
-RETURNS VOID AS $$
-  UPDATE vibetype_private.account
-  SET
-    location = ST_Point(_longitude, _latitude, 4326)
-  WHERE
-    id = _account_id;
-$$ LANGUAGE sql STRICT SECURITY DEFINER;
-
-COMMENT ON FUNCTION vibetype_test.account_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) IS 'Updates an account''s location based on latitude and longitude (GPS coordinates).';
-
-GRANT EXECUTE ON FUNCTION vibetype_test.account_update_address_coordinates(UUID, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.account_test(

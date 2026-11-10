@@ -9,7 +9,10 @@ DECLARE
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
 
-  PERFORM vibetype_test.contact_create(accountA, 'b@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.contact(created_by, email_address)
+    VALUES (accountA, 'b@example.com');
 END $$;
 ROLLBACK TO SAVEPOINT contact_create_account;
 
@@ -23,8 +26,8 @@ BEGIN
   PERFORM vibetype_test.invoker_set_anonymous();
 
   BEGIN
-    INSERT INTO vibetype.contact(created_by)
-      VALUES (accountA);
+    INSERT INTO vibetype.contact(created_by, email_address)
+      VALUES (accountA, 'b@example.com');
     RAISE EXCEPTION 'Test failed (contact_create_anonymous): account % was able to create a contact while invoker is unset.', accountA;
   EXCEPTION
     WHEN insufficient_privilege THEN
@@ -110,11 +113,10 @@ DECLARE
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
 
-  PERFORM vibetype_test.contact_create(accountA, 'b@example.com');
-
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.contact SET time_zone = 'Europe/Berlin' WHERE created_by = accountA AND account_id IS NULL;
-  PERFORM vibetype_test.invoker_set_previous();
+
+  INSERT INTO vibetype.contact(created_by, email_address, time_zone)
+    VALUES (accountA, 'b@example.com', 'Europe/Berlin');
 END $$;
 ROLLBACK TO SAVEPOINT contact_create_time_zone;
 
