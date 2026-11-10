@@ -136,7 +136,8 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('select_contacts',            'SELECT * FROM vibetype.contact',                                                                     FALSE),
   ('select_contacts_by_creator', 'SELECT * FROM vibetype.contact WHERE created_by = ''' || current_setting('benchmark.account_id') || '''::UUID', FALSE),
   ('select_events',              'SELECT * FROM vibetype.event',                                                                       FALSE),
-  ('select_guests',              'SELECT * FROM vibetype.guest',                                                                       FALSE);
+  ('select_guests',              'SELECT * FROM vibetype.guest',                                                                       FALSE),
+  ('select_guests_by_event',     'SELECT * FROM vibetype.guest WHERE event_id = ''' || current_setting('benchmark.event_id') || '''::UUID', FALSE);
 
 -- Collect all results into a single array.
 CREATE TABLE vibetype_test.benchmark_results (result JSONB);

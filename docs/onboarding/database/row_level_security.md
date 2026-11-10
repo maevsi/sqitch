@@ -136,6 +136,17 @@ For example, a policy like `USING (vibetype_private.event_policy_select(event.*)
 The preferred approach is to **inline the policy logic** directly in the `USING` clause.
 When helper functions appear directly in inline policy expressions, PostgreSQL's optimizer can hoist them into *SubPlans* that are computed once and reused across all rows.
 
+The same applies to a helper that takes row columns as the last branch of an `OR`.
+It runs for every row the earlier branches reject, which on an unfiltered read is nearly the whole table.
+A former `guest_select` branch `vibetype_private.guest_row_visible(guest.contact_id, guest.event_id)` ran about 100,000 times for 100,000 guests and took about 2 seconds.
+
+#### Rows inserted by the current statement
+
+A STABLE helper sees the snapshot taken at the start of the statement, so an array of ids read from the policy's own table misses a row inserted by that statement, and `INSERT ... RETURNING` then fails the select policy.
+Do not add a per-row fallback for this case.
+Instead, build the arrays from the tables the row references and match the row's foreign key columns against them, as `guest_select` does with `vibetype_private.contacts_referring_invoker()` and `vibetype_private.events_organized()`.
+Those rows already exist when the new row is inserted.
+
 ### Use helper functions returning arrays with the unnest pattern
 
 Helper functions like `vibetype_private.account_block_ids()` and `vibetype_private.events_invited()` return `UUID[]` arrays.
@@ -155,6 +166,12 @@ NOT EXISTS (
 ```
 
 This pattern is inherently NULL-safe: when a column is NULL, `b = NULL` never matches, so `NOT EXISTS` correctly returns TRUE. No `IS NULL OR` guard is needed.
+
+`column = ANY ((SELECT f())::UUID[])` computes the array once as well and can become an index condition, but PostgreSQL only hashes `= ANY` for constant arrays.
+Every row that reaches the filter then scans the whole array, which grows quadratically for arrays like all guests of the invoker's events.
+With a 5,000 element array over 100,000 guests, that filter took about 3.8 seconds against about 40 ms for the hashed `EXISTS` form.
+Prefer the hashed `EXISTS` form in policies.
+Writing `ANY ((SELECT f()))` without the cast parses as `ANY (subquery)` and fails with `operator does not exist: uuid = uuid[]`.
 
 #### In helper functions: _blocked CTE + ANY (when 2+ block checks are needed)
 
