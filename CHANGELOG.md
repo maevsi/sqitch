@@ -1,3 +1,11 @@
+## [13.0.3](https://github.com/maevsi/sqitch/compare/13.0.2...13.0.3) (2026-11-10)
+
+### Performance Improvements
+
+* **account:** let the planner inline the invoker account id ([#352](https://github.com/maevsi/sqitch/issues/352)) ([8b5a791](https://github.com/maevsi/sqitch/commit/8b5a79115f35f51028b06f618c3617d884043c9f))
+* **contact:** look up guest contacts through indexes ([#350](https://github.com/maevsi/sqitch/issues/350)) ([a20d383](https://github.com/maevsi/sqitch/commit/a20d383abfd79e77bff61cdfdc428ffda870c83a))
+* **guest:** check guest and attendance visibility without per-row function calls ([#351](https://github.com/maevsi/sqitch/issues/351)) ([8a3be25](https://github.com/maevsi/sqitch/commit/8a3be250bfacbfdcb355d71b3b8735f93c65850e))
+
 ## [13.0.2](https://github.com/maevsi/sqitch/compare/13.0.1...13.0.2) (2026-11-10)
 
 ### Performance Improvements
