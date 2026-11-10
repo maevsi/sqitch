@@ -19,6 +19,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/account_block.sql
 \i utility/model/account_registration.sql
 \i utility/model/account.sql
+\i utility/model/attendance.sql
 \i utility/model/attendance_claim_array.sql
 \i utility/model/contact.sql
 \i utility/model/event_category_mapping.sql
@@ -61,6 +62,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account_search.sql
 \i scenario/model/account_social_network.sql
 \i scenario/model/account_upload_quota_bytes.sql
+\i scenario/model/attendance.sql
 \i scenario/model/attendance_claim_array.sql
 \i scenario/model/contact.sql
 \i scenario/model/event_category_mapping.sql

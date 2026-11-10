@@ -2197,68 +2197,39 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 
 
 --
--- Name: attendance_row_visible(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+-- Name: contacts_blocked(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) RETURNS boolean
+CREATE FUNCTION vibetype_private.contacts_blocked() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT (
-    EXISTS (
-      SELECT 1
-      FROM vibetype.guest g
-      JOIN vibetype.event e ON e.id = g.event_id
-      WHERE g.id = attendance_row_visible.guest_id
-        AND e.created_by = vibetype.invoker_account_id()
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM vibetype.guest g
-      JOIN vibetype.contact c ON c.id = g.contact_id
-      WHERE g.id = attendance_row_visible.guest_id
-        AND c.account_id = vibetype.invoker_account_id()
-        AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by)
-    )
-  );
+  WITH _blocked AS MATERIALIZED (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
+  SELECT COALESCE(array_agg(c.id), ARRAY[]::UUID[])
+  FROM vibetype.contact c, _blocked
+  WHERE c.created_by = ANY (_blocked.ids)
+    OR c.account_id = ANY (_blocked.ids);
 $$;
 
 
-ALTER FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) OWNER TO ci;
+ALTER FUNCTION vibetype_private.contacts_blocked() OWNER TO ci;
 
 --
--- Name: attendance_via_own_contact(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+-- Name: contacts_referring_invoker(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE FUNCTION vibetype_private.attendance_via_own_contact() RETURNS uuid[]
+CREATE FUNCTION vibetype_private.contacts_referring_invoker() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  SELECT COALESCE(array_agg(a.id), ARRAY[]::UUID[])
-  FROM vibetype.attendance a
-  JOIN vibetype.guest g ON g.id = a.guest_id
-  JOIN vibetype.contact c ON c.id = g.contact_id
+  SELECT COALESCE(array_agg(c.id), ARRAY[]::UUID[])
+  FROM vibetype.contact c
   WHERE c.account_id = vibetype.invoker_account_id()
     AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by);
 $$;
 
 
-ALTER FUNCTION vibetype_private.attendance_via_own_contact() OWNER TO ci;
-
---
--- Name: attendance_via_own_events(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.attendance_via_own_events() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT COALESCE(array_agg(a.id), ARRAY[]::UUID[])
-  FROM vibetype.attendance a
-  JOIN vibetype.guest g ON g.id = a.guest_id
-  JOIN vibetype.event e ON e.id = g.event_id
-  WHERE e.created_by = vibetype.invoker_account_id();
-$$;
-
-
-ALTER FUNCTION vibetype_private.attendance_via_own_events() OWNER TO ci;
+ALTER FUNCTION vibetype_private.contacts_referring_invoker() OWNER TO ci;
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -2301,6 +2272,21 @@ COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Returns all event ids 
 
 
 --
+-- Name: events_organized(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.events_organized() RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT COALESCE(array_agg(e.id), ARRAY[]::UUID[])
+  FROM vibetype.event e
+  WHERE e.created_by = vibetype.invoker_account_id();
+$$;
+
+
+ALTER FUNCTION vibetype_private.events_organized() OWNER TO ci;
+
+--
 -- Name: events_with_claimed_attendance(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -2315,45 +2301,6 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
-
---
--- Name: guest_row_visible(uuid, uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) RETURNS boolean
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  WITH _blocked AS (
-    SELECT vibetype_private.account_block_ids() AS ids
-  )
-  SELECT (
-    EXISTS (
-      SELECT 1
-      FROM vibetype.contact c, _blocked
-      WHERE c.id = guest_row_visible.contact_id
-        AND c.account_id = vibetype.invoker_account_id()
-        AND NOT (c.created_by = ANY(_blocked.ids))
-    )
-    OR (
-      EXISTS (
-        SELECT 1
-        FROM vibetype.event e
-        WHERE e.id = guest_row_visible.event_id
-          AND e.created_by = vibetype.invoker_account_id()
-      )
-      AND EXISTS (
-        SELECT 1
-        FROM vibetype.contact c, _blocked
-        WHERE c.id = guest_row_visible.contact_id
-          AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
-          AND NOT (c.created_by = ANY(_blocked.ids))
-      )
-    )
-  );
-$$;
-
-
-ALTER FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) OWNER TO ci;
 
 --
 -- Name: guests_via_own_contact(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -2373,27 +2320,20 @@ $$;
 ALTER FUNCTION vibetype_private.guests_via_own_contact() OWNER TO ci;
 
 --
--- Name: guests_via_own_events_unblocked(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+-- Name: guests_via_own_events(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
-CREATE FUNCTION vibetype_private.guests_via_own_events_unblocked() RETURNS uuid[]
+CREATE FUNCTION vibetype_private.guests_via_own_events() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  WITH _blocked AS (
-    SELECT vibetype_private.account_block_ids() AS ids
-  )
   SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.guest g
-  JOIN vibetype.event e ON e.id = g.event_id
-  JOIN vibetype.contact c ON c.id = g.contact_id,
-  _blocked
-  WHERE e.created_by = vibetype.invoker_account_id()
-    AND (c.account_id IS NULL OR NOT (c.account_id = ANY(_blocked.ids)))
-    AND NOT (c.created_by = ANY(_blocked.ids));
+  FROM vibetype.event e
+  JOIN vibetype.guest g ON g.event_id = e.id
+  WHERE e.created_by = vibetype.invoker_account_id();
 $$;
 
 
-ALTER FUNCTION vibetype_private.guests_via_own_events_unblocked() OWNER TO ci;
+ALTER FUNCTION vibetype_private.guests_via_own_events() OWNER TO ci;
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -6957,12 +6897,12 @@ CREATE POLICY attendance_insert ON vibetype.attendance FOR INSERT WITH CHECK ((E
 CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((EXISTS ( SELECT 1
    FROM unnest(vibetype.attendance_claim_array()) ac(ac)
   WHERE (ac.ac = attendance.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.attendance_via_own_events()) a(a)
-  WHERE (a.a = attendance.id))) OR (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.guests_via_own_events()) g(g)
+  WHERE (g.g = attendance.guest_id))) OR (EXISTS ( SELECT 1
    FROM unnest(vibetype.guest_claim_array()) gc(gc)
   WHERE (gc.gc = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.attendance_via_own_contact()) a(a)
-  WHERE (a.a = attendance.id))) OR vibetype_private.attendance_row_visible(guest_id)));
+   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
+  WHERE (g.g = attendance.guest_id)))));
 
 
 --
@@ -7273,10 +7213,12 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( S
 CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((EXISTS ( SELECT 1
    FROM unnest(vibetype.guest_claim_array()) gc(gc)
   WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
-  WHERE (g.g = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_events_unblocked()) g(g)
-  WHERE (g.g = guest.id))) OR vibetype_private.guest_row_visible(contact_id, event_id)));
+   FROM unnest(vibetype_private.contacts_referring_invoker()) c(c)
+  WHERE (c.c = guest.contact_id))) OR ((EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.events_organized()) e(e)
+  WHERE (e.e = guest.event_id))) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.contacts_blocked()) c(c)
+  WHERE (c.c = guest.contact_id)))))));
 
 
 --
@@ -7286,10 +7228,12 @@ CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((EXISTS ( SELECT
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((EXISTS ( SELECT 1
    FROM unnest(vibetype.guest_claim_array()) gc(gc)
   WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
-  WHERE (g.g = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_events_unblocked()) g(g)
-  WHERE (g.g = guest.id))) OR vibetype_private.guest_row_visible(contact_id, event_id)));
+   FROM unnest(vibetype_private.contacts_referring_invoker()) c(c)
+  WHERE (c.c = guest.contact_id))) OR ((EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.events_organized()) e(e)
+  WHERE (e.e = guest.event_id))) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(vibetype_private.contacts_blocked()) c(c)
+  WHERE (c.c = guest.contact_id)))))));
 
 
 --
@@ -7894,30 +7838,21 @@ REVOKE ALL ON FUNCTION vibetype_private.adjust_audit_log_id_seq() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION attendance_row_visible(guest_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION contacts_blocked(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.attendance_row_visible(guest_id uuid) TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION attendance_via_own_contact(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.attendance_via_own_contact() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_contact() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_contact() TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.contacts_blocked() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.contacts_blocked() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.contacts_blocked() TO vibetype_anonymous;
 
 
 --
--- Name: FUNCTION attendance_via_own_events(); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION contacts_referring_invoker(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.attendance_via_own_events() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.attendance_via_own_events() TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.contacts_referring_invoker() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.contacts_referring_invoker() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.contacts_referring_invoker() TO vibetype_anonymous;
 
 
 --
@@ -7930,21 +7865,21 @@ GRANT ALL ON FUNCTION vibetype_private.events_invited() TO vibetype_anonymous;
 
 
 --
+-- Name: FUNCTION events_organized(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.events_organized() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_anonymous;
+
+
+--
 -- Name: FUNCTION events_with_claimed_attendance(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guest_row_visible(contact_id uuid, event_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guest_row_visible(contact_id uuid, event_id uuid) TO vibetype_anonymous;
 
 
 --
@@ -7957,12 +7892,12 @@ GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_anon
 
 
 --
--- Name: FUNCTION guests_via_own_events_unblocked(); Type: ACL; Schema: vibetype_private; Owner: ci
+-- Name: FUNCTION guests_via_own_events(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events_unblocked() TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_events() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_anonymous;
 
 
 --
