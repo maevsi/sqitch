@@ -1,3 +1,9 @@
+## [13.0.2](https://github.com/maevsi/sqitch/compare/13.0.1...13.0.2) (2026-11-10)
+
+### Performance Improvements
+
+* **guest:** look up blocked accounts once per claim array call ([#349](https://github.com/maevsi/sqitch/issues/349)) ([be50b98](https://github.com/maevsi/sqitch/commit/be50b98bf9f94159932fa4c8055bb3c89405b813))
+
 ## [13.0.1](https://github.com/maevsi/sqitch/compare/13.0.0...13.0.1) (2026-11-09)
 
 ### Performance Improvements
