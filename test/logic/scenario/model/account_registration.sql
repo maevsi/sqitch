@@ -102,35 +102,25 @@ EXCEPTION WHEN OTHERS THEN
 END $$;
 ROLLBACK TO SAVEPOINT username_length;
 
-SAVEPOINT notification;
+SAVEPOINT outbox;
 DO $$
 DECLARE
   _legal_term_id UUID;
   _account_id UUID;
 BEGIN
   _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype_test.outbox_capture();
   PERFORM vibetype.account_registration('1970-01-01', 'email@example.com', 'en', _legal_term_id, 'password', 'username-8b973f');
 
   SELECT id INTO _account_id
   FROM vibetype.account
   WHERE username = 'username-8b973f';
 
-  PERFORM vibetype_test.invoker_set(_account_id);
-
-/* TODO: remove comments when PR "feat(notification)!: inherit invitations" has been merged
-  IF NOT EXISTS (
-    SELECT 1 FROM vibetype.notification
-    WHERE channel = 'account_registration'
-      AND payload::jsonb -> 'account' ->> 'username' = 'username-8b973f'
-  ) THEN
-    RAISE EXCEPTION 'Test failed: Notification not generated';
+  IF vibetype_test.outbox_payload('account.registered', _account_id) -> 'data' IS DISTINCT FROM jsonb_build_object('account_id', _account_id, 'language', 'en') THEN
+    RAISE EXCEPTION 'Test failed: Outbox event not generated';
   END IF;
-*/
-
-  PERFORM vibetype_test.invoker_set_previous();
-
 END $$;
-ROLLBACK TO SAVEPOINT notification;
+ROLLBACK TO SAVEPOINT outbox;
 
 SAVEPOINT time_zone;
 DO $$

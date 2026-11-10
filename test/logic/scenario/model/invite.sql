@@ -11,9 +11,7 @@ DECLARE
   eventA UUID;
   guestAB UUID;
 
-  invitationId UUID;
-
-  rec RECORD;
+  payload JSONB;
 
 BEGIN
 
@@ -23,15 +21,22 @@ BEGIN
   eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
+  PERFORM vibetype_test.outbox_capture();
   PERFORM vibetype_test.invoker_set(accountA);
 
-  invitationId := vibetype.invite(guestAB, 'de');
+  PERFORM vibetype.invite(guestAB, 'de');
 
-  SELECT guest_id, created_by, channel INTO rec
-  FROM vibetype.notification_invitation
-  WHERE id = invitationId;
+  PERFORM vibetype_test.invoker_set_previous();
 
-  IF rec.guest_id != guestAB or rec.created_by != accountA or rec.channel != 'event_invitation' THEN
+  payload := vibetype_test.outbox_payload('guest.invited', guestAB);
+
+  IF payload -> 'data' IS DISTINCT FROM jsonb_build_object(
+    'guest_id', guestAB,
+    'event_id', eventA,
+    'contact_id', contactAB,
+    'invited_by', accountA,
+    'language', 'de'
+  ) THEN
     RAISE EXCEPTION 'The invitation was not correctly created';
   END IF;
 
