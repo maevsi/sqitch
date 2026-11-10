@@ -129,10 +129,12 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                                 TRUE),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                              FALSE),
   ('guest_claim_array',          'SELECT vibetype.guest_claim_array()',                                                                FALSE),
+  ('guest_contact_ids',          'SELECT * FROM vibetype.guest_contact_ids()',                                                         FALSE),
   ('guest_count',                'SELECT vibetype.guest_count(''' || current_setting('benchmark.event_id') || '''::UUID)',              FALSE),
   ('select_accounts',            'SELECT * FROM vibetype.account',                                                                     FALSE),
   ('select_attendance',          'SELECT * FROM vibetype.attendance',                                                                  FALSE),
   ('select_contacts',            'SELECT * FROM vibetype.contact',                                                                     FALSE),
+  ('select_contacts_by_creator', 'SELECT * FROM vibetype.contact WHERE created_by = ''' || current_setting('benchmark.account_id') || '''::UUID', FALSE),
   ('select_events',              'SELECT * FROM vibetype.event',                                                                       FALSE),
   ('select_guests',              'SELECT * FROM vibetype.guest',                                                                       FALSE);
 

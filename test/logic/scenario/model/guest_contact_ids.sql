@@ -134,4 +134,39 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT guest_contact_ids_multiple_events;
 
+SAVEPOINT guest_contact_ids_claim_and_organizer;
+DO $$
+DECLARE
+  accountA UUID;
+  accountC UUID;
+  contactAX UUID;
+  eventA UUID;
+  guestAX UUID;
+  _count INTEGER;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountC := vibetype_test.account_registration_verified('c', 'c@example.com');
+
+  contactAX := vibetype_test.contact_create(accountA, 'x@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  guestAX := vibetype_test.guest_create(accountA, eventA, contactAX);
+
+  -- A non-empty block list makes `NULL = ANY (blocked)` evaluate to NULL, so contacts without an account need their own guard.
+  PERFORM vibetype_test.account_block_create(accountA, accountC);
+
+  PERFORM vibetype_test.invoker_set(accountA);
+  PERFORM set_config('jwt.claims.guests', '["' || guestAX || '"]', true);
+
+  -- The organizer holds a claim for a guest of their own event, so the guest matches both branches.
+  SELECT count(*) INTO _count FROM vibetype.guest_contact_ids() WHERE contact_id = contactAX;
+
+  IF _count <> 1 THEN
+    RAISE EXCEPTION 'Test failed: a guest matching claim and own event should yield its contact once, but yielded it % times', _count;
+  END IF;
+
+  PERFORM set_config('jwt.claims.guests', '', true);
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT guest_contact_ids_claim_and_organizer;
+
 ROLLBACK;

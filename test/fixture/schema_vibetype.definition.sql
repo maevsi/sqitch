@@ -1298,32 +1298,26 @@ COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest c
 CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
+  WITH _blocked AS MATERIALIZED (
+    SELECT vibetype_private.account_block_ids() AS ids
+  )
   -- get all contacts of guests
   SELECT g.contact_id
   FROM vibetype.guest g
-  WHERE
-    (
-      -- that are known through a guest claim
-      g.id = ANY (vibetype.guest_claim_array())
-    OR
-      -- or for events organized by the invoker
-      (
-        EXISTS (
-          SELECT 1
-          FROM vibetype.event e
-          WHERE e.id = g.event_id
-            AND e.created_by = vibetype.invoker_account_id()
-        )
-        AND
-        EXISTS (
-          SELECT 1
-          FROM vibetype.contact c
-          WHERE c.id = g.contact_id
-            AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by)
-            AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.account_id)
-        )
-      )
-    );
+  WHERE g.id IN (
+    -- that are known through a guest claim
+    SELECT unnest(vibetype.guest_claim_array())
+    UNION ALL
+    -- or for events organized by the invoker, omitting contacts created by or pointing at a blocked account
+    SELECT g_own.id
+    FROM vibetype.event e
+    JOIN vibetype.guest g_own ON g_own.event_id = e.id
+    JOIN vibetype.contact c ON c.id = g_own.contact_id,
+    _blocked
+    WHERE e.created_by = vibetype.invoker_account_id()
+      AND NOT (c.created_by = ANY (_blocked.ids))
+      AND (c.account_id IS NULL OR NOT (c.account_id = ANY (_blocked.ids)))
+  );
 $$;
 
 
