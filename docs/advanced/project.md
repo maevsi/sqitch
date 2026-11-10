@@ -12,7 +12,7 @@ This standalone setup is lighter but requires you to manually configure local se
 
 ## Executable
 
-Instead of using the package script (`npx npm run deploy`) to invoke Sqitch, you can call the Sqitch executable directly:
+Instead of using the package script (`pnpm run deploy`) to invoke Sqitch, you can call the Sqitch executable directly:
 
 ```sh
 ./src/sqitch deploy <command> [options]
