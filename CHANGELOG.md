@@ -1,3 +1,9 @@
+## [13.0.4](https://github.com/maevsi/sqitch/compare/13.0.3...13.0.4) (2026-11-10)
+
+### Performance Improvements
+
+* **policy:** check write access through arrays instead of joins that expand the select policies ([#354](https://github.com/maevsi/sqitch/issues/354)) ([e8773f0](https://github.com/maevsi/sqitch/commit/e8773f03eca10b9f1ff1d5e43cd6d27c22b0b5fa))
+
 ## [13.0.3](https://github.com/maevsi/sqitch/compare/13.0.2...13.0.3) (2026-11-10)
 
 ### Performance Improvements
