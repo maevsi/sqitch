@@ -1,60 +1,43 @@
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_accept (
   _invoker_account_id UUID,
   _id UUID
-) RETURNS VOID AS $$
+) RETURNS INTEGER AS $$
 DECLARE
-  rec RECORD;
   _count INTEGER;
 BEGIN
   PERFORM vibetype_test.invoker_set(_invoker_account_id);
 
   UPDATE vibetype.friendship
-    SET "status" = 'accepted'::vibetype.friendship_status
+    SET status = 'accepted'::vibetype.friendship_status
     WHERE id = _id;
 
+  GET DIAGNOSTICS _count = ROW_COUNT;
+
   PERFORM vibetype_test.invoker_set_previous();
+
+  RETURN _count;
 END $$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION vibetype_test.friendship_accept(UUID, UUID) IS 'Accepts a friendship as the given account and returns the number of updated rows, which is zero when row level security hides the friendship from the update.';
 
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_accept(UUID, UUID) TO vibetype_account;
 
 
-CREATE OR REPLACE FUNCTION vibetype_test.friendship_reject (
-  _invoker_account_id UUID,
-  _id UUID
-) RETURNS VOID AS $$
-BEGIN
-  PERFORM vibetype_test.invoker_set(_invoker_account_id);
-
-  DELETE FROM vibetype.friendship
-    WHERE id = _id;
-
-  PERFORM vibetype_test.invoker_set_previous();
-END $$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_reject(UUID, UUID) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.friendship_request (
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_create (
   _invoker_account_id UUID,
   _friend_account_id UUID
 ) RETURNS UUID AS $$
 DECLARE
   _id UUID;
-  _a_account_id UUID;
-  _b_account_id UUID;
 BEGIN
   PERFORM vibetype_test.invoker_set(_invoker_account_id);
 
-  IF _invoker_account_id < _friend_account_id THEN
-    _a_account_id := _invoker_account_id;
-    _b_account_id := _friend_account_id;
-  ELSE
-    _a_account_id := _friend_account_id;
-    _b_account_id := _invoker_account_id;
-  END IF;
-
-  INSERT INTO vibetype.friendship(a_account_id, b_account_id, created_by)
-    VALUES (_a_account_id, _b_account_id, _invoker_account_id)
+  INSERT INTO vibetype.friendship(account_a_id, account_b_id, created_by)
+    VALUES (
+      LEAST(_invoker_account_id, _friend_account_id),
+      GREATEST(_invoker_account_id, _friend_account_id),
+      _invoker_account_id
+    )
     RETURNING id INTO _id;
 
   PERFORM vibetype_test.invoker_set_previous();
@@ -62,101 +45,73 @@ BEGIN
   RETURN _id;
 END $$ LANGUAGE plpgsql;
 
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_request(UUID, UUID) TO vibetype_account;
+COMMENT ON FUNCTION vibetype_test.friendship_create(UUID, UUID) IS 'Requests a friendship with the given friend as the given account.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_create(UUID, UUID) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_create_accepted (
+  _invoker_account_id UUID,
+  _friend_account_id UUID
+) RETURNS UUID AS $$
+DECLARE
+  _id UUID;
+BEGIN
+  _id := vibetype_test.friendship_create(_invoker_account_id, _friend_account_id);
+  PERFORM vibetype_test.friendship_accept(_friend_account_id, _id);
+
+  RETURN _id;
+END $$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION vibetype_test.friendship_create_accepted(UUID, UUID) IS 'Requests a friendship as the given account and accepts it as the given friend.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_create_accepted(UUID, UUID) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.friendship_delete (
+  _invoker_account_id UUID,
+  _id UUID
+) RETURNS INTEGER AS $$
+DECLARE
+  _count INTEGER;
+BEGIN
+  PERFORM vibetype_test.invoker_set(_invoker_account_id);
+
+  DELETE FROM vibetype.friendship
+    WHERE id = _id;
+
+  GET DIAGNOSTICS _count = ROW_COUNT;
+
+  PERFORM vibetype_test.invoker_set_previous();
+
+  RETURN _count;
+END $$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION vibetype_test.friendship_delete(UUID, UUID) IS 'Deletes a friendship as the given account and returns the number of deleted rows, which is zero when row level security hides the friendship from the delete.';
+
+GRANT EXECUTE ON FUNCTION vibetype_test.friendship_delete(UUID, UUID) TO vibetype_account;
 
 
 CREATE OR REPLACE FUNCTION vibetype_test.friendship_test (
   _test_case TEXT,
   _invoker_account_id UUID,
-  _status TEXT, -- status IS NULL means "any status"
+  _status TEXT, -- NULL means "any status"; text as the cleanup drops functions without qualifying argument types
   _expected_result UUID[]
 ) RETURNS VOID AS $$
 DECLARE
-  rec RECORD;
+  _result UUID[];
 BEGIN
-  IF _invoker_account_id IS NULL THEN
-    PERFORM vibetype_test.invoker_set_anonymous();
-  ELSE
-    PERFORM vibetype_test.invoker_set(_invoker_account_id);
-  END IF;
+  PERFORM vibetype_test.invoker_set(_invoker_account_id);
 
-  IF EXISTS (
-    SELECT id FROM vibetype.friendship WHERE _status IS NULL OR status = _status::vibetype.friendship_status
-    EXCEPT
-    SELECT * FROM unnest(_expected_result)
-  ) THEN
-    RAISE EXCEPTION 'some accounts should not appear in the query result';
-  END IF;
-
-  IF EXISTS (
-    SELECT * FROM unnest(_expected_result)
-    EXCEPT
-    SELECT id FROM vibetype.friendship WHERE _status IS NULL OR status = _status::vibetype.friendship_status
-  ) THEN
-    RAISE EXCEPTION 'some account is missing in the query result';
-  END IF;
+  SELECT COALESCE(array_agg(id), ARRAY[]::UUID[]) INTO _result
+    FROM vibetype.friendship
+    WHERE _status IS NULL OR status = _status::vibetype.friendship_status;
 
   PERFORM vibetype_test.invoker_set_previous();
+
+  PERFORM vibetype_test.uuid_array_test(_test_case, _result, _expected_result);
 END $$ LANGUAGE plpgsql;
 
+COMMENT ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, TEXT, UUID[]) IS 'Asserts that the given account sees exactly the expected friendships of the given status.';
+
 GRANT EXECUTE ON FUNCTION vibetype_test.friendship_test(TEXT, UUID, TEXT, UUID[]) TO vibetype_account;
-
-
-CREATE OR REPLACE FUNCTION vibetype_test.friendship_account_ids_test (
-  _test_case TEXT,
-  _invoker_account_id UUID,
-  _expected_result UUID[]
-) RETURNS VOID AS $$
-DECLARE
-  rec RECORD;
-BEGIN
-  IF _invoker_account_id IS NULL THEN
-    PERFORM set_config('jwt.claims.sub', '', true);
-  ELSE
-    PERFORM set_config('jwt.claims.sub', _invoker_account_id::TEXT, true);
-  END IF;
-
-  IF EXISTS (
-    WITH friendship_account_ids_test AS (
-      SELECT b_account_id AS account_id
-      FROM vibetype.friendship
-      WHERE a_account_id = _invoker_account_id
-        AND status = 'accepted'::vibetype.friendship_status
-      UNION ALL
-      SELECT a_account_id AS account_id
-      FROM vibetype.friendship
-      WHERE b_account_id = _invoker_account_id
-        AND status = 'accepted'::vibetype.friendship_status
-    )
-    SELECT account_id AS id
-    FROM friendship_account_ids_test f
-    WHERE NOT (f.account_id = ANY(vibetype_private.account_block_ids()))
-    EXCEPT
-    SELECT * FROM unnest(_expected_result)
-  ) THEN
-    RAISE EXCEPTION 'some accounts should not appear in the list of friends';
-  END IF;
-
-  IF EXISTS (
-    WITH friendship_account_ids_test AS (
-      SELECT b_account_id AS account_id
-      FROM vibetype.friendship
-      WHERE a_account_id = vibetype.invoker_account_id()
-        AND status = 'accepted'::vibetype.friendship_status
-      UNION ALL
-      SELECT a_account_id AS account_id
-      FROM vibetype.friendship
-      WHERE b_account_id = vibetype.invoker_account_id()
-        AND status = 'accepted'::vibetype.friendship_status
-    )
-    SELECT * FROM unnest(_expected_result)
-    EXCEPT
-    SELECT account_id AS id
-    FROM friendship_account_ids_test f
-    WHERE NOT (f.account_id = ANY(vibetype_private.account_block_ids()))
-  ) THEN
-    RAISE EXCEPTION 'some account is missing in the list of friends';
-  END IF;
-END $$ LANGUAGE plpgsql SECURITY DEFINER;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.friendship_account_ids_test(TEXT, UUID, UUID[]) TO vibetype_account;

@@ -125,8 +125,8 @@ ALTER TYPE vibetype.friendship_status OWNER TO ci;
 -- Name: TYPE friendship_status; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TYPE vibetype.friendship_status IS 'Possible status values of a friend relation.
-There is no status `rejected` because friendship records will be deleted when a friendship request is rejected.';
+COMMENT ON TYPE vibetype.friendship_status IS 'Possible status values of a friendship.
+There is no status `rejected` because the friendship is deleted when its request is rejected.';
 
 
 --
@@ -4187,17 +4187,17 @@ Reference to the uploaded file.';
 
 CREATE TABLE vibetype.friendship (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    a_account_id uuid NOT NULL,
-    b_account_id uuid NOT NULL,
+    account_a_id uuid CONSTRAINT friendship_a_account_id_not_null NOT NULL,
+    account_b_id uuid CONSTRAINT friendship_b_account_id_not_null NOT NULL,
     status vibetype.friendship_status DEFAULT 'requested'::vibetype.friendship_status NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    CONSTRAINT friendship_creator_participant CHECK (((created_by = a_account_id) OR (created_by = b_account_id))),
+    CONSTRAINT friendship_creator_participant CHECK (((created_by = account_a_id) OR (created_by = account_b_id))),
     CONSTRAINT friendship_creator_updater_difference CHECK ((created_by <> updated_by)),
-    CONSTRAINT friendship_ordering CHECK ((a_account_id < b_account_id)),
-    CONSTRAINT friendship_updater_participant CHECK (((updated_by IS NULL) OR (updated_by = a_account_id) OR (updated_by = b_account_id)))
+    CONSTRAINT friendship_ordering CHECK ((account_a_id < account_b_id)),
+    CONSTRAINT friendship_updater_participant CHECK (((updated_by IS NULL) OR (updated_by = account_a_id) OR (updated_by = account_b_id)))
 );
 
 
@@ -4207,7 +4207,7 @@ ALTER TABLE vibetype.friendship OWNER TO ci;
 -- Name: TABLE friendship; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.friendship IS 'A friend relation together with its status.';
+COMMENT ON TABLE vibetype.friendship IS 'A friendship between two accounts. A row with status `requested` is a pending friend request by `created_by`, which the other account accepts by setting the status to `accepted`. Deleting the row withdraws or rejects a request, or ends the friendship.';
 
 
 --
@@ -4215,23 +4215,23 @@ COMMENT ON TABLE vibetype.friendship IS 'A friend relation together with its sta
 --
 
 COMMENT ON COLUMN vibetype.friendship.id IS '@behavior -insert -update
-The friend relation''s internal id.';
+The friendship''s internal id.';
 
 
 --
--- Name: COLUMN friendship.a_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship.account_a_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.a_account_id IS '@behavior -update
-The ''left'' side of the friend relation. It must be lexically less than the ''right'' side.';
+COMMENT ON COLUMN vibetype.friendship.account_a_id IS '@behavior -update
+The friendship''s account with the lexically smaller id.';
 
 
 --
--- Name: COLUMN friendship.b_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship.account_b_id; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.friendship.b_account_id IS '@behavior -update
-The ''right'' side of the friend relation. It must be lexically greater than the ''left'' side.';
+COMMENT ON COLUMN vibetype.friendship.account_b_id IS '@behavior -update
+The friendship''s account with the lexically greater id.';
 
 
 --
@@ -4239,7 +4239,7 @@ The ''right'' side of the friend relation. It must be lexically greater than the
 --
 
 COMMENT ON COLUMN vibetype.friendship.status IS '@behavior -insert
-The status of the friend relation.';
+The friendship''s status.';
 
 
 --
@@ -4247,7 +4247,7 @@ The status of the friend relation.';
 --
 
 COMMENT ON COLUMN vibetype.friendship.created_at IS '@behavior -insert -update
-The timestamp when the friend relation was created.';
+Timestamp of when the friendship was requested.';
 
 
 --
@@ -4255,7 +4255,7 @@ The timestamp when the friend relation was created.';
 --
 
 COMMENT ON COLUMN vibetype.friendship.created_by IS '@behavior -update
-The account that created the friend relation.';
+The account that requested the friendship.';
 
 
 --
@@ -4263,7 +4263,7 @@ The account that created the friend relation.';
 --
 
 COMMENT ON COLUMN vibetype.friendship.updated_at IS '@behavior -insert -update
-The timestamp when the friend relation''s status was updated.';
+Timestamp of when the friendship was accepted.';
 
 
 --
@@ -4271,7 +4271,7 @@ The timestamp when the friend relation''s status was updated.';
 --
 
 COMMENT ON COLUMN vibetype.friendship.updated_by IS '@behavior -insert -update
-The account that updated the friend relation''s status.';
+The account that accepted the friendship.';
 
 
 --
@@ -5671,11 +5671,11 @@ ALTER TABLE ONLY vibetype.event_upload
 
 
 --
--- Name: friendship friendship_a_account_id_b_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_account_a_id_account_b_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_a_account_id_b_account_id_key UNIQUE (a_account_id, b_account_id);
+    ADD CONSTRAINT friendship_account_a_id_account_b_id_key UNIQUE (account_a_id, account_b_id);
 
 
 --
@@ -6216,10 +6216,17 @@ CREATE INDEX idx_event_upload_upload_id ON vibetype.event_upload USING btree (up
 
 
 --
--- Name: idx_friendship_b_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: idx_friendship_account_b_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_friendship_b_account_id ON vibetype.friendship USING btree (b_account_id);
+CREATE INDEX idx_friendship_account_b_id ON vibetype.friendship USING btree (account_b_id);
+
+
+--
+-- Name: INDEX idx_friendship_account_b_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_friendship_account_b_id IS 'B-Tree index to optimize lookups by the second account.';
 
 
 --
@@ -6835,19 +6842,19 @@ ALTER TABLE ONLY vibetype.event_upload
 
 
 --
--- Name: friendship friendship_a_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_account_a_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_a_account_id_fkey FOREIGN KEY (a_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT friendship_account_a_id_fkey FOREIGN KEY (account_a_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
--- Name: friendship friendship_b_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_account_b_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.friendship
-    ADD CONSTRAINT friendship_b_account_id_fkey FOREIGN KEY (b_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+    ADD CONSTRAINT friendship_account_b_id_fkey FOREIGN KEY (account_b_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
 
 
 --
@@ -7429,28 +7436,35 @@ CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING ((EX
 ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: friendship friendship_existing; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: friendship friendship_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
-  WHERE (b.b = friendship.b_account_id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
-  WHERE (b.b = friendship.a_account_id))))))) WITH CHECK (false);
+CREATE POLICY friendship_delete ON vibetype.friendship FOR DELETE USING (((account_a_id = vibetype.invoker_account_id()) OR (account_b_id = vibetype.invoker_account_id())));
 
 
 --
 -- Name: friendship friendship_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_insert ON vibetype.friendship FOR INSERT WITH CHECK ((created_by = vibetype.invoker_account_id()));
+CREATE POLICY friendship_insert ON vibetype.friendship FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (status = 'requested'::vibetype.friendship_status) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
+  WHERE ((b.b = friendship.account_a_id) OR (b.b = friendship.account_b_id)))))));
+
+
+--
+-- Name: friendship friendship_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY friendship_select ON vibetype.friendship FOR SELECT USING ((((status = 'accepted'::vibetype.friendship_status) OR (account_a_id = vibetype.invoker_account_id()) OR (account_b_id = vibetype.invoker_account_id())) AND (NOT (EXISTS ( SELECT 1
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
+  WHERE ((b.b = friendship.account_a_id) OR (b.b = friendship.account_b_id)))))));
 
 
 --
 -- Name: friendship friendship_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY friendship_update ON vibetype.friendship FOR UPDATE USING ((status = 'requested'::vibetype.friendship_status)) WITH CHECK (((status = 'accepted'::vibetype.friendship_status) AND (updated_by = vibetype.invoker_account_id())));
+CREATE POLICY friendship_update ON vibetype.friendship FOR UPDATE USING (((status = 'requested'::vibetype.friendship_status) AND (created_by <> vibetype.invoker_account_id()) AND ((account_a_id = vibetype.invoker_account_id()) OR (account_b_id = vibetype.invoker_account_id())))) WITH CHECK ((status = 'accepted'::vibetype.friendship_status));
 
 
 --
@@ -8594,17 +8608,17 @@ GRANT SELECT,DELETE ON TABLE vibetype.friendship TO vibetype_account;
 
 
 --
--- Name: COLUMN friendship.a_account_id; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship.account_a_id; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT INSERT(a_account_id) ON TABLE vibetype.friendship TO vibetype_account;
+GRANT INSERT(account_a_id) ON TABLE vibetype.friendship TO vibetype_account;
 
 
 --
--- Name: COLUMN friendship.b_account_id; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: COLUMN friendship.account_b_id; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT INSERT(b_account_id) ON TABLE vibetype.friendship TO vibetype_account;
+GRANT INSERT(account_b_id) ON TABLE vibetype.friendship TO vibetype_account;
 
 
 --
