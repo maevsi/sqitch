@@ -103,11 +103,20 @@ GRANT EXECUTE ON FUNCTION vibetype_test.events_invited() TO vibetype_anonymous, 
 DO $$
 DECLARE
   _account_id UUID;
+  _attendance_id UUID;
   _event_id UUID;
 BEGIN
   SELECT id INTO _account_id FROM vibetype.account WHERE username = 'benchmark-user-1';
   SELECT id INTO _event_id FROM vibetype.event WHERE slug = 'benchmark-event-1';
+  SELECT a.id INTO _attendance_id
+    FROM vibetype.attendance a
+    JOIN vibetype.guest g ON g.id = a.guest_id
+    JOIN vibetype.event e ON e.id = g.event_id
+    WHERE e.created_by = _account_id
+    ORDER BY a.id
+    LIMIT 1;
   PERFORM set_config('benchmark.account_id', _account_id::TEXT, false);
+  PERFORM set_config('benchmark.attendance_id', _attendance_id::TEXT, false);
   PERFORM set_config('benchmark.event_id', _event_id::TEXT, false);
 END $$;
 
@@ -137,7 +146,9 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('select_contacts_by_creator', 'SELECT * FROM vibetype.contact WHERE created_by = ''' || current_setting('benchmark.account_id') || '''::UUID', FALSE),
   ('select_events',              'SELECT * FROM vibetype.event',                                                                       FALSE),
   ('select_guests',              'SELECT * FROM vibetype.guest',                                                                       FALSE),
-  ('select_guests_by_event',     'SELECT * FROM vibetype.guest WHERE event_id = ''' || current_setting('benchmark.event_id') || '''::UUID', FALSE);
+  ('select_guests_by_event',     'SELECT * FROM vibetype.guest WHERE event_id = ''' || current_setting('benchmark.event_id') || '''::UUID', FALSE),
+  -- Rewrites the row unchanged, so repeated runs keep the data stable; sorted last so its dead tuples don't affect earlier queries.
+  ('update_attendance',          'UPDATE vibetype.attendance SET checked_out = checked_out WHERE id = ''' || current_setting('benchmark.attendance_id') || '''::UUID', TRUE);
 
 -- Collect all results into a single array.
 CREATE TABLE vibetype_test.benchmark_results (result JSONB);
