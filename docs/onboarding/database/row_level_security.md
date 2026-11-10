@@ -183,6 +183,7 @@ Without it, PostgreSQL inlines the single-row CTE and substitutes the function c
 A STABLE function call in a `WHERE` clause runs once per row unless it ends up as an index condition.
 An `OR` between conditions on different tables usually forces a sequential scan, so a call like `g.id = ANY (vibetype.guest_claim_array())` in one branch then runs for every row of the table.
 Split such conditions into a `UNION ALL` of branches that can each use an index, as `vibetype_private.events_invited()` does.
+When the result must keep one row per source row, collect the ids from the branches and select the rows with `id IN (...)`, as `vibetype.guest_contact_ids()` does, so a row matching both branches is not returned twice.
 
 **NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
 
