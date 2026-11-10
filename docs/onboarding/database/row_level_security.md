@@ -204,6 +204,12 @@ When the result must keep one row per source row, collect the ids from the branc
 
 **NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
 
+#### Let the planner inline trivial helpers
+
+PostgreSQL inlines a simple SQL function into the calling query, but it skips a `STRICT` function whose body is not strict, for example because it uses `NULLIF`.
+A function without arguments gains nothing from `STRICT`, so leave it off, as `vibetype.invoker_account_id()` does.
+Otherwise every filter that is not an index condition calls the function once per row: on 200,000 rows the strict version took about 660 ms and the inlined one about 180 ms.
+
 ### When SECURITY DEFINER helpers are still needed
 
 Some policy checks require querying other RLS-protected tables (for example, the guest policy needs to check the `contact` and `event` tables).
