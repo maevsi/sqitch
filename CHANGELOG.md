@@ -1,3 +1,9 @@
+## [13.1.0](https://github.com/maevsi/sqitch/compare/13.0.4...13.1.0) (2026-11-11)
+
+### Features
+
+* **database:** add ducklake catalog database ([#356](https://github.com/maevsi/sqitch/issues/356)) ([95f2e3f](https://github.com/maevsi/sqitch/commit/95f2e3f71d89fc79d642e2addf7f83d41de0a443))
+
 ## [13.0.4](https://github.com/maevsi/sqitch/compare/13.0.3...13.0.4) (2026-11-10)
 
 ### Performance Improvements
