@@ -4,15 +4,13 @@ CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  PERFORM vibetype_private.outbox_insert('upload', OLD.id, 'upload.deleted', to_jsonb(OLD));
+  PERFORM vibetype_private.outbox_insert('upload', OLD.id, 'upload.deleted', jsonb_build_object('storage_key', OLD.storage_key));
 
   RETURN NULL;
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Adds an outbox event of type `upload.deleted` with a snapshot of the upload, whose storage key is needed for file cleanup.';
-
-GRANT EXECUTE ON FUNCTION vibetype.trigger_upload_outbox() TO vibetype_account;
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Adds an outbox event of type `upload.deleted` with the upload''s storage key, which is needed for file cleanup.';
 
 CREATE TRIGGER outbox
   AFTER DELETE

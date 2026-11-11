@@ -1,8 +1,8 @@
 BEGIN;
 
 -- Not foreign-keyed to vibetype_private.outbox, whose rows are deleted right after their insertion.
--- Grows by one row per processed event. Markers older than the topic retention can be deleted safely;
--- upgrade path: schedule `DELETE ... WHERE processed_at < now() - interval '30 days'`.
+-- Markers older than the topic retention can be deleted safely, which vibetype.outbox_mark_processed does
+-- on every call by scanning the unindexed processed_at; upgrade path once that scan shows up: index it.
 CREATE TABLE vibetype_private.outbox_processed (
   outbox_id     UUID PRIMARY KEY,
 

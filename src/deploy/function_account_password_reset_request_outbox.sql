@@ -13,7 +13,7 @@ CREATE OR REPLACE FUNCTION vibetype.account_password_reset_request(email_address
     'account',
     updated.id,
     'account.password_reset_requested',
-    jsonb_build_object('account_id', updated.id, 'language', account_password_reset_request.language)
+    jsonb_build_object('account_id', updated.id, 'language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
   )
   FROM updated;
 $$;

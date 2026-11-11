@@ -116,7 +116,7 @@ BEGIN
   FROM vibetype.account
   WHERE username = 'username-8b973f';
 
-  IF vibetype_test.outbox_payload('account.registered', _account_id) -> 'data' IS DISTINCT FROM jsonb_build_object('account_id', _account_id, 'language', 'en') THEN
+  IF vibetype_test.outbox_payload('account.registered', _account_id) -> 'data' IS DISTINCT FROM jsonb_build_object('account_id', _account_id, 'language', 'en', 'time_zone', 'UTC') THEN
     RAISE EXCEPTION 'Test failed: Outbox event not generated';
   END IF;
 END $$;

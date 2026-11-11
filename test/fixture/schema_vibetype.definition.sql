@@ -440,7 +440,7 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     'account',
     updated.id,
     'account.password_reset_requested',
-    jsonb_build_object('account_id', updated.id, 'language', account_password_reset_request.language)
+    jsonb_build_object('account_id', updated.id, 'language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
   )
   FROM updated;
 $$;
@@ -499,7 +499,7 @@ BEGIN
     'account',
     _new_account_private.id,
     'account.registered',
-    jsonb_build_object('account_id', _new_account_private.id, 'language', account_registration.language)
+    jsonb_build_object('account_id', _new_account_private.id, 'language', account_registration.language, 'time_zone', account_registration.time_zone)
   );
 
   -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration
@@ -1771,6 +1771,8 @@ COMMENT ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) IS 'Returns whe
 CREATE FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) RETURNS void
     LANGUAGE sql STRICT SECURITY DEFINER
     AS $$
+  DELETE FROM vibetype_private.outbox_processed WHERE processed_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+
   INSERT INTO vibetype_private.outbox_processed (outbox_id) VALUES (outbox_mark_processed.outbox_id)
   ON CONFLICT (outbox_id) DO NOTHING;
 $$;
@@ -1782,7 +1784,7 @@ ALTER FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) OWNER TO ci;
 -- Name: FUNCTION outbox_mark_processed(outbox_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) IS 'Marks an outbox event as processed. Marking an already processed event again has no effect.';
+COMMENT ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) IS 'Marks an outbox event as processed. Marking an already processed event again has no effect. Markers older than 30 days are deleted along the way.';
 
 
 --
@@ -2107,7 +2109,7 @@ CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
 BEGIN
-  PERFORM vibetype_private.outbox_insert('upload', OLD.id, 'upload.deleted', to_jsonb(OLD));
+  PERFORM vibetype_private.outbox_insert('upload', OLD.id, 'upload.deleted', jsonb_build_object('storage_key', OLD.storage_key));
 
   RETURN NULL;
 END;
@@ -2120,7 +2122,7 @@ ALTER FUNCTION vibetype.trigger_upload_outbox() OWNER TO ci;
 -- Name: FUNCTION trigger_upload_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Adds an outbox event of type `upload.deleted` with a snapshot of the upload, whose storage key is needed for file cleanup.';
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Adds an outbox event of type `upload.deleted` with the upload''s storage key, which is needed for file cleanup.';
 
 
 --
@@ -8011,7 +8013,6 @@ GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_acc
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_event_outbox() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.trigger_event_outbox() TO vibetype_account;
 
 
 --
@@ -8053,7 +8054,6 @@ GRANT ALL ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_upload_outbox() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.trigger_upload_outbox() TO vibetype_account;
 
 
 --

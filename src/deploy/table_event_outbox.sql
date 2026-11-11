@@ -16,8 +16,6 @@ $$;
 
 COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Adds an outbox event of type `event.created`, `event.updated` or `event.deleted` with a snapshot of the event.';
 
-GRANT EXECUTE ON FUNCTION vibetype.trigger_event_outbox() TO vibetype_account;
-
 CREATE TRIGGER outbox
   AFTER
        INSERT

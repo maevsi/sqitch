@@ -39,7 +39,7 @@ BEGIN
     'account',
     _new_account_private.id,
     'account.registered',
-    jsonb_build_object('account_id', _new_account_private.id, 'language', account_registration.language)
+    jsonb_build_object('account_id', _new_account_private.id, 'language', account_registration.language, 'time_zone', account_registration.time_zone)
   );
 
   -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration

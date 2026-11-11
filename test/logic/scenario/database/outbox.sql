@@ -39,7 +39,7 @@ BEGIN
     'aggregate_id', _account_id,
     'version', 1,
     'occurred_at', _outbox.created_at,
-    'data', jsonb_build_object('account_id', _account_id, 'language', 'de')
+    'data', jsonb_build_object('account_id', _account_id, 'language', 'de', 'time_zone', 'Europe/Berlin')
   ) THEN
     RAISE EXCEPTION 'Test failed (outbox_envelope): unexpected payload %', _outbox.payload;
   END IF;
@@ -124,8 +124,8 @@ BEGIN
     RAISE EXCEPTION 'Test failed (outbox_upload_deleted): expected only the deletion as outbox event';
   END IF;
 
-  IF vibetype_test.outbox_payload('upload.deleted', _upload_id) -> 'data' ->> 'storage_key' IS DISTINCT FROM 'storage-key' THEN
-    RAISE EXCEPTION 'Test failed (outbox_upload_deleted): data lacks the storage key';
+  IF vibetype_test.outbox_payload('upload.deleted', _upload_id) -> 'data' IS DISTINCT FROM jsonb_build_object('storage_key', 'storage-key') THEN
+    RAISE EXCEPTION 'Test failed (outbox_upload_deleted): data is not just the storage key';
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT outbox_upload_deleted;
@@ -144,6 +144,13 @@ BEGIN
 
   IF NOT vibetype.outbox_is_processed(_outbox_id) THEN
     RAISE EXCEPTION 'Test failed (outbox_processed): marked event is not processed';
+  END IF;
+
+  UPDATE vibetype_private.outbox_processed SET processed_at = CURRENT_TIMESTAMP - INTERVAL '31 days' WHERE outbox_id = _outbox_id;
+  PERFORM vibetype.outbox_mark_processed(gen_random_uuid());
+
+  IF vibetype.outbox_is_processed(_outbox_id) THEN
+    RAISE EXCEPTION 'Test failed (outbox_processed): marker older than 30 days was not deleted';
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT outbox_processed;
