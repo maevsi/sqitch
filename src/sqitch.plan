@@ -110,6 +110,8 @@ table_guest_policy_arrays [table_guest_policy] 2026-11-10T00:00:00Z Jonas Thelem
 table_attendance_policy_arrays [table_attendance_policy table_guest_policy] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Check attendance visibility through guest arrays instead of a per-row function.
 function_invoker_account_id_inline [function_invoker_account_id] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Let the planner inline the invoker account id instead of calling it per row.
 table_policy_write_arrays [table_attendance_policy_arrays table_guest_policy_arrays] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Check attendance and guest writes through arrays instead of joins that expand the select policies.
+role_gizmosql 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role gizmosql.
+database_ducklake [role_gizmosql] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add the database for the lakehouse catalog.
 table_outbox [schema_private] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add a transactional outbox for domain events published via change data capture.
 table_outbox_processed [schema_private] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add idempotency markers for processed outbox events.
 function_outbox_is_processed [privilege_execute_revoke schema_public table_outbox_processed role_vibetype] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add a function that returns whether an outbox event was marked as processed.
