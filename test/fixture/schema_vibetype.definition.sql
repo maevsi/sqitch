@@ -508,7 +508,8 @@ BEGIN
   INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
     (_new_account_private.id, account_registration.legal_term_id);
 
-  INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
+  INSERT INTO vibetype.contact(account_id, created_by, language) VALUES
+    (_new_account_private.id, _new_account_private.id, CASE WHEN account_registration.language IN ('de', 'en') THEN account_registration.language::vibetype.language END);
 
   INSERT INTO vibetype_private.notification (channel, payload) VALUES (
     'account_registration',

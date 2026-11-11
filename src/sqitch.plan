@@ -112,3 +112,4 @@ function_invoker_account_id_inline [function_invoker_account_id] 2026-11-10T00:0
 table_policy_write_arrays [table_attendance_policy_arrays table_guest_policy_arrays] 2026-11-10T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Check attendance and guest writes through arrays instead of joins that expand the select policies.
 role_gizmosql 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role gizmosql.
 database_ducklake [role_gizmosql] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add the database for the lakehouse catalog.
+function_account_registration_language [function_account_registration] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Store the registration language on the account's own contact.
