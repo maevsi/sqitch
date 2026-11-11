@@ -1,3 +1,9 @@
+## [13.2.0](https://github.com/maevsi/sqitch/compare/13.1.0...13.2.0) (2026-11-11)
+
+### Features
+
+* **contact:** store the registration language on the own contact ([#357](https://github.com/maevsi/sqitch/issues/357)) ([76fed15](https://github.com/maevsi/sqitch/commit/76fed151ab3213330552706b5c96c8093f6b2425))
+
 ## [13.1.0](https://github.com/maevsi/sqitch/compare/13.0.4...13.1.0) (2026-11-11)
 
 ### Features
