@@ -45,6 +45,7 @@ RUN apt-get update \
     jq="${JQ_VERSION}" \
     sqitch="${SQITCH_VERSION}" \
   && mkdir -p /run/secrets \
+  && echo "gizmosql"      > /run/secrets/postgres-role-service-gizmosql-username \
   && echo "grafana"       > /run/secrets/postgres-role-service-grafana-username \
   && echo "postgres"      > /run/secrets/postgres-password \
   && echo "postgraphile"  > /run/secrets/postgres-role-service-postgraphile-username \
@@ -52,6 +53,7 @@ RUN apt-get update \
   && echo "vibetype"      > /run/secrets/postgres-role-service-vibetype-username \
   && echo "zammad"        > /run/secrets/postgres-role-service-zammad-username \
   && echo "placeholder" | tee \
+    /run/secrets/postgres-role-service-gizmosql-password \
     /run/secrets/postgres-role-service-grafana-password \
     /run/secrets/postgres-role-service-postgraphile-password \
     /run/secrets/postgres-role-service-reccoom-password \
