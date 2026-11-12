@@ -655,13 +655,12 @@ The account''s username. Must be alphanumeric with hyphens and not exceed 100 ch
 CREATE FUNCTION vibetype.account_search(query text) RETURNS SETOF vibetype.account
     LANGUAGE sql STABLE
     AS $$
-  SELECT *
-  FROM vibetype.account
-  WHERE
-    username ILIKE '%' || account_search.query || '%'
+  SELECT a.*
+  FROM vibetype.account_search_match(account_search.query) m
+  JOIN vibetype.account a ON a.id = m.account_id
   ORDER BY
-    similarity(username, account_search.query) DESC,
-    username;
+    m.similarity DESC,
+    a.username;
 $$;
 
 
@@ -674,6 +673,35 @@ ALTER FUNCTION vibetype.account_search(query text) OWNER TO ci;
 COMMENT ON FUNCTION vibetype.account_search(query text) IS 'Returns accounts with a username containing a given substring, closest matches first.
 Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.
 Queries under 3 characters match few trigrams and so scan a larger share of the index; keep that in mind if this backs search-as-you-type.';
+
+
+--
+-- Name: account_search_match(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_search_match(query text) RETURNS TABLE(account_id uuid, similarity real)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public'
+    AS $$
+  SELECT
+    a.id,
+    similarity(a.username, account_search_match.query)
+  FROM vibetype.account a
+  WHERE
+    a.username ILIKE '%' || account_search_match.query || '%'
+    -- NOT IN over an uncorrelated subquery becomes a hashed subplan evaluated once, rather than calling account_block_ids() per candidate row.
+    AND a.id NOT IN (SELECT unnest(vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype.account_search_match(query text) OWNER TO ci;
+
+--
+-- Name: FUNCTION account_search_match(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_search_match(query text) IS '@omit
+Returns ids of accounts with a username containing the given substring, excluding accounts blocked by or blocking the invoker, with their trigram similarity to the query.';
 
 
 --
@@ -7454,6 +7482,14 @@ GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
 
 REVOKE ALL ON FUNCTION vibetype.account_search(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_search(query text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION account_search_match(query text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_search_match(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_search_match(query text) TO vibetype_account;
 
 
 --
