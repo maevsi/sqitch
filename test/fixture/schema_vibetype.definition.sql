@@ -2179,7 +2179,7 @@ CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
-  _value_max INTEGER;
+  _value_max BIGINT;
 BEGIN
   SELECT MAX(id) INTO _value_max
     FROM vibetype_private.audit_log;
@@ -4665,7 +4665,7 @@ COMMENT ON COLUMN vibetype_private.achievement_code.achievement IS 'The achievem
 --
 
 CREATE TABLE vibetype_private.audit_log (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     operation_type text NOT NULL,
     record_id text NOT NULL,
     schema_name text NOT NULL,
@@ -4754,7 +4754,6 @@ COMMENT ON COLUMN vibetype_private.audit_log.created_by IS 'The user that execut
 --
 
 CREATE SEQUENCE vibetype_private.audit_log_id_seq
-    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
