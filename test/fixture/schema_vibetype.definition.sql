@@ -5636,20 +5636,6 @@ CREATE INDEX idx_account_block_blocked_account_id ON vibetype.account_block USIN
 
 
 --
--- Name: idx_account_block_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_account_block_created_by ON vibetype.account_block USING btree (created_by);
-
-
---
--- Name: idx_account_social_network_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_account_social_network_account_id ON vibetype.account_social_network USING btree (account_id);
-
-
---
 -- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5661,13 +5647,6 @@ CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username p
 --
 
 COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
-
-
---
--- Name: idx_achievement_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_achievement_account_id ON vibetype.achievement USING btree (account_id);
 
 
 --
@@ -5769,13 +5748,6 @@ CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id)
 
 
 --
--- Name: idx_contact_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
-
-
---
 -- Name: idx_contact_name_first; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5787,13 +5759,6 @@ CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name)
 --
 
 CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
-
-
---
--- Name: idx_device_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_device_created_by ON vibetype.device USING btree (created_by);
 
 
 --
@@ -5839,13 +5804,6 @@ COMMENT ON INDEX vibetype.idx_event_app_created_by IS 'B-Tree index to optimize 
 
 
 --
--- Name: idx_event_app_event_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_app_event_id ON vibetype.event_app USING btree (event_id);
-
-
---
 -- Name: idx_event_category_mapping_category_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5853,17 +5811,17 @@ CREATE INDEX idx_event_category_mapping_category_id ON vibetype.event_category_m
 
 
 --
--- Name: idx_event_category_mapping_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: idx_event_created_by_start; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_event_category_mapping_event_id ON vibetype.event_category_mapping USING btree (event_id);
+CREATE INDEX idx_event_created_by_start ON vibetype.event USING btree (created_by, start);
 
 
 --
--- Name: idx_event_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: INDEX idx_event_created_by_start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+COMMENT ON INDEX vibetype.idx_event_created_by_start IS 'B-Tree index serving the events of a creator ordered by start.';
 
 
 --
@@ -5874,24 +5832,10 @@ CREATE INDEX idx_event_end ON vibetype.event USING btree ("end") WHERE ("end" IS
 
 
 --
--- Name: idx_event_favorite_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_favorite_created_by ON vibetype.event_favorite USING btree (created_by);
-
-
---
 -- Name: idx_event_favorite_event_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
 CREATE INDEX idx_event_favorite_event_id ON vibetype.event_favorite USING btree (event_id);
-
-
---
--- Name: idx_event_format_mapping_event_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_format_mapping_event_id ON vibetype.event_format_mapping USING btree (event_id);
 
 
 --
@@ -5913,13 +5857,6 @@ CREATE INDEX idx_event_name_trgm ON vibetype.event USING gin (name public.gin_tr
 --
 
 COMMENT ON INDEX vibetype.idx_event_name_trgm IS 'GIN trigram index on the name, used for prefix and typo-tolerant search fallback.';
-
-
---
--- Name: idx_event_recommendation_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_recommendation_account_id ON vibetype.event_recommendation USING btree (account_id);
 
 
 --
@@ -5955,13 +5892,6 @@ COMMENT ON INDEX vibetype.idx_event_upload_is_header_image_unique IS 'Ensures th
 --
 
 CREATE INDEX idx_event_upload_upload_id ON vibetype.event_upload USING btree (upload_id);
-
-
---
--- Name: idx_friendship_a_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_friendship_a_account_id ON vibetype.friendship USING btree (a_account_id);
 
 
 --
@@ -6007,13 +5937,6 @@ CREATE INDEX idx_guest_contact_id ON vibetype.guest USING btree (contact_id);
 
 
 --
--- Name: idx_guest_event_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_guest_event_id ON vibetype.guest USING btree (event_id);
-
-
---
 -- Name: idx_guest_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6042,24 +5965,10 @@ CREATE INDEX idx_legal_term_acceptance_legal_term_id ON vibetype.legal_term_acce
 
 
 --
--- Name: idx_preference_event_category_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_category_account_id ON vibetype.preference_event_category USING btree (account_id);
-
-
---
 -- Name: idx_preference_event_category_category_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
 CREATE INDEX idx_preference_event_category_category_id ON vibetype.preference_event_category USING btree (category_id);
-
-
---
--- Name: idx_preference_event_format_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_format_account_id ON vibetype.preference_event_format USING btree (account_id);
 
 
 --
@@ -6070,31 +5979,10 @@ CREATE INDEX idx_preference_event_format_format_id ON vibetype.preference_event_
 
 
 --
--- Name: idx_preference_event_location_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_location_created_by ON vibetype.preference_event_location USING btree (created_by);
-
-
---
--- Name: idx_preference_event_size_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_size_account_id ON vibetype.preference_event_size USING btree (account_id);
-
-
---
 -- Name: idx_profile_picture_upload_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
 CREATE INDEX idx_profile_picture_upload_id ON vibetype.profile_picture USING btree (upload_id);
-
-
---
--- Name: idx_report_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_report_created_by ON vibetype.report USING btree (created_by);
 
 
 --
@@ -6123,6 +6011,34 @@ CREATE INDEX idx_report_target_upload_id ON vibetype.report USING btree (target_
 --
 
 CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
+
+
+--
+-- Name: idx_account_email_address_verification; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_email_address_verification ON vibetype_private.account USING btree (email_address_verification) WHERE (email_address_verification IS NOT NULL);
+
+
+--
+-- Name: INDEX idx_account_email_address_verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_account_email_address_verification IS 'Unique partial index serving the lookup by email address verification code.';
+
+
+--
+-- Name: idx_account_password_reset_verification; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_password_reset_verification ON vibetype_private.account USING btree (password_reset_verification) WHERE (password_reset_verification IS NOT NULL);
+
+
+--
+-- Name: INDEX idx_account_password_reset_verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_account_password_reset_verification IS 'Unique partial index serving the lookup by password reset code.';
 
 
 --
@@ -6165,20 +6081,6 @@ CREATE INDEX idx_event_search_vector ON vibetype_private.event_search_vector USI
 --
 
 COMMENT ON INDEX vibetype_private.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
-
-
---
--- Name: idx_event_search_vector_event_id; Type: INDEX; Schema: vibetype_private; Owner: ci
---
-
-CREATE INDEX idx_event_search_vector_event_id ON vibetype_private.event_search_vector USING btree (event_id);
-
-
---
--- Name: INDEX idx_event_search_vector_event_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id, required because the FK-index convention (see vibetype_test.index_on_foreign_key_check()) needs an index matching the FK''s columns exactly; the primary key''s composite index does not qualify since it also includes ts_config.';
 
 
 --
