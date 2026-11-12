@@ -113,3 +113,4 @@ table_policy_write_arrays [table_attendance_policy_arrays table_guest_policy_arr
 role_gizmosql 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role gizmosql.
 database_ducklake [role_gizmosql] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add the database for the lakehouse catalog.
 function_account_registration_language [function_account_registration] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Store the registration language on the account's own contact.
+table_policy_initplan [table_policy_write_arrays table_account_public_policy table_address_policy table_contact_policy table_event_policy table_friendship function_guest_contact_ids_union] 2026-11-12T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Evaluate policy helpers once per statement and let guest visibility use indexes.

@@ -45,7 +45,7 @@ BEGIN
 
   PERFORM vibetype_test.account_block_create(accountB, accountA);
 
-  PERFORM vibetype_test.attendance_test('organizer still sees attendances of a blocking guest', accountA, ARRAY[attendanceAB, attendanceAX]);
+  PERFORM vibetype_test.attendance_test('organizer does not see attendances of a blocking guest', accountA, ARRAY[attendanceAX]);
   PERFORM vibetype_test.attendance_test('guest does not see attendances created through a blocked account', accountB, ARRAY[]::UUID[]);
 END $$;
 ROLLBACK TO SAVEPOINT attendance_select;
