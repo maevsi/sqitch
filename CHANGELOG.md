@@ -1,3 +1,9 @@
+## [13.2.2](https://github.com/maevsi/sqitch/compare/13.2.1...13.2.2) (2026-11-12)
+
+### Performance Improvements
+
+* **index:** drop indexes covered by unique ones and index verification codes ([#368](https://github.com/maevsi/sqitch/issues/368)) ([9eb6e73](https://github.com/maevsi/sqitch/commit/9eb6e732582f343893ed6caafc11e5a04dddc17b))
+
 ## [13.2.1](https://github.com/maevsi/sqitch/compare/13.2.0...13.2.1) (2026-11-12)
 
 ### Bug Fixes
