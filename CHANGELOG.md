@@ -1,3 +1,9 @@
+## [13.2.4](https://github.com/maevsi/sqitch/compare/13.2.3...13.2.4) (2026-11-12)
+
+### Performance Improvements
+
+* **search:** let account search use its index under row level security ([#375](https://github.com/maevsi/sqitch/issues/375)) ([14e9d1f](https://github.com/maevsi/sqitch/commit/14e9d1f7ef4eba2669939da54a9d0ec62856e65b))
+
 ## [13.2.3](https://github.com/maevsi/sqitch/compare/13.2.2...13.2.3) (2026-11-12)
 
 ### Performance Improvements
