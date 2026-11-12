@@ -1,3 +1,9 @@
+## [13.2.5](https://github.com/maevsi/sqitch/compare/13.2.4...13.2.5) (2026-11-12)
+
+### Performance Improvements
+
+* **policy:** evaluate helpers once per statement and let guest visibility use indexes ([#371](https://github.com/maevsi/sqitch/issues/371)) ([4bcee22](https://github.com/maevsi/sqitch/commit/4bcee22934cc2f87cd67927fef49cb083cd430c3))
+
 ## [13.2.4](https://github.com/maevsi/sqitch/compare/13.2.3...13.2.4) (2026-11-12)
 
 ### Performance Improvements
