@@ -1,3 +1,9 @@
+## [13.2.3](https://github.com/maevsi/sqitch/compare/13.2.2...13.2.3) (2026-11-12)
+
+### Performance Improvements
+
+* **audit-log:** widen the id to bigint ([#372](https://github.com/maevsi/sqitch/issues/372)) ([9b13768](https://github.com/maevsi/sqitch/commit/9b13768194f0e9e2416e01ed22acf466377b892c))
+
 ## [13.2.2](https://github.com/maevsi/sqitch/compare/13.2.1...13.2.2) (2026-11-12)
 
 ### Performance Improvements

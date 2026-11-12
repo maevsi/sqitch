@@ -300,7 +300,12 @@ ALTER FUNCTION vibetype.account_delete(password text) OWNER TO ci;
 -- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
+COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.
+
+Error codes:
+- **28P01** when the password is invalid.
+
+Deleting an account that organizes many events can take several seconds.';
 
 
 --
@@ -2202,7 +2207,7 @@ CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
-  _value_max INTEGER;
+  _value_max BIGINT;
 BEGIN
   SELECT MAX(id) INTO _value_max
     FROM vibetype_private.audit_log;
@@ -4688,7 +4693,7 @@ COMMENT ON COLUMN vibetype_private.achievement_code.achievement IS 'The achievem
 --
 
 CREATE TABLE vibetype_private.audit_log (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     operation_type text NOT NULL,
     record_id text NOT NULL,
     schema_name text NOT NULL,
@@ -4777,7 +4782,6 @@ COMMENT ON COLUMN vibetype_private.audit_log.created_by IS 'The user that execut
 --
 
 CREATE SEQUENCE vibetype_private.audit_log_id_seq
-    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
