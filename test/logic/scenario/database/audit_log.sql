@@ -185,4 +185,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+SAVEPOINT audit_log_id_bigint;
+DO $$
+DECLARE
+  _column_type TEXT;
+  _sequence_type TEXT;
+BEGIN
+  SELECT data_type INTO _column_type
+    FROM information_schema.columns
+    WHERE table_schema = 'vibetype_private' AND table_name = 'audit_log' AND column_name = 'id';
+
+  IF _column_type != 'bigint' THEN
+    RAISE EXCEPTION 'The id column of table vibetype_private.audit_log is % instead of bigint.', _column_type;
+  END IF;
+
+  SELECT data_type INTO _sequence_type
+    FROM pg_sequences
+    WHERE schemaname = 'vibetype_private' AND sequencename = 'audit_log_id_seq';
+
+  IF _sequence_type != 'bigint' THEN
+    RAISE EXCEPTION 'The sequence vibetype_private.audit_log_id_seq is % instead of bigint.', _sequence_type;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+ROLLBACK TO SAVEPOINT audit_log_id_bigint;
+
 ROLLBACK;
