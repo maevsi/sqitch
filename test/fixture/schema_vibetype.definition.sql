@@ -252,6 +252,7 @@ COMMENT ON TYPE vibetype_private.email_status IS 'Email deliverability statuses:
 
 CREATE FUNCTION vibetype.account_block_accounts() RETURNS TABLE(id uuid, username text, storage_key text)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT a.id, a.username, u.storage_key
   FROM vibetype.account AS a
@@ -277,6 +278,7 @@ COMMENT ON FUNCTION vibetype.account_block_accounts() IS 'Returns the id, userna
 
 CREATE FUNCTION vibetype.account_delete(password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _current_account_id UUID;
@@ -309,6 +311,7 @@ COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete 
 
 CREATE FUNCTION vibetype.account_email_address_verification(code uuid) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _account vibetype_private.account;
@@ -348,6 +351,7 @@ COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'S
 
 CREATE FUNCTION vibetype.account_password_change(password_current text, password_new text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _current_account_id UUID;
@@ -382,6 +386,7 @@ COMMENT ON FUNCTION vibetype.account_password_change(password_current text, pass
 
 CREATE FUNCTION vibetype.account_password_reset(code uuid, password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _account vibetype_private.account;
@@ -427,6 +432,7 @@ COMMENT ON FUNCTION vibetype.account_password_reset(code uuid, password text) IS
 
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC'::text) RETURNS void
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH updated AS (
     UPDATE vibetype_private.account
@@ -467,6 +473,7 @@ Sets a new password reset verification code for an account.';
 
 CREATE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC'::text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
@@ -545,6 +552,7 @@ Error codes:
 
 CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _new_account_notify RECORD;
@@ -682,6 +690,7 @@ Queries under 3 characters match few trigrams and so scan a larger share of the 
 
 CREATE FUNCTION vibetype.account_upload_quota_bytes() RETURNS bigint
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.sub')::UUID;
 $$;
@@ -702,6 +711,7 @@ COMMENT ON FUNCTION vibetype.account_upload_quota_bytes() IS 'Gets the total upl
 
 CREATE FUNCTION vibetype.achievement_unlock(code uuid, alias text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _account_id UUID;
@@ -754,6 +764,7 @@ COMMENT ON FUNCTION vibetype.achievement_unlock(code uuid, alias text) IS 'Inser
 
 CREATE FUNCTION vibetype.attendance_claim_array() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH
   _claimed_attendance_ids AS (
@@ -795,6 +806,7 @@ COMMENT ON FUNCTION vibetype.attendance_claim_array() IS 'Returns the current at
 
 CREATE FUNCTION vibetype.attendance_guard() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 BEGIN
   IF TG_OP = 'UPDATE' THEN
@@ -1095,6 +1107,7 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 
 CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibetype.event
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT e.*
   FROM vibetype.event e
@@ -1119,6 +1132,7 @@ COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Retu
 
 CREATE FUNCTION vibetype.event_delete(id uuid, password text) RETURNS vibetype.event
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _current_account_id UUID;
@@ -1161,6 +1175,7 @@ COMMENT ON FUNCTION vibetype.event_delete(id uuid, password text) IS 'Allows to 
 
 CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT e.guest_count_maximum
   FROM vibetype.event e
@@ -1226,6 +1241,7 @@ COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by nam
 
 CREATE FUNCTION vibetype.event_search_rank(query text) RETURNS TABLE(event_id uuid, rank real)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   -- The WHERE clause below matches each row against a query-side tsquery built with that row's own ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring; see table_event_search_vector's migration).
   -- Each `@@` branch uses a literal, call-time-constant config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use the row's actual esv.ts_config directly.
@@ -1248,7 +1264,7 @@ ALTER FUNCTION vibetype.event_search_rank(query text) OWNER TO ci;
 -- Name: FUNCTION event_search_rank(query text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search_rank(query text) IS '@omit
+COMMENT ON FUNCTION vibetype.event_search_rank(query text) IS '@behavior -*
 Returns event ids matching the given query by prefix, across every text search configuration event_search_vector rows are stored in, with their relevance rank.';
 
 
@@ -1258,6 +1274,7 @@ Returns event ids matching the given query by prefix, across every text search c
 
 CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH
   _claimed_guest_ids AS (
@@ -1298,6 +1315,7 @@ COMMENT ON FUNCTION vibetype.guest_claim_array() IS 'Returns the current guest c
 
 CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
@@ -1337,6 +1355,7 @@ COMMENT ON FUNCTION vibetype.guest_contact_ids() IS 'Returns contact ids that ar
 
 CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
 $$;
@@ -1357,6 +1376,7 @@ COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the guest co
 
 CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _contact RECORD;
@@ -1495,6 +1515,7 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 
 CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH
   _current_time AS (
@@ -1575,6 +1596,7 @@ Creates a JWT token that will securely identify an account and give it certain p
 
 CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH
   _current_time AS (
@@ -1624,6 +1646,7 @@ COMMENT ON FUNCTION vibetype.jwt_update(jwt_id uuid) IS 'Refreshes a JWT.';
 
 CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH
   _current_time AS (
@@ -1693,6 +1716,7 @@ COMMENT ON FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) IS 'A
 
 CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH
   _current_time AS (
@@ -1829,6 +1853,7 @@ ALTER FUNCTION vibetype.legal_term_change() OWNER TO ci;
 
 CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 BEGIN
   IF (EXISTS (SELECT 1 FROM vibetype_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
@@ -1881,6 +1906,7 @@ COMMENT ON FUNCTION vibetype.profile_picture_set(upload_id uuid) IS 'Sets the pi
 
 CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   BEGIN
     IF NEW.time_zone IS NOT NULL THEN
@@ -1911,6 +1937,7 @@ COMMENT ON FUNCTION vibetype.trigger_contact_check_time_zone() IS 'Validates tha
 
 CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   BEGIN
     IF (
@@ -1982,6 +2009,7 @@ COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger funct
 
 CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _ts_config regconfig;
@@ -2102,6 +2130,7 @@ COMMENT ON FUNCTION vibetype.trigger_metadata_update() IS 'Trigger function to a
 
 CREATE FUNCTION vibetype.trigger_upload_insert() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _current_usage BIGINT;
@@ -2141,6 +2170,7 @@ COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enf
 
 CREATE FUNCTION vibetype_private.account_block_ids() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COALESCE(array_agg(blocked_id), ARRAY[]::UUID[])
   FROM (
@@ -2172,6 +2202,7 @@ COMMENT ON FUNCTION vibetype_private.account_block_ids() IS 'Returns all account
 
 CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _value_max INTEGER;
@@ -2203,6 +2234,7 @@ COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function rese
 
 CREATE FUNCTION vibetype_private.contacts_blocked() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
@@ -2222,6 +2254,7 @@ ALTER FUNCTION vibetype_private.contacts_blocked() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.contacts_referring_invoker() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COALESCE(array_agg(c.id), ARRAY[]::UUID[])
   FROM vibetype.contact c
@@ -2238,6 +2271,7 @@ ALTER FUNCTION vibetype_private.contacts_referring_invoker() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.events_invited() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   -- Return event IDs for events the invoker is invited to.
   WITH _blocked AS MATERIALIZED (
@@ -2278,6 +2312,7 @@ COMMENT ON FUNCTION vibetype_private.events_invited() IS 'Returns all event ids 
 
 CREATE FUNCTION vibetype_private.events_organized() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COALESCE(array_agg(e.id), ARRAY[]::UUID[])
   FROM vibetype.event e
@@ -2293,6 +2328,7 @@ ALTER FUNCTION vibetype_private.events_organized() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COALESCE(array_agg(DISTINCT g.event_id), ARRAY[]::UUID[])
   FROM vibetype.attendance a
@@ -2309,6 +2345,7 @@ ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.guests_organized_unblocked() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   WITH _blocked AS MATERIALIZED (
     SELECT vibetype_private.contacts_blocked() AS ids
@@ -2330,6 +2367,7 @@ ALTER FUNCTION vibetype_private.guests_organized_unblocked() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
   FROM vibetype.guest g
@@ -2347,6 +2385,7 @@ ALTER FUNCTION vibetype_private.guests_via_own_contact() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.guests_via_own_events() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
   FROM vibetype.event e
@@ -2363,6 +2402,7 @@ ALTER FUNCTION vibetype_private.guests_via_own_events() OWNER TO ci;
 
 CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   BEGIN
     IF (NEW.email_address_verification IS NULL) THEN
@@ -2393,6 +2433,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_
 
 CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS trigger
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   BEGIN
     IF (NEW.password_reset_verification IS NULL) THEN
@@ -2423,6 +2464,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_account_password_reset_verification
 
 CREATE FUNCTION vibetype_private.trigger_audit_log() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _account_id UUID;
@@ -2479,7 +2521,7 @@ BEGIN
 
     RETURN NEW;
   ELSE
-    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, _alues_new)
+    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, values_new)
       VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, OLD.id, TG_OP, _user_name, _values_old, _values_new);
 
     RETURN OLD;
@@ -2504,6 +2546,7 @@ inspired by https://medium.com/israeli-tech-radar/postgresql-trigger-based-audit
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, table_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _trigger_name TEXT := 'z_indexed_audit_log_trigger';
@@ -2550,6 +2593,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(schema_name text, 
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_create_multiple() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2592,6 +2636,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create_multiple() IS 'Fun
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_disable(schema_name text, table_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2632,6 +2677,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable(schema_name text,
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_disable_multiple() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2662,6 +2708,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable_multiple() IS 'Fu
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_drop(schema_name text, table_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2702,6 +2749,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_drop(schema_name text, ta
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_drop_multiple() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2731,6 +2779,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_drop_multiple() IS 'Funct
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_enable(schema_name text, table_name text) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2771,6 +2820,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name text, 
 
 CREATE FUNCTION vibetype_private.trigger_audit_log_enable_multiple() RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
   _record RECORD;
@@ -2826,6 +2876,7 @@ COMMENT ON FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_
 
 CREATE FUNCTION vibetype_private.upload_is_own(upload_id uuid) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
   SELECT EXISTS (
     SELECT 1
@@ -7542,8 +7593,22 @@ GRANT ALL ON FUNCTION vibetype.account_registration_refresh(account_id uuid, lan
 -- Name: TABLE account; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,UPDATE ON TABLE vibetype.account TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.account TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.account TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN account.description; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(description) ON TABLE vibetype.account TO vibetype_account;
+
+
+--
+-- Name: COLUMN account.imprint_url; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(imprint_url) ON TABLE vibetype.account TO vibetype_account;
 
 
 --
@@ -8070,8 +8135,16 @@ GRANT SELECT ON TABLE vibetype.app TO vibetype_anonymous;
 -- Name: TABLE attendance; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,UPDATE ON TABLE vibetype.attendance TO vibetype_account;
-GRANT SELECT,UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
+GRANT SELECT,INSERT ON TABLE vibetype.attendance TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.attendance TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN attendance.checked_out; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_account;
+GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 
 --
@@ -8162,7 +8235,35 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_upload TO vibetype_account;
 -- Name: TABLE friendship; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.friendship TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: COLUMN friendship.a_account_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(a_account_id) ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: COLUMN friendship.b_account_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(b_account_id) ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: COLUMN friendship.status; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(status) ON TABLE vibetype.friendship TO vibetype_account;
+
+
+--
+-- Name: COLUMN friendship.created_by; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_by) ON TABLE vibetype.friendship TO vibetype_account;
 
 
 --
@@ -8239,8 +8340,29 @@ GRANT SELECT,INSERT ON TABLE vibetype.report TO vibetype_account;
 --
 
 GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.upload TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.upload TO vibetype_account;
 GRANT SELECT,UPDATE ON TABLE vibetype.upload TO vibetype;
+
+
+--
+-- Name: COLUMN upload.name; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE vibetype.upload TO vibetype_account;
+
+
+--
+-- Name: COLUMN upload.size_byte; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(size_byte) ON TABLE vibetype.upload TO vibetype_account;
+
+
+--
+-- Name: COLUMN upload.created_by; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_by) ON TABLE vibetype.upload TO vibetype_account;
 
 
 --
