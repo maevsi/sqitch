@@ -1,0 +1,28 @@
+BEGIN;
+
+CREATE OR REPLACE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC') RETURNS void
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  WITH updated AS (
+    UPDATE vibetype_private.account
+    SET password_reset_verification = gen_random_uuid()
+    WHERE email_address = account_password_reset_request.email_address
+    RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
+  )
+  INSERT INTO vibetype_private.notification (channel, payload)
+  SELECT
+    'account_password_reset_request',
+    jsonb_pretty(jsonb_build_object(
+    'account', jsonb_build_object(
+      'username', a.username,
+      'email_address', u.email_address,
+      'password_reset_verification', u.password_reset_verification,
+      'password_reset_verification_valid_until', u.password_reset_verification_valid_until
+    ),
+    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
+    ))
+  FROM updated u
+  JOIN vibetype.account a ON a.id = u.id;
+$$;
+
+COMMIT;

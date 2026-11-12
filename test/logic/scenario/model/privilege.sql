@@ -151,16 +151,8 @@ BEGIN
     RAISE EXCEPTION 'Test failed: grafana can select account.password_reset_verification';
   END IF;
 
-  IF has_column_privilege('grafana', 'vibetype_private.notification', 'payload', 'SELECT') THEN
-    RAISE EXCEPTION 'Test failed: grafana can select notification.payload';
-  END IF;
-
   IF NOT has_column_privilege('grafana', 'vibetype_private.account', 'created_at', 'SELECT') THEN
     RAISE EXCEPTION 'Test failed: grafana cannot select account.created_at';
-  END IF;
-
-  IF NOT has_column_privilege('grafana', 'vibetype_private.notification', 'channel', 'SELECT') THEN
-    RAISE EXCEPTION 'Test failed: grafana cannot select notification.channel';
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT grafana_columns;

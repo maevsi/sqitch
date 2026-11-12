@@ -287,6 +287,8 @@ BEGIN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
     DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_address IS NULL; -- contacts with no email fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
+
+    PERFORM vibetype_private.outbox_insert('account', _current_account_id, 'account.deleted', jsonb_build_object('account_id', _current_account_id));
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -432,22 +434,15 @@ CREATE FUNCTION vibetype.account_password_reset_request(email_address text, lang
     UPDATE vibetype_private.account
     SET password_reset_verification = gen_random_uuid()
     WHERE email_address = account_password_reset_request.email_address
-    RETURNING id, email_address, password_reset_verification, password_reset_verification_valid_until
+    RETURNING id
   )
-  INSERT INTO vibetype_private.notification (channel, payload)
-  SELECT
-    'account_password_reset_request',
-    jsonb_pretty(jsonb_build_object(
-    'account', jsonb_build_object(
-      'username', a.username,
-      'email_address', u.email_address,
-      'password_reset_verification', u.password_reset_verification,
-      'password_reset_verification_valid_until', u.password_reset_verification_valid_until
-    ),
-    'template', jsonb_build_object('language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
-    ))
-  FROM updated u
-  JOIN vibetype.account a ON a.id = u.id;
+  SELECT vibetype_private.outbox_insert(
+    'account',
+    updated.id,
+    'account.password_reset_requested',
+    jsonb_build_object('account_id', updated.id, 'language', account_password_reset_request.language, 'time_zone', account_password_reset_request.time_zone)
+  )
+  FROM updated;
 $$;
 
 
@@ -470,8 +465,6 @@ CREATE FUNCTION vibetype.account_registration(birth_date date, email_address tex
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
-  _new_account_public vibetype.account;
-  _new_account_notify RECORD;
 BEGIN
   IF account_registration.birth_date > CURRENT_DATE - INTERVAL '18 years' THEN
     RAISE EXCEPTION 'The birth date must be at least 18 years in the past'
@@ -495,27 +488,18 @@ BEGIN
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
-    (_new_account_private.id, account_registration.username)
-    RETURNING * INTO _new_account_public;
-
-  SELECT
-    _new_account_public.username,
-    _new_account_private.email_address,
-    _new_account_private.email_address_verification,
-    _new_account_private.email_address_verification_valid_until
-  INTO _new_account_notify;
+    (_new_account_private.id, account_registration.username);
 
   INSERT INTO vibetype.legal_term_acceptance(account_id, legal_term_id) VALUES
     (_new_account_private.id, account_registration.legal_term_id);
 
   INSERT INTO vibetype.contact(account_id, created_by) VALUES (_new_account_private.id, _new_account_private.id);
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
-    'account_registration',
-    jsonb_pretty(jsonb_build_object(
-      'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', account_registration.language, 'time_zone', account_registration.time_zone)
-    ))
+  PERFORM vibetype_private.outbox_insert(
+    'account',
+    _new_account_private.id,
+    'account.registered',
+    jsonb_build_object('account_id', _new_account_private.id, 'language', account_registration.language, 'time_zone', account_registration.time_zone)
   );
 
   -- not possible to return data here as this would make the silent return above for email address duplicates distinguishable from a successful registration
@@ -545,8 +529,6 @@ Error codes:
 CREATE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
-DECLARE
-  _new_account_notify RECORD;
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';
 
@@ -554,26 +536,15 @@ BEGIN
     RAISE 'An account with this account id does not exist!' USING ERRCODE = 'invalid_parameter_value';
   END IF;
 
-  WITH updated AS (
-    UPDATE vibetype_private.account
-      SET email_address_verification = DEFAULT
-      WHERE account.id = account_registration_refresh.account_id
-      RETURNING *
-  ) SELECT
-    account.username,
-    updated.email_address,
-    updated.email_address_verification,
-    updated.email_address_verification_valid_until
-    INTO _new_account_notify
-    FROM updated, vibetype.account
-    WHERE updated.id = account.id;
+  UPDATE vibetype_private.account
+    SET email_address_verification = DEFAULT
+    WHERE account.id = account_registration_refresh.account_id;
 
-  INSERT INTO vibetype_private.notification (channel, payload) VALUES (
-    'account_registration',
-    jsonb_pretty(jsonb_build_object(
-      'account', row_to_json(_new_account_notify),
-      'template', jsonb_build_object('language', account_registration_refresh.language)
-    ))
+  PERFORM vibetype_private.outbox_insert(
+    'account',
+    account_registration_refresh.account_id,
+    'account.registration_refreshed',
+    jsonb_build_object('account_id', account_registration_refresh.account_id, 'language', account_registration_refresh.language)
   );
 END;
 $$;
@@ -1359,11 +1330,6 @@ CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
     AS $$
 DECLARE
   _contact RECORD;
-  _email_address TEXT;
-  _event RECORD;
-  _event_creator_profile_picture_upload_id UUID;
-  _event_creator_profile_picture_upload_storage_key TEXT;
-  _event_creator_username TEXT;
   _guest RECORD;
 BEGIN
   -- Guest UUID
@@ -1382,33 +1348,8 @@ BEGIN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  -- Event
-  SELECT
-    id,
-    address_id,
-    description,
-    "end",
-    guest_count_maximum,
-    is_archived,
-    is_in_person,
-    is_remote,
-    name,
-    slug,
-    start,
-    url,
-    visibility,
-    created_at,
-    created_by
-  INTO _event
-  FROM vibetype.event
-  WHERE "event".id = _guest.event_id;
-
-  IF (_event IS NULL) THEN
-    RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
-  END IF;
-
   -- Contact
-  SELECT account_id, email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_address, contact.language INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -1417,44 +1358,23 @@ BEGIN
   IF (_contact.account_id IS NULL) THEN
     IF (_contact.email_address IS NULL) THEN
       RAISE 'Contact email address not accessible!' USING ERRCODE = 'no_data_found';
-    ELSE
-      _email_address := _contact.email_address;
     END IF;
-  ELSE
-    -- Account
-    SELECT email_address INTO _email_address FROM vibetype_private.account WHERE account.id = _contact.account_id;
-
-    IF (_email_address IS NULL) THEN
-      RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
-    END IF;
+  ELSIF (NOT EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _contact.account_id)) THEN
+    RAISE 'Account email address not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  -- Event creator username
-  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
-
-  -- Event creator profile picture storage key
-  SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
-  SELECT storage_key INTO _event_creator_profile_picture_upload_storage_key FROM vibetype.upload WHERE upload.id = _event_creator_profile_picture_upload_id;
-
-  INSERT INTO vibetype_private.notification (channel, payload)
-    VALUES (
-      'event_invitation',
-      jsonb_pretty(jsonb_build_object(
-        'data', jsonb_build_object(
-          'contact', jsonb_build_object(
-            'emailAddress', _email_address,
-            'timeZone', _contact.time_zone
-          ),
-          'event', _event,
-          'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
-          'eventCreatorUsername', _event_creator_username,
-          'guest', jsonb_build_object(
-            'id', _guest.id
-          )
-        ),
-        'template', jsonb_build_object('language', COALESCE(_contact.language::text, invite.language))
-      ))
-    );
+  PERFORM vibetype_private.outbox_insert(
+    'guest',
+    _guest.id,
+    'guest.invited',
+    jsonb_build_object(
+      'guest_id', _guest.id,
+      'event_id', _guest.event_id,
+      'contact_id', _guest.contact_id,
+      'invited_by', vibetype.invoker_account_id(),
+      'language', COALESCE(_contact.language::text, invite.language)
+    )
+  );
 END;
 $$;
 
@@ -1465,7 +1385,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type `guest.invited`.\n\nError codes:\n- **P0002** when the guest, contact, the contact email address, or the account email address is not accessible.';
 
 
 --
@@ -1823,29 +1743,48 @@ $$;
 ALTER FUNCTION vibetype.legal_term_change() OWNER TO ci;
 
 --
--- Name: notification_acknowledge(uuid, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: outbox_is_processed(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
-    LANGUAGE plpgsql STRICT SECURITY DEFINER
+CREATE FUNCTION vibetype.outbox_is_processed(outbox_id uuid) RETURNS boolean
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-BEGIN
-  IF (EXISTS (SELECT 1 FROM vibetype_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN
-    UPDATE vibetype_private.notification SET is_acknowledged = notification_acknowledge.is_acknowledged WHERE "notification".id = notification_acknowledge.id;
-  ELSE
-    RAISE 'Notification with given id not found!' USING ERRCODE = 'no_data_found';
-  END IF;
-END;
+  SELECT EXISTS (
+    SELECT 1 FROM vibetype_private.outbox_processed WHERE outbox_processed.outbox_id = outbox_is_processed.outbox_id
+  );
 $$;
 
 
-ALTER FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) OWNER TO ci;
+ALTER FUNCTION vibetype.outbox_is_processed(outbox_id uuid) OWNER TO ci;
 
 --
--- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_is_processed(outbox_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) IS 'Allows to set the acknowledgement state of a notification.\n\nError codes:\n- **P0002** when no notification with the given id is found.';
+COMMENT ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) IS 'Returns whether an outbox event was marked as processed.';
+
+
+--
+-- Name: outbox_mark_processed(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) RETURNS void
+    LANGUAGE sql STRICT SECURITY DEFINER
+    AS $$
+  DELETE FROM vibetype_private.outbox_processed WHERE processed_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
+
+  INSERT INTO vibetype_private.outbox_processed (outbox_id) VALUES (outbox_mark_processed.outbox_id)
+  ON CONFLICT (outbox_id) DO NOTHING;
+$$;
+
+
+ALTER FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_mark_processed(outbox_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) IS 'Marks an outbox event as processed. Marking an already processed event again has no effect. Markers older than 30 days are deleted along the way.';
 
 
 --
@@ -1973,6 +1912,34 @@ ALTER FUNCTION vibetype.trigger_device_update_fcm_token() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
+
+
+--
+-- Name: trigger_event_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  IF (TG_OP = 'DELETE') THEN
+    PERFORM vibetype_private.outbox_insert('event', OLD.id, 'event.deleted', to_jsonb(OLD));
+  ELSE
+    PERFORM vibetype_private.outbox_insert('event', NEW.id, CASE TG_OP WHEN 'INSERT' THEN 'event.created' ELSE 'event.updated' END, to_jsonb(NEW));
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_event_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_event_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Adds an outbox event of type `event.created`, `event.updated` or `event.deleted` with a snapshot of the event.';
 
 
 --
@@ -2132,6 +2099,30 @@ ALTER FUNCTION vibetype.trigger_upload_insert() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.trigger_upload_insert() IS 'Trigger function to enforce upload quota limits per account when inserting new uploads.';
+
+
+--
+-- Name: trigger_upload_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    AS $$
+BEGIN
+  PERFORM vibetype_private.outbox_insert('upload', OLD.id, 'upload.deleted', jsonb_build_object('storage_key', OLD.storage_key));
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_upload_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_upload_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_upload_outbox() IS 'Adds an outbox event of type `upload.deleted` with the upload''s storage key, which is needed for file cleanup.';
 
 
 --
@@ -2355,6 +2346,117 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.guests_via_own_events() OWNER TO ci;
+
+--
+-- Name: outbox_account_resolve(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) RETURNS TABLE(username text, email_address text, email_address_verification uuid, email_address_verification_valid_until timestamp with time zone, password_reset_verification uuid, password_reset_verification_valid_until timestamp with time zone)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT
+    a.username,
+    ap.email_address,
+    ap.email_address_verification,
+    ap.email_address_verification_valid_until,
+    ap.password_reset_verification,
+    ap.password_reset_verification_valid_until
+  FROM vibetype_private.account ap
+  JOIN vibetype.account a ON a.id = ap.id
+  WHERE ap.id = outbox_account_resolve.account_id;
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_account_resolve(account_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) IS 'Returns the account data that emails about an `account` outbox event need, or no row if the account is gone.';
+
+
+--
+-- Name: outbox_guest_invitation_resolve(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) RETURNS TABLE(contact_email_address text, contact_time_zone text, event jsonb, event_creator_username text, event_creator_profile_picture_upload_storage_key text)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT
+    COALESCE(ap.email_address, c.email_address),
+    c.time_zone,
+    jsonb_build_object(
+      'id', e.id,
+      'name', e.name,
+      'slug', e.slug,
+      'description', e.description,
+      'start', e.start,
+      'end', e."end",
+      'guest_count_maximum', e.guest_count_maximum,
+      'is_archived', e.is_archived,
+      'is_in_person', e.is_in_person,
+      'is_remote', e.is_remote,
+      'visibility', e.visibility,
+      'created_by', e.created_by
+    ),
+    a.username,
+    u.storage_key
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.account a ON a.id = e.created_by
+  LEFT JOIN vibetype_private.account ap ON ap.id = c.account_id
+  LEFT JOIN vibetype.profile_picture pp ON pp.account_id = e.created_by
+  LEFT JOIN vibetype.upload u ON u.id = pp.upload_id
+  WHERE g.id = outbox_guest_invitation_resolve.guest_id
+    AND COALESCE(ap.email_address, c.email_address) IS NOT NULL;
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_guest_invitation_resolve(guest_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) IS 'Returns the data that the invitation email of a `guest.invited` outbox event needs, or no row if the guest, its contact or the contact''s email address is gone.';
+
+
+--
+-- Name: outbox_insert(text, uuid, text, jsonb, integer); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_insert(aggregate_type text, aggregate_id uuid, type text, data jsonb, version integer DEFAULT 1) RETURNS void
+    LANGUAGE sql
+    AS $$
+  INSERT INTO vibetype_private.outbox (id, aggregate_type, aggregate_id, type, payload)
+  SELECT
+    _outbox.id,
+    outbox_insert.aggregate_type,
+    outbox_insert.aggregate_id,
+    outbox_insert.type,
+    jsonb_build_object(
+      'id', _outbox.id,
+      'type', outbox_insert.type,
+      'aggregate_type', outbox_insert.aggregate_type,
+      'aggregate_id', outbox_insert.aggregate_id,
+      'version', outbox_insert.version,
+      'occurred_at', CURRENT_TIMESTAMP,
+      'data', outbox_insert.data
+    )
+  FROM (SELECT gen_random_uuid() AS id) _outbox;
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_insert(aggregate_type text, aggregate_id uuid, type text, data jsonb, version integer) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_insert(aggregate_type text, aggregate_id uuid, type text, data jsonb, version integer); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_insert(aggregate_type text, aggregate_id uuid, type text, data jsonb, version integer) IS 'Adds an outbox event, wrapping its data in the envelope. The version is per type and must be bumped on any incompatible change to that type''s data.';
+
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -2792,6 +2894,29 @@ ALTER FUNCTION vibetype_private.trigger_audit_log_enable_multiple() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Function enabling all audit log triggers that are currently disabled.';
+
+
+--
+-- Name: trigger_outbox_delete(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_outbox_delete() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  DELETE FROM vibetype_private.outbox WHERE id = NEW.id;
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_outbox_delete() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_outbox_delete(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_outbox_delete() IS 'Deletes an outbox event right after its insertion, as the write-ahead log already holds it for change data capture.';
 
 
 --
@@ -4392,8 +4517,6 @@ CREATE TABLE vibetype.upload (
     CONSTRAINT upload_size_byte_check CHECK ((size_byte > 0))
 );
 
-ALTER TABLE ONLY vibetype.upload REPLICA IDENTITY FULL;
-
 
 ALTER TABLE vibetype.upload OWNER TO ci;
 
@@ -4976,61 +5099,101 @@ COMMENT ON COLUMN vibetype_private.jwt.updated_by IS 'Account ID of the user who
 
 
 --
--- Name: notification; Type: TABLE; Schema: vibetype_private; Owner: ci
+-- Name: outbox; Type: TABLE; Schema: vibetype_private; Owner: ci
 --
 
-CREATE TABLE vibetype_private.notification (
+CREATE TABLE vibetype_private.outbox (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    channel text NOT NULL,
-    is_acknowledged boolean,
-    payload text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    CONSTRAINT notification_payload_check CHECK ((octet_length(payload) <= 8000))
+    aggregate_type text NOT NULL,
+    aggregate_id uuid NOT NULL,
+    type text NOT NULL,
+    payload jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 
-ALTER TABLE vibetype_private.notification OWNER TO ci;
+ALTER TABLE vibetype_private.outbox OWNER TO ci;
 
 --
--- Name: TABLE notification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: TABLE outbox; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON TABLE vibetype_private.notification IS 'A notification.';
-
-
---
--- Name: COLUMN notification.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.id IS 'The notification''s internal id.';
+COMMENT ON TABLE vibetype_private.outbox IS 'A transactional outbox for domain events. Rows are deleted right after their insertion, so they only reach downstream consumers through change data capture of the write-ahead log.';
 
 
 --
--- Name: COLUMN notification.channel; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.channel IS 'The notification''s channel.';
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON COLUMN vibetype_private.notification.is_acknowledged IS 'Whether the notification was acknowledged.';
+COMMENT ON COLUMN vibetype_private.outbox.id IS 'The outbox event''s internal id.';
 
 
 --
--- Name: COLUMN notification.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.aggregate_type; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.payload IS 'The notification''s payload.';
+COMMENT ON COLUMN vibetype_private.outbox.aggregate_type IS 'The kind of entity the event is about, e.g. `account`, `event`, `guest` or `upload`. Routes the event to the topic `vibetype.outbox.<aggregate_type>`.';
 
 
 --
--- Name: COLUMN notification.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+-- Name: COLUMN outbox.aggregate_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.notification.created_at IS 'The timestamp of the notification''s creation.';
+COMMENT ON COLUMN vibetype_private.outbox.aggregate_id IS 'The id of the entity the event is about. Used as message key, which keeps the order of events about the same entity.';
+
+
+--
+-- Name: COLUMN outbox.type; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.type IS 'The event''s type in the form `<aggregate>.<past tense verb>`, e.g. `account.registered`.';
+
+
+--
+-- Name: COLUMN outbox.payload; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.payload IS 'The event''s envelope, which becomes the message value.';
+
+
+--
+-- Name: COLUMN outbox.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox.created_at IS 'The timestamp of the outbox event''s creation.';
+
+
+--
+-- Name: outbox_processed; Type: TABLE; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TABLE vibetype_private.outbox_processed (
+    outbox_id uuid NOT NULL,
+    processed_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype_private.outbox_processed OWNER TO ci;
+
+--
+-- Name: TABLE outbox_processed; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON TABLE vibetype_private.outbox_processed IS 'An idempotency marker recording that a consumer processed an outbox event.';
+
+
+--
+-- Name: COLUMN outbox_processed.outbox_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox_processed.outbox_id IS 'The processed outbox event''s id.';
+
+
+--
+-- Name: COLUMN outbox_processed.processed_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.outbox_processed.processed_at IS 'The timestamp the outbox event was marked as processed.';
 
 
 --
@@ -5572,11 +5735,19 @@ ALTER TABLE ONLY vibetype_private.jwt
 
 
 --
--- Name: notification notification_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+-- Name: outbox outbox_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
 --
 
-ALTER TABLE ONLY vibetype_private.notification
-    ADD CONSTRAINT notification_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY vibetype_private.outbox
+    ADD CONSTRAINT outbox_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: outbox_processed outbox_processed_pkey; Type: CONSTRAINT; Schema: vibetype_private; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype_private.outbox_processed
+    ADD CONSTRAINT outbox_processed_pkey PRIMARY KEY (outbox_id);
 
 
 --
@@ -6175,6 +6346,20 @@ CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNC
 
 
 --
+-- Name: event outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox AFTER INSERT OR DELETE OR UPDATE ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_outbox();
+
+
+--
+-- Name: upload outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox AFTER DELETE ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_outbox();
+
+
+--
 -- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6249,6 +6434,13 @@ CREATE TRIGGER vibetype_trigger_attendance_guard BEFORE UPDATE ON vibetype.atten
 --
 
 CREATE TRIGGER vibetype_trigger_attendance_metadata_update BEFORE UPDATE ON vibetype.attendance FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
+
+
+--
+-- Name: outbox delete; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER delete AFTER INSERT ON vibetype_private.outbox FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_outbox_delete();
 
 
 --
@@ -7721,11 +7913,19 @@ REVOKE ALL ON FUNCTION vibetype.legal_term_change() FROM PUBLIC;
 
 
 --
--- Name: FUNCTION notification_acknowledge(id uuid, is_acknowledged boolean); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION outbox_is_processed(outbox_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
+REVOKE ALL ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_is_processed(outbox_id uuid) TO vibetype;
+
+
+--
+-- Name: FUNCTION outbox_mark_processed(outbox_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) TO vibetype;
 
 
 --
@@ -7761,6 +7961,13 @@ GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_acc
 
 
 --
+-- Name: FUNCTION trigger_event_outbox(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_event_outbox() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -7792,6 +7999,13 @@ GRANT ALL ON FUNCTION vibetype.trigger_metadata_update() TO vibetype_account;
 
 REVOKE ALL ON FUNCTION vibetype.trigger_upload_insert() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.trigger_upload_insert() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_upload_outbox(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_upload_outbox() FROM PUBLIC;
 
 
 --
@@ -7883,6 +8097,29 @@ GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_anony
 
 
 --
+-- Name: FUNCTION outbox_account_resolve(account_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) TO vibetype;
+
+
+--
+-- Name: FUNCTION outbox_guest_invitation_resolve(guest_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) TO vibetype;
+
+
+--
+-- Name: FUNCTION outbox_insert(aggregate_type text, aggregate_id uuid, type text, data jsonb, version integer); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_insert(aggregate_type text, aggregate_id uuid, type text, data jsonb, version integer) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION trigger_account_email_address_verification_valid_until(); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -7959,6 +8196,13 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name tex
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_outbox_delete(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_outbox_delete() FROM PUBLIC;
 
 
 --
@@ -8254,34 +8498,6 @@ GRANT SELECT ON TABLE vibetype_private.achievement_code TO vibetype;
 --
 
 GRANT SELECT,INSERT,UPDATE ON TABLE vibetype_private.email TO vibetype;
-
-
---
--- Name: COLUMN notification.id; Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-GRANT SELECT(id) ON TABLE vibetype_private.notification TO grafana;
-
-
---
--- Name: COLUMN notification.channel; Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-GRANT SELECT(channel) ON TABLE vibetype_private.notification TO grafana;
-
-
---
--- Name: COLUMN notification.is_acknowledged; Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-GRANT SELECT(is_acknowledged) ON TABLE vibetype_private.notification TO grafana;
-
-
---
--- Name: COLUMN notification.created_at; Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-GRANT SELECT(created_at) ON TABLE vibetype_private.notification TO grafana;
 
 
 --
