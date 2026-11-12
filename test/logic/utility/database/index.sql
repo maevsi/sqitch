@@ -22,6 +22,28 @@ $$ LANGUAGE plpgsql STABLE STRICT SECURITY DEFINER;
 COMMENT ON FUNCTION vibetype_test.index_existence(TEXT[], TEXT) IS 'Checks whether the given indexes exist in the specified schema. Raises an exception if any are missing.';
 
 
+CREATE OR REPLACE FUNCTION vibetype_test.index_scan_check(
+  query TEXT,
+  index TEXT
+) RETURNS VOID AS $$
+DECLARE
+  _plan JSONB;
+  _seqscan_previous TEXT := current_setting('enable_seqscan');
+BEGIN
+  -- Seq scans are the only alternative on the tiny test tables, so they are disabled to make the planner pick the index whenever one can serve the query.
+  PERFORM set_config('enable_seqscan', 'off', true);
+  EXECUTE 'EXPLAIN (FORMAT JSON) ' || index_scan_check.query INTO _plan;
+  PERFORM set_config('enable_seqscan', _seqscan_previous, true);
+
+  IF _plan::TEXT NOT LIKE '%"Index Name": "' || index_scan_check.index || '"%' THEN
+    RAISE EXCEPTION E'Query does not use index "%":\n%\n%', index_scan_check.index, index_scan_check.query, jsonb_pretty(_plan);
+  END IF;
+END;
+$$ LANGUAGE plpgsql VOLATILE STRICT SECURITY DEFINER;
+
+COMMENT ON FUNCTION vibetype_test.index_scan_check(TEXT, TEXT) IS 'Raises an exception unless the plan of the given query scans the given index.';
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.index_on_foreign_key_check()
 RETURNS VOID AS $$
 DECLARE

@@ -169,3 +169,20 @@ SELECT vibetype_test.index_existence(
 SELECT vibetype_test.index_existence(
   ARRAY ['guest_event_id_contact_id_key', 'idx_guest_updated_by']
 );
+
+-- test that the queries the indexes were added for use them, so a regression back to a sequential scan fails here
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT * FROM vibetype_private.account WHERE email_address_verification = ''00000000-0000-0000-0000-000000000000''::UUID',
+  'idx_account_email_address_verification'
+);
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT * FROM vibetype_private.account WHERE password_reset_verification = ''00000000-0000-0000-0000-000000000000''::UUID',
+  'idx_account_password_reset_verification'
+);
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT * FROM vibetype.event WHERE created_by = ''00000000-0000-0000-0000-000000000000''::UUID AND start >= now()',
+  'idx_event_created_by_start'
+);
