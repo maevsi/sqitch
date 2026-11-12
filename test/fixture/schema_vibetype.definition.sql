@@ -2479,7 +2479,7 @@ BEGIN
 
     RETURN NEW;
   ELSE
-    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, _alues_new)
+    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, values_new)
       VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, OLD.id, TG_OP, _user_name, _values_old, _values_new);
 
     RETURN OLD;

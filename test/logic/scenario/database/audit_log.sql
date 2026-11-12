@@ -160,6 +160,28 @@ BEGIN
   IF _count != 0 THEN
     RAISE EXCEPTION 'The audit log trigger for table vibetype.event was not dropped.';
   END IF;
+
+  ---------------------------------------------------------
+  -- record a delete on an audited table
+
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype', 'event_format');
+
+  INSERT INTO vibetype.event_format (id, name)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'audit delete test');
+
+  DELETE FROM vibetype.event_format
+    WHERE id = '00000000-0000-0000-0000-0000000000a1';
+
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log
+    WHERE schema_name = 'vibetype' AND table_name = 'event_format'
+      AND record_id = '00000000-0000-0000-0000-0000000000a1'
+      AND operation_type = 'DELETE'
+      AND values_old ->> 'name' = 'audit delete test';
+
+  IF _count != 1 THEN
+    RAISE EXCEPTION 'The delete on table vibetype.event_format was not recorded exactly once in the audit log.';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
