@@ -80,6 +80,44 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_delete_deletes_peer_contact_without_email_fallback;
 
+-- Deleting an account that organizes events must also remove those events with their guests and attendances.
+SAVEPOINT account_delete_with_events_guests_attendances;
+DO $$
+DECLARE
+  accountA UUID;
+  eventA UUID;
+  contactAB UUID;
+  guestAB UUID;
+  attendanceAB UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
+  guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
+  attendanceAB := vibetype_test.attendance_create(accountA, guestAB);
+
+  PERFORM vibetype_test.invoker_set(accountA);
+  PERFORM vibetype.account_delete('password');
+
+  IF EXISTS (SELECT 1 FROM vibetype.account WHERE id = accountA) THEN
+    RAISE EXCEPTION 'Test failed (account_delete_with_events_guests_attendances): account still exists after deletion';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM vibetype.event WHERE id = eventA) THEN
+    RAISE EXCEPTION 'Test failed (account_delete_with_events_guests_attendances): event of deleted account still exists';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM vibetype.guest WHERE id = guestAB) THEN
+    RAISE EXCEPTION 'Test failed (account_delete_with_events_guests_attendances): guest of deleted account event still exists';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM vibetype.attendance WHERE id = attendanceAB) THEN
+    RAISE EXCEPTION 'Test failed (account_delete_with_events_guests_attendances): attendance of deleted account event still exists';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT account_delete_with_events_guests_attendances;
+
 -- Deleting an account with the wrong password must fail.
 SAVEPOINT account_delete_wrong_password;
 DO $$

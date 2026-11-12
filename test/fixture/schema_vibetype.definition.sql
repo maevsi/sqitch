@@ -300,7 +300,12 @@ ALTER FUNCTION vibetype.account_delete(password text) OWNER TO ci;
 -- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
+COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.
+
+Error codes:
+- **28P01** when the password is invalid.
+
+Deleting an account that organizes many events can take several seconds.';
 
 
 --
