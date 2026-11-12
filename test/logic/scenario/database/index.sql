@@ -137,7 +137,12 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['idx_event_search_vector', 'idx_event_search_vector_event_id'],
+  ARRAY ['idx_event_search_vector'],
+  'vibetype_private'
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_account_email_address_verification', 'idx_account_password_reset_verification'],
   'vibetype_private'
 );
 
@@ -154,7 +159,7 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['event_created_by_slug_key', 'idx_event_end', 'idx_event_name_trgm']
+  ARRAY ['event_created_by_slug_key', 'idx_event_created_by_start', 'idx_event_end', 'idx_event_name_trgm']
 );
 
 SELECT vibetype_test.index_existence(

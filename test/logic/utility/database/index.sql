@@ -36,13 +36,12 @@ BEGIN
          JOIN pg_namespace n ON (t.relnamespace = n.oid)
       WHERE c.contype = 'f' AND t.relkind = 'r'
         AND n.nspname IN ('vibetype', 'vibetype_private')
-        AND (n.nspname, t.relname, c.conkey) NOT IN (
-          SELECT n.nspname, t.relname, string_to_array(i.indkey::text, ' ')::smallint[] AS indkey
+        AND NOT EXISTS (
+          SELECT 1
           FROM pg_index i
-            JOIN pg_class t ON (i.indrelid = t.oid)
-            JOIN pg_namespace n ON (t.relnamespace = n.oid)
-          WHERE t.relkind = 'r'
-            AND n.nspname IN ('vibetype', 'vibetype_private')
+          WHERE i.indrelid = t.oid
+            AND i.indpred IS NULL
+            AND (string_to_array(i.indkey::text, ' ')::smallint[])[1:cardinality(c.conkey)] = c.conkey
         )
     )
     SELECT nspname || '.' || relname || ':' || conname || ',' || conkey::TEXT AS violation_details
