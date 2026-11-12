@@ -1,3 +1,9 @@
+## [13.2.1](https://github.com/maevsi/sqitch/compare/13.2.0...13.2.1) (2026-11-12)
+
+### Bug Fixes
+
+* **audit-log:** record deletes instead of failing on a misspelled column ([#363](https://github.com/maevsi/sqitch/issues/363)) ([ffc8dc9](https://github.com/maevsi/sqitch/commit/ffc8dc9374f5a82accc2120f84d5779ce3e163a1))
+
 ## [13.2.0](https://github.com/maevsi/sqitch/compare/13.1.0...13.2.0) (2026-11-11)
 
 ### Features
