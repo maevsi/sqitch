@@ -160,7 +160,54 @@ BEGIN
   IF _count != 0 THEN
     RAISE EXCEPTION 'The audit log trigger for table vibetype.event was not dropped.';
   END IF;
+
+  ---------------------------------------------------------
+  -- record a delete on an audited table
+
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype', 'event_format');
+
+  INSERT INTO vibetype.event_format (id, name)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'audit delete test');
+
+  DELETE FROM vibetype.event_format
+    WHERE id = '00000000-0000-0000-0000-0000000000a1';
+
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log
+    WHERE schema_name = 'vibetype' AND table_name = 'event_format'
+      AND record_id = '00000000-0000-0000-0000-0000000000a1'
+      AND operation_type = 'DELETE'
+      AND values_old ->> 'name' = 'audit delete test';
+
+  IF _count != 1 THEN
+    RAISE EXCEPTION 'The delete on table vibetype.event_format was not recorded exactly once in the audit log.';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+SAVEPOINT audit_log_id_bigint;
+DO $$
+DECLARE
+  _column_type TEXT;
+  _sequence_type TEXT;
+BEGIN
+  SELECT data_type INTO _column_type
+    FROM information_schema.columns
+    WHERE table_schema = 'vibetype_private' AND table_name = 'audit_log' AND column_name = 'id';
+
+  IF _column_type != 'bigint' THEN
+    RAISE EXCEPTION 'The id column of table vibetype_private.audit_log is % instead of bigint.', _column_type;
+  END IF;
+
+  SELECT data_type INTO _sequence_type
+    FROM pg_sequences
+    WHERE schemaname = 'vibetype_private' AND sequencename = 'audit_log_id_seq';
+
+  IF _sequence_type != 'bigint' THEN
+    RAISE EXCEPTION 'The sequence vibetype_private.audit_log_id_seq is % instead of bigint.', _sequence_type;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+ROLLBACK TO SAVEPOINT audit_log_id_bigint;
 
 ROLLBACK;

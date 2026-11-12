@@ -1,3 +1,21 @@
+## [13.2.3](https://github.com/maevsi/sqitch/compare/13.2.2...13.2.3) (2026-11-12)
+
+### Performance Improvements
+
+* **audit-log:** widen the id to bigint ([#372](https://github.com/maevsi/sqitch/issues/372)) ([9b13768](https://github.com/maevsi/sqitch/commit/9b13768194f0e9e2416e01ed22acf466377b892c))
+
+## [13.2.2](https://github.com/maevsi/sqitch/compare/13.2.1...13.2.2) (2026-11-12)
+
+### Performance Improvements
+
+* **index:** drop indexes covered by unique ones and index verification codes ([#368](https://github.com/maevsi/sqitch/issues/368)) ([9eb6e73](https://github.com/maevsi/sqitch/commit/9eb6e732582f343893ed6caafc11e5a04dddc17b))
+
+## [13.2.1](https://github.com/maevsi/sqitch/compare/13.2.0...13.2.1) (2026-11-12)
+
+### Bug Fixes
+
+* **audit-log:** record deletes instead of failing on a misspelled column ([#363](https://github.com/maevsi/sqitch/issues/363)) ([ffc8dc9](https://github.com/maevsi/sqitch/commit/ffc8dc9374f5a82accc2120f84d5779ce3e163a1))
+
 ## [13.2.0](https://github.com/maevsi/sqitch/compare/13.1.0...13.2.0) (2026-11-11)
 
 ### Features
