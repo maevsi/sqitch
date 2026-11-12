@@ -174,4 +174,60 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT time_zone_explicit_null;
 
+SAVEPOINT language;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+  _account_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'email@example.com', 'de', _legal_term_id, 'password', 'username-lang-de');
+
+  SELECT id INTO _account_id
+  FROM vibetype.account
+  WHERE username = 'username-lang-de';
+
+  PERFORM vibetype_test.invoker_set(_account_id);
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM vibetype.contact c
+    WHERE c.account_id = _account_id
+      AND c.language = 'de'
+  ) THEN
+    RAISE EXCEPTION 'Test failed: contact language not set to the registration language';
+  END IF;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT language;
+
+SAVEPOINT language_invalid;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+  _account_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'email@example.com', 'fr', _legal_term_id, 'password', 'username-lang-fr');
+
+  SELECT id INTO _account_id
+  FROM vibetype.account
+  WHERE username = 'username-lang-fr';
+
+  PERFORM vibetype_test.invoker_set(_account_id);
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM vibetype.contact c
+    WHERE c.account_id = _account_id
+      AND c.language IS NULL
+  ) THEN
+    RAISE EXCEPTION 'Test failed: contact language not left NULL for an unsupported registration language';
+  END IF;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT language_invalid;
+
 ROLLBACK;
