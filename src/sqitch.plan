@@ -116,3 +116,4 @@ function_account_registration_language [function_account_registration] 2026-11-1
 function_audit_log_delete [function_audit_log] 2026-11-12T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Fix the audit log trigger for deletes.
 role_postgraphile_inherit [role_vibetype] 2026-11-12T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Stop the PostGraphile role from inheriting the service role.
 function_event_search_rank_behavior [function_event_search] 2026-11-12T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Hide the event search rank function from the GraphQL schema.
+privilege_write_column [table_account_public_policy table_attendance_policy table_friendship table_upload_policy] 2026-11-12T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Grant writes on the columns that may change only.
