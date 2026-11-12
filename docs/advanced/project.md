@@ -23,33 +23,8 @@ Instead of using the package script (`pnpm run deploy`) to invoke Sqitch, you ca
 
 The database structure diagram embedded in the [main README](../../README.md) is generated using [SchemaCrawler](https://www.schemacrawler.com/).
 
-To **create/update** the diagram, follow these steps:
+The [`Graph` workflow](../../.github/workflows/graph.yml) regenerates it on every push to `main` that touches `src/` and opens a pull request when the diagram changed.
+It deploys the migrations to a throwaway database and renders `docs/resources/graph.png` with SchemaCrawler.
+Because the PNG differs on every render, the committed `docs/resources/graph.dot` (without its timestamp) decides whether the diagram changed.
 
-1. Start [`maevsi/stack`](https://github.com/maevsi/stack) as described in the [maevsi/vibetype README](https://github.com/maevsi/vibetype/blob/main/README.md#fullstack).
-2. Run the SchemaCrawler container:
-
-   ```sh
-   docker run -v /run/postgresql/:/run/postgresql/ --network=host --name schemacrawler --rm -it --user=0:0 --entrypoint=/bin/bash schemacrawler/schemacrawler
-   ```
-
-3. Connect to the container as user `schcrwlr` (you can use Portainer or similar tools).
-4. Inside the container, run:
-
-   ```sh
-   schemacrawler --server=postgresql --database=vibetype --user=postgres --password=postgres \
-     --command=schema --info-level=maximum --output-format=png --output-file=graph.png --schemas=vibetype.*
-   ```
-
-5. Reconnect to the container as `root` and install curl:
-
-   ```sh
-   apk update && apk add curl
-   ```
-
-6. Upload the generated diagram:
-
-   ```sh
-   curl -i -F file="@graph.png" "https://tmpfiles.org/api/v1/upload"
-   ```
-
-7. Click the link from the output to download the diagram image.
+To update the diagram on demand, run the workflow manually via its `workflow_dispatch` trigger.
