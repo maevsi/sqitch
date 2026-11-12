@@ -97,4 +97,54 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_search_anonymous;
 
+SAVEPOINT account_search_block;
+DO $$
+DECLARE
+  _account_a UUID;
+  _account_b UUID;
+  _search_result TEXT[];
+BEGIN
+  _account_a := vibetype_test.account_registration_verified('blockfinda', 'blockfinda@example.com');
+  _account_b := vibetype_test.account_registration_verified('blockfindb', 'blockfindb@example.com');
+
+  PERFORM vibetype_test.account_block_create(_account_a, _account_b);
+
+  -- The blocker must not find the blocked account.
+  PERFORM vibetype_test.invoker_set(_account_a);
+  _search_result := ARRAY(SELECT username FROM vibetype.account_search('blockfind') ORDER BY username);
+  IF _search_result <> ARRAY['blockfinda'] THEN
+    RAISE EXCEPTION E'Test failed (account_search_block): blocker sees blocked account.\nReturned: %', _search_result;
+  END IF;
+
+  -- The blocked account must not find the blocker.
+  PERFORM vibetype_test.invoker_set(_account_b);
+  _search_result := ARRAY(SELECT username FROM vibetype.account_search('blockfind') ORDER BY username);
+  IF _search_result <> ARRAY['blockfindb'] THEN
+    RAISE EXCEPTION E'Test failed (account_search_block): blocked account sees blocker.\nReturned: %', _search_result;
+  END IF;
+
+  -- The definer function itself must not hand out hidden ids either.
+  IF EXISTS (SELECT 1 FROM vibetype.account_search_match('blockfind') WHERE account_id = _account_a) THEN
+    RAISE EXCEPTION 'Test failed (account_search_block): account_search_match returned the blocker to the blocked account.';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT account_search_block;
+
+SAVEPOINT account_search_match_anonymous;
+DO $$
+BEGIN
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  BEGIN
+    PERFORM vibetype.account_search_match('a');
+    RAISE EXCEPTION 'Test failed (account_search_match_anonymous): anonymous invoker was able to execute account_search_match.';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT account_search_match_anonymous;
+
 ROLLBACK;
