@@ -2337,60 +2337,6 @@ $$;
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
 
 --
--- Name: guests_organized_unblocked(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guests_organized_unblocked() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  WITH _blocked AS MATERIALIZED (
-    SELECT vibetype_private.contacts_blocked() AS ids
-  )
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.event e
-  JOIN vibetype.guest g ON g.event_id = e.id,
-  _blocked
-  WHERE e.created_by = vibetype.invoker_account_id()
-    AND NOT (g.contact_id = ANY (_blocked.ids));
-$$;
-
-
-ALTER FUNCTION vibetype_private.guests_organized_unblocked() OWNER TO ci;
-
---
--- Name: guests_via_own_contact(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.guest g
-  JOIN vibetype.contact c ON c.id = g.contact_id
-  WHERE c.account_id = vibetype.invoker_account_id()
-    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by);
-$$;
-
-
-ALTER FUNCTION vibetype_private.guests_via_own_contact() OWNER TO ci;
-
---
--- Name: guests_via_own_events(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guests_via_own_events() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    AS $$
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.event e
-  JOIN vibetype.guest g ON g.event_id = e.id
-  WHERE e.created_by = vibetype.invoker_account_id();
-$$;
-
-
-ALTER FUNCTION vibetype_private.guests_via_own_events() OWNER TO ci;
-
---
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -6742,7 +6688,7 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 --
 
 CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = account.id)))));
 
 
@@ -6799,7 +6745,7 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
    FROM vibetype.event e
   WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -6841,34 +6787,30 @@ ALTER TABLE vibetype.attendance ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY attendance_insert ON vibetype.attendance FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_organized_unblocked()) g(g)
-  WHERE (g.g = attendance.guest_id))));
+   FROM vibetype.guest g
+  WHERE ((g.id = attendance.guest_id) AND (g.event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND (NOT (EXISTS ( SELECT 1
+           FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+          WHERE (c.c = g.contact_id))))))));
 
 
 --
 -- Name: attendance attendance_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype.attendance_claim_array()) ac(ac)
-  WHERE (ac.ac = attendance.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_events()) g(g)
-  WHERE (g.g = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
-  WHERE (g.g = attendance.guest_id)))));
+CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((id = ANY (( SELECT vibetype.attendance_claim_array() AS attendance_claim_array)::uuid[])) OR (EXISTS ( SELECT 1
+   FROM vibetype.guest g
+  WHERE (g.id = attendance.guest_id)))));
 
 
 --
 -- Name: attendance attendance_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY attendance_update ON vibetype.attendance FOR UPDATE USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_organized_unblocked()) g(g)
-  WHERE (g.g = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = attendance.guest_id)))));
+CREATE POLICY attendance_update ON vibetype.attendance FOR UPDATE USING (((guest_id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (EXISTS ( SELECT 1
+   FROM vibetype.guest g
+  WHERE ((g.id = attendance.guest_id) AND (g.event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND (NOT (EXISTS ( SELECT 1
+           FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+          WHERE (c.c = g.contact_id)))))))));
 
 
 --
@@ -6889,7 +6831,7 @@ CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((created_by 
 --
 
 CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = contact.account_id))))));
 
 
@@ -6898,12 +6840,11 @@ CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((create
 --
 
 CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
-  WHERE (b.b = contact.account_id))))) OR (EXISTS ( SELECT 1
-   FROM vibetype.guest_contact_ids() gci(contact_id)
-  WHERE (gci.contact_id = contact.id)))));
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
+  WHERE (b.b = contact.account_id))))) OR (id IN ( SELECT gci.contact_id
+   FROM vibetype.guest_contact_ids() gci(contact_id)))));
 
 
 --
@@ -6911,7 +6852,7 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id
 --
 
 CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = contact.account_id))))));
 
 
@@ -7060,11 +7001,11 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 --
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_invited()) inv(inv)
+   FROM unnest(( SELECT vibetype_private.events_invited() AS events_invited)) inv(inv)
   WHERE (inv.inv = event.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_with_claimed_attendance()) att(att)
+   FROM unnest(( SELECT vibetype_private.events_with_claimed_attendance() AS events_with_claimed_attendance)) att(att)
   WHERE (att.att = event.id)))));
 
 
@@ -7114,9 +7055,9 @@ ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = friendship.b_account_id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = friendship.a_account_id))))))) WITH CHECK (false);
 
 
@@ -7144,21 +7085,17 @@ ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 -- Name: guest guest_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))));
+CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])));
 
 
 --
 -- Name: guest guest_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))) AND COALESCE((vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id)), true) AND (EXISTS ( SELECT 1
+CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND COALESCE((vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id)), true) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM unnest(vibetype_private.account_block_ids()) b(b)
+           FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
           WHERE (b.b = c.account_id)))))))));
 
 
@@ -7166,30 +7103,18 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( S
 -- Name: guest guest_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_referring_invoker()) c(c)
-  WHERE (c.c = guest.contact_id))) OR ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_blocked()) c(c)
-  WHERE (c.c = guest.contact_id)))))));
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING ((((id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])) OR (event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[]))) AND ((NOT (EXISTS ( SELECT 1
+   FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+  WHERE (c.c = guest.contact_id)))) OR (id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])))));
 
 
 --
 -- Name: guest guest_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_referring_invoker()) c(c)
-  WHERE (c.c = guest.contact_id))) OR ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_blocked()) c(c)
-  WHERE (c.c = guest.contact_id)))))));
+CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING ((((id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])) OR (event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[]))) AND ((NOT (EXISTS ( SELECT 1
+   FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+  WHERE (c.c = guest.contact_id)))) OR (id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])))));
 
 
 --
@@ -7844,33 +7769,6 @@ GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guests_organized_unblocked(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guests_organized_unblocked() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_organized_unblocked() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_organized_unblocked() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guests_via_own_contact(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_contact() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guests_via_own_events(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_events() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_anonymous;
 
 
 --
