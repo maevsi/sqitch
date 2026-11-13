@@ -1,3 +1,9 @@
+## [13.2.7](https://github.com/maevsi/sqitch/compare/13.2.6...13.2.7) (2026-11-13)
+
+### Bug Fixes
+
+* **security:** harden roles, grants and functions ([#378](https://github.com/maevsi/sqitch/issues/378)) ([77962ec](https://github.com/maevsi/sqitch/commit/77962ec268236546b7b3b88db5d08b90cea4c982))
+
 ## [13.2.6](https://github.com/maevsi/sqitch/compare/13.2.5...13.2.6) (2026-11-13)
 
 ### Performance Improvements
