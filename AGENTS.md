@@ -30,6 +30,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - Grant `INSERT` only on the columns a client may set when the others are set by a service or a trigger; `@behavior -insert` doesn't protect them either
 - Hide a function from GraphQL with `@behavior -*`; the v4 `@omit` tag has no effect
 - Never let the PostGraphile connection role inherit a service role, as requests without a token run as the connection role
+- Hash passwords with `gen_salt('bf', 10)` and end the account's other sessions in `vibetype_private.jwt` whenever its password changes
 - Use the `vibetype_private` schema for internal logic and especially protected content that should never be exposed directly
 
 ## Performance

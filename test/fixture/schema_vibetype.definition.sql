@@ -368,7 +368,10 @@ BEGIN
   _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
-    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;
+    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf', 10)) WHERE account.id = _current_account_id;
+    DELETE FROM vibetype_private.jwt
+      WHERE subject = _current_account_id
+        AND id IS DISTINCT FROM NULLIF(current_setting('jwt.claims.jti', true), '')::UUID;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -415,9 +418,11 @@ BEGIN
 
   UPDATE vibetype_private.account
     SET
-      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf')),
+      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf', 10)),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
+
+  DELETE FROM vibetype_private.jwt WHERE subject = _account.id;
 END;
 $$;
 
@@ -499,11 +504,12 @@ BEGIN
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
+    PERFORM public.crypt(account_registration.password, public.gen_salt('bf', 10)); -- the same work as for a new account
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
   INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
+    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -1740,8 +1746,14 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
   _expiry_duration AS (
     SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
   ),
-  _existing_jwt_id AS (
+  _claimed_jwt_id AS (
     SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _existing_jwt_id AS (
+    SELECT
+      (SELECT jwt.id FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS id,
+      claimed.id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS is_ended
+    FROM _claimed_jwt_id claimed
   ),
   _jwt_claims AS (
     SELECT
@@ -1755,13 +1767,13 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
         ELSE NULL
       END AS guest_claims,
       COALESCE(
-        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT END,
         EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
       ) AS expiration,
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
-      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
-      vibetype.invoker_account_id() AS account_id,
-      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+      COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
+      CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1810,8 +1822,14 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
   _expiry_duration AS (
     SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
   ),
-  _existing_jwt_id AS (
+  _claimed_jwt_id AS (
     SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _existing_jwt_id AS (
+    SELECT
+      (SELECT jwt.id FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS id,
+      claimed.id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS is_ended
+    FROM _claimed_jwt_id claimed
   ),
   _jwt_claims AS (
     SELECT
@@ -1825,13 +1843,13 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         ELSE ARRAY[jwt_update_guest_add.guest_id]
       END AS guest_claims,
       COALESCE(
-        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT END,
         EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
       ) AS expiration,
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
-      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
-      vibetype.invoker_account_id() AS account_id,
-      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+      COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
+      CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -2551,6 +2569,12 @@ BEGIN
       _values_old := _values_old || jsonb_build_object(_key, _data_old ->> _key);
     END LOOP;
 
+  END IF;
+
+  -- Credentials and message contents are not copied into the log.
+  IF TG_TABLE_SCHEMA = 'vibetype_private' AND TG_TABLE_NAME IN ('account', 'notification') THEN
+    _values_new := _values_new - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
+    _values_old := _values_old - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
   END IF;
 
   IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
@@ -7978,6 +8002,7 @@ REVOKE ALL ON FUNCTION vibetype.legal_term_change() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) TO vibetype;
 
 
 --
