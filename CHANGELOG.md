@@ -1,3 +1,9 @@
+## [13.2.9](https://github.com/maevsi/sqitch/compare/13.2.8...13.2.9) (2026-11-13)
+
+### Performance Improvements
+
+* **search:** let event search use its indexes under row level security ([#380](https://github.com/maevsi/sqitch/issues/380)) ([e6db76b](https://github.com/maevsi/sqitch/commit/e6db76b328758e6f2fc18326a966ab47ba52d74e))
+
 ## [13.2.8](https://github.com/maevsi/sqitch/compare/13.2.7...13.2.8) (2026-11-13)
 
 ### Performance Improvements
