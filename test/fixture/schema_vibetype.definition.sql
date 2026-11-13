@@ -2846,7 +2846,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Fun
 
 CREATE FUNCTION vibetype_private.trigger_guest_count_delete() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog'
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 BEGIN
   PERFORM 1
@@ -2884,7 +2884,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts 
 
 CREATE FUNCTION vibetype_private.trigger_guest_count_insert() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO 'pg_catalog'
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 BEGIN
   PERFORM 1
