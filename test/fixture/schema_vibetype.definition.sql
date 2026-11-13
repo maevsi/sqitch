@@ -368,7 +368,10 @@ BEGIN
   _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
-    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;
+    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf', 10)) WHERE account.id = _current_account_id;
+    DELETE FROM vibetype_private.jwt
+      WHERE subject = _current_account_id
+        AND id IS DISTINCT FROM NULLIF(current_setting('jwt.claims.jti', true), '')::UUID;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;
@@ -415,9 +418,11 @@ BEGIN
 
   UPDATE vibetype_private.account
     SET
-      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf')),
+      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf', 10)),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
+
+  DELETE FROM vibetype_private.jwt WHERE subject = _account.id;
 END;
 $$;
 
@@ -499,11 +504,12 @@ BEGIN
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
+    PERFORM public.crypt(account_registration.password, public.gen_salt('bf', 10)); -- the same work as for a new account
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
   INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
+    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -1778,6 +1784,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
         username
       )::vibetype.jwt
     FROM _jwt_claims
+    WHERE NOT EXISTS (SELECT 1 FROM _existing_jwt_id existing_jwt WHERE existing_jwt.id IS NOT NULL)
+      OR EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = _jwt_claims.token_id)
     ON CONFLICT (id) DO UPDATE
     SET token = EXCLUDED.token
     RETURNING token
@@ -1848,6 +1856,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         username
       )::vibetype.jwt
     FROM _jwt_claims
+    WHERE NOT EXISTS (SELECT 1 FROM _existing_jwt_id existing_jwt WHERE existing_jwt.id IS NOT NULL)
+      OR EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = _jwt_claims.token_id)
     ON CONFLICT (id) DO UPDATE
     SET token = EXCLUDED.token
     RETURNING token
@@ -2551,6 +2561,12 @@ BEGIN
       _values_old := _values_old || jsonb_build_object(_key, _data_old ->> _key);
     END LOOP;
 
+  END IF;
+
+  -- Credentials and message contents are not copied into the log.
+  IF TG_TABLE_SCHEMA = 'vibetype_private' AND TG_TABLE_NAME IN ('account', 'notification') THEN
+    _values_new := _values_new - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
+    _values_old := _values_old - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
   END IF;
 
   IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
@@ -7978,6 +7994,7 @@ REVOKE ALL ON FUNCTION vibetype.legal_term_change() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) TO vibetype_anonymous;
+GRANT ALL ON FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) TO vibetype;
 
 
 --
