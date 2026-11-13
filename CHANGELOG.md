@@ -1,3 +1,21 @@
+## [13.2.10](https://github.com/maevsi/sqitch/compare/13.2.9...13.2.10) (2026-11-13)
+
+### Performance Improvements
+
+* **event:** maintain the guest count on the event ([#383](https://github.com/maevsi/sqitch/issues/383)) ([ff83271](https://github.com/maevsi/sqitch/commit/ff832718e6c13c5eeca6e1df1f60d5744904d3be))
+
+## [13.2.9](https://github.com/maevsi/sqitch/compare/13.2.8...13.2.9) (2026-11-13)
+
+### Performance Improvements
+
+* **search:** let event search use its indexes under row level security ([#380](https://github.com/maevsi/sqitch/issues/380)) ([e6db76b](https://github.com/maevsi/sqitch/commit/e6db76b328758e6f2fc18326a966ab47ba52d74e))
+
+## [13.2.8](https://github.com/maevsi/sqitch/compare/13.2.7...13.2.8) (2026-11-13)
+
+### Performance Improvements
+
+* **jwt:** delete expired tokens of the account on login ([#379](https://github.com/maevsi/sqitch/issues/379)) ([0480e12](https://github.com/maevsi/sqitch/commit/0480e12adc911c8d78de6ad8df44eefe9d3e2868))
+
 ## [13.2.7](https://github.com/maevsi/sqitch/compare/13.2.6...13.2.7) (2026-11-13)
 
 ### Bug Fixes

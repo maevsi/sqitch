@@ -192,4 +192,54 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_search_anonymous;
 
+SAVEPOINT event_search_invisible;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  eventHidden UUID;
+  eventVisible UUID;
+  searchResults UUID[];
+  _query TEXT;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+
+  eventHidden := vibetype_test.event_create(accountA, 'Zebras', 'secret-zebra', '2025-06-01 20:00', 'private');
+  eventVisible := vibetype_test.event_create(accountA, 'Zebra', 'public-zebra', '2025-06-01 20:00', 'public');
+
+  PERFORM vibetype_test.invoker_set(accountB);
+
+  -- Both the full-text match and the trigram typo match must drop the invisible event.
+  FOREACH _query IN ARRAY ARRAY['zebra', 'Zebrra'] LOOP
+    searchResults := ARRAY(SELECT id FROM vibetype.event_search(_query));
+
+    IF eventHidden = ANY(searchResults) THEN
+      RAISE EXCEPTION 'Test failed: search for "%" returned an event the invoker cannot see', _query;
+    END IF;
+
+    IF NOT (eventVisible = ANY(searchResults)) THEN
+      RAISE EXCEPTION 'Test failed: search for "%" should return the visible event', _query;
+    END IF;
+  END LOOP;
+END $$;
+ROLLBACK TO SAVEPOINT event_search_invisible;
+
+SAVEPOINT event_search_match_privileges;
+DO $$
+BEGIN
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  BEGIN
+    PERFORM vibetype.event_search_match('a');
+    RAISE EXCEPTION 'Test failed (event_search_match_privileges): anonymous invoker was able to execute event_search_match.';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+    WHEN OTHERS THEN
+      RAISE;
+  END;
+END $$;
+ROLLBACK TO SAVEPOINT event_search_match_privileges;
+
 ROLLBACK;
