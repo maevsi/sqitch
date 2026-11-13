@@ -35,7 +35,7 @@ GRANT UPDATE (
 -- A statement level trigger on a transition table updates every affected event once, even when a cascade removes many guests.
 CREATE FUNCTION vibetype_private.trigger_guest_count_insert() RETURNS TRIGGER
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path = pg_catalog
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   PERFORM 1
@@ -62,7 +62,7 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC
 
 CREATE FUNCTION vibetype_private.trigger_guest_count_delete() RETURNS TRIGGER
     LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path = pg_catalog
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   PERFORM 1
@@ -103,6 +103,7 @@ CREATE TRIGGER guest_count_delete
 
 CREATE OR REPLACE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT e.guest_count_maximum
   FROM vibetype.event e
