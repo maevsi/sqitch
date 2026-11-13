@@ -1008,6 +1008,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
+    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", 'infinity'::timestamp with time zone)) STORED,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1144,6 +1145,14 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 
 --
+-- Name: COLUMN event.effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -insert -update +filterBy
+The event''s end date and time, falling back to `end of time` when no explicit end is set.';
+
+
+--
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1259,6 +1268,7 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
   SELECT e.*
   FROM vibetype.event_search_match(event_search.query) m
   JOIN vibetype.event e ON e.id = m.event_id
+  WHERE e.effective_end >= now()
   ORDER BY
     m.score DESC,
     e.id;
@@ -1271,7 +1281,7 @@ ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
 -- Name: FUNCTION event_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events that have not ended yet by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -2504,10 +2514,11 @@ DECLARE
   _values_old JSONB;
 BEGIN
   -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' = to_jsonb(OLD) - 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
     AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
   THEN
     RETURN NEW;
