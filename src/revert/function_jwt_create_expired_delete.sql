@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH
   _current_time AS (

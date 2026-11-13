@@ -139,6 +139,9 @@ ROLLBACK TO SAVEPOINT guest_update_event_contact;
 SAVEPOINT grafana_columns;
 DO $$
 BEGIN
+  -- Resolving the table names needs usage on schema `vibetype_private`, which the connection role lacks.
+  SET LOCAL ROLE vibetype;
+
   IF has_column_privilege('grafana', 'vibetype_private.account', 'password_hash', 'SELECT') THEN
     RAISE EXCEPTION 'Test failed: grafana can select account.password_hash';
   END IF;
@@ -162,7 +165,76 @@ BEGIN
   IF NOT has_column_privilege('grafana', 'vibetype_private.notification', 'channel', 'SELECT') THEN
     RAISE EXCEPTION 'Test failed: grafana cannot select notification.channel';
   END IF;
+
+  RESET ROLE;
 END $$;
 ROLLBACK TO SAVEPOINT grafana_columns;
+
+-- A request without a token runs as the PostGraphile connection role, which must not act as the service role.
+SAVEPOINT postgraphile_service_role;
+DO $$
+DECLARE
+  _account_a UUID;
+BEGIN
+  IF pg_has_role('postgraphile', 'vibetype', 'USAGE') THEN
+    RAISE EXCEPTION 'Test failed: postgraphile inherits the privileges of the service role';
+  END IF;
+
+  IF NOT pg_has_role('postgraphile', 'vibetype', 'SET') THEN
+    RAISE EXCEPTION 'Test failed: postgraphile cannot switch to the service role';
+  END IF;
+
+  _account_a := vibetype_test.account_registration_verified('a', 'a@example.com');
+
+  PERFORM vibetype_test.invoker_set(_account_a);
+  INSERT INTO vibetype.device(created_by, fcm_token) VALUES (_account_a, 'token');
+  INSERT INTO vibetype.upload(created_by, size_byte) VALUES (_account_a, 1);
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM set_config('jwt.claims.sub', '', true);
+
+  IF EXISTS (SELECT 1 FROM vibetype.device) THEN
+    RAISE EXCEPTION 'Test failed: a device is visible without a token';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM vibetype.upload) THEN
+    RAISE EXCEPTION 'Test failed: an upload that is no profile picture is visible without a token';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT postgraphile_service_role;
+
+-- Columns hidden from GraphQL mutations must not be writable through SQL either.
+SAVEPOINT write_columns;
+DO $$
+DECLARE
+  _column RECORD;
+BEGIN
+  FOR _column IN
+    SELECT * FROM (VALUES
+      ('vibetype_account',   'vibetype.account',    'id',            'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.account',    'username',      'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.account',    'description',   'UPDATE', TRUE),
+      ('vibetype_account',   'vibetype.attendance', 'checked_out',   'UPDATE', TRUE),
+      ('vibetype_account',   'vibetype.attendance', 'guest_id',      'UPDATE', FALSE),
+      ('vibetype_anonymous', 'vibetype.attendance', 'checked_out',   'UPDATE', TRUE),
+      ('vibetype_anonymous', 'vibetype.attendance', 'contact_id',    'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.friendship', 'status',        'INSERT', FALSE),
+      ('vibetype_account',   'vibetype.friendship', 'status',        'UPDATE', TRUE),
+      ('vibetype_account',   'vibetype.friendship', 'a_account_id',  'INSERT', TRUE),
+      ('vibetype_account',   'vibetype.friendship', 'a_account_id',  'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.friendship', 'created_by',    'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.upload',     'name',          'UPDATE', TRUE),
+      ('vibetype_account',   'vibetype.upload',     'size_byte',     'INSERT', TRUE),
+      ('vibetype_account',   'vibetype.upload',     'size_byte',     'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.upload',     'storage_key',   'INSERT', FALSE),
+      ('vibetype_account',   'vibetype.upload',     'storage_key',   'UPDATE', FALSE),
+      ('vibetype_account',   'vibetype.upload',     'type',          'INSERT', FALSE)
+    ) AS t(role_name, table_name, column_name, privilege, expected)
+  LOOP
+    IF has_column_privilege(_column.role_name, _column.table_name, _column.column_name, _column.privilege) IS DISTINCT FROM _column.expected THEN
+      RAISE EXCEPTION 'Test failed: % on %.% for % should be %', _column.privilege, _column.table_name, _column.column_name, _column.role_name, _column.expected;
+    END IF;
+  END LOOP;
+END $$;
+ROLLBACK TO SAVEPOINT write_columns;
 
 ROLLBACK;
