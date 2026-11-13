@@ -212,6 +212,17 @@ When the result must keep one row per source row, collect the ids from the branc
 
 **NULL safety**: `NOT (NULL = ANY(array))` evaluates to NULL (treated as FALSE by policies), which incorrectly excludes rows with NULL columns. Add an explicit `IS NULL OR` guard for nullable columns like `contact.account_id`.
 
+#### Child tables of events: look the event up per row
+
+A policy such as `EXISTS (SELECT 1 FROM vibetype.event e WHERE e.id = event_upload.event_id)` is not pulled up into a join.
+PostgreSQL turns it into an `= ANY` over a hashed subplan, which reads and filters every event visible to the invoker before the first child row is returned.
+An unfiltered `LIMIT 20` then costs as much as there are visible events.
+Adding `OFFSET 0` to the subquery keeps the planner from converting it, so each child row looks up its event by primary key and applies the `event` policies to that one row.
+Visibility is unchanged, since `event` is still read through its own policies.
+The trade-off is that reading all rows costs one lookup per row instead of one hash pass, which makes `count(*)` three to six times slower and an unfiltered read slow for an invoker who can see only a few of the rows.
+Use it where a short unfiltered read matters more than counting, as for `event_upload`, `event_category_mapping`, `event_format_mapping`, `event_app` and `address`.
+It did not pay off for `attendance`, where most invokers see nearly no rows and every row would cost a lookup in `guest`.
+
 #### Let the planner inline trivial helpers
 
 PostgreSQL inlines a simple SQL function into the calling query, but it skips a `STRICT` function whose body is not strict, for example because it uses `NULLIF`.

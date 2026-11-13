@@ -24,6 +24,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/model/contact.sql
 \i utility/model/event_category_mapping.sql
 \i utility/model/event_category.sql
+\i utility/model/event_child.sql
 \i utility/model/event_format.sql
 \i utility/model/event.sql
 \i utility/model/friendship.sql
@@ -66,6 +67,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/attendance_claim_array.sql
 \i scenario/model/contact.sql
 \i scenario/model/event_category_mapping.sql
+\i scenario/model/event_child.sql
 \i scenario/model/event_favorite.sql
 \i scenario/model/event_guest_count_maximum.sql
 \i scenario/model/event_search.sql
