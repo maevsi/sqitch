@@ -1,6 +1,6 @@
 BEGIN;
 
--- A session that has ended is not stored again.
+-- A session that has ended is not continued, a new one without an account starts in its place.
 
 CREATE OR REPLACE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
@@ -13,8 +13,14 @@ CREATE OR REPLACE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS 
   _expiry_duration AS (
     SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
   ),
-  _existing_jwt_id AS (
+  _claimed_jwt_id AS (
     SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _existing_jwt_id AS (
+    SELECT
+      (SELECT jwt.id FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS id,
+      claimed.id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS is_ended
+    FROM _claimed_jwt_id claimed
   ),
   _jwt_claims AS (
     SELECT
@@ -28,13 +34,13 @@ CREATE OR REPLACE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS 
         ELSE ARRAY[jwt_update_guest_add.guest_id]
       END AS guest_claims,
       COALESCE(
-        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT END,
         EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
       ) AS expiration,
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
-      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
-      vibetype.invoker_account_id() AS account_id,
-      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+      COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
+      CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -51,8 +57,6 @@ CREATE OR REPLACE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS 
         username
       )::vibetype.jwt
     FROM _jwt_claims
-    WHERE NOT EXISTS (SELECT 1 FROM _existing_jwt_id existing_jwt WHERE existing_jwt.id IS NOT NULL)
-      OR EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = _jwt_claims.token_id)
     ON CONFLICT (id) DO UPDATE
     SET token = EXCLUDED.token
     RETURNING token
@@ -71,8 +75,14 @@ CREATE OR REPLACE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid
   _expiry_duration AS (
     SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
   ),
-  _existing_jwt_id AS (
+  _claimed_jwt_id AS (
     SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _existing_jwt_id AS (
+    SELECT
+      (SELECT jwt.id FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS id,
+      claimed.id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS is_ended
+    FROM _claimed_jwt_id claimed
   ),
   _jwt_claims AS (
     SELECT
@@ -86,13 +96,13 @@ CREATE OR REPLACE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid
         ELSE NULL
       END AS guest_claims,
       COALESCE(
-        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT END,
         EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
       ) AS expiration,
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
-      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
-      vibetype.invoker_account_id() AS account_id,
-      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+      COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
+      CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -109,8 +119,6 @@ CREATE OR REPLACE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid
         username
       )::vibetype.jwt
     FROM _jwt_claims
-    WHERE NOT EXISTS (SELECT 1 FROM _existing_jwt_id existing_jwt WHERE existing_jwt.id IS NOT NULL)
-      OR EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = _jwt_claims.token_id)
     ON CONFLICT (id) DO UPDATE
     SET token = EXCLUDED.token
     RETURNING token

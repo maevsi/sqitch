@@ -2,12 +2,13 @@
 
 BEGIN;
 
--- Adding a claim to a session that has ended neither returns a token nor stores the session again.
+-- Adding a claim to a session that has ended starts a new session without an account and does not store the ended one again.
 SAVEPOINT ended;
 DO $$
 DECLARE
   _account_id UUID;
   _jwt vibetype.jwt;
+  _jwt_new vibetype.jwt;
 BEGIN
   PERFORM set_config('vibetype.jwt_expiry_duration', '1 hour', true);
 
@@ -30,12 +31,16 @@ BEGIN
 
   DELETE FROM vibetype_private.jwt WHERE id = _jwt.jti;
 
-  IF vibetype.jwt_update_guest_add(gen_random_uuid()) IS NOT NULL THEN
-    RAISE EXCEPTION 'Test failed: a guest claim was added to an ended session';
+  _jwt_new := vibetype.jwt_update_guest_add(gen_random_uuid());
+
+  IF _jwt_new IS NULL OR _jwt_new.jti = _jwt.jti OR _jwt_new.sub IS NOT NULL OR _jwt_new.username IS NOT NULL OR _jwt_new.role != 'vibetype_anonymous' THEN
+    RAISE EXCEPTION 'Test failed: a guest claim on an ended session did not start a new session without an account';
   END IF;
 
-  IF vibetype.jwt_update_attendance_add(gen_random_uuid()) IS NOT NULL THEN
-    RAISE EXCEPTION 'Test failed: an attendance claim was added to an ended session';
+  _jwt_new := vibetype.jwt_update_attendance_add(gen_random_uuid());
+
+  IF _jwt_new IS NULL OR _jwt_new.jti = _jwt.jti OR _jwt_new.sub IS NOT NULL OR _jwt_new.username IS NOT NULL OR _jwt_new.role != 'vibetype_anonymous' THEN
+    RAISE EXCEPTION 'Test failed: an attendance claim on an ended session did not start a new session without an account';
   END IF;
 
   IF EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE id = _jwt.jti) THEN
