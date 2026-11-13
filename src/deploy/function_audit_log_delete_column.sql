@@ -1,6 +1,5 @@
 BEGIN;
 
--- The `DELETE` branch inserted into a column named `_alues_new`, so every delete on an audited table failed.
 CREATE OR REPLACE FUNCTION vibetype_private.trigger_audit_log() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$

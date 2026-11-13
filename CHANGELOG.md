@@ -1,3 +1,39 @@
+## [13.2.6](https://github.com/maevsi/sqitch/compare/13.2.5...13.2.6) (2026-11-13)
+
+### Performance Improvements
+
+* **git:** track graph image with lfs ([#377](https://github.com/maevsi/sqitch/issues/377)) ([e7336bd](https://github.com/maevsi/sqitch/commit/e7336bdace8384ef69008091c1e51ddf7d55ff09))
+
+## [13.2.5](https://github.com/maevsi/sqitch/compare/13.2.4...13.2.5) (2026-11-12)
+
+### Performance Improvements
+
+* **policy:** evaluate helpers once per statement and let guest visibility use indexes ([#371](https://github.com/maevsi/sqitch/issues/371)) ([4bcee22](https://github.com/maevsi/sqitch/commit/4bcee22934cc2f87cd67927fef49cb083cd430c3))
+
+## [13.2.4](https://github.com/maevsi/sqitch/compare/13.2.3...13.2.4) (2026-11-12)
+
+### Performance Improvements
+
+* **search:** let account search use its index under row level security ([#375](https://github.com/maevsi/sqitch/issues/375)) ([14e9d1f](https://github.com/maevsi/sqitch/commit/14e9d1f7ef4eba2669939da54a9d0ec62856e65b))
+
+## [13.2.3](https://github.com/maevsi/sqitch/compare/13.2.2...13.2.3) (2026-11-12)
+
+### Performance Improvements
+
+* **audit-log:** widen the id to bigint ([#372](https://github.com/maevsi/sqitch/issues/372)) ([9b13768](https://github.com/maevsi/sqitch/commit/9b13768194f0e9e2416e01ed22acf466377b892c))
+
+## [13.2.2](https://github.com/maevsi/sqitch/compare/13.2.1...13.2.2) (2026-11-12)
+
+### Performance Improvements
+
+* **index:** drop indexes covered by unique ones and index verification codes ([#368](https://github.com/maevsi/sqitch/issues/368)) ([9eb6e73](https://github.com/maevsi/sqitch/commit/9eb6e732582f343893ed6caafc11e5a04dddc17b))
+
+## [13.2.1](https://github.com/maevsi/sqitch/compare/13.2.0...13.2.1) (2026-11-12)
+
+### Bug Fixes
+
+* **audit-log:** record deletes instead of failing on a misspelled column ([#363](https://github.com/maevsi/sqitch/issues/363)) ([ffc8dc9](https://github.com/maevsi/sqitch/commit/ffc8dc9374f5a82accc2120f84d5779ce3e163a1))
+
 ## [13.2.0](https://github.com/maevsi/sqitch/compare/13.1.0...13.2.0) (2026-11-11)
 
 ### Features

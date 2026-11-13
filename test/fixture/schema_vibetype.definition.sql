@@ -302,7 +302,12 @@ ALTER FUNCTION vibetype.account_delete(password text) OWNER TO ci;
 -- Name: FUNCTION account_delete(password text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
+COMMENT ON FUNCTION vibetype.account_delete(password text) IS 'Allows to delete an account.
+
+Error codes:
+- **28P01** when the password is invalid.
+
+Deleting an account that organizes many events can take several seconds.';
 
 
 --
@@ -663,13 +668,12 @@ The account''s username. Must be alphanumeric with hyphens and not exceed 100 ch
 CREATE FUNCTION vibetype.account_search(query text) RETURNS SETOF vibetype.account
     LANGUAGE sql STABLE
     AS $$
-  SELECT *
-  FROM vibetype.account
-  WHERE
-    username ILIKE '%' || account_search.query || '%'
+  SELECT a.*
+  FROM vibetype.account_search_match(account_search.query) m
+  JOIN vibetype.account a ON a.id = m.account_id
   ORDER BY
-    similarity(username, account_search.query) DESC,
-    username;
+    m.similarity DESC,
+    a.username;
 $$;
 
 
@@ -682,6 +686,35 @@ ALTER FUNCTION vibetype.account_search(query text) OWNER TO ci;
 COMMENT ON FUNCTION vibetype.account_search(query text) IS 'Returns accounts with a username containing a given substring, closest matches first.
 Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.
 Queries under 3 characters match few trigrams and so scan a larger share of the index; keep that in mind if this backs search-as-you-type.';
+
+
+--
+-- Name: account_search_match(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_search_match(query text) RETURNS TABLE(account_id uuid, similarity real)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT
+    a.id,
+    similarity(a.username, account_search_match.query)
+  FROM vibetype.account a
+  WHERE
+    a.username ILIKE '%' || account_search_match.query || '%'
+    -- NOT IN over an uncorrelated subquery becomes a hashed subplan evaluated once, rather than calling account_block_ids() per candidate row.
+    AND a.id NOT IN (SELECT unnest(vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype.account_search_match(query text) OWNER TO ci;
+
+--
+-- Name: FUNCTION account_search_match(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_search_match(query text) IS '@behavior -*
+Returns ids of accounts with a username containing the given substring, excluding accounts blocked by or blocking the invoker, with their trigram similarity to the query.';
 
 
 --
@@ -2205,7 +2238,7 @@ CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq() RETURNS void
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 DECLARE
-  _value_max INTEGER;
+  _value_max BIGINT;
 BEGIN
   SELECT MAX(id) INTO _value_max
     FROM vibetype_private.audit_log;
@@ -2338,63 +2371,6 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
-
---
--- Name: guests_organized_unblocked(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guests_organized_unblocked() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
-    AS $$
-  WITH _blocked AS MATERIALIZED (
-    SELECT vibetype_private.contacts_blocked() AS ids
-  )
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.event e
-  JOIN vibetype.guest g ON g.event_id = e.id,
-  _blocked
-  WHERE e.created_by = vibetype.invoker_account_id()
-    AND NOT (g.contact_id = ANY (_blocked.ids));
-$$;
-
-
-ALTER FUNCTION vibetype_private.guests_organized_unblocked() OWNER TO ci;
-
---
--- Name: guests_via_own_contact(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guests_via_own_contact() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
-    AS $$
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.guest g
-  JOIN vibetype.contact c ON c.id = g.contact_id
-  WHERE c.account_id = vibetype.invoker_account_id()
-    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = c.created_by);
-$$;
-
-
-ALTER FUNCTION vibetype_private.guests_via_own_contact() OWNER TO ci;
-
---
--- Name: guests_via_own_events(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
---
-
-CREATE FUNCTION vibetype_private.guests_via_own_events() RETURNS uuid[]
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
-    AS $$
-  SELECT COALESCE(array_agg(g.id), ARRAY[]::UUID[])
-  FROM vibetype.event e
-  JOIN vibetype.guest g ON g.event_id = e.id
-  WHERE e.created_by = vibetype.invoker_account_id();
-$$;
-
-
-ALTER FUNCTION vibetype_private.guests_via_own_events() OWNER TO ci;
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -4711,7 +4687,7 @@ COMMENT ON COLUMN vibetype_private.achievement_code.achievement IS 'The achievem
 --
 
 CREATE TABLE vibetype_private.audit_log (
-    id integer NOT NULL,
+    id bigint NOT NULL,
     operation_type text NOT NULL,
     record_id text NOT NULL,
     schema_name text NOT NULL,
@@ -4800,7 +4776,6 @@ COMMENT ON COLUMN vibetype_private.audit_log.created_by IS 'The user that execut
 --
 
 CREATE SEQUENCE vibetype_private.audit_log_id_seq
-    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -5687,20 +5662,6 @@ CREATE INDEX idx_account_block_blocked_account_id ON vibetype.account_block USIN
 
 
 --
--- Name: idx_account_block_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_account_block_created_by ON vibetype.account_block USING btree (created_by);
-
-
---
--- Name: idx_account_social_network_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_account_social_network_account_id ON vibetype.account_social_network USING btree (account_id);
-
-
---
 -- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5712,13 +5673,6 @@ CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username p
 --
 
 COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
-
-
---
--- Name: idx_achievement_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_achievement_account_id ON vibetype.achievement USING btree (account_id);
 
 
 --
@@ -5820,13 +5774,6 @@ CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id)
 
 
 --
--- Name: idx_contact_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
-
-
---
 -- Name: idx_contact_name_first; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5838,13 +5785,6 @@ CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name)
 --
 
 CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
-
-
---
--- Name: idx_device_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_device_created_by ON vibetype.device USING btree (created_by);
 
 
 --
@@ -5890,13 +5830,6 @@ COMMENT ON INDEX vibetype.idx_event_app_created_by IS 'B-Tree index to optimize 
 
 
 --
--- Name: idx_event_app_event_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_app_event_id ON vibetype.event_app USING btree (event_id);
-
-
---
 -- Name: idx_event_category_mapping_category_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -5904,17 +5837,17 @@ CREATE INDEX idx_event_category_mapping_category_id ON vibetype.event_category_m
 
 
 --
--- Name: idx_event_category_mapping_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: idx_event_created_by_start; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_event_category_mapping_event_id ON vibetype.event_category_mapping USING btree (event_id);
+CREATE INDEX idx_event_created_by_start ON vibetype.event USING btree (created_by, start);
 
 
 --
--- Name: idx_event_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: INDEX idx_event_created_by_start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+COMMENT ON INDEX vibetype.idx_event_created_by_start IS 'B-Tree index serving the events of a creator ordered by start.';
 
 
 --
@@ -5925,24 +5858,10 @@ CREATE INDEX idx_event_end ON vibetype.event USING btree ("end") WHERE ("end" IS
 
 
 --
--- Name: idx_event_favorite_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_favorite_created_by ON vibetype.event_favorite USING btree (created_by);
-
-
---
 -- Name: idx_event_favorite_event_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
 CREATE INDEX idx_event_favorite_event_id ON vibetype.event_favorite USING btree (event_id);
-
-
---
--- Name: idx_event_format_mapping_event_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_format_mapping_event_id ON vibetype.event_format_mapping USING btree (event_id);
 
 
 --
@@ -5964,13 +5883,6 @@ CREATE INDEX idx_event_name_trgm ON vibetype.event USING gin (name public.gin_tr
 --
 
 COMMENT ON INDEX vibetype.idx_event_name_trgm IS 'GIN trigram index on the name, used for prefix and typo-tolerant search fallback.';
-
-
---
--- Name: idx_event_recommendation_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_event_recommendation_account_id ON vibetype.event_recommendation USING btree (account_id);
 
 
 --
@@ -6006,13 +5918,6 @@ COMMENT ON INDEX vibetype.idx_event_upload_is_header_image_unique IS 'Ensures th
 --
 
 CREATE INDEX idx_event_upload_upload_id ON vibetype.event_upload USING btree (upload_id);
-
-
---
--- Name: idx_friendship_a_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_friendship_a_account_id ON vibetype.friendship USING btree (a_account_id);
 
 
 --
@@ -6058,13 +5963,6 @@ CREATE INDEX idx_guest_contact_id ON vibetype.guest USING btree (contact_id);
 
 
 --
--- Name: idx_guest_event_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_guest_event_id ON vibetype.guest USING btree (event_id);
-
-
---
 -- Name: idx_guest_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6093,24 +5991,10 @@ CREATE INDEX idx_legal_term_acceptance_legal_term_id ON vibetype.legal_term_acce
 
 
 --
--- Name: idx_preference_event_category_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_category_account_id ON vibetype.preference_event_category USING btree (account_id);
-
-
---
 -- Name: idx_preference_event_category_category_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
 CREATE INDEX idx_preference_event_category_category_id ON vibetype.preference_event_category USING btree (category_id);
-
-
---
--- Name: idx_preference_event_format_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_format_account_id ON vibetype.preference_event_format USING btree (account_id);
 
 
 --
@@ -6121,31 +6005,10 @@ CREATE INDEX idx_preference_event_format_format_id ON vibetype.preference_event_
 
 
 --
--- Name: idx_preference_event_location_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_location_created_by ON vibetype.preference_event_location USING btree (created_by);
-
-
---
--- Name: idx_preference_event_size_account_id; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_preference_event_size_account_id ON vibetype.preference_event_size USING btree (account_id);
-
-
---
 -- Name: idx_profile_picture_upload_id; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
 CREATE INDEX idx_profile_picture_upload_id ON vibetype.profile_picture USING btree (upload_id);
-
-
---
--- Name: idx_report_created_by; Type: INDEX; Schema: vibetype; Owner: ci
---
-
-CREATE INDEX idx_report_created_by ON vibetype.report USING btree (created_by);
 
 
 --
@@ -6174,6 +6037,34 @@ CREATE INDEX idx_report_target_upload_id ON vibetype.report USING btree (target_
 --
 
 CREATE INDEX idx_upload_created_by ON vibetype.upload USING btree (created_by);
+
+
+--
+-- Name: idx_account_email_address_verification; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_email_address_verification ON vibetype_private.account USING btree (email_address_verification) WHERE (email_address_verification IS NOT NULL);
+
+
+--
+-- Name: INDEX idx_account_email_address_verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_account_email_address_verification IS 'Unique partial index serving the lookup by email address verification code.';
+
+
+--
+-- Name: idx_account_password_reset_verification; Type: INDEX; Schema: vibetype_private; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_password_reset_verification ON vibetype_private.account USING btree (password_reset_verification) WHERE (password_reset_verification IS NOT NULL);
+
+
+--
+-- Name: INDEX idx_account_password_reset_verification; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON INDEX vibetype_private.idx_account_password_reset_verification IS 'Unique partial index serving the lookup by password reset code.';
 
 
 --
@@ -6216,20 +6107,6 @@ CREATE INDEX idx_event_search_vector ON vibetype_private.event_search_vector USI
 --
 
 COMMENT ON INDEX vibetype_private.idx_event_search_vector IS 'GIN index on the search vector to improve full-text search performance.';
-
-
---
--- Name: idx_event_search_vector_event_id; Type: INDEX; Schema: vibetype_private; Owner: ci
---
-
-CREATE INDEX idx_event_search_vector_event_id ON vibetype_private.event_search_vector USING btree (event_id);
-
-
---
--- Name: INDEX idx_event_search_vector_event_id; Type: COMMENT; Schema: vibetype_private; Owner: ci
---
-
-COMMENT ON INDEX vibetype_private.idx_event_search_vector_event_id IS 'Single-column index on event_id, required because the FK-index convention (see vibetype_test.index_on_foreign_key_check()) needs an index matching the FK''s columns exactly; the primary key''s composite index does not qualify since it also includes ts_config.';
 
 
 --
@@ -6859,7 +6736,7 @@ CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = v
 --
 
 CREATE POLICY account_select ON vibetype.account FOR SELECT USING ((NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = account.id)))));
 
 
@@ -6916,7 +6793,7 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
    FROM vibetype.event e
   WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
 
@@ -6958,34 +6835,30 @@ ALTER TABLE vibetype.attendance ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY attendance_insert ON vibetype.attendance FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_organized_unblocked()) g(g)
-  WHERE (g.g = attendance.guest_id))));
+   FROM vibetype.guest g
+  WHERE ((g.id = attendance.guest_id) AND (g.event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND (NOT (EXISTS ( SELECT 1
+           FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+          WHERE (c.c = g.contact_id))))))));
 
 
 --
 -- Name: attendance attendance_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype.attendance_claim_array()) ac(ac)
-  WHERE (ac.ac = attendance.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_events()) g(g)
-  WHERE (g.g = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_via_own_contact()) g(g)
-  WHERE (g.g = attendance.guest_id)))));
+CREATE POLICY attendance_select ON vibetype.attendance FOR SELECT USING (((id = ANY (( SELECT vibetype.attendance_claim_array() AS attendance_claim_array)::uuid[])) OR (EXISTS ( SELECT 1
+   FROM vibetype.guest g
+  WHERE (g.id = attendance.guest_id)))));
 
 
 --
 -- Name: attendance attendance_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY attendance_update ON vibetype.attendance FOR UPDATE USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.guests_organized_unblocked()) g(g)
-  WHERE (g.g = attendance.guest_id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = attendance.guest_id)))));
+CREATE POLICY attendance_update ON vibetype.attendance FOR UPDATE USING (((guest_id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (EXISTS ( SELECT 1
+   FROM vibetype.guest g
+  WHERE ((g.id = attendance.guest_id) AND (g.event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND (NOT (EXISTS ( SELECT 1
+           FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+          WHERE (c.c = g.contact_id)))))))));
 
 
 --
@@ -7006,7 +6879,7 @@ CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((created_by 
 --
 
 CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = contact.account_id))))));
 
 
@@ -7015,12 +6888,11 @@ CREATE POLICY contact_insert ON vibetype.contact FOR INSERT WITH CHECK (((create
 --
 
 CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = contact.created_by))))) OR ((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
-  WHERE (b.b = contact.account_id))))) OR (EXISTS ( SELECT 1
-   FROM vibetype.guest_contact_ids() gci(contact_id)
-  WHERE (gci.contact_id = contact.id)))));
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
+  WHERE (b.b = contact.account_id))))) OR (id IN ( SELECT gci.contact_id
+   FROM vibetype.guest_contact_ids() gci(contact_id)))));
 
 
 --
@@ -7028,7 +6900,7 @@ CREATE POLICY contact_select ON vibetype.contact FOR SELECT USING ((((account_id
 --
 
 CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = contact.account_id))))));
 
 
@@ -7177,11 +7049,11 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 --
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_invited()) inv(inv)
+   FROM unnest(( SELECT vibetype_private.events_invited() AS events_invited)) inv(inv)
   WHERE (inv.inv = event.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_with_claimed_attendance()) att(att)
+   FROM unnest(( SELECT vibetype_private.events_with_claimed_attendance() AS events_with_claimed_attendance)) att(att)
   WHERE (att.att = event.id)))));
 
 
@@ -7231,9 +7103,9 @@ ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY friendship_existing ON vibetype.friendship USING ((((vibetype.invoker_account_id() = a_account_id) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = friendship.b_account_id))))) OR ((vibetype.invoker_account_id() = b_account_id) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.account_block_ids()) b(b)
+   FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = friendship.a_account_id))))))) WITH CHECK (false);
 
 
@@ -7261,21 +7133,17 @@ ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 -- Name: guest guest_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))));
+CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])));
 
 
 --
 -- Name: guest guest_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))) AND COALESCE((vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id)), true) AND (EXISTS ( SELECT 1
+CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND COALESCE((vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id)), true) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
-           FROM unnest(vibetype_private.account_block_ids()) b(b)
+           FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
           WHERE (b.b = c.account_id)))))))));
 
 
@@ -7283,30 +7151,18 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( S
 -- Name: guest guest_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_referring_invoker()) c(c)
-  WHERE (c.c = guest.contact_id))) OR ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_blocked()) c(c)
-  WHERE (c.c = guest.contact_id)))))));
+CREATE POLICY guest_select ON vibetype.guest FOR SELECT USING ((((id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])) OR (event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[]))) AND ((NOT (EXISTS ( SELECT 1
+   FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+  WHERE (c.c = guest.contact_id)))) OR (id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])))));
 
 
 --
 -- Name: guest guest_update; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING (((EXISTS ( SELECT 1
-   FROM unnest(vibetype.guest_claim_array()) gc(gc)
-  WHERE (gc.gc = guest.id))) OR (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_referring_invoker()) c(c)
-  WHERE (c.c = guest.contact_id))) OR ((EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.events_organized()) e(e)
-  WHERE (e.e = guest.event_id))) AND (NOT (EXISTS ( SELECT 1
-   FROM unnest(vibetype_private.contacts_blocked()) c(c)
-  WHERE (c.c = guest.contact_id)))))));
+CREATE POLICY guest_update ON vibetype.guest FOR UPDATE USING ((((id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])) OR (event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[]))) AND ((NOT (EXISTS ( SELECT 1
+   FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
+  WHERE (c.c = guest.contact_id)))) OR (id = ANY (( SELECT vibetype.guest_claim_array() AS guest_claim_array)::uuid[])) OR (contact_id = ANY (( SELECT vibetype_private.contacts_referring_invoker() AS contacts_referring_invoker)::uuid[])))));
 
 
 --
@@ -7617,6 +7473,14 @@ GRANT UPDATE(imprint_url) ON TABLE vibetype.account TO vibetype_account;
 
 REVOKE ALL ON FUNCTION vibetype.account_search(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_search(query text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION account_search_match(query text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_search_match(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_search_match(query text) TO vibetype_account;
 
 
 --
@@ -7967,33 +7831,6 @@ GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guests_organized_unblocked(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guests_organized_unblocked() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_organized_unblocked() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_organized_unblocked() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guests_via_own_contact(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_contact() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_contact() TO vibetype_anonymous;
-
-
---
--- Name: FUNCTION guests_via_own_events(); Type: ACL; Schema: vibetype_private; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype_private.guests_via_own_events() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_account;
-GRANT ALL ON FUNCTION vibetype_private.guests_via_own_events() TO vibetype_anonymous;
 
 
 --
