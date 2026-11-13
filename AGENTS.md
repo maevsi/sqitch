@@ -26,6 +26,10 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - Grant `UPDATE` only on the columns that may change; `@behavior -update` only hides a column from GraphQL, it doesn't protect it
 - Ensure that PostGraphile Smart Comments properly control API exposure
 - Prefer `security invoker`; only use `security definer` when necessary
+- Every `security definer` function needs `SET search_path = pg_catalog, public, pg_temp`, which a test enforces; `CREATE OR REPLACE` drops the setting unless it is repeated
+- Grant `INSERT` only on the columns a client may set when the others are set by a service or a trigger; `@behavior -insert` doesn't protect them either
+- Hide a function from GraphQL with `@behavior -*`; the v4 `@omit` tag has no effect
+- Never let the PostGraphile connection role inherit a service role, as requests without a token run as the connection role
 - Use the `vibetype_private` schema for internal logic and especially protected content that should never be exposed directly
 
 ## Performance
