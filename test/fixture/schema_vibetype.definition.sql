@@ -6944,7 +6944,8 @@ ALTER TABLE vibetype.address ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY address_all ON vibetype.address USING ((((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE (e.address_id = address.id)))) AND (NOT (EXISTS ( SELECT 1
+  WHERE (e.address_id = address.id)
+ OFFSET 0))) AND (NOT (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = address.created_by)))))) WITH CHECK ((created_by = vibetype.invoker_account_id()));
 
@@ -7101,7 +7102,8 @@ ALTER TABLE vibetype.event_app ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY event_app_select ON vibetype.event_app FOR SELECT USING ((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE (e.id = event_app.event_id))));
+  WHERE (e.id = event_app.event_id)
+ OFFSET 0)));
 
 
 --
@@ -7134,7 +7136,8 @@ CREATE POLICY event_category_mapping_insert ON vibetype.event_category_mapping F
 
 CREATE POLICY event_category_mapping_select ON vibetype.event_category_mapping FOR SELECT USING ((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE (e.id = event_category_mapping.event_id))));
+  WHERE (e.id = event_category_mapping.event_id)
+ OFFSET 0)));
 
 
 --
@@ -7180,7 +7183,8 @@ CREATE POLICY event_format_mapping_insert ON vibetype.event_format_mapping FOR I
 
 CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR SELECT USING ((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE (e.id = event_format_mapping.event_id))));
+  WHERE (e.id = event_format_mapping.event_id)
+ OFFSET 0)));
 
 
 --
@@ -7241,7 +7245,8 @@ CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK
 
 CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING ((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE (e.id = event_upload.event_id))));
+  WHERE (e.id = event_upload.event_id)
+ OFFSET 0)));
 
 
 --
