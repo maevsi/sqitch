@@ -1626,6 +1626,12 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     WHERE id = (SELECT id FROM _authenticated_account)
     RETURNING id
   ),
+  _jwt_expired_delete AS (
+    DELETE FROM vibetype_private.jwt
+    USING _current_time
+    WHERE jwt.subject = (SELECT id FROM _authenticated_account)
+      AND jwt.expiry < _current_time.now
+  ),
   _jwt_token AS (
     SELECT
       ROW(
