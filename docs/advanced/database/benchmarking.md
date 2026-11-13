@@ -34,6 +34,8 @@ All of its rows are bulk inserted with `generate_series` and deterministic `md5(
 - `benchmark-invitee-many` (`invitee_many`) is invited to 3000 events of 300 different organizers, each of which owns one contact pointing at this account.
 - `benchmark-blocker-many` (`blocker_many`) blocks 3000 accounts.
 
+The last part adds 30000 public events and gives every event a row in `event_app`, `event_upload` and `address` and two rows in `event_category_mapping` and `event_format_mapping`, which makes the cost of reading those child tables through the policies of `event` visible.
+
 The anonymous measurements of the existing queries also run against this larger data set.
 
 
