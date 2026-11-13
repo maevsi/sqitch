@@ -1233,13 +1233,10 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
   -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from event_search_rank().
   -- The caller does not need to know (or guess) which language a given event was authored in; see vibetype_private.event_search_vector and the trigger that populates it.
   SELECT e.*
-  FROM vibetype.event e
-  LEFT JOIN vibetype.event_search_rank(event_search.query) r ON r.event_id = e.id
-  WHERE
-    r.rank IS NOT NULL
-    OR e.name % event_search.query
+  FROM vibetype.event_search_match(event_search.query) m
+  JOIN vibetype.event e ON e.id = m.event_id
   ORDER BY
-    GREATEST(COALESCE(r.rank, 0), similarity(e.name, event_search.query)) DESC,
+    m.score DESC,
     e.id;
 $$;
 
@@ -1254,23 +1251,63 @@ COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by nam
 
 
 --
+-- Name: event_search_match(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_search_match(query text) RETURNS TABLE(event_id uuid, score real)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public'
+    AS $$
+  -- The two candidate sources are combined with UNION ALL, not an OR condition, so each can use its own index.
+  WITH _candidate AS (
+    SELECT r.event_id, r.rank FROM vibetype.event_search_rank(event_search_match.query) r
+    UNION ALL
+    SELECT e.id, 0::REAL FROM vibetype.event e WHERE e.name % event_search_match.query
+  ),
+  _best AS (
+    SELECT event_id, MAX(rank) AS rank FROM _candidate GROUP BY event_id
+  )
+  SELECT
+    e.id,
+    GREATEST(b.rank, similarity(e.name, event_search_match.query))
+  FROM _best b
+  JOIN vibetype.event e ON e.id = b.event_id;
+$$;
+
+
+ALTER FUNCTION vibetype.event_search_match(query text) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_search_match(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_search_match(query text) IS '@omit
+Returns ids of events matching the given query by prefix or by name trigram similarity, with their relevance score.';
+
+
+--
 -- Name: event_search_rank(text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
 CREATE FUNCTION vibetype.event_search_rank(query text) RETURNS TABLE(event_id uuid, rank real)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     AS $$
-  -- The WHERE clause below matches each row against a query-side tsquery built with that row's own ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring; see table_event_search_vector's migration).
-  -- Each `@@` branch uses a literal, call-time-constant config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use the row's actual esv.ts_config directly.
-  -- The list of configs tried is static rather than derived the same way the vector-populating trigger does, since this runs on every search request and there is no built-in aggregate to OR together a dynamic number of tsqueries; revisit if more real (non-'simple') configurations are added.
+  -- Each text search configuration's tsquery is built once per call in a materialized CTE, not per row.
+  -- The `@@` condition on the tsquery column of the CTE row stays a parameterized GIN index condition on search_vector inside the nested loop; the ts_config equality then only filters the rows the index returned, instead of scanning the whole primary key.
+  -- The list of configs tried is static rather than derived the same way the vector-populating trigger does; revisit if more (non-'simple') configurations are added, and keep event_search_rank_configs_covered's test in sync.
+  WITH _q AS MATERIALIZED (
+    SELECT
+      c.ts_config,
+      vibetype_private.tsquery_prefix(c.ts_config, event_search_rank.query) AS tsquery
+    FROM (VALUES ('german'::regconfig), ('english'::regconfig), ('simple'::regconfig)) AS c(ts_config)
+  )
   SELECT
     esv.event_id,
-    MAX(ts_rank_cd(esv.search_vector, vibetype_private.tsquery_prefix(esv.ts_config, event_search_rank.query))) AS rank
-  FROM vibetype_private.event_search_vector esv
-  WHERE
-    (esv.ts_config = 'german'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('german', event_search_rank.query))
-    OR (esv.ts_config = 'english'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('english', event_search_rank.query))
-    OR (esv.ts_config = 'simple'::regconfig AND esv.search_vector @@ vibetype_private.tsquery_prefix('simple', event_search_rank.query))
+    MAX(ts_rank_cd(esv.search_vector, _q.tsquery)) AS rank
+  FROM _q
+  JOIN vibetype_private.event_search_vector esv
+    ON esv.search_vector @@ _q.tsquery
+    AND esv.ts_config = _q.ts_config
   GROUP BY esv.event_id;
 $$;
 
@@ -7529,6 +7566,14 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_search_match(query text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_search_match(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_search_match(query text) TO vibetype_account;
 
 
 --
