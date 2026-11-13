@@ -1,3 +1,9 @@
+## [13.2.10](https://github.com/maevsi/sqitch/compare/13.2.9...13.2.10) (2026-11-13)
+
+### Performance Improvements
+
+* **event:** maintain the guest count on the event ([#383](https://github.com/maevsi/sqitch/issues/383)) ([ff83271](https://github.com/maevsi/sqitch/commit/ff832718e6c13c5eeca6e1df1f60d5744904d3be))
+
 ## [13.2.9](https://github.com/maevsi/sqitch/compare/13.2.8...13.2.9) (2026-11-13)
 
 ### Performance Improvements
