@@ -128,24 +128,31 @@ INSERT INTO vibetype_test.benchmark_personas (label, account_id, attendance_id, 
   WHERE a.username = 'benchmark-user-1';
 
 INSERT INTO vibetype_test.benchmark_personas (label, account_id, attendance_id, event_id) VALUES
-  ('count_addresses', 'SELECT count(*) FROM vibetype.address', TRUE, '{}'),
-  ('select_addresses_by_event', 'SELECT * FROM vibetype.address WHERE id = (SELECT address_id FROM vibetype.event WHERE id = ''{event_id}''::UUID)', TRUE, '{}'),
-  ('select_addresses_limit', 'SELECT * FROM vibetype.address LIMIT 20', TRUE, '{invitee_many,blocker_many}'),
-  ('count_event_apps', 'SELECT count(*) FROM vibetype.event_app', TRUE, '{}'),
-  ('select_event_apps_by_event', 'SELECT * FROM vibetype.event_app WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
-  ('select_event_apps_limit', 'SELECT * FROM vibetype.event_app LIMIT 20', TRUE, '{invitee_many,blocker_many}'),
-  ('count_event_category_mappings', 'SELECT count(*) FROM vibetype.event_category_mapping', TRUE, '{}'),
-  ('select_event_category_mappings_by_event', 'SELECT * FROM vibetype.event_category_mapping WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
-  ('select_event_category_mappings_limit', 'SELECT * FROM vibetype.event_category_mapping LIMIT 20', TRUE, '{}'),
-  ('count_event_format_mappings', 'SELECT count(*) FROM vibetype.event_format_mapping', TRUE, '{}'),
-  ('select_event_format_mappings_by_event', 'SELECT * FROM vibetype.event_format_mapping WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
-  ('select_event_format_mappings_limit', 'SELECT * FROM vibetype.event_format_mapping LIMIT 20', TRUE, '{}'),
-  ('count_event_uploads', 'SELECT count(*) FROM vibetype.event_upload', TRUE, '{}'),
-  ('select_event_uploads_by_event', 'SELECT * FROM vibetype.event_upload WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
-  ('select_event_uploads_limit', 'SELECT * FROM vibetype.event_upload LIMIT 20', TRUE, '{}'),
+  ('organizer_large', md5('benchmark-persona-organizer-large')::UUID, md5('benchmark-large-attendance-1-10')::UUID, md5('benchmark-large-event-1')::UUID),
+  ('invitee_many',    md5('benchmark-persona-invitee-many')::UUID,    NULL,                                        md5('benchmark-invitation-event-1')::UUID),
+  ('blocker_many',    md5('benchmark-persona-blocker-many')::UUID,    NULL,                                        (SELECT id FROM vibetype.event WHERE slug = 'benchmark-event-1'));
+
+-- Query definitions: (name, sql, anonymous_only, authenticated_only, personas).
+-- `personas` lists the skewed personas the query is also measured as (never for anonymous_only queries).
+CREATE TABLE vibetype_test.benchmark_queries (
+  name TEXT NOT NULL,
+  query_sql TEXT NOT NULL,
+  anonymous_only BOOLEAN NOT NULL DEFAULT FALSE,
+  authenticated_only BOOLEAN NOT NULL DEFAULT FALSE,
+  personas TEXT[] NOT NULL DEFAULT '{}'
+);
+
+GRANT SELECT ON vibetype_test.benchmark_queries TO vibetype_anonymous, vibetype_account;
+
+INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only, personas) VALUES
   ('account_block_ids',          'SELECT vibetype_test.account_block_ids()',                                                FALSE, '{blocker_many}'),
   ('account_search',             'SELECT * FROM vibetype.account_search(''benchmark'')',                                    TRUE,  '{blocker_many}'),
   ('attendance_claim_array',     'SELECT vibetype.attendance_claim_array()',                                                FALSE, '{}'),
+  ('count_addresses', 'SELECT count(*) FROM vibetype.address', TRUE, '{}'),
+  ('count_event_apps', 'SELECT count(*) FROM vibetype.event_app', TRUE, '{}'),
+  ('count_event_category_mappings', 'SELECT count(*) FROM vibetype.event_category_mapping', TRUE, '{}'),
+  ('count_event_format_mappings', 'SELECT count(*) FROM vibetype.event_format_mapping', TRUE, '{}'),
+  ('count_event_uploads', 'SELECT count(*) FROM vibetype.event_upload', TRUE, '{}'),
   ('event_guest_count_maximum',  'SELECT vibetype.event_guest_count_maximum(''{event_id}''::UUID)',                         FALSE, '{organizer_large,invitee_many,blocker_many}'),
   ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                      TRUE,  '{invitee_many,blocker_many}'),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                   FALSE, '{invitee_many}'),
@@ -153,9 +160,19 @@ INSERT INTO vibetype_test.benchmark_personas (label, account_id, attendance_id, 
   ('guest_contact_ids',          'SELECT * FROM vibetype.guest_contact_ids()',                                              FALSE, '{organizer_large,invitee_many}'),
   ('guest_count',                'SELECT vibetype.guest_count(''{event_id}''::UUID)',                                       FALSE, '{organizer_large}'),
   ('select_accounts',            'SELECT * FROM vibetype.account',                                                          FALSE, '{blocker_many}'),
+  ('select_addresses_by_event', 'SELECT * FROM vibetype.address WHERE id = (SELECT address_id FROM vibetype.event WHERE id = ''{event_id}''::UUID)', TRUE, '{}'),
+  ('select_addresses_limit', 'SELECT * FROM vibetype.address LIMIT 20', TRUE, '{invitee_many,blocker_many}'),
   ('select_attendance',          'SELECT * FROM vibetype.attendance',                                                       FALSE, '{organizer_large,invitee_many}'),
   ('select_contacts',            'SELECT * FROM vibetype.contact',                                                          FALSE, '{invitee_many,blocker_many}'),
   ('select_contacts_by_creator', 'SELECT * FROM vibetype.contact WHERE created_by = ''{account_id}''::UUID',                FALSE, '{organizer_large}'),
+  ('select_event_apps_by_event', 'SELECT * FROM vibetype.event_app WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
+  ('select_event_apps_limit', 'SELECT * FROM vibetype.event_app LIMIT 20', TRUE, '{invitee_many,blocker_many}'),
+  ('select_event_category_mappings_by_event', 'SELECT * FROM vibetype.event_category_mapping WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
+  ('select_event_category_mappings_limit', 'SELECT * FROM vibetype.event_category_mapping LIMIT 20', TRUE, '{}'),
+  ('select_event_format_mappings_by_event', 'SELECT * FROM vibetype.event_format_mapping WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
+  ('select_event_format_mappings_limit', 'SELECT * FROM vibetype.event_format_mapping LIMIT 20', TRUE, '{}'),
+  ('select_event_uploads_by_event', 'SELECT * FROM vibetype.event_upload WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
+  ('select_event_uploads_limit', 'SELECT * FROM vibetype.event_upload LIMIT 20', TRUE, '{}'),
   ('select_events',              'SELECT * FROM vibetype.event',                                                            FALSE, '{invitee_many,blocker_many}'),
   ('select_guests',              'SELECT * FROM vibetype.guest',                                                            FALSE, '{organizer_large,invitee_many,blocker_many}'),
   ('select_guests_by_event',     'SELECT * FROM vibetype.guest WHERE event_id = ''{event_id}''::UUID',                      FALSE, '{organizer_large}'),
