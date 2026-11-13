@@ -1,3 +1,9 @@
+## [13.2.8](https://github.com/maevsi/sqitch/compare/13.2.7...13.2.8) (2026-11-13)
+
+### Performance Improvements
+
+* **jwt:** delete expired tokens of the account on login ([#379](https://github.com/maevsi/sqitch/issues/379)) ([0480e12](https://github.com/maevsi/sqitch/commit/0480e12adc911c8d78de6ad8df44eefe9d3e2868))
+
 ## [13.2.7](https://github.com/maevsi/sqitch/compare/13.2.6...13.2.7) (2026-11-13)
 
 ### Bug Fixes
