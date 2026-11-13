@@ -20,6 +20,7 @@ DROP FUNCTION vibetype.event_search_match(TEXT);
 
 CREATE OR REPLACE FUNCTION vibetype.event_search_rank(query text) RETURNS TABLE(event_id UUID, rank REAL)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   -- The WHERE clause below matches each row against a query-side tsquery built with that row's own ts_config, so every comparison stays a pure, single-language match (undiluted `ts_rank_cd` scoring; see table_event_search_vector's migration).
   -- Each `@@` branch uses a literal, call-time-constant config (not `esv.ts_config` itself) so the GIN index on search_vector stays usable per branch; the SELECT list's ts_rank_cd, evaluated only on rows that already passed that filter, can then safely use the row's actual esv.ts_config directly.
