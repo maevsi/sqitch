@@ -1007,6 +1007,7 @@ CREATE TABLE vibetype.event (
     visibility vibetype.event_visibility NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
+    guest_count integer DEFAULT 0 NOT NULL,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1135,6 +1136,14 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 
 
 --
+-- Name: COLUMN event.guest_count; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.guest_count IS '@behavior -insert -update
+The number of guests of the event, maintained by triggers on the guest table.';
+
+
+--
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1220,7 +1229,7 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
       -- Or event is accessible (public, invited, or has claimed attendance)
       OR (
         e.visibility = 'public'
-        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > vibetype.guest_count(e.id))
+        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
         AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
       )
       OR e.id = ANY(vibetype_private.events_invited())
@@ -2494,6 +2503,16 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
+  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  IF TG_OP = 'UPDATE'
+    AND TG_TABLE_SCHEMA = 'vibetype'
+    AND TG_TABLE_NAME = 'event'
+    AND to_jsonb(NEW) - 'guest_count' = to_jsonb(OLD) - 'guest_count'
+    AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
+  THEN
+    RETURN NEW;
+  END IF;
+
   _account_id := NULLIF(current_setting('jwt.claims.sub', true), '')::UUID;
 
   IF _account_id IS NULL THEN
@@ -2862,6 +2881,82 @@ ALTER FUNCTION vibetype_private.trigger_audit_log_enable_multiple() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Function enabling all audit log triggers that are currently disabled.';
+
+
+--
+-- Name: trigger_guest_count_delete(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_guest_count_delete() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM 1
+  FROM vibetype.event
+  WHERE id IN (SELECT event_id FROM guest_deleted)
+  ORDER BY id
+  FOR UPDATE;
+
+  UPDATE vibetype.event
+  SET guest_count = event.guest_count - g.guest_count
+  FROM (
+    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    FROM guest_deleted
+    GROUP BY event_id
+  ) g
+  WHERE event.id = g.event_id;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_guest_count_delete() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_count_delete(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest count of their events.';
+
+
+--
+-- Name: trigger_guest_count_insert(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_guest_count_insert() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM 1
+  FROM vibetype.event
+  WHERE id IN (SELECT event_id FROM guest_inserted)
+  ORDER BY id
+  FOR UPDATE;
+
+  UPDATE vibetype.event
+  SET guest_count = event.guest_count + g.guest_count
+  FROM (
+    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    FROM guest_inserted
+    GROUP BY event_id
+  ) g
+  WHERE event.id = g.event_id;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_guest_count_insert() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_count_insert(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest count of their events.';
 
 
 --
@@ -6188,6 +6283,20 @@ CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE 
 
 
 --
+-- Name: guest guest_count_delete; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER guest_count_delete AFTER DELETE ON vibetype.guest REFERENCING OLD TABLE AS guest_deleted FOR EACH STATEMENT EXECUTE FUNCTION vibetype_private.trigger_guest_count_delete();
+
+
+--
+-- Name: guest guest_count_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER guest_count_insert AFTER INSERT ON vibetype.guest REFERENCING NEW TABLE AS guest_inserted FOR EACH STATEMENT EXECUTE FUNCTION vibetype_private.trigger_guest_count_insert();
+
+
+--
 -- Name: upload insert; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -7091,7 +7200,7 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > vibetype.guest_count(id))) AND (NOT (EXISTS ( SELECT 1
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.events_invited() AS events_invited)) inv(inv)
@@ -7183,7 +7292,9 @@ CREATE POLICY guest_delete ON vibetype.guest FOR DELETE USING ((event_id = ANY (
 -- Name: guest guest_insert; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND COALESCE((vibetype.event_guest_count_maximum(event_id) > vibetype.guest_count(event_id)), true) AND (EXISTS ( SELECT 1
+CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND COALESCE((vibetype.event_guest_count_maximum(event_id) > ( SELECT e.guest_count
+   FROM vibetype.event e
+  WHERE (e.id = guest.event_id))), true) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
            FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
@@ -7598,8 +7709,120 @@ GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) 
 --
 
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.event TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.event TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event TO reccoom;
+
+
+--
+-- Name: COLUMN event.id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(id),UPDATE(id) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.address_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(address_id),UPDATE(address_id) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.description; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(description),UPDATE(description) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event."end"; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT("end"),UPDATE("end") ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.guest_count_maximum; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(guest_count_maximum),UPDATE(guest_count_maximum) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.is_archived; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(is_archived),UPDATE(is_archived) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.is_in_person; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(is_in_person),UPDATE(is_in_person) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.is_remote; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(is_remote),UPDATE(is_remote) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.language; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(language),UPDATE(language) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.name; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.slug; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(slug),UPDATE(slug) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.start; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(start),UPDATE(start) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.url; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(url),UPDATE(url) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.visibility; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(visibility),UPDATE(visibility) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.created_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_at),UPDATE(created_at) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.created_by; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_by),UPDATE(created_by) ON TABLE vibetype.event TO vibetype_account;
 
 
 --
@@ -7961,6 +8184,20 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable(schema_name tex
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_guest_count_delete(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_delete() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_guest_count_insert(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC;
 
 
 --
