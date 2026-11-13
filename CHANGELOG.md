@@ -1,3 +1,9 @@
+## [13.2.6](https://github.com/maevsi/sqitch/compare/13.2.5...13.2.6) (2026-11-13)
+
+### Performance Improvements
+
+* **git:** track graph image with lfs ([#377](https://github.com/maevsi/sqitch/issues/377)) ([e7336bd](https://github.com/maevsi/sqitch/commit/e7336bdace8384ef69008091c1e51ddf7d55ff09))
+
 ## [13.2.5](https://github.com/maevsi/sqitch/compare/13.2.4...13.2.5) (2026-11-12)
 
 ### Performance Improvements
