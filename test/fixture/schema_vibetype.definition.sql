@@ -69,6 +69,26 @@ COMMENT ON TYPE vibetype.achievement_type IS 'Achievements that can be unlocked 
 
 
 --
+-- Name: device_platform; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.device_platform AS ENUM (
+    'android',
+    'ios',
+    'web'
+);
+
+
+ALTER TYPE vibetype.device_platform OWNER TO ci;
+
+--
+-- Name: TYPE device_platform; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TYPE vibetype.device_platform IS 'Platforms a push registration is made on: android, ios, web.';
+
+
+--
 -- Name: event_size; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -1034,6 +1054,135 @@ ALTER FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) OWNER T
 --
 
 COMMENT ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) IS 'Function for inserting multiple guest records.';
+
+
+--
+-- Name: device; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.device (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fcm_token text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    label text,
+    last_seen_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    platform vibetype.device_platform NOT NULL,
+    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) <= 300))),
+    CONSTRAINT device_label_check CHECK (((char_length(label) >= 1) AND (char_length(label) <= 100)))
+);
+
+
+ALTER TABLE vibetype.device OWNER TO ci;
+
+--
+-- Name: TABLE device; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.device IS '@behavior -insert -update
+A push registration of an account, one per Firebase Cloud Messaging token. Rows are created by `device_register` only.';
+
+
+--
+-- Name: COLUMN device.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.id IS '@behavior -insert -update
+The internal id of the device.';
+
+
+--
+-- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.fcm_token IS '@behavior -insert -update
+The Firebase Cloud Messaging token that is used to deliver notifications. Unique across all accounts.';
+
+
+--
+-- Name: COLUMN device.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.created_at IS '@behavior -insert -update
+Timestamp when the device was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN device.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.created_by IS '@behavior -insert -update
+Reference to the account that owns the registration.';
+
+
+--
+-- Name: COLUMN device.label; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.label IS '@behavior -insert -update
+A short human-readable name of the device, e.g. `Firefox on Linux`. `NULL` if unknown.';
+
+
+--
+-- Name: COLUMN device.last_seen_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.last_seen_at IS '@behavior -insert -update
+The timestamp when the registration was last refreshed. Registrations that are not refreshed for 90 days no longer receive notifications.';
+
+
+--
+-- Name: COLUMN device.platform; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.platform IS '@behavior -insert -update
+The platform the registration was made on.';
+
+
+--
+-- Name: device_register(text, vibetype.device_platform, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text DEFAULT NULL::text) RETURNS vibetype.device
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _account_id UUID := vibetype.invoker_account_id();
+  _device vibetype.device;
+BEGIN
+  IF _account_id IS NULL THEN
+    RAISE 'Not signed in!' USING ERRCODE = 'VTDNA';
+  END IF;
+
+  -- Shortcut: stale registrations of all accounts are pruned here, on the next registration by anyone.
+  -- Upgrade path: a scheduled job, after which this statement can go.
+  DELETE FROM vibetype.device WHERE last_seen_at < CURRENT_TIMESTAMP - INTERVAL '90 days';
+
+  INSERT INTO vibetype.device AS d (created_by, fcm_token, label, platform)
+  VALUES (_account_id, device_register.fcm_token, device_register.label, device_register.platform)
+  ON CONFLICT ON CONSTRAINT device_fcm_token_key DO UPDATE
+  SET created_by = EXCLUDED.created_by,
+      label = EXCLUDED.label,
+      last_seen_at = CURRENT_TIMESTAMP,
+      platform = EXCLUDED.platform
+  RETURNING d.* INTO _device;
+
+  RETURN _device;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) OWNER TO ci;
+
+--
+-- Name: FUNCTION device_register(fcm_token text, platform vibetype.device_platform, label text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) IS 'Registers a push token for the invoker, or refreshes the registration if the token exists already, taking it over from another account. Also deletes registrations that were not refreshed for 90 days.
+
+Error codes:
+- **VTDNA** when there is no invoker account.';
 
 
 --
@@ -2094,32 +2243,6 @@ COMMENT ON FUNCTION vibetype.trigger_contact_update_account_id() IS 'Prevents in
 
 
 --
--- Name: trigger_device_update_fcm_token(); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.trigger_device_update_fcm_token() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
-    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
-      USING ERRCODE = 'integrity_constraint_violation';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.trigger_device_update_fcm_token() OWNER TO ci;
-
---
--- Name: FUNCTION trigger_device_update_fcm_token(); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
-
-
---
 -- Name: trigger_event_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -2525,7 +2648,7 @@ CREATE FUNCTION vibetype_private.outbox_account_notification_resolve(account_not
   SELECT
     n.account_id,
     n.event_id,
-    COALESCE((SELECT array_agg(d.fcm_token) FROM vibetype.device d WHERE d.created_by = n.account_id), ARRAY[]::text[]),
+    COALESCE((SELECT array_agg(d.fcm_token) FROM vibetype.device d WHERE d.created_by = n.account_id AND d.last_seen_at > CURRENT_TIMESTAMP - INTERVAL '90 days'), ARRAY[]::text[]),
     n.friendship_id,
     n.guest_id,
     COALESCE((SELECT p.is_push_enabled FROM vibetype.preference_notification p WHERE p.account_id = n.account_id AND p.type = n.type), TRUE),
@@ -2543,7 +2666,7 @@ ALTER FUNCTION vibetype_private.outbox_account_notification_resolve(account_noti
 -- Name: FUNCTION outbox_account_notification_resolve(account_notification_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) IS 'Returns the data that the push notification of an `account_notification.created` outbox event needs, or no row if the notification is gone, e.g. because it was deleted or replaced by a newer one.';
+COMMENT ON FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) IS 'Returns the data that the push notification of an `account_notification.created` outbox event needs, or no row if the notification is gone, e.g. because it was deleted or replaced by a newer one. Devices that were not seen for 90 days are left out of `fcm_tokens`.';
 
 
 --
@@ -4339,77 +4462,6 @@ COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures eac
 
 
 --
--- Name: device; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.device (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    fcm_token text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid,
-    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) <= 300)))
-);
-
-
-ALTER TABLE vibetype.device OWNER TO ci;
-
---
--- Name: TABLE device; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.device IS 'A device that''s assigned to an account.';
-
-
---
--- Name: COLUMN device.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.id IS '@behavior -insert -update
-The internal id of the device.';
-
-
---
--- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications. Must be non-empty and not exceed 300 characters.';
-
-
---
--- Name: COLUMN device.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.created_at IS '@behavior -insert -update
-Timestamp when the device was created. Defaults to the current timestamp.';
-
-
---
--- Name: COLUMN device.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.created_by IS '@behavior -update
-Reference to the account that created the device.';
-
-
---
--- Name: COLUMN device.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.updated_at IS '@behavior -insert -update
-Timestamp when the device was last updated.';
-
-
---
--- Name: COLUMN device.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.updated_by IS '@behavior -insert -update
-Reference to the account that last updated the device.';
-
-
---
 -- Name: event_app; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -6176,11 +6228,11 @@ ALTER TABLE ONLY vibetype.contact
 
 
 --
--- Name: device device_created_by_fcm_token_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: device device_fcm_token_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.device
-    ADD CONSTRAINT device_created_by_fcm_token_key UNIQUE (created_by, fcm_token);
+    ADD CONSTRAINT device_fcm_token_key UNIQUE (fcm_token);
 
 
 --
@@ -6802,17 +6854,31 @@ CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
 
 
 --
--- Name: idx_device_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: idx_device_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
+CREATE INDEX idx_device_created_by ON vibetype.device USING btree (created_by);
 
 
 --
--- Name: INDEX idx_device_updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: INDEX idx_device_created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
+COMMENT ON INDEX vibetype.idx_device_created_by IS 'B-Tree index to optimize lookups by owner.';
+
+
+--
+-- Name: idx_device_last_seen_at; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_device_last_seen_at ON vibetype.device USING btree (last_seen_at);
+
+
+--
+-- Name: INDEX idx_device_last_seen_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_device_last_seen_at IS 'B-Tree index to optimize pruning of stale registrations.';
 
 
 --
@@ -7257,13 +7323,6 @@ CREATE TRIGGER update BEFORE UPDATE ON vibetype.address FOR EACH ROW EXECUTE FUN
 
 
 --
--- Name: device update; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER update BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
-
-
---
 -- Name: friendship update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -7289,13 +7348,6 @@ CREATE TRIGGER update BEFORE UPDATE ON vibetype.legal_term FOR EACH ROW EXECUTE 
 --
 
 CREATE TRIGGER update_account_id BEFORE UPDATE OF account_id, created_by ON vibetype.contact FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_contact_update_account_id();
-
-
---
--- Name: device update_fcm; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER update_fcm BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_device_update_fcm_token();
 
 
 --
@@ -7512,14 +7564,6 @@ ALTER TABLE ONLY vibetype.contact
 
 ALTER TABLE ONLY vibetype.device
     ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
-
-
---
--- Name: device device_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.device
-    ADD CONSTRAINT device_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -8091,10 +8135,17 @@ CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by 
 ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: device device_all; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: device device_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoker_account_id()));
+CREATE POLICY device_delete ON vibetype.device FOR DELETE USING ((created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
+
+
+--
+-- Name: device device_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY device_select ON vibetype.device FOR SELECT USING ((created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
 
 
 --
@@ -8776,6 +8827,22 @@ GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) 
 
 
 --
+-- Name: TABLE device; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.device TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.device TO vibetype;
+
+
+--
+-- Name: FUNCTION device_register(fcm_token text, platform vibetype.device_platform, label text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) TO vibetype_account;
+
+
+--
 -- Name: TABLE event; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -9081,14 +9148,6 @@ GRANT ALL ON FUNCTION vibetype.trigger_contact_check_time_zone() TO vibetype_acc
 
 REVOKE ALL ON FUNCTION vibetype.trigger_contact_update_account_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_account;
-
-
---
--- Name: FUNCTION trigger_device_update_fcm_token(); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_account;
 
 
 --
@@ -9474,14 +9533,6 @@ GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.contact TO reccoom;
-
-
---
--- Name: TABLE device; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.device TO vibetype_account;
-GRANT SELECT,DELETE ON TABLE vibetype.device TO vibetype;
 
 
 --

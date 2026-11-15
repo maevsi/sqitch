@@ -779,7 +779,8 @@ BEGIN
   SET LOCAL ROLE NONE;
 
   -- with devices, preference and language
-  PERFORM vibetype_test.account_notification_exec(format('INSERT INTO vibetype.device (created_by, fcm_token) VALUES (%1$L, ''token-1''), (%1$L, ''token-2''), (%2$L, ''token-a'')', _b, _a));
+  PERFORM vibetype_test.account_notification_exec(format('INSERT INTO vibetype.device (created_by, fcm_token, platform) VALUES (%1$L, ''token-1'', ''web''), (%1$L, ''token-2'', ''web''), (%2$L, ''token-a'', ''web'')', _b, _a));
+  PERFORM vibetype_test.account_notification_exec(format('INSERT INTO vibetype.device (created_by, fcm_token, last_seen_at, platform) VALUES (%L, ''token-stale'', CURRENT_TIMESTAMP - INTERVAL ''91 days'', ''web'')', _b));
   PERFORM vibetype_test.account_notification_exec(format('INSERT INTO vibetype.preference_notification (account_id, type, is_push_enabled) VALUES (%L, ''friendship_requested'', FALSE)', _b));
   PERFORM vibetype_test.account_notification_exec(format('UPDATE vibetype.contact SET language = ''de'' WHERE account_id = %1$L AND created_by = %1$L', _b));
 
@@ -804,7 +805,7 @@ BEGIN
 
   DELETE FROM vibetype.device WHERE fcm_token = 'token-1';
 
-  IF (SELECT count(*) FROM vibetype.device) != 2 THEN
+  IF (SELECT count(*) FROM vibetype.device) != 3 THEN
     RAISE EXCEPTION 'Test failed (account_notification_resolve): the service role could not prune a token';
   END IF;
   SET LOCAL ROLE NONE;

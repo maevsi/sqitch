@@ -58,6 +58,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account/policy.sql
 \i scenario/model/contact/constraints.sql
 \i scenario/model/device/constraints.sql
+\i scenario/model/device/register.sql
 \i scenario/model/event/constraints.sql
 \i scenario/model/event/location.sql
 \i scenario/model/event/policy.sql

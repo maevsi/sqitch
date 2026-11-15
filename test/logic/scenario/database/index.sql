@@ -155,7 +155,7 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['idx_device_updated_by', 'device_created_by_fcm_token_key']
+  ARRAY ['idx_device_created_by', 'idx_device_last_seen_at', 'device_fcm_token_key']
 );
 
 SELECT vibetype_test.index_existence(

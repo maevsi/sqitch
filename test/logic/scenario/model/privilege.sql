@@ -179,7 +179,7 @@ BEGIN
   _account_a := vibetype_test.account_registration_verified('a', 'a@example.com');
 
   PERFORM vibetype_test.invoker_set(_account_a);
-  INSERT INTO vibetype.device(created_by, fcm_token) VALUES (_account_a, 'token');
+  PERFORM vibetype.device_register('token', 'web');
   INSERT INTO vibetype.upload(created_by, size_byte) VALUES (_account_a, 1);
   PERFORM vibetype_test.invoker_set_previous();
   PERFORM set_config('jwt.claims.sub', '', true);
