@@ -3182,7 +3182,7 @@ Reference to the uploaded file.</td>
 	<tr>
 		<td port='id_5c6d7570.start' align='left'><b><i>id</i></b></td>
 		<td align='left'> </td>
-		<td port='id_5c6d7570.end' align='left'>serial not null</td>
+		<td port='id_5c6d7570.end' align='left'>bigserial not null</td>
 	</tr>
 	<tr>
 		<td align='left'></td>

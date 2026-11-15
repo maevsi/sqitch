@@ -160,7 +160,90 @@ BEGIN
   IF _count != 0 THEN
     RAISE EXCEPTION 'The audit log trigger for table vibetype.event was not dropped.';
   END IF;
+
+  ---------------------------------------------------------
+  -- record a delete on an audited table
+
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype', 'event_format');
+
+  INSERT INTO vibetype.event_format (id, name)
+    VALUES ('00000000-0000-0000-0000-0000000000a1', 'audit delete test');
+
+  DELETE FROM vibetype.event_format
+    WHERE id = '00000000-0000-0000-0000-0000000000a1';
+
+  SELECT COUNT(*) INTO _count
+    FROM vibetype_private.audit_log
+    WHERE schema_name = 'vibetype' AND table_name = 'event_format'
+      AND record_id = '00000000-0000-0000-0000-0000000000a1'
+      AND operation_type = 'DELETE'
+      AND values_old ->> 'name' = 'audit delete test';
+
+  IF _count != 1 THEN
+    RAISE EXCEPTION 'The delete on table vibetype.event_format was not recorded exactly once in the audit log.';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+SAVEPOINT audit_log_id_bigint;
+DO $$
+DECLARE
+  _column_type TEXT;
+  _sequence_type TEXT;
+BEGIN
+  SELECT data_type INTO _column_type
+    FROM information_schema.columns
+    WHERE table_schema = 'vibetype_private' AND table_name = 'audit_log' AND column_name = 'id';
+
+  IF _column_type != 'bigint' THEN
+    RAISE EXCEPTION 'The id column of table vibetype_private.audit_log is % instead of bigint.', _column_type;
+  END IF;
+
+  SELECT data_type INTO _sequence_type
+    FROM pg_sequences
+    WHERE schemaname = 'vibetype_private' AND sequencename = 'audit_log_id_seq';
+
+  IF _sequence_type != 'bigint' THEN
+    RAISE EXCEPTION 'The sequence vibetype_private.audit_log_id_seq is % instead of bigint.', _sequence_type;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+ROLLBACK TO SAVEPOINT audit_log_id_bigint;
+
+-- Credentials and message contents are left out of the log, the other columns are kept.
+SAVEPOINT audit_log_redact;
+DO $$
+DECLARE
+  _keys TEXT;
+BEGIN
+  PERFORM vibetype_private.trigger_audit_log_drop_multiple();
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype_private', 'account');
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype_private', 'notification');
+
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
+  PERFORM vibetype.account_password_reset_request('email@example.com', 'en');
+
+  SELECT string_agg(DISTINCT key, ', ' ORDER BY key) INTO _keys
+    FROM vibetype_private.audit_log,
+      LATERAL (SELECT jsonb_object_keys(values_new) UNION ALL SELECT jsonb_object_keys(values_old)) AS k(key)
+    WHERE schema_name = 'vibetype_private' AND table_name IN ('account', 'notification')
+      AND key IN ('email_address_verification', 'password_hash', 'password_reset_verification', 'payload');
+
+  IF _keys IS NOT NULL THEN
+    RAISE EXCEPTION 'The audit log contains columns that must be left out: %', _keys;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM vibetype_private.audit_log
+      WHERE table_name = 'account' AND operation_type = 'INSERT' AND values_new ? 'email_address'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM vibetype_private.audit_log
+      WHERE table_name = 'notification' AND operation_type = 'INSERT' AND values_new ? 'channel'
+  ) THEN
+    RAISE EXCEPTION 'The audit log misses the remaining columns of an account or notification change.';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+ROLLBACK TO SAVEPOINT audit_log_redact;
 
 ROLLBACK;
