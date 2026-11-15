@@ -2128,6 +2128,11 @@ CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS trigger
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
 BEGIN
+  -- The guest count is maintained by triggers on `vibetype.guest`, so an update moving only the counter is no change to the event and would make consumers reprocess it for every guest.
+  IF (TG_OP = 'UPDATE' AND to_jsonb(NEW) - 'guest_count' = to_jsonb(OLD) - 'guest_count') THEN
+    RETURN NULL;
+  END IF;
+
   IF (TG_OP = 'DELETE') THEN
     PERFORM vibetype_private.outbox_insert('event', OLD.id, 'event.deleted', to_jsonb(OLD));
   ELSE
