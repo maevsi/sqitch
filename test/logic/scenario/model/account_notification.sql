@@ -702,11 +702,17 @@ BEGIN
   PERFORM vibetype_test.friendship_request(_b, _d);
 
   PERFORM vibetype_test.invoker_set(_b);
+  IF vibetype.account_notification_unread_count() != 2 THEN
+    RAISE EXCEPTION 'Test failed (account_notification_unread_count): unexpected unread count before reading';
+  END IF;
   IF vibetype.account_notification_read_all() != 2 THEN
     RAISE EXCEPTION 'Test failed (account_notification_read_all): unexpected number of notifications read';
   END IF;
   IF vibetype.account_notification_read_all() != 0 THEN
     RAISE EXCEPTION 'Test failed (account_notification_read_all): read notifications were read again';
+  END IF;
+  IF vibetype.account_notification_unread_count() != 0 THEN
+    RAISE EXCEPTION 'Test failed (account_notification_unread_count): unexpected unread count after reading';
   END IF;
   PERFORM vibetype_test.invoker_set_previous();
 
