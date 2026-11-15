@@ -1,3 +1,22 @@
+## [14.0.0-beta.3](https://github.com/maevsi/sqitch/compare/14.0.0-beta.2...14.0.0-beta.3) (2026-11-15)
+
+### Bug Fixes
+
+* **audit-log:** record deletes instead of failing on a misspelled column ([#363](https://github.com/maevsi/sqitch/issues/363)) ([ffc8dc9](https://github.com/maevsi/sqitch/commit/ffc8dc9374f5a82accc2120f84d5779ce3e163a1))
+* **auth:** harden sessions, hashing and the audit log ([#385](https://github.com/maevsi/sqitch/issues/385)) ([580b611](https://github.com/maevsi/sqitch/commit/580b611b38179f5c82ef3bc691e5b9b42c2c8e29))
+* **security:** harden roles, grants and functions ([#378](https://github.com/maevsi/sqitch/issues/378)) ([77962ec](https://github.com/maevsi/sqitch/commit/77962ec268236546b7b3b88db5d08b90cea4c982))
+
+### Performance Improvements
+
+* **audit-log:** widen the id to bigint ([#372](https://github.com/maevsi/sqitch/issues/372)) ([9b13768](https://github.com/maevsi/sqitch/commit/9b13768194f0e9e2416e01ed22acf466377b892c))
+* **event:** maintain the guest count on the event ([#383](https://github.com/maevsi/sqitch/issues/383)) ([ff83271](https://github.com/maevsi/sqitch/commit/ff832718e6c13c5eeca6e1df1f60d5744904d3be))
+* **git:** track graph image with lfs ([#377](https://github.com/maevsi/sqitch/issues/377)) ([e7336bd](https://github.com/maevsi/sqitch/commit/e7336bdace8384ef69008091c1e51ddf7d55ff09))
+* **index:** drop indexes covered by unique ones and index verification codes ([#368](https://github.com/maevsi/sqitch/issues/368)) ([9eb6e73](https://github.com/maevsi/sqitch/commit/9eb6e732582f343893ed6caafc11e5a04dddc17b))
+* **jwt:** delete expired tokens of the account on login ([#379](https://github.com/maevsi/sqitch/issues/379)) ([0480e12](https://github.com/maevsi/sqitch/commit/0480e12adc911c8d78de6ad8df44eefe9d3e2868))
+* **policy:** evaluate helpers once per statement and let guest visibility use indexes ([#371](https://github.com/maevsi/sqitch/issues/371)) ([4bcee22](https://github.com/maevsi/sqitch/commit/4bcee22934cc2f87cd67927fef49cb083cd430c3))
+* **search:** let account search use its index under row level security ([#375](https://github.com/maevsi/sqitch/issues/375)) ([14e9d1f](https://github.com/maevsi/sqitch/commit/14e9d1f7ef4eba2669939da54a9d0ec62856e65b))
+* **search:** let event search use its indexes under row level security ([#380](https://github.com/maevsi/sqitch/issues/380)) ([e6db76b](https://github.com/maevsi/sqitch/commit/e6db76b328758e6f2fc18326a966ab47ba52d74e))
+
 ## [14.0.0-beta.2](https://github.com/maevsi/sqitch/compare/14.0.0-beta.1...14.0.0-beta.2) (2026-11-12)
 
 ### Features
