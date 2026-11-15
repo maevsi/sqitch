@@ -6,7 +6,7 @@ All benchmarking logic lives in `test/benchmark/`:
 
 - `run.sh` seeds a throwaway schema and executes the benchmark queries against whatever database it is pointed at, writing a JSON file of timing results.
 - `queries.sql` defines the queries themselves and the measurement logic.
-- `seed.sql` populates the `vibetype_test` schema with a fixed amount of test data.
+- `seed.sql` populates the `vibetype_test` schema with a fixed amount of test data, evenly spread accounts first and a few skewed accounts last.
 - `compare.sh` diffs two of `run.sh`'s JSON result files and renders a Markdown report.
 - `benchmark.sh` is the local entry point that drives the other scripts via Docker.
 
@@ -17,7 +17,24 @@ All benchmarking logic lives in `test/benchmark/`:
 `jit` and `synchronize_seqscans` are disabled for the duration of the run to reduce variance.
 
 Each query in `vibetype_test.benchmark_queries` runs once as `vibetype_anonymous` and once as `vibetype_account`, unless marked `anonymous_only` or `authenticated_only`.
+A subset of the queries additionally runs as each skewed persona described below, as `vibetype_account` only.
+Such a measurement is named `<query>@<persona>`, e.g. `select_guests@organizer_large`, so `compare.sh` joins it by name and role like any other query.
+A query lists its personas in the `personas` column of `vibetype_test.benchmark_queries`; `anonymous_only` queries never run as a persona, and `authenticated_only` queries run as personas like any other.
+
 A query that times out (`statement_timeout`) or raises an error is recorded with a sentinel `total_time_ms` (`-1` for timeout, `-2` for error) instead of failing the whole run.
+
+
+### Seed Data
+
+The first part of `seed.sql` creates 1000 accounts, 100 events, 1000 contacts and about 1000 guests, spread evenly.
+At that size every query takes about a millisecond whatever its plan looks like, so the second part adds a few skewed accounts that make sequential scans, per-row function calls and unusable indexes visible.
+All of its rows are bulk inserted with `generate_series` and deterministic `md5(...)::UUID` ids, so seeding stays within seconds:
+
+- `benchmark-organizer-large` (`organizer_large`) organizes 500 events, some with a `guest_count_maximum`, and has 40000 guests, 10% of them with an attendance.
+- `benchmark-invitee-many` (`invitee_many`) is invited to 3000 events of 300 different organizers, each of which owns one contact pointing at this account.
+- `benchmark-blocker-many` (`blocker_many`) blocks 3000 accounts.
+
+The anonymous measurements of the existing queries also run against this larger data set.
 
 
 ### CI Workflow

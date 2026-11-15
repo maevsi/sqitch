@@ -10,6 +10,7 @@ CREATE FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) 
   event_creator_profile_picture_upload_storage_key text
 )
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT
     COALESCE(ap.email_address, c.email_address),

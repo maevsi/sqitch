@@ -160,7 +160,7 @@ PostgreSQL creates a *hashed SubPlan* that is computed once and probed per row:
 ```sql
 -- Hashed SubPlan: function called once, hash built once, O(1) per-row probe
 NOT EXISTS (
-  SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b
+  SELECT 1 FROM unnest((SELECT vibetype_private.account_block_ids())) AS b
   WHERE b = event.created_by
 )
 ```
@@ -170,8 +170,16 @@ This pattern is inherently NULL-safe: when a column is NULL, `b = NULL` never ma
 `column = ANY ((SELECT f())::UUID[])` computes the array once as well and can become an index condition, but PostgreSQL only hashes `= ANY` for constant arrays.
 Every row that reaches the filter then scans the whole array, which grows quadratically for arrays like all guests of the invoker's events.
 With a 5,000 element array over 100,000 guests, that filter took about 3.8 seconds against about 40 ms for the hashed `EXISTS` form.
-Prefer the hashed `EXISTS` form in policies.
 Writing `ANY ((SELECT f()))` without the cast parses as `ANY (subquery)` and fails with `operator does not exist: uuid = uuid[]`.
+
+Use `= ANY` only where it becomes an index condition and leaves the filter, as in `guest_select`.
+There the positive checks form one `OR` of `= ANY` conditions on indexed columns, which PostgreSQL reads with a `BitmapOr` of index scans and then drops from the filter.
+Any further condition, such as the block check, goes into a separate `AND` branch with the hashed `NOT EXISTS` first, so `A OR B OR (C AND NOT blocked)` is written as `(A OR B OR C) AND (NOT blocked OR A OR B)`.
+Leaving `C AND NOT blocked` inside the `OR` keeps the whole expression in the filter, and counting the 480,000 guests of an organizer with 5,000 events then took about 7 seconds instead of about 0.2 seconds.
+Use the hashed `EXISTS` form for checks that only exclude rows.
+
+Always wrap a helper call in a scalar subquery, as in `unnest((SELECT f()))`.
+A bare `unnest(f())` is run by the planner to estimate its size and again by the executor for every reference.
 
 #### In helper functions: _blocked CTE + ANY (when 2+ block checks are needed)
 
@@ -226,7 +234,7 @@ CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS UUID[]
 CREATE POLICY event_select ON vibetype.event FOR SELECT
 USING (
   ... OR EXISTS (
-    SELECT 1 FROM unnest(vibetype_private.events_with_claimed_attendance()) AS att
+    SELECT 1 FROM unnest((SELECT vibetype_private.events_with_claimed_attendance())) AS att
     WHERE att = event.id
   )
 );

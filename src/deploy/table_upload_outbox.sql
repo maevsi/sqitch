@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.trigger_upload_outbox() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   PERFORM vibetype_private.outbox_insert('upload', OLD.id, 'upload.deleted', jsonb_build_object('storage_key', OLD.storage_key));

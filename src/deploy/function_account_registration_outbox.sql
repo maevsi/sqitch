@@ -1,7 +1,8 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC') RETURNS void
+CREATE OR REPLACE FUNCTION vibetype.account_registration(birth_date date, email_address text, language text, legal_term_id uuid, password text, username text, time_zone text DEFAULT 'UTC'::text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _new_account_private vibetype_private.account;
@@ -20,11 +21,12 @@ BEGIN
   END IF;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.email_address = account_registration.email_address)) THEN
+    PERFORM public.crypt(account_registration.password, public.gen_salt('bf', 10)); -- the same work as for a new account
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
   INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf')), CURRENT_TIMESTAMP)
+    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES

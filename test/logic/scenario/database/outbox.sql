@@ -110,11 +110,13 @@ BEGIN
   _account_id := vibetype_test.account_registration_verified('a', 'a@example.com');
 
   PERFORM vibetype_test.outbox_capture();
-  PERFORM vibetype_test.invoker_set(_account_id);
 
+  -- The storage key is set by the service, so the account has no privilege to insert it.
   INSERT INTO vibetype.upload (created_by, size_byte, storage_key)
     VALUES (_account_id, 1024, 'storage-key')
     RETURNING id INTO _upload_id;
+
+  PERFORM vibetype_test.invoker_set(_account_id);
 
   DELETE FROM vibetype.upload WHERE id = _upload_id;
 

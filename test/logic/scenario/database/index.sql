@@ -137,7 +137,12 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['idx_event_search_vector', 'idx_event_search_vector_event_id'],
+  ARRAY ['idx_event_search_vector'],
+  'vibetype_private'
+);
+
+SELECT vibetype_test.index_existence(
+  ARRAY ['idx_account_email_address_verification', 'idx_account_password_reset_verification'],
   'vibetype_private'
 );
 
@@ -154,7 +159,7 @@ SELECT vibetype_test.index_existence(
 );
 
 SELECT vibetype_test.index_existence(
-  ARRAY ['event_created_by_slug_key', 'idx_event_end', 'idx_event_name_trgm']
+  ARRAY ['event_created_by_slug_key', 'idx_event_created_by_start', 'idx_event_end', 'idx_event_name_trgm']
 );
 
 SELECT vibetype_test.index_existence(
@@ -163,4 +168,21 @@ SELECT vibetype_test.index_existence(
 
 SELECT vibetype_test.index_existence(
   ARRAY ['guest_event_id_contact_id_key', 'idx_guest_updated_by']
+);
+
+-- test that the queries the indexes were added for use them, so a regression back to a sequential scan fails here
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT * FROM vibetype_private.account WHERE email_address_verification = ''00000000-0000-0000-0000-000000000000''::UUID',
+  'idx_account_email_address_verification'
+);
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT * FROM vibetype_private.account WHERE password_reset_verification = ''00000000-0000-0000-0000-000000000000''::UUID',
+  'idx_account_password_reset_verification'
+);
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT * FROM vibetype.event WHERE created_by = ''00000000-0000-0000-0000-000000000000''::UUID AND start >= now()',
+  'idx_event_created_by_start'
 );

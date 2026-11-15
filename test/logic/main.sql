@@ -36,11 +36,16 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \i scenario/database/achievement_code/constraints.sql
 \i scenario/database/jwt/generated_columns.sql
+\i scenario/database/jwt/ended.sql
+\i scenario/database/jwt/expired_delete.sql
 \i scenario/database/account_block_ids.sql
+\i scenario/database/account_password.sql
 \i scenario/database/audit_log.sql
+\i scenario/database/event_guest_count.sql
 \i scenario/database/events_invited.sql
 \i scenario/database/index.sql
 \i scenario/database/outbox.sql
+\i scenario/database/security_definer.sql
 
 \echo ==========================================================
 \echo connect as user postgraphile and run tests
@@ -69,6 +74,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/contact.sql
 \i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
+\i scenario/model/event_guest_count.sql
 \i scenario/model/event_guest_count_maximum.sql
 \i scenario/model/event_search.sql
 \i scenario/model/events_organized.sql
