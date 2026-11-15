@@ -309,3 +309,65 @@ BEGIN
 
   RAISE NOTICE 'Seeded skewed personas';
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Child tables of events
+--
+-- Their policies read `event` through row level security, so reading them
+-- without a filter costs as much as there are visible events. 30000 more
+-- public events make that cost visible, and every event then gets one row in
+-- each child table, two category mappings and its own address.
+-- ---------------------------------------------------------------------------
+
+DO $$
+BEGIN
+  INSERT INTO vibetype.event (id, name, slug, visibility, start, "end", created_by, description, language)
+    SELECT
+      md5('benchmark-bulk-event-' || n)::UUID,
+      'Benchmark Bulk Event ' || n,
+      'benchmark-bulk-event-' || n,
+      'public'::vibetype.event_visibility,
+      '2025-09-01'::TIMESTAMPTZ + (n || ' minutes')::INTERVAL,
+      '2025-09-01'::TIMESTAMPTZ + (n || ' minutes')::INTERVAL + '4 hours'::INTERVAL,
+      md5('benchmark-account-' || (n % 995 + 6))::UUID,
+      'Description for bulk benchmark event ' || n || '. Performance test under row-level security.',
+      'en'::vibetype.language
+    FROM generate_series(1, 30000) AS n;
+
+  INSERT INTO vibetype.event_category (id, name)
+    SELECT md5('benchmark-category-' || c)::UUID, 'benchmark-category-' || c FROM generate_series(1, 2) AS c;
+
+  INSERT INTO vibetype.event_format (id, name)
+    SELECT md5('benchmark-format-' || f)::UUID, 'benchmark-format-' || f FROM generate_series(1, 2) AS f;
+
+  INSERT INTO vibetype.app (id, name, icon_svg, url, url_attendance, created_by)
+    VALUES (md5('benchmark-app')::UUID, 'benchmark-app', '<svg/>', 'https://example.test', 'https://example.test/attendance', md5('benchmark-account-6')::UUID);
+
+  INSERT INTO vibetype.address (id, name, created_by)
+    SELECT md5('benchmark-address-' || e.id)::UUID, 'Benchmark Address', e.created_by
+    FROM vibetype.event e;
+
+  UPDATE vibetype.event SET address_id = md5('benchmark-address-' || id)::UUID;
+
+  INSERT INTO vibetype.event_app (id, app_id, event_id, created_by)
+    SELECT md5('benchmark-event-app-' || e.id)::UUID, md5('benchmark-app')::UUID, e.id, e.created_by
+    FROM vibetype.event e;
+
+  INSERT INTO vibetype.event_category_mapping (event_id, category_id)
+    SELECT e.id, md5('benchmark-category-' || c)::UUID
+    FROM vibetype.event e, generate_series(1, 2) AS c;
+
+  INSERT INTO vibetype.event_format_mapping (event_id, format_id)
+    SELECT e.id, md5('benchmark-format-' || f)::UUID
+    FROM vibetype.event e, generate_series(1, 2) AS f;
+
+  INSERT INTO vibetype.upload (id, size_byte, created_by)
+    SELECT md5('benchmark-upload-' || e.id)::UUID, 1024, e.created_by
+    FROM vibetype.event e;
+
+  INSERT INTO vibetype.event_upload (id, event_id, upload_id)
+    SELECT md5('benchmark-event-upload-' || e.id)::UUID, e.id, md5('benchmark-upload-' || e.id)::UUID
+    FROM vibetype.event e;
+
+  RAISE NOTICE 'Seeded child tables of events';
+END $$;
