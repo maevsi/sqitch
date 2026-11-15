@@ -237,4 +237,14 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT write_columns;
 
+-- The service acknowledges notifications itself.
+SAVEPOINT notification_acknowledge_service;
+DO $$
+BEGIN
+  IF NOT has_function_privilege('vibetype', 'vibetype.notification_acknowledge(UUID, BOOLEAN)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Test failed: the service cannot acknowledge notifications';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT notification_acknowledge_service;
+
 ROLLBACK;
