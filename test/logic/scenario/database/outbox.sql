@@ -82,6 +82,12 @@ BEGIN
     RAISE EXCEPTION 'Test failed (outbox_event): unexpected event.created data';
   END IF;
 
+  PERFORM vibetype_test.guest_create(_account_id, _event_id, vibetype_test.contact_create(_account_id, 'b@example.com'));
+
+  IF vibetype_test.outbox_payload('event.updated', _event_id) IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed (outbox_event): a guest count change was published as event.updated';
+  END IF;
+
   PERFORM vibetype_test.invoker_set(_account_id);
   UPDATE vibetype.event SET name = 'Event updated' WHERE id = _event_id;
   PERFORM vibetype_test.invoker_set_previous();
