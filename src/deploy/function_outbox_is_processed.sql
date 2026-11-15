@@ -4,6 +4,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.outbox_is_processed(outbox_id uuid) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT EXISTS (
     SELECT 1 FROM vibetype_private.outbox_processed WHERE outbox_processed.outbox_id = outbox_is_processed.outbox_id

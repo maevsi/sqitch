@@ -14,6 +14,19 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_notification_count(UUID, TEXT) TO vibetype_account;
 
 
+-- Selects without row level security, as the connection role does not inherit the service role's policy.
+CREATE OR REPLACE FUNCTION vibetype_test.account_notification_all (
+  _filter TEXT DEFAULT 'TRUE'
+) RETURNS SETOF vibetype.account_notification
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN QUERY EXECUTE 'SELECT * FROM vibetype.account_notification WHERE ' || _filter;
+END $$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.account_notification_all(TEXT) TO vibetype_account;
+
+
 CREATE OR REPLACE FUNCTION vibetype_test.account_notification_get (
   _account_id UUID,
   _type TEXT

@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _new_account_notify RECORD;

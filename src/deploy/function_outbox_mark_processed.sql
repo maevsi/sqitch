@@ -4,6 +4,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.outbox_mark_processed(outbox_id uuid) RETURNS void
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   DELETE FROM vibetype_private.outbox_processed WHERE processed_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
 

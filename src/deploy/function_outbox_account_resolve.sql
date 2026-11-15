@@ -11,6 +11,7 @@ CREATE FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) RETURNS
   password_reset_verification_valid_until timestamp with time zone
 )
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT
     a.username,

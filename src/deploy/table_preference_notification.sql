@@ -12,8 +12,6 @@ CREATE TABLE vibetype.preference_notification (
   UNIQUE (account_id, type)
 );
 
-CREATE INDEX idx_preference_notification_account_id ON vibetype.preference_notification USING btree (account_id);
-
 COMMENT ON TABLE vibetype.preference_notification IS 'Whether an account wants push notifications per notification type. A missing row means push is enabled.';
 COMMENT ON COLUMN vibetype.preference_notification.id IS E'@behavior -insert -update\nThe preference''s internal id.';
 COMMENT ON COLUMN vibetype.preference_notification.account_id IS E'@behavior -update\nThe account the preference belongs to.';

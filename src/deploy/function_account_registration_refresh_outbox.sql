@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION vibetype.account_registration_refresh(account_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   RAISE 'Refreshing registrations is currently not available due to missing rate limiting!' USING ERRCODE = 'deprecated_feature';

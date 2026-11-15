@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.trigger_event_outbox() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   IF (TG_OP = 'DELETE') THEN

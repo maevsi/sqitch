@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION vibetype.account_delete(password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _current_account_id UUID;

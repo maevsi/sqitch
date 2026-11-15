@@ -191,3 +191,121 @@ END $$;
 -- Cleanup temp tables
 DROP TABLE _benchmark_accounts;
 DROP TABLE _benchmark_events;
+
+-- ---------------------------------------------------------------------------
+-- Skewed personas
+--
+-- The data above is spread evenly, so every query is fast whatever its plan.
+-- The accounts below are outliers that make scaling problems visible:
+--   benchmark-organizer-large: 500 events with 40000 guests and 4000 attendances
+--   benchmark-invitee-many:    invited to 3000 events of 300 different organizers
+--   benchmark-blocker-many:    blocks 3000 accounts
+-- All rows are bulk inserted with deterministic md5-based ids.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+  _password_hash CONSTANT TEXT := '$2b$10$abcdefghijklmnopqrstuvABCDEFGHijkLMNOPQRstu';
+BEGIN
+  -- Accounts: 3 personas, 300 organizers that invite benchmark-invitee-many, 3000 accounts blocked by benchmark-blocker-many.
+  CREATE TEMP TABLE _benchmark_skewed_accounts AS
+    SELECT md5('benchmark-persona-' || p)::UUID AS id, 'benchmark-' || p AS username
+      FROM unnest(ARRAY['organizer-large', 'invitee-many', 'blocker-many']) AS p
+    UNION ALL
+    SELECT md5('benchmark-invitation-organizer-' || i)::UUID, 'benchmark-invitation-organizer-' || i
+      FROM generate_series(1, 300) AS i
+    UNION ALL
+    SELECT md5('benchmark-blocked-account-' || i)::UUID, 'benchmark-blocked-account-' || i
+      FROM generate_series(1, 3000) AS i;
+
+  INSERT INTO vibetype_private.account (id, birth_date, email_address, password_hash, last_activity)
+    SELECT id, '1990-01-01'::DATE, username || '@example.test', _password_hash, '1970-01-01 00:00:00'::timestamp
+    FROM _benchmark_skewed_accounts;
+
+  INSERT INTO vibetype.account (id, username)
+    SELECT id, username FROM _benchmark_skewed_accounts;
+
+  DROP TABLE _benchmark_skewed_accounts;
+
+  -- benchmark-organizer-large: 500 events (every 5th has a guest limit, every 10th is nearly full).
+  INSERT INTO vibetype.event (id, name, slug, visibility, start, "end", guest_count_maximum, created_by, description, language)
+    SELECT
+      md5('benchmark-large-event-' || e)::UUID,
+      'Benchmark Large Event ' || e,
+      'benchmark-large-event-' || e,
+      (ARRAY['public', 'public', 'public', 'private', 'unlisted'])[1 + (e % 5)]::vibetype.event_visibility,
+      '2025-07-01'::TIMESTAMPTZ + (e || ' hours')::INTERVAL,
+      '2025-07-01'::TIMESTAMPTZ + (e || ' hours')::INTERVAL + '4 hours'::INTERVAL,
+      CASE WHEN e % 10 = 0 THEN 80 WHEN e % 5 = 0 THEN 1000 ELSE NULL END,
+      md5('benchmark-persona-organizer-large')::UUID,
+      'Description for large benchmark event ' || e || '. Performance test under row-level security.',
+      'en'::vibetype.language
+    FROM generate_series(1, 500) AS e;
+
+  -- 2000 contacts owned by the organizer; each event invites 80 of them, which makes 40000 guests.
+  INSERT INTO vibetype.contact (id, email_address, first_name, last_name, created_by)
+    SELECT
+      md5('benchmark-large-contact-' || c)::UUID,
+      'large-contact-' || c || '@example.test',
+      'LargeFirst' || c,
+      'LargeLast' || c,
+      md5('benchmark-persona-organizer-large')::UUID
+    FROM generate_series(1, 2000) AS c;
+
+  INSERT INTO vibetype.guest (id, contact_id, event_id)
+    SELECT
+      md5('benchmark-large-guest-' || e || '-' || k)::UUID,
+      md5('benchmark-large-contact-' || (((e - 1) * 80 + k - 1) % 2000 + 1))::UUID,
+      md5('benchmark-large-event-' || e)::UUID
+    FROM generate_series(1, 500) AS e, generate_series(1, 80) AS k;
+
+  -- 10% of the guests attended.
+  INSERT INTO vibetype.attendance (id, guest_id)
+    SELECT
+      md5('benchmark-large-attendance-' || e || '-' || k)::UUID,
+      md5('benchmark-large-guest-' || e || '-' || k)::UUID
+    FROM generate_series(1, 500) AS e, generate_series(10, 80, 10) AS k;
+
+  -- benchmark-invitee-many: every organizer has one contact for the invitee (unique per created_by and account_id).
+  INSERT INTO vibetype.contact (id, account_id, created_by)
+    SELECT
+      md5('benchmark-invitation-contact-' || o)::UUID,
+      md5('benchmark-persona-invitee-many')::UUID,
+      md5('benchmark-invitation-organizer-' || o)::UUID
+    FROM generate_series(1, 300) AS o;
+
+  INSERT INTO vibetype.event (id, name, slug, visibility, start, "end", guest_count_maximum, created_by, description, language)
+    SELECT
+      md5('benchmark-invitation-event-' || n)::UUID,
+      'Benchmark Invitation Event ' || n,
+      'benchmark-invitation-event-' || n,
+      (ARRAY['public', 'private', 'unlisted'])[1 + (n % 3)]::vibetype.event_visibility,
+      '2025-08-01'::TIMESTAMPTZ + (n || ' hours')::INTERVAL,
+      '2025-08-01'::TIMESTAMPTZ + (n || ' hours')::INTERVAL + '4 hours'::INTERVAL,
+      CASE WHEN n % 10 = 0 THEN 50 ELSE NULL END,
+      md5('benchmark-invitation-organizer-' || ((n - 1) % 300 + 1))::UUID,
+      'Description for invitation benchmark event ' || n || '. Performance test under row-level security.',
+      'en'::vibetype.language
+    FROM generate_series(1, 3000) AS n;
+
+  INSERT INTO vibetype.guest (id, contact_id, event_id)
+    SELECT
+      md5('benchmark-invitation-guest-' || n)::UUID,
+      md5('benchmark-invitation-contact-' || ((n - 1) % 300 + 1))::UUID,
+      md5('benchmark-invitation-event-' || n)::UUID
+    FROM generate_series(1, 3000) AS n;
+
+  -- benchmark-blocker-many: 3000 blocks.
+  PERFORM set_config('jwt.claims.sub', md5('benchmark-persona-blocker-many'), true);
+
+  INSERT INTO vibetype.account_block (id, blocked_account_id, created_by)
+    SELECT
+      md5('benchmark-block-' || i)::UUID,
+      md5('benchmark-blocked-account-' || i)::UUID,
+      md5('benchmark-persona-blocker-many')::UUID
+    FROM generate_series(1, 3000) AS i;
+
+  PERFORM set_config('jwt.claims.sub', '', true);
+
+  RAISE NOTICE 'Seeded skewed personas';
+END $$;

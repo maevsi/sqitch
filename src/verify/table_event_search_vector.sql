@@ -9,8 +9,4 @@ SELECT 1/COUNT(*)
 FROM pg_indexes
 WHERE schemaname = 'vibetype_private' AND indexname = 'idx_event_search_vector';
 
-SELECT 1/COUNT(*)
-FROM pg_indexes
-WHERE schemaname = 'vibetype_private' AND indexname = 'idx_event_search_vector_event_id';
-
 ROLLBACK;

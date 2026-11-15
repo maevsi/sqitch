@@ -58,7 +58,7 @@ BEGIN
     RAISE EXCEPTION 'Test failed (event_invitation): the creator notified themselves';
   END IF;
 
-  IF (SELECT count(*) FROM vibetype.account_notification) != 1 THEN
+  IF (SELECT count(*) FROM vibetype_test.account_notification_all()) != 1 THEN
     RAISE EXCEPTION 'Test failed (event_invitation): invitations without a recipient account created notifications';
   END IF;
 
@@ -199,7 +199,7 @@ BEGIN
 
   -- anonymous feedback has no actor and names the contact
   PERFORM vibetype_test.account_notification_exec(format('UPDATE vibetype.guest SET feedback = ''canceled'' WHERE id = %L', _guest_email_only));
-  SELECT * INTO _notification FROM vibetype.account_notification WHERE guest_id = _guest_email_only;
+  SELECT * INTO _notification FROM vibetype_test.account_notification_all(format('guest_id = %L', _guest_email_only));
 
   IF _notification.guest_id IS DISTINCT FROM _guest_email_only
     OR _notification.actor_account_id IS NOT NULL
@@ -272,7 +272,7 @@ BEGIN
   UPDATE vibetype.event SET name = 'Renamed', description = 'Description' WHERE id = _event;
   PERFORM vibetype_test.invoker_set_previous();
 
-  IF (SELECT count(*) FROM vibetype.account_notification WHERE type = 'event_updated') != 0 THEN
+  IF (SELECT count(*) FROM vibetype_test.account_notification_all('type = ''event_updated''')) != 0 THEN
     RAISE EXCEPTION 'Test failed (event_updated): unrelated changes notified';
   END IF;
 
@@ -294,7 +294,7 @@ BEGIN
   IF vibetype_test.account_notification_count(_a, 'event_updated') != 0
     OR vibetype_test.account_notification_count(_c, 'event_updated') != 0
     OR vibetype_test.account_notification_count(_d, 'event_updated') != 0
-    OR (SELECT count(*) FROM vibetype.account_notification WHERE type = 'event_updated') != 1
+    OR (SELECT count(*) FROM vibetype_test.account_notification_all('type = ''event_updated''')) != 1
   THEN
     RAISE EXCEPTION 'Test failed (event_updated): only the guest who did not cancel and did not block should be notified';
   END IF;
@@ -328,7 +328,7 @@ BEGIN
   PERFORM vibetype_test.account_notification_exec(format('UPDATE vibetype.event SET start = start + INTERVAL ''1 day'' WHERE created_by = %L', _a));
 
   IF vibetype_test.account_notification_count(_b, 'event_updated') != 3
-    OR (SELECT count(*) FROM vibetype.account_notification WHERE account_id = _b AND event_id = _other_event) != 1
+    OR (SELECT count(*) FROM vibetype_test.account_notification_all(format('account_id = %L AND event_id = %L', _b, _other_event))) != 1
   THEN
     RAISE EXCEPTION 'Test failed (event_updated): unexpected notifications after a multi-row update';
   END IF;
@@ -386,7 +386,7 @@ BEGIN
     RAISE EXCEPTION 'Test failed (event_deleted): unexpected notification %', _notification;
   END IF;
 
-  IF (SELECT count(*) FROM vibetype.account_notification) != 1 THEN
+  IF (SELECT count(*) FROM vibetype_test.account_notification_all()) != 1 THEN
     RAISE EXCEPTION 'Test failed (event_deleted): expected only the deletion notification, the others should be cascaded or skipped';
   END IF;
 END $$;
