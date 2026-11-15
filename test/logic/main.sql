@@ -35,6 +35,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \i scenario/database/achievement_code/constraints.sql
 \i scenario/database/jwt/generated_columns.sql
+\i scenario/database/jwt/hash.sql
 \i scenario/database/jwt/ended.sql
 \i scenario/database/jwt/expired_delete.sql
 \i scenario/database/account_block_ids.sql
@@ -44,6 +45,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/events_invited.sql
 \i scenario/database/index.sql
 \i scenario/database/security_definer.sql
+\i scenario/database/upload_quota.sql
 
 \echo ==========================================================
 \echo connect as user postgraphile and run tests
