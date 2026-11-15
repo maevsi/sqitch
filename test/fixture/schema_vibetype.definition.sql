@@ -368,6 +368,33 @@ COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'S
 
 
 --
+-- Name: account_notification_read_all(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_notification_read_all() RETURNS integer
+    LANGUAGE sql
+    AS $$
+  WITH _read AS (
+    UPDATE vibetype.account_notification
+    SET read_at = CURRENT_TIMESTAMP
+    WHERE account_id = vibetype.invoker_account_id()
+      AND read_at IS NULL
+    RETURNING 1
+  )
+  SELECT COUNT(*)::INTEGER FROM _read;
+$$;
+
+
+ALTER FUNCTION vibetype.account_notification_read_all() OWNER TO ci;
+
+--
+-- Name: FUNCTION account_notification_read_all(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_notification_read_all() IS 'Marks all unread notifications of the invoker as read and returns their number.';
+
+
+--
 -- Name: account_password_change(text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -8518,6 +8545,14 @@ GRANT ALL ON FUNCTION vibetype.account_delete(password text) TO vibetype_account
 REVOKE ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION account_notification_read_all(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_notification_read_all() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_notification_read_all() TO vibetype_account;
 
 
 --

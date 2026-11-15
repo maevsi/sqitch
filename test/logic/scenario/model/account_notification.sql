@@ -685,6 +685,37 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT preference_notification;
 
+SAVEPOINT account_notification_read_all;
+DO $$
+DECLARE
+  _a UUID;
+  _b UUID;
+  _c UUID;
+  _d UUID;
+BEGIN
+  _a := vibetype_test.account_registration_verified('a', 'a@example.com');
+  _b := vibetype_test.account_registration_verified('b', 'b@example.com');
+  _c := vibetype_test.account_registration_verified('c', 'c@example.com');
+  _d := vibetype_test.account_registration_verified('d', 'd@example.com');
+  PERFORM vibetype_test.friendship_request(_a, _b);
+  PERFORM vibetype_test.friendship_request(_c, _b);
+  PERFORM vibetype_test.friendship_request(_b, _d);
+
+  PERFORM vibetype_test.invoker_set(_b);
+  IF vibetype.account_notification_read_all() != 2 THEN
+    RAISE EXCEPTION 'Test failed (account_notification_read_all): unexpected number of notifications read';
+  END IF;
+  IF vibetype.account_notification_read_all() != 0 THEN
+    RAISE EXCEPTION 'Test failed (account_notification_read_all): read notifications were read again';
+  END IF;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  IF (SELECT read_at FROM vibetype_test.account_notification_get(_d, 'friendship_requested')) IS NOT NULL THEN
+    RAISE EXCEPTION 'Test failed (account_notification_read_all): another account''s notification was read';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT account_notification_read_all;
+
 SAVEPOINT account_notification_outbox;
 DO $$
 DECLARE
