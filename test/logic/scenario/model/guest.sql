@@ -123,6 +123,11 @@ BEGIN
 
   PERFORM vibetype_test.guest_test('guest visibility without block (perspective A)', accountA, ARRAY[guestAB, guestAC, guestBA, guestCA]::UUID[]);
   PERFORM vibetype_test.guest_test('guest visibility without block (perspective B)', accountB, ARRAY[guestBA, guestBC, guestAB, guestCB]::UUID[]);
+  PERFORM vibetype_test.guest_test('anonymous sees no guest', NULL, ARRAY[]::UUID[]);
+
+  PERFORM set_config('jwt.claims.guests', '["' || guestAB || '"]', true);
+  PERFORM vibetype_test.guest_test('anonymous sees a claimed guest', NULL, ARRAY[guestAB]::UUID[]);
+  PERFORM set_config('jwt.claims.guests', '', true);
 END $$;
 ROLLBACK TO SAVEPOINT guest_select;
 
