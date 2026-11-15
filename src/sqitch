@@ -4,8 +4,8 @@
 THIS=$(dirname "$(readlink -f "$0")")
 SECRETS="$THIS/../../stack/artifacts/secrets"
 
-# Determine which Docker image to run.
-SQITCH_IMAGE=${SQITCH_IMAGE:=sqitch/sqitch:latest}
+# Determine which Docker image to run, defaulting to the version the Dockerfile builds on.
+SQITCH_IMAGE=${SQITCH_IMAGE:=$(sed -n 's/^FROM \(sqitch\/sqitch:[^ ]*\).*/\1/p' "$THIS/../Dockerfile" | head -n 1)}
 
 SQITCH_TARGET="db:pg://$(cat "$SECRETS/postgres-user"):$(cat "$SECRETS/postgres-password")@127.0.0.1/$(cat "$SECRETS/postgres-db")"
 export SQITCH_TARGET
@@ -80,6 +80,8 @@ function docker_sudo() {
 docker_sudo run --rm --network host \
     --mount "type=bind,src=$THIS,dst=/repo" \
     --mount "type=bind,src=$HOME,dst=$homedst" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-gizmosql-password,dst=/run/secrets/postgres-role-service-gizmosql-password" \
+    --mount "type=bind,src=$SECRETS/postgres-role-service-gizmosql-username,dst=/run/secrets/postgres-role-service-gizmosql-username" \
     --mount "type=bind,src=$SECRETS/postgres-role-service-grafana-password,dst=/run/secrets/postgres-role-service-grafana-password" \
     --mount "type=bind,src=$SECRETS/postgres-role-service-grafana-username,dst=/run/secrets/postgres-role-service-grafana-username" \
     --mount "type=bind,src=$SECRETS/postgres-role-service-postgraphile-password,dst=/run/secrets/postgres-role-service-postgraphile-password" \

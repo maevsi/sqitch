@@ -210,4 +210,40 @@ END;
 $$ LANGUAGE plpgsql;
 ROLLBACK TO SAVEPOINT audit_log_id_bigint;
 
+-- Credentials and message contents are left out of the log, the other columns are kept.
+SAVEPOINT audit_log_redact;
+DO $$
+DECLARE
+  _keys TEXT;
+BEGIN
+  PERFORM vibetype_private.trigger_audit_log_drop_multiple();
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype_private', 'account');
+  PERFORM vibetype_private.trigger_audit_log_create('vibetype_private', 'notification');
+
+  PERFORM vibetype_test.account_registration_verified('username', 'email@example.com');
+  PERFORM vibetype.account_password_reset_request('email@example.com', 'en');
+
+  SELECT string_agg(DISTINCT key, ', ' ORDER BY key) INTO _keys
+    FROM vibetype_private.audit_log,
+      LATERAL (SELECT jsonb_object_keys(values_new) UNION ALL SELECT jsonb_object_keys(values_old)) AS k(key)
+    WHERE schema_name = 'vibetype_private' AND table_name IN ('account', 'notification')
+      AND key IN ('email_address_verification', 'password_hash', 'password_reset_verification', 'payload');
+
+  IF _keys IS NOT NULL THEN
+    RAISE EXCEPTION 'The audit log contains columns that must be left out: %', _keys;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM vibetype_private.audit_log
+      WHERE table_name = 'account' AND operation_type = 'INSERT' AND values_new ? 'email_address'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM vibetype_private.audit_log
+      WHERE table_name = 'notification' AND operation_type = 'INSERT' AND values_new ? 'channel'
+  ) THEN
+    RAISE EXCEPTION 'The audit log misses the remaining columns of an account or notification change.';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+ROLLBACK TO SAVEPOINT audit_log_redact;
+
 ROLLBACK;

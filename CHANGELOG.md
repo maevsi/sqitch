@@ -1,3 +1,9 @@
+## [13.2.11](https://github.com/maevsi/sqitch/compare/13.2.10...13.2.11) (2026-11-15)
+
+### Bug Fixes
+
+* **auth:** harden sessions, hashing and the audit log ([#385](https://github.com/maevsi/sqitch/issues/385)) ([580b611](https://github.com/maevsi/sqitch/commit/580b611b38179f5c82ef3bc691e5b9b42c2c8e29))
+
 ## [13.2.10](https://github.com/maevsi/sqitch/compare/13.2.9...13.2.10) (2026-11-13)
 
 ### Performance Improvements

@@ -63,6 +63,12 @@ BEGIN
 
   END IF;
 
+  -- Credentials and message contents are not copied into the log.
+  IF TG_TABLE_SCHEMA = 'vibetype_private' AND TG_TABLE_NAME IN ('account', 'notification') THEN
+    _values_new := _values_new - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
+    _values_old := _values_old - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
+  END IF;
+
   IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
     INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, values_new)
       VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, NEW.id, TG_OP, _user_name, _values_old, _values_new);
