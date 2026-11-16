@@ -1,3 +1,22 @@
+## [14.0.0-beta.4](https://github.com/maevsi/sqitch/compare/14.0.0-beta.3...14.0.0-beta.4) (2026-11-16)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** drop the connection filter behaviors (#398)
+
+### Features
+
+* **event:** let event search exclude ended events by argument ([#396](https://github.com/maevsi/sqitch/issues/396)) ([43e1737](https://github.com/maevsi/sqitch/commit/43e1737005453d4d27ba71288fe2bd6455b3817e))
+* **jwt:** add the language of the own contact to the token ([#395](https://github.com/maevsi/sqitch/issues/395)) ([5ea1996](https://github.com/maevsi/sqitch/commit/5ea1996d67d427fc28cc5eb28862b7fa071ae3c2))
+
+### Bug Fixes
+
+* **auth:** upgrade password hashes on sign-in and serialize the upload quota ([#389](https://github.com/maevsi/sqitch/issues/389)) ([4131bef](https://github.com/maevsi/sqitch/commit/4131befac254ba35114ef54111ea2342af4e09a5))
+
+### Code Refactoring
+
+* **event:** drop the connection filter behaviors ([#398](https://github.com/maevsi/sqitch/issues/398)) ([7c5c2bc](https://github.com/maevsi/sqitch/commit/7c5c2bccbbc1375ac9c0252e83d2a80eb1ba5c1d))
+
 ## [14.0.0-beta.3](https://github.com/maevsi/sqitch/compare/14.0.0-beta.2...14.0.0-beta.3) (2026-11-15)
 
 ### Bug Fixes
