@@ -1255,10 +1255,10 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
--- Name: event_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: event_search(text, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
+CREATE FUNCTION vibetype.event_search(query text, include_ended boolean DEFAULT false) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
   -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from event_search_rank().
@@ -1266,19 +1266,22 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
   SELECT e.*
   FROM vibetype.event_search_match(event_search.query) m
   JOIN vibetype.event e ON e.id = m.event_id
+  WHERE
+    COALESCE(event_search.include_ended, false)
+    OR COALESCE(e."end", e.start) >= now()
   ORDER BY
     m.score DESC,
     e.id;
 $$;
 
 
-ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
+ALTER FUNCTION vibetype.event_search(query text, include_ended boolean) OWNER TO ci;
 
 --
--- Name: FUNCTION event_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_search(query text, include_ended boolean) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -7897,11 +7900,11 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 
 --
--- Name: FUNCTION event_search(query text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text, include_ended boolean); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.event_search(query text, include_ended boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_search(query text, include_ended boolean) TO vibetype_account;
 
 
 --
