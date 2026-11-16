@@ -169,23 +169,6 @@ COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how t
 
 
 --
--- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.jwt AS (
-	attendances uuid[],
-	exp bigint,
-	guests uuid[],
-	jti uuid,
-	role text,
-	sub uuid,
-	username text
-);
-
-
-ALTER TYPE vibetype.jwt OWNER TO ci;
-
---
 -- Name: language; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -203,6 +186,24 @@ ALTER TYPE vibetype.language OWNER TO ci;
 
 COMMENT ON TYPE vibetype.language IS 'Supported ISO 639 language codes.';
 
+
+--
+-- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.jwt AS (
+	attendances uuid[],
+	exp bigint,
+	guests uuid[],
+	jti uuid,
+	role text,
+	sub uuid,
+	username text,
+	language vibetype.language
+);
+
+
+ALTER TYPE vibetype.jwt OWNER TO ci;
 
 --
 -- Name: social_network; Type: TYPE; Schema: vibetype; Owner: ci
@@ -1014,6 +1015,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
+    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1150,6 +1152,14 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 
 --
+-- Name: COLUMN event.effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
+The event''s end date and time, falling back to its start when no explicit end is set.';
+
+
+--
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1254,10 +1264,10 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
--- Name: event_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: event_search(text, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
+CREATE FUNCTION vibetype.event_search(query text, include_ended boolean DEFAULT false) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
   -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from event_search_rank().
@@ -1265,19 +1275,22 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
   SELECT e.*
   FROM vibetype.event_search_match(event_search.query) m
   JOIN vibetype.event e ON e.id = m.event_id
+  WHERE
+    COALESCE(event_search.include_ended, false)
+    OR e.effective_end >= now()
   ORDER BY
     m.score DESC,
     e.id;
 $$;
 
 
-ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
+ALTER FUNCTION vibetype.event_search(query text, include_ended boolean) OWNER TO ci;
 
 --
--- Name: FUNCTION event_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_search(query text, include_ended boolean) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -1601,7 +1614,7 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
-    AS $$
+    AS $_$
   WITH
   _current_time AS (
     SELECT date_trunc('second', CURRENT_TIMESTAMP) AS now
@@ -1618,26 +1631,37 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
           (SELECT id FROM vibetype_private.account WHERE email_address = jwt_create.username)
       END AS id
   ),
-  _account_validation AS (
+  _account_validation AS MATERIALIZED (
     SELECT
       account_lookup.id,
       public_account.username,
       private_account.email_address_verification IS NOT NULL AS email_not_verified,
-      private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash) AS password_valid
+      -- An unknown account hashes as well, so the time taken does not tell it apart from a wrong password.
+      COALESCE(
+        private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash),
+        public.crypt(jwt_create.password, public.gen_salt('bf', 10)) IS NULL
+      ) AS password_valid
     FROM _account_lookup account_lookup
-    INNER JOIN vibetype.account public_account ON public_account.id = account_lookup.id
-    INNER JOIN vibetype_private.account private_account ON private_account.id = account_lookup.id
-    WHERE account_lookup.id IS NOT NULL
+    LEFT JOIN vibetype.account public_account ON public_account.id = account_lookup.id
+    LEFT JOIN vibetype_private.account private_account ON private_account.id = account_lookup.id
   ),
   _authenticated_account AS (
     SELECT id, username
     FROM _account_validation
-    WHERE password_valid = true
+    WHERE id IS NOT NULL
+      AND password_valid = true
       AND email_not_verified = false
   ),
   _account_activity_update AS (
     UPDATE vibetype_private.account
-    SET last_activity = DEFAULT, password_reset_verification = NULL
+    SET
+      last_activity = DEFAULT,
+      -- A hash with a lower work factor is replaced on sign-in, the only time the password is known.
+      password_hash = CASE
+        WHEN account.password_hash LIKE '$2a$10$%' THEN account.password_hash
+        ELSE public.crypt(jwt_create.password, public.gen_salt('bf', 10))
+      END,
+      password_reset_verification = NULL
     WHERE id = (SELECT id FROM _authenticated_account)
     RETURNING id
   ),
@@ -1656,7 +1680,8 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
         gen_random_uuid(),
         'vibetype_account',
         authenticated_account.id,
-        authenticated_account.username
+        authenticated_account.username,
+        (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = authenticated_account.id AND contact.account_id = authenticated_account.id)
       )::vibetype.jwt AS token
     FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
     WHERE EXISTS (SELECT 1 FROM _account_activity_update)
@@ -1668,7 +1693,7 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     RETURNING token
   )
   SELECT token FROM _jwt_insert;
-$$;
+$_$;
 
 
 ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
@@ -1713,7 +1738,9 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   ),
   _jwt_update AS (
     UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+    SET
+      token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration)),
+      token.language = (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = jwt.subject AND contact.account_id = jwt.subject)
     FROM _current_time, _expiry_duration
     WHERE jwt.id = (SELECT id FROM _valid_jwt)
     RETURNING token
@@ -1773,7 +1800,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
       COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
       CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
-      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1787,7 +1815,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE
@@ -1849,7 +1878,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
       COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
       CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
-      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1863,7 +1893,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE
@@ -2239,15 +2270,17 @@ DECLARE
   _current_usage BIGINT;
   _quota BIGINT;
 BEGIN
+  -- The lock makes concurrent inserts of an account wait for each other, so each one counts the uploads of the ones before it.
+  SELECT upload_quota_bytes
+    INTO _quota
+    FROM vibetype_private.account
+    WHERE id = NEW.created_by
+    FOR NO KEY UPDATE;
+
   SELECT COALESCE(SUM(size_byte), 0)
     INTO _current_usage
     FROM vibetype.upload
     WHERE created_by = NEW.created_by;
-
-  SELECT upload_quota_bytes
-    INTO _quota
-    FROM vibetype_private.account
-    WHERE id = NEW.created_by;
 
   IF (_current_usage + NEW.size_byte) > _quota THEN
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';
@@ -2522,10 +2555,11 @@ DECLARE
   _values_old JSONB;
 BEGIN
   -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' = to_jsonb(OLD) - 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
     AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
   THEN
     RETURN NEW;
@@ -6014,6 +6048,20 @@ CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 
 
 --
+-- Name: idx_event_start_effective_end; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_start_effective_end ON vibetype.event USING btree (start, effective_end);
+
+
+--
+-- Name: INDEX idx_event_start_effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
+
+
+--
 -- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -7828,11 +7876,11 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 
 --
--- Name: FUNCTION event_search(query text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text, include_ended boolean); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.event_search(query text, include_ended boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_search(query text, include_ended boolean) TO vibetype_account;
 
 
 --
