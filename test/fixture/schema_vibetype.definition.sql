@@ -169,23 +169,6 @@ COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how t
 
 
 --
--- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.jwt AS (
-	attendances uuid[],
-	exp bigint,
-	guests uuid[],
-	jti uuid,
-	role text,
-	sub uuid,
-	username text
-);
-
-
-ALTER TYPE vibetype.jwt OWNER TO ci;
-
---
 -- Name: language; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -203,6 +186,24 @@ ALTER TYPE vibetype.language OWNER TO ci;
 
 COMMENT ON TYPE vibetype.language IS 'Supported ISO 639 language codes.';
 
+
+--
+-- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.jwt AS (
+	attendances uuid[],
+	exp bigint,
+	guests uuid[],
+	jti uuid,
+	role text,
+	sub uuid,
+	username text,
+	language vibetype.language
+);
+
+
+ALTER TYPE vibetype.jwt OWNER TO ci;
 
 --
 -- Name: social_network; Type: TYPE; Schema: vibetype; Owner: ci
@@ -1611,7 +1612,7 @@ COMMENT ON FUNCTION vibetype.invoker_account_id() IS 'Returns the session''s acc
 CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
-    AS $$
+    AS $_$
   WITH
   _current_time AS (
     SELECT date_trunc('second', CURRENT_TIMESTAMP) AS now
@@ -1628,26 +1629,37 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
           (SELECT id FROM vibetype_private.account WHERE email_address = jwt_create.username)
       END AS id
   ),
-  _account_validation AS (
+  _account_validation AS MATERIALIZED (
     SELECT
       account_lookup.id,
       public_account.username,
       private_account.email_address_verification IS NOT NULL AS email_not_verified,
-      private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash) AS password_valid
+      -- An unknown account hashes as well, so the time taken does not tell it apart from a wrong password.
+      COALESCE(
+        private_account.password_hash = public.crypt(jwt_create.password, private_account.password_hash),
+        public.crypt(jwt_create.password, public.gen_salt('bf', 10)) IS NULL
+      ) AS password_valid
     FROM _account_lookup account_lookup
-    INNER JOIN vibetype.account public_account ON public_account.id = account_lookup.id
-    INNER JOIN vibetype_private.account private_account ON private_account.id = account_lookup.id
-    WHERE account_lookup.id IS NOT NULL
+    LEFT JOIN vibetype.account public_account ON public_account.id = account_lookup.id
+    LEFT JOIN vibetype_private.account private_account ON private_account.id = account_lookup.id
   ),
   _authenticated_account AS (
     SELECT id, username
     FROM _account_validation
-    WHERE password_valid = true
+    WHERE id IS NOT NULL
+      AND password_valid = true
       AND email_not_verified = false
   ),
   _account_activity_update AS (
     UPDATE vibetype_private.account
-    SET last_activity = DEFAULT, password_reset_verification = NULL
+    SET
+      last_activity = DEFAULT,
+      -- A hash with a lower work factor is replaced on sign-in, the only time the password is known.
+      password_hash = CASE
+        WHEN account.password_hash LIKE '$2a$10$%' THEN account.password_hash
+        ELSE public.crypt(jwt_create.password, public.gen_salt('bf', 10))
+      END,
+      password_reset_verification = NULL
     WHERE id = (SELECT id FROM _authenticated_account)
     RETURNING id
   ),
@@ -1666,7 +1678,8 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
         gen_random_uuid(),
         'vibetype_account',
         authenticated_account.id,
-        authenticated_account.username
+        authenticated_account.username,
+        (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = authenticated_account.id AND contact.account_id = authenticated_account.id)
       )::vibetype.jwt AS token
     FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
     WHERE EXISTS (SELECT 1 FROM _account_activity_update)
@@ -1678,7 +1691,7 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     RETURNING token
   )
   SELECT token FROM _jwt_insert;
-$$;
+$_$;
 
 
 ALTER FUNCTION vibetype.jwt_create(username text, password text) OWNER TO ci;
@@ -1723,7 +1736,9 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   ),
   _jwt_update AS (
     UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+    SET
+      token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration)),
+      token.language = (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = jwt.subject AND contact.account_id = jwt.subject)
     FROM _current_time, _expiry_duration
     WHERE jwt.id = (SELECT id FROM _valid_jwt)
     RETURNING token
@@ -1783,7 +1798,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
       COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
       CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
-      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1797,7 +1813,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE
@@ -1859,7 +1876,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
       COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
       CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
-      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1873,7 +1891,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE
@@ -2249,15 +2268,17 @@ DECLARE
   _current_usage BIGINT;
   _quota BIGINT;
 BEGIN
+  -- The lock makes concurrent inserts of an account wait for each other, so each one counts the uploads of the ones before it.
+  SELECT upload_quota_bytes
+    INTO _quota
+    FROM vibetype_private.account
+    WHERE id = NEW.created_by
+    FOR NO KEY UPDATE;
+
   SELECT COALESCE(SUM(size_byte), 0)
     INTO _current_usage
     FROM vibetype.upload
     WHERE created_by = NEW.created_by;
-
-  SELECT upload_quota_bytes
-    INTO _quota
-    FROM vibetype_private.account
-    WHERE id = NEW.created_by;
 
   IF (_current_usage + NEW.size_byte) > _quota THEN
     RAISE 'Upload quota limit reached!' USING ERRCODE = 'disk_full';

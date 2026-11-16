@@ -1,3 +1,15 @@
+## [13.3.0](https://github.com/maevsi/sqitch/compare/13.2.12...13.3.0) (2026-11-16)
+
+### Features
+
+* **jwt:** add the language of the own contact to the token ([#395](https://github.com/maevsi/sqitch/issues/395)) ([5ea1996](https://github.com/maevsi/sqitch/commit/5ea1996d67d427fc28cc5eb28862b7fa071ae3c2))
+
+## [13.2.12](https://github.com/maevsi/sqitch/compare/13.2.11...13.2.12) (2026-11-15)
+
+### Bug Fixes
+
+* **auth:** upgrade password hashes on sign-in and serialize the upload quota ([#389](https://github.com/maevsi/sqitch/issues/389)) ([4131bef](https://github.com/maevsi/sqitch/commit/4131befac254ba35114ef54111ea2342af4e09a5))
+
 ## [13.2.11](https://github.com/maevsi/sqitch/compare/13.2.10...13.2.11) (2026-11-15)
 
 ### Bug Fixes
