@@ -149,7 +149,7 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('account_search',             'SELECT * FROM vibetype.account_search(''benchmark'')',                                    TRUE,  '{blocker_many}'),
   ('attendance_claim_array',     'SELECT vibetype.attendance_claim_array()',                                                FALSE, '{}'),
   ('event_guest_count_maximum',  'SELECT vibetype.event_guest_count_maximum(''{event_id}''::UUID)',                         FALSE, '{organizer_large,invitee_many,blocker_many}'),
-  ('event_list_upcoming',        'SELECT * FROM vibetype.event WHERE COALESCE("end", start) >= now() ORDER BY start, id LIMIT 10',     FALSE, '{}'),
+  ('event_list_upcoming',        'SELECT * FROM vibetype.event WHERE effective_end >= now() ORDER BY start, id LIMIT 10',     FALSE, '{}'),
   ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                      TRUE,  '{invitee_many,blocker_many}'),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                   FALSE, '{invitee_many}'),
   ('guest_claim_array',          'SELECT vibetype.guest_claim_array()',                                                     FALSE, '{}'),

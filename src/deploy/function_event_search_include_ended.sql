@@ -12,7 +12,7 @@ CREATE FUNCTION vibetype.event_search(query text, include_ended boolean DEFAULT 
   JOIN vibetype.event e ON e.id = m.event_id
   WHERE
     COALESCE(event_search.include_ended, false)
-    OR COALESCE(e."end", e.start) >= now()
+    OR e.effective_end >= now()
   ORDER BY
     m.score DESC,
     e.id;

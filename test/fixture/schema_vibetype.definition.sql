@@ -1015,6 +1015,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
+    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1151,6 +1152,14 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 
 --
+-- Name: COLUMN event.effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
+The event''s end date and time, falling back to its start when no explicit end is set.';
+
+
+--
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1268,7 +1277,7 @@ CREATE FUNCTION vibetype.event_search(query text, include_ended boolean DEFAULT 
   JOIN vibetype.event e ON e.id = m.event_id
   WHERE
     COALESCE(event_search.include_ended, false)
-    OR COALESCE(e."end", e.start) >= now()
+    OR e.effective_end >= now()
   ORDER BY
     m.score DESC,
     e.id;
@@ -2546,10 +2555,11 @@ DECLARE
   _values_old JSONB;
 BEGIN
   -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' = to_jsonb(OLD) - 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
     AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
   THEN
     RETURN NEW;
@@ -6083,6 +6093,20 @@ CREATE INDEX idx_event_recommendation_event_id ON vibetype.event_recommendation 
 --
 
 CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
+
+
+--
+-- Name: idx_event_start_effective_end; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_start_effective_end ON vibetype.event USING btree (start, effective_end);
+
+
+--
+-- Name: INDEX idx_event_start_effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
 
 
 --
