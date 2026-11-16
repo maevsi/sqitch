@@ -169,23 +169,6 @@ COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how t
 
 
 --
--- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.jwt AS (
-	attendances uuid[],
-	exp bigint,
-	guests uuid[],
-	jti uuid,
-	role text,
-	sub uuid,
-	username text
-);
-
-
-ALTER TYPE vibetype.jwt OWNER TO ci;
-
---
 -- Name: language; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -203,6 +186,24 @@ ALTER TYPE vibetype.language OWNER TO ci;
 
 COMMENT ON TYPE vibetype.language IS 'Supported ISO 639 language codes.';
 
+
+--
+-- Name: jwt; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.jwt AS (
+	attendances uuid[],
+	exp bigint,
+	guests uuid[],
+	jti uuid,
+	role text,
+	sub uuid,
+	username text,
+	language vibetype.language
+);
+
+
+ALTER TYPE vibetype.jwt OWNER TO ci;
 
 --
 -- Name: social_network; Type: TYPE; Schema: vibetype; Owner: ci
@@ -1667,7 +1668,8 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
         gen_random_uuid(),
         'vibetype_account',
         authenticated_account.id,
-        authenticated_account.username
+        authenticated_account.username,
+        (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = authenticated_account.id AND contact.account_id = authenticated_account.id)
       )::vibetype.jwt AS token
     FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
     WHERE EXISTS (SELECT 1 FROM _account_activity_update)
@@ -1724,7 +1726,9 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   ),
   _jwt_update AS (
     UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+    SET
+      token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration)),
+      token.language = (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = jwt.subject AND contact.account_id = jwt.subject)
     FROM _current_time, _expiry_duration
     WHERE jwt.id = (SELECT id FROM _valid_jwt)
     RETURNING token
@@ -1784,7 +1788,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
       COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
       CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
-      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1798,7 +1803,8 @@ CREATE FUNCTION vibetype.jwt_update_attendance_add(attendance_id uuid) RETURNS v
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE
@@ -1860,7 +1866,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
       COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
       CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
-      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -1874,7 +1881,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE

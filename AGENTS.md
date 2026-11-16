@@ -16,6 +16,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - The GraphQL API exposed should have a simple and consistent surface, especially when it comes to naming
 - Prefer CRUD behavior and constraints over custom functions, to keep the schema simple and maintainable
 - The `vibetype.jwt` composite type defines JWT payload fields; PostGraphile uses it for JWT signing
+- A new `vibetype.jwt` attribute breaks every positional `ROW(...)::vibetype.jwt` cast, so the migration adding it must replace each function that builds a token
 - Error codes consist of 5 capitalized letters starting with a `VT` prefix: e.g. `VTPLL` for "password length low"
 
 ## Security
