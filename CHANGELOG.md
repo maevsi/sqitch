@@ -1,3 +1,9 @@
+## [13.3.0](https://github.com/maevsi/sqitch/compare/13.2.12...13.3.0) (2026-11-16)
+
+### Features
+
+* **jwt:** add the language of the own contact to the token ([#395](https://github.com/maevsi/sqitch/issues/395)) ([5ea1996](https://github.com/maevsi/sqitch/commit/5ea1996d67d427fc28cc5eb28862b7fa071ae3c2))
+
 ## [13.2.12](https://github.com/maevsi/sqitch/compare/13.2.11...13.2.12) (2026-11-15)
 
 ### Bug Fixes
