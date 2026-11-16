@@ -1015,6 +1015,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
+    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1151,6 +1152,14 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 
 --
+-- Name: COLUMN event.effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
+The event''s end date and time, falling back to its start when no explicit end is set.';
+
+
+--
 -- Name: event_by_attendance_id(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1255,10 +1264,10 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
--- Name: event_search(text); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: event_search(text, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
+CREATE FUNCTION vibetype.event_search(query text, include_ended boolean DEFAULT false) RETURNS SETOF vibetype.event
     LANGUAGE sql STABLE
     AS $$
   -- Falls back to trigram similarity on the name for typo tolerance, alongside the prefix match from event_search_rank().
@@ -1266,19 +1275,22 @@ CREATE FUNCTION vibetype.event_search(query text) RETURNS SETOF vibetype.event
   SELECT e.*
   FROM vibetype.event_search_match(event_search.query) m
   JOIN vibetype.event e ON e.id = m.event_id
+  WHERE
+    COALESCE(event_search.include_ended, false)
+    OR e.effective_end >= now()
   ORDER BY
     m.score DESC,
     e.id;
 $$;
 
 
-ALTER FUNCTION vibetype.event_search(query text) OWNER TO ci;
+ALTER FUNCTION vibetype.event_search(query text, include_ended boolean) OWNER TO ci;
 
 --
--- Name: FUNCTION event_search(query text); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_search(query text) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_search(query text, include_ended boolean) IS 'Searches events by name and description. Matches by prefix so partial words match as the user types, and falls back to trigram similarity on the name for typo tolerance. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -2543,10 +2555,11 @@ DECLARE
   _values_old JSONB;
 BEGIN
   -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' = to_jsonb(OLD) - 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
     AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
   THEN
     RETURN NEW;
@@ -6083,6 +6096,20 @@ CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 
 
 --
+-- Name: idx_event_start_effective_end; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_start_effective_end ON vibetype.event USING btree (start, effective_end);
+
+
+--
+-- Name: INDEX idx_event_start_effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
+
+
+--
 -- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -7897,11 +7924,11 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 
 --
--- Name: FUNCTION event_search(query text); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION event_search(query text, include_ended boolean); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.event_search(query text) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.event_search(query text) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.event_search(query text, include_ended boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_search(query text, include_ended boolean) TO vibetype_account;
 
 
 --
