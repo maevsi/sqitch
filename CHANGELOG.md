@@ -1,3 +1,9 @@
+## [13.4.0](https://github.com/maevsi/sqitch/compare/13.3.0...13.4.0) (2026-11-16)
+
+### Features
+
+* **event:** let event search exclude ended events by argument ([#396](https://github.com/maevsi/sqitch/issues/396)) ([43e1737](https://github.com/maevsi/sqitch/commit/43e1737005453d4d27ba71288fe2bd6455b3817e))
+
 ## [13.3.0](https://github.com/maevsi/sqitch/compare/13.2.12...13.3.0) (2026-11-16)
 
 ### Features
