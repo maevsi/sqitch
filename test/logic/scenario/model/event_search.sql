@@ -13,9 +13,9 @@ DECLARE
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
 
-  eventA := vibetype_test.event_create(accountA, 'Summer Party', 'summer-party', '2025-06-01 20:00', 'public');
-  eventB := vibetype_test.event_create(accountA, 'Winter Gala', 'winter-gala', '2025-12-01 19:00', 'public');
-  eventC := vibetype_test.event_create(accountA, 'Spring Festival', 'spring-festival', '2025-03-01 15:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Summer Party', 'summer-party', '9999-06-01 20:00', 'public');
+  eventB := vibetype_test.event_create(accountA, 'Winter Gala', 'winter-gala', '9999-12-01 19:00', 'public');
+  eventC := vibetype_test.event_create(accountA, 'Spring Festival', 'spring-festival', '9999-03-01 15:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -42,8 +42,8 @@ DECLARE
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
 
-  eventA := vibetype_test.event_create(accountA, 'Birthday Party', 'birthday-party', '2025-06-01 20:00', 'public');
-  eventB := vibetype_test.event_create(accountA, 'Anniversary Celebration', 'anniversary', '2025-07-01 18:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Birthday Party', 'birthday-party', '9999-06-01 20:00', 'public');
+  eventB := vibetype_test.event_create(accountA, 'Anniversary Celebration', 'anniversary', '9999-07-01 18:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -71,7 +71,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Test Event', 'test-event', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Test Event', 'test-event', '9999-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -92,7 +92,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'German Event Veranstaltung', 'german-event', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'German Event Veranstaltung', 'german-event', '9999-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -122,7 +122,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '9999-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -143,7 +143,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '9999-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -205,8 +205,8 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
 
-  eventHidden := vibetype_test.event_create(accountA, 'Zebras', 'secret-zebra', '2025-06-01 20:00', 'private');
-  eventVisible := vibetype_test.event_create(accountA, 'Zebra', 'public-zebra', '2025-06-01 20:00', 'public');
+  eventHidden := vibetype_test.event_create(accountA, 'Zebras', 'secret-zebra', '9999-06-01 20:00', 'private');
+  eventVisible := vibetype_test.event_create(accountA, 'Zebra', 'public-zebra', '9999-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountB);
 
@@ -248,7 +248,8 @@ DECLARE
   accountA UUID;
   eventEnded UUID;
   eventOngoing UUID;
-  eventNoEnd UUID;
+  eventNoEndFuture UUID;
+  eventNoEndPast UUID;
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
@@ -263,7 +264,9 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
   UPDATE vibetype.event SET "end" = '9999-01-01 00:00' WHERE id = eventOngoing;
 
-  eventNoEnd := vibetype_test.event_create(accountA, 'Open-Ended Party', 'open-ended-party', '2000-01-01 20:00', 'public');
+  eventNoEndPast := vibetype_test.event_create(accountA, 'Open-Ended Past Party', 'open-ended-past-party', '2000-01-01 20:00', 'public');
+
+  eventNoEndFuture := vibetype_test.event_create(accountA, 'Open-Ended Future Party', 'open-ended-future-party', '9999-01-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -277,8 +280,12 @@ BEGIN
     RAISE EXCEPTION 'Test failed: search should include an event whose "end" is in the future';
   END IF;
 
-  IF NOT (eventNoEnd = ANY(searchResults)) THEN
-    RAISE EXCEPTION 'Test failed: search should include an event with no "end" set';
+  IF eventNoEndPast = ANY(searchResults) THEN
+    RAISE EXCEPTION 'Test failed: search should exclude an event with no "end" whose start is in the past';
+  END IF;
+
+  IF NOT (eventNoEndFuture = ANY(searchResults)) THEN
+    RAISE EXCEPTION 'Test failed: search should include an event with no "end" whose start is in the future';
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT event_search_excludes_ended;

@@ -1,5 +1,5 @@
 -- Deterministic synthetic data for benchmark measurements.
--- Generates 1000 accounts, 100 events, 1000 contacts, ~1000 guests, and 200 attendances.
+-- Generates 1000 accounts, 200 events, 1000 contacts, ~1000 guests, and 200 attendances.
 -- Uses bulk inserts for speed; only a few accounts go through proper registration.
 
 DO $$
@@ -96,6 +96,22 @@ INSERT INTO vibetype.event (name, slug, visibility, start, "end", guest_count_ma
   JOIN _benchmark_accounts a ON a.seq = sub.organizer_seq;
 
 DO $$ BEGIN RAISE NOTICE 'Seeded 100 events'; END $$;
+
+-- 100 upcoming public events relative to now(), every third without an explicit end
+INSERT INTO vibetype.event (name, slug, visibility, start, "end", created_by, description, language)
+  SELECT
+    'Benchmark Upcoming Event ' || event_num,
+    'benchmark-upcoming-event-' || event_num,
+    'public'::vibetype.event_visibility,
+    now() + (event_num || ' hours')::INTERVAL,
+    CASE WHEN event_num % 3 = 0 THEN NULL ELSE now() + (event_num || ' hours')::INTERVAL + '4 hours'::INTERVAL END,
+    a.id,
+    'Description for upcoming benchmark event ' || event_num || '. Performance test under row-level security.',
+    CASE WHEN event_num % 2 = 0 THEN 'en' ELSE 'de' END::vibetype.language
+  FROM generate_series(1, 100) AS event_num
+  JOIN _benchmark_accounts a ON a.seq = (event_num - 1) % 20 + 1;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded 100 upcoming events'; END $$;
 
 -- Collect event data for guest assignment
 CREATE TEMP TABLE _benchmark_events AS

@@ -1015,7 +1015,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
-    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", 'infinity'::timestamp with time zone)) STORED,
+    effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1156,7 +1156,7 @@ The number of guests of the event, maintained by triggers on the guest table.';
 --
 
 COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -insert -update +filterBy
-The event''s end date and time, falling back to `end of time` when no explicit end is set.';
+The event''s end date and time, falling back to its start when no explicit end is set.';
 
 
 --
