@@ -38,6 +38,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/jwt/hash.sql
 \i scenario/database/jwt/ended.sql
 \i scenario/database/jwt/expired_delete.sql
+\i scenario/database/jwt/language.sql
 \i scenario/database/account_block_ids.sql
 \i scenario/database/account_password.sql
 \i scenario/database/audit_log.sql
