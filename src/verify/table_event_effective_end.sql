@@ -11,4 +11,6 @@ FROM (
 ) t
 WHERE t.comment LIKE '@behavior -insert -update +filterBy%';
 
+SELECT 1/count(*) FROM pg_indexes WHERE schemaname = 'vibetype' AND indexname = 'idx_event_start_effective_end';
+
 ROLLBACK;

@@ -10,4 +10,7 @@ ALTER TABLE vibetype.event
 
 COMMENT ON COLUMN vibetype.event.effective_end IS E'@behavior -insert -update +filterBy\nThe event''s end date and time, falling back to its start when no explicit end is set.';
 
+CREATE INDEX idx_event_start_effective_end ON vibetype.event USING btree (start, effective_end);
+COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
+
 COMMIT;

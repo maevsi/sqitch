@@ -6094,6 +6094,20 @@ CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
 
 
 --
+-- Name: idx_event_start_effective_end; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_event_start_effective_end ON vibetype.event USING btree (start, effective_end);
+
+
+--
+-- Name: INDEX idx_event_start_effective_end; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
+
+
+--
 -- Name: idx_event_upload_is_header_image_unique; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
