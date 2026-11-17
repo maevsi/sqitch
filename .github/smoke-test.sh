@@ -96,43 +96,16 @@ done
 [ -n "$READY" ] || fail "timeout waiting for PostgreSQL to be ready"
 echo "::endgroup::"
 
-echo "::group::Deploy"
-run_image sqitch deploy || fail "sqitch deploy failed"
+# The Dockerfile's test stage already deploys, diffs the schema, runs the logic tests and reverts,
+# but with Debian's sqitch and without the entrypoint, so this only covers what the published image adds.
+echo "::group::Deploy with the default command"
+run_image || fail "the default command failed"
 echo "::endgroup::"
 
-echo "::group::Verify deployment"
-# A full `sqitch verify` is left out: the verify scripts check the state right
-# after their own change, so later changes make them fail. `deploy.verify = true`
-# in sqitch.conf already runs each script during the deploy above.
-run_image sqitch status || fail "sqitch status failed"
-
-SCHEMAS="$(psql_db "SELECT string_agg(nspname, ',' ORDER BY nspname) FROM pg_namespace WHERE nspname LIKE 'vibetype%'")"
-echo "Schemas: $SCHEMAS"
-[ "$SCHEMAS" = "vibetype,vibetype_private" ] || fail "expected schemas vibetype and vibetype_private"
-
-for table in account event guest; do
-  [ "$(psql_db "SELECT to_regclass('vibetype.$table') IS NOT NULL")" = "t" ] || fail "table vibetype.$table is missing"
-done
-
-for role in $ROLES; do
-  [ "$(psql_db "SELECT EXISTS (SELECT FROM pg_roles WHERE rolname = '$role')")" = "t" ] || fail "role $role is missing"
-done
-
-# Deploying again must be a no-op rather than an error.
-run_image sqitch deploy || fail "second sqitch deploy failed"
-echo "Deployment OK."
-echo "::endgroup::"
-
-echo "::group::Revert"
-run_image sqitch revert -y || fail "sqitch revert failed"
-
-REMAINING="$(psql_db "SELECT count(*) FROM pg_namespace WHERE nspname LIKE 'vibetype%'")"
-echo "Remaining app schemas: $REMAINING"
-[ "$REMAINING" = "0" ] || fail "app schemas remain after revert"
-for role in $ROLES; do
-  [ "$(psql_db "SELECT EXISTS (SELECT FROM pg_roles WHERE rolname = '$role')")" = "f" ] || fail "role $role remains after revert"
-done
-echo "Revert OK."
+echo "::group::Check status"
+STATUS="$(run_image sqitch status)" || fail "sqitch status failed"
+echo "$STATUS"
+grep -q 'Nothing to deploy (up-to-date)' <<<"$STATUS" || fail "the deployment is incomplete"
 echo "::endgroup::"
 
 echo "::group::Database logs"
