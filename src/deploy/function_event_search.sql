@@ -4,10 +4,8 @@ CREATE FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text
     LANGUAGE sql STABLE STRICT
     AS $$
   -- Builds an AND of prefix-matched lexemes (e.g. 'conc:*') so the last, possibly incomplete, word of a live-typed query matches by prefix instead of requiring a full word.
-  SELECT COALESCE(
-    string_agg(lexeme || ':*', ' & ')::tsquery,
-    ''::tsquery
-  )
+  -- Without lexemes (e.g. only stop words) this is NULL rather than an empty tsquery, which `@@` treats the same way but whose literal raises a NOTICE every time the body is parsed.
+  SELECT string_agg(lexeme || ':*', ' & ')::tsquery
   FROM unnest(tsvector_to_array(to_tsvector(tsquery_prefix.ts_config, tsquery_prefix.search_text))) AS lexeme;
 $$;
 
