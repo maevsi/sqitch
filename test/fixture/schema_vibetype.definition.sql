@@ -1264,6 +1264,70 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
+-- Name: event_nearby(double precision, double precision, double precision, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean DEFAULT false) RETURNS SETOF vibetype.event
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT e.*
+  FROM vibetype.event_nearby_match(event_nearby.latitude, event_nearby.longitude, event_nearby.radius) m
+  JOIN vibetype.event e ON e.id = m.event_id
+  WHERE
+    COALESCE(event_nearby.include_ended, false)
+    OR e.effective_end >= now()
+  ORDER BY
+    m.distance,
+    e.id;
+$$;
+
+
+ALTER FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) IS 'Lists public in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+
+
+--
+-- Name: event_nearby_match(double precision, double precision, double precision); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) RETURNS TABLE(event_id uuid, distance double precision)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  WITH _origin AS MATERIALIZED (
+    SELECT ST_Point(event_nearby_match.longitude, event_nearby_match.latitude, 4326)::geography AS location
+  )
+  SELECT
+    e.id,
+    ST_Distance(a.location, o.location)
+  FROM _origin o
+  JOIN vibetype.address a
+    ON ST_DWithin(a.location, o.location, event_nearby_match.radius)
+  JOIN vibetype.event e
+    ON e.address_id = a.id
+  WHERE
+    e.visibility = 'public'
+    AND NOT e.is_archived
+    AND e.is_in_person;
+$$;
+
+
+ALTER FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_nearby_match(latitude double precision, longitude double precision, radius double precision); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) IS '@behavior -*
+Returns ids of public, non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
+
+
+--
 -- Name: event_search(text, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -7928,6 +7992,22 @@ GRANT ALL ON FUNCTION vibetype.event_delete(id uuid, password text) TO vibetype_
 REVOKE ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_nearby_match(latitude double precision, longitude double precision, radius double precision); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) TO vibetype_account;
 
 
 --
