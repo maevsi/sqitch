@@ -56,6 +56,9 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
 
+A change is breaking when it removes or changes something another service or a client relies on, or when it only works with something new from another service of the stack.
+Breaking changes get `!` in the title and target `beta`, where they wait until the stack releases the majors of its services together; the rules are in [`stack`'s release bundle document](https://github.com/maevsi/stack/blob/main/docs/release-bundle.md).
+
 ## Docker
 
 - You may need to use `sudo` to run Docker
