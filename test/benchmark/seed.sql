@@ -331,3 +331,18 @@ BEGIN
 
   RAISE NOTICE 'Seeded skewed personas';
 END $$;
+
+-- One header image per event, uploaded by its organizer, and as many uploads attached to nothing, which no other account may see.
+INSERT INTO vibetype.upload (id, created_by, size_byte, storage_key)
+  SELECT md5('benchmark-event-upload-' || e.id)::UUID, e.created_by, 1, md5('benchmark-event-upload-' || e.id)
+  FROM vibetype.event e;
+
+INSERT INTO vibetype.event_upload (event_id, is_header_image, upload_id)
+  SELECT e.id, TRUE, md5('benchmark-event-upload-' || e.id)::UUID
+  FROM vibetype.event e;
+
+INSERT INTO vibetype.upload (id, created_by, size_byte, storage_key)
+  SELECT md5('benchmark-upload-unattached-' || e.id)::UUID, e.created_by, 1, md5('benchmark-upload-unattached-' || e.id)
+  FROM vibetype.event e;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded uploads'; END $$;
