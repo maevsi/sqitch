@@ -1,3 +1,9 @@
+## [13.6.0](https://github.com/maevsi/sqitch/compare/13.5.0...13.6.0) (2026-11-19)
+
+### Features
+
+* **event:** add nearby search ([#406](https://github.com/maevsi/sqitch/issues/406)) ([2456b13](https://github.com/maevsi/sqitch/commit/2456b135dbe6e141d5d6d5ae96b149fbd6c7a825))
+
 ## [13.5.0](https://github.com/maevsi/sqitch/compare/13.4.0...13.5.0) (2026-11-19)
 
 ### Features
