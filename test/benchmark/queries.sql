@@ -159,9 +159,11 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('select_attendance',          'SELECT * FROM vibetype.attendance',                                                       FALSE, '{organizer_large,invitee_many}'),
   ('select_contacts',            'SELECT * FROM vibetype.contact',                                                          FALSE, '{invitee_many,blocker_many}'),
   ('select_contacts_by_creator', 'SELECT * FROM vibetype.contact WHERE created_by = ''{account_id}''::UUID',                FALSE, '{organizer_large}'),
+  ('select_event_header_images', 'SELECT u.storage_key FROM vibetype.event e JOIN vibetype.event_upload eu ON eu.event_id = e.id AND eu.is_header_image JOIN vibetype.upload u ON u.id = eu.upload_id WHERE e.effective_end >= now() ORDER BY e.start, e.id LIMIT 10', FALSE, '{organizer_large,invitee_many,blocker_many}'),
   ('select_events',              'SELECT * FROM vibetype.event',                                                            FALSE, '{invitee_many,blocker_many}'),
   ('select_guests',              'SELECT * FROM vibetype.guest',                                                            FALSE, '{organizer_large,invitee_many,blocker_many}'),
   ('select_guests_by_event',     'SELECT * FROM vibetype.guest WHERE event_id = ''{event_id}''::UUID',                      FALSE, '{organizer_large}'),
+  ('select_uploads',             'SELECT * FROM vibetype.upload',                                                           FALSE, '{organizer_large,invitee_many}'),
   -- Rewrites the row unchanged, so repeated runs keep the data stable; sorted last so its dead tuples don't affect earlier queries.
   ('update_attendance',          'UPDATE vibetype.attendance SET checked_out = checked_out WHERE id = ''{attendance_id}''::UUID', TRUE, '{organizer_large}');
 

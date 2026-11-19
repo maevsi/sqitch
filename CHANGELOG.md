@@ -57,6 +57,12 @@
 ### Code Refactoring
 
 * **guest:** drop the unused flat view ([#360](https://github.com/maevsi/sqitch/issues/360)) ([d3f481c](https://github.com/maevsi/sqitch/commit/d3f481c662d8eddd8cd83cde7f47a1f33cf71ba5))
+## [13.5.0](https://github.com/maevsi/sqitch/compare/13.4.0...13.5.0) (2026-11-19)
+
+### Features
+
+* **upload:** show event uploads to the event's viewers ([#404](https://github.com/maevsi/sqitch/issues/404)) ([75a47ed](https://github.com/maevsi/sqitch/commit/75a47edd817a637e55de3b294cd78dd2a8e6913c))
+
 ## [13.4.0](https://github.com/maevsi/sqitch/compare/13.3.0...13.4.0) (2026-11-16)
 
 ### Features
