@@ -1,3 +1,9 @@
+## [14.0.0-beta.5](https://github.com/maevsi/sqitch/compare/14.0.0-beta.4...14.0.0-beta.5) (2026-11-19)
+
+### Bug Fixes
+
+* **search:** drop the empty tsquery literal that logs a notice ([#402](https://github.com/maevsi/sqitch/issues/402)) ([4980312](https://github.com/maevsi/sqitch/commit/49803120ff87d279e4ba807a555e6c95cd4c1599))
+
 ## [14.0.0-beta.4](https://github.com/maevsi/sqitch/compare/14.0.0-beta.3...14.0.0-beta.4) (2026-11-16)
 
 ### ⚠ BREAKING CHANGES
