@@ -7251,9 +7251,7 @@ CREATE POLICY event_upload_delete ON vibetype.event_upload FOR DELETE USING ((EX
 
 CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE ((e.id = event_upload.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND (EXISTS ( SELECT 1
-   FROM vibetype.upload u
-  WHERE ((u.id = event_upload.upload_id) AND (u.created_by = vibetype.invoker_account_id()))))));
+  WHERE ((e.id = event_upload.event_id) AND (e.created_by = vibetype.invoker_account_id())))) AND vibetype_private.upload_is_own(upload_id)));
 
 
 --
@@ -7492,6 +7490,15 @@ CREATE POLICY upload_insert ON vibetype.upload FOR INSERT WITH CHECK ((created_b
 CREATE POLICY upload_select ON vibetype.upload FOR SELECT USING (((created_by = vibetype.invoker_account_id()) OR (EXISTS ( SELECT 1
    FROM vibetype.profile_picture p
   WHERE (p.upload_id = upload.id)))));
+
+
+--
+-- Name: upload upload_select_event; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY upload_select_event ON vibetype.upload FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM vibetype.event_upload eu
+  WHERE (eu.upload_id = upload.id))));
 
 
 --
