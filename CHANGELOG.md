@@ -1,3 +1,9 @@
+## [14.0.0-beta.6](https://github.com/maevsi/sqitch/compare/14.0.0-beta.5...14.0.0-beta.6) (2026-11-19)
+
+### Features
+
+* **upload:** show event uploads to the event's viewers ([#404](https://github.com/maevsi/sqitch/issues/404)) ([75a47ed](https://github.com/maevsi/sqitch/commit/75a47edd817a637e55de3b294cd78dd2a8e6913c))
+
 ## [14.0.0-beta.5](https://github.com/maevsi/sqitch/compare/14.0.0-beta.4...14.0.0-beta.5) (2026-11-19)
 
 ### Bug Fixes
