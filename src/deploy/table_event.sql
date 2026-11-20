@@ -20,6 +20,8 @@ CREATE TABLE vibetype.event (
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by               UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
+  guest_count              INTEGER NOT NULL DEFAULT 0,
+
   -- A stored generated column defines the rule once and can be indexed, which an expression index cannot under row level security.
   -- Following RFC 5545, an event without an explicit end ends at its start (zero duration).
   effective_end            TIMESTAMP WITH TIME ZONE GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
@@ -51,6 +53,7 @@ COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. 
 COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN vibetype.event.created_at IS E'@behavior -insert -update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
+COMMENT ON COLUMN vibetype.event.guest_count IS E'@behavior -insert -update\nThe number of guests of the event, maintained by triggers on the guest table.';
 COMMENT ON COLUMN vibetype.event.effective_end IS E'@behavior -*\nThe event''s end date and time, falling back to its start when no explicit end is set.';
 COMMENT ON INDEX vibetype.idx_event_created_by_start IS 'B-Tree index serving the events of a creator ordered by start.';
 COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
