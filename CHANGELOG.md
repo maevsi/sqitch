@@ -1,3 +1,9 @@
+## [13.8.0](https://github.com/maevsi/sqitch/compare/13.7.0...13.8.0) (2026-11-20)
+
+### Features
+
+* **account:** add a display name ([#410](https://github.com/maevsi/sqitch/issues/410)) ([d9012a8](https://github.com/maevsi/sqitch/commit/d9012a8082732f454929a656177ac4086842a33b))
+
 ## [13.7.0](https://github.com/maevsi/sqitch/compare/13.6.0...13.7.0) (2026-11-20)
 
 ### Features
