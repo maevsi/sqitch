@@ -506,7 +506,7 @@ BEGIN
     RAISE 'Password too short!' USING ERRCODE = 'VTPLL';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE account.username = account_registration.username)) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE lower(account.username) = lower(account_registration.username))) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'VTAUV';
   END IF;
 
@@ -5955,6 +5955,20 @@ CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username p
 --
 
 COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+
+
+--
+-- Name: idx_account_username_lower; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_username_lower ON vibetype.account USING btree (lower(username));
+
+
+--
+-- Name: INDEX idx_account_username_lower; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_username_lower IS 'Unique index rejecting usernames that differ only in capitalization and serving the case-insensitive username lookup.';
 
 
 --

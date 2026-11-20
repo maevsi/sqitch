@@ -65,6 +65,49 @@ EXCEPTION WHEN SQLSTATE 'VTAUV' THEN
 END $$;
 ROLLBACK TO SAVEPOINT username_uniqueness;
 
+SAVEPOINT username_uniqueness_case;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'case-a@example.com', 'en', _legal_term_id, 'password', 'case-user');
+  PERFORM vibetype.account_registration('1970-01-01', 'case-b@example.com', 'en', _legal_term_id, 'password', 'Case-User');
+  RAISE EXCEPTION 'Test failed: Username differing only in case not rejected';
+EXCEPTION WHEN SQLSTATE 'VTAUV' THEN
+  NULL;
+END $$;
+ROLLBACK TO SAVEPOINT username_uniqueness_case;
+
+-- The connection role cannot write accounts directly, so the unique index that backs the check is inspected instead.
+SAVEPOINT username_uniqueness_case_index;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_index
+    JOIN pg_class ON pg_class.oid = pg_index.indexrelid
+    WHERE pg_class.relname = 'idx_account_username_lower'
+      AND pg_index.indrelid = 'vibetype.account'::regclass
+      AND pg_index.indisunique
+      AND pg_get_indexdef(pg_index.indexrelid) LIKE '%(lower(username))%'
+  ) THEN
+    RAISE EXCEPTION 'Test failed: Unique index on lower(username) missing';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT username_uniqueness_case_index;
+
+SAVEPOINT username_distinct_case;
+DO $$
+DECLARE
+  _legal_term_id UUID;
+BEGIN
+  _legal_term_id := vibetype_test.legal_term_select_by_singleton();
+  PERFORM vibetype.account_registration('1970-01-01', 'dist-a@example.com', 'en', _legal_term_id, 'password', 'distinct-one');
+  PERFORM vibetype.account_registration('1970-01-01', 'dist-b@example.com', 'en', _legal_term_id, 'password', 'Distinct-Two');
+END $$;
+ROLLBACK TO SAVEPOINT username_distinct_case;
+
 SAVEPOINT email_uniqueness;
 DO $$
 DECLARE
