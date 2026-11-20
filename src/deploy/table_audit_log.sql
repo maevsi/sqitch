@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE vibetype_private.audit_log (
-  id              SERIAL PRIMARY KEY, -- implicitly creates the sequence vibetype_private.audit_log_id_seq
+  id              BIGSERIAL PRIMARY KEY, -- implicitly creates the sequence vibetype_private.audit_log_id_seq
 
   operation_type  TEXT NOT NULL,
   record_id       TEXT NOT NULL,

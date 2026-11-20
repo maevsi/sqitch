@@ -2,13 +2,15 @@ BEGIN;
 
 CREATE FUNCTION vibetype.attendance_claim_array() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH
   _claimed_attendance_ids AS (
     SELECT json_array_elements_text(NULLIF(current_setting('jwt.claims.attendances', true), '')::json)::UUID AS id
   ),
-  _blocked AS (
+  _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
+    WHERE EXISTS (SELECT 1 FROM _claimed_attendance_ids)
   ),
   _accessible_attendances AS (
     SELECT attendance.id

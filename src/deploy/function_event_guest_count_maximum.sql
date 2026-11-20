@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT e.guest_count_maximum
   FROM vibetype.event e
@@ -13,7 +14,7 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
       -- Or event is accessible (public, invited, or has claimed attendance)
       OR (
         e.visibility = 'public'
-        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > vibetype.guest_count(e.id))
+        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
         AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
       )
       OR e.id = ANY(vibetype_private.events_invited())

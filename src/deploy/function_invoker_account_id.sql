@@ -3,7 +3,7 @@ BEGIN;
 \set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 CREATE FUNCTION vibetype.invoker_account_id() RETURNS uuid
-    LANGUAGE sql STABLE STRICT
+    LANGUAGE sql STABLE
     AS $$
   SELECT NULLIF(current_setting('jwt.claims.sub', true), '')::UUID;
 $$;

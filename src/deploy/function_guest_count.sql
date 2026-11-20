@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
 $$;
