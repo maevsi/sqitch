@@ -1,3 +1,9 @@
+## [13.7.0](https://github.com/maevsi/sqitch/compare/13.6.0...13.7.0) (2026-11-20)
+
+### Features
+
+* **contact:** link guest claims to the account on verification and sign-in ([#409](https://github.com/maevsi/sqitch/issues/409)) ([467a291](https://github.com/maevsi/sqitch/commit/467a29166c394bb6a52c30a41417dfcc1cc8a3ca))
+
 ## [13.6.0](https://github.com/maevsi/sqitch/compare/13.5.0...13.6.0) (2026-11-19)
 
 ### Features

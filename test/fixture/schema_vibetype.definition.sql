@@ -336,8 +336,14 @@ BEGIN
   END IF;
 
   UPDATE vibetype_private.account
-    SET email_address_verification = NULL
+    SET
+      email_address_verification = NULL,
+      guest_claims = NULL
     WHERE email_address_verification = account_email_address_verification.code;
+
+  IF (_account.guest_claims IS NOT NULL) THEN
+    PERFORM vibetype_private.guest_claim_contact_link(_account.id, _account.guest_claims);
+  END IF;
 END;
 $$;
 
@@ -509,8 +515,8 @@ BEGIN
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
-  INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
+  INSERT INTO vibetype_private.account(birth_date, email_address, guest_claims, password_hash, last_activity) VALUES
+    (account_registration.birth_date, account_registration.email_address, NULLIF(vibetype.guest_claim_array(), ARRAY[]::UUID[]), public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -1761,13 +1767,18 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
     WHERE EXISTS (SELECT 1 FROM _account_activity_update)
   ),
+  _guest_claim_contact_link AS (
+    SELECT vibetype_private.guest_claim_contact_link(authenticated_account.id, vibetype.guest_claim_array())
+    FROM _authenticated_account authenticated_account
+    WHERE EXISTS (SELECT 1 FROM _account_activity_update)
+  ),
   _jwt_insert AS (
     INSERT INTO vibetype_private.jwt (id, token)
     SELECT (token).jti, token
     FROM _jwt_token
     RETURNING token
   )
-  SELECT token FROM _jwt_insert;
+  SELECT token FROM _jwt_insert, _guest_claim_contact_link;
 $_$;
 
 
@@ -2549,6 +2560,62 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
+
+--
+-- Name: guest_claim_contact_link(uuid, uuid[]); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) RETURNS integer
+    LANGUAGE plpgsql STRICT
+    AS $$
+DECLARE
+  _blocked UUID[];
+  _count INTEGER;
+  _invoker_account_id TEXT := current_setting('jwt.claims.sub', true);
+BEGIN
+  -- The contact update trigger rejects updates without an invoker, and the blocks to respect are the account's, not the caller's.
+  PERFORM set_config('jwt.claims.sub', guest_claim_contact_link.account_id::TEXT, true);
+  _blocked := vibetype_private.account_block_ids();
+
+  WITH _contact AS (
+    SELECT DISTINCT ON (contact.created_by) contact.id
+    FROM vibetype.guest
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id
+    INNER JOIN vibetype.event ON event.id = guest.event_id
+    WHERE guest.id = ANY (guest_claim_contact_link.guest_ids)
+      AND contact.account_id IS NULL
+      AND NOT (contact.created_by = ANY (_blocked))
+      AND NOT (event.created_by = ANY (_blocked))
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype.contact existing
+        WHERE existing.created_by = contact.created_by
+          AND existing.account_id = guest_claim_contact_link.account_id
+      )
+    ORDER BY contact.created_by, contact.created_at
+  )
+  UPDATE vibetype.contact
+  SET account_id = guest_claim_contact_link.account_id
+  FROM _contact
+  WHERE contact.id = _contact.id;
+
+  GET DIAGNOSTICS _count = ROW_COUNT;
+
+  PERFORM set_config('jwt.claims.sub', COALESCE(_invoker_account_id, ''), true);
+
+  RETURN _count;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION guest_claim_contact_link(account_id uuid, guest_ids uuid[]); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) IS 'Links the contacts of the given guests to the given account, so their invitations outlast the session that claimed them. Skips a contact whose creator already has one for the account, which the unique constraint on `created_by` and `account_id` would reject, and the contacts of accounts the account blocks. Returns the number of linked contacts.';
+
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -4821,6 +4888,7 @@ CREATE TABLE vibetype_private.account (
     upload_quota_bytes bigint DEFAULT 1073741824 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    guest_claims uuid[],
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) <= 254))
 );
 
@@ -4909,6 +4977,13 @@ COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the
 --
 
 COMMENT ON COLUMN vibetype_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
+
+
+--
+-- Name: COLUMN account.guest_claims; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account.guest_claims IS 'The guests claimed by the session that registered the account, linked to it once its email address is verified.';
 
 
 --
@@ -8283,6 +8358,13 @@ GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guest_claim_contact_link(account_id uuid, guest_ids uuid[]); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) FROM PUBLIC;
 
 
 --
