@@ -506,7 +506,7 @@ BEGIN
     RAISE 'Password too short!' USING ERRCODE = 'VTPLL';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE account.username = account_registration.username)) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE lower(account.username) = lower(account_registration.username))) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'VTAUV';
   END IF;
 
@@ -1045,8 +1045,7 @@ ALTER TABLE vibetype.event OWNER TO ci;
 -- Name: TABLE event; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event IS '@behavior +filter
-An event.';
+COMMENT ON TABLE vibetype.event IS 'An event.';
 
 
 --
@@ -1075,8 +1074,7 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must 
 -- Name: COLUMN event."end"; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event."end" IS '@behavior +filterBy
-The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
 
 
 --
@@ -1125,8 +1123,7 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be 
 -- Name: COLUMN event.start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.start IS '@behavior +filterBy
-The event''s start date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 
 
 --
@@ -3167,10 +3164,8 @@ CREATE FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text
     LANGUAGE sql STABLE STRICT
     AS $$
   -- Builds an AND of prefix-matched lexemes (e.g. 'conc:*') so the last, possibly incomplete, word of a live-typed query matches by prefix instead of requiring a full word.
-  SELECT COALESCE(
-    string_agg(lexeme || ':*', ' & ')::tsquery,
-    ''::tsquery
-  )
+  -- Without lexemes (e.g. only stop words) this is NULL rather than an empty tsquery, which `@@` treats the same way but whose literal raises a NOTICE every time the body is parsed.
+  SELECT string_agg(lexeme || ':*', ' & ')::tsquery
   FROM unnest(tsvector_to_array(to_tsvector(tsquery_prefix.ts_config, tsquery_prefix.search_text))) AS lexeme;
 $$;
 
@@ -4313,54 +4308,6 @@ The timestamp when the friend relation''s status was updated.';
 
 COMMENT ON COLUMN vibetype.friendship.updated_by IS '@behavior -insert -update
 The account that updated the friend relation''s status.';
-
-
---
--- Name: guest_flat; Type: VIEW; Schema: vibetype; Owner: ci
---
-
-CREATE VIEW vibetype.guest_flat WITH (security_invoker='true') AS
- SELECT guest.id AS guest_id,
-    guest.contact_id AS guest_contact_id,
-    guest.event_id AS guest_event_id,
-    guest.feedback AS guest_feedback,
-    guest.feedback_paper AS guest_feedback_paper,
-    contact.id AS contact_id,
-    contact.account_id AS contact_account_id,
-    contact.address_id AS contact_address_id,
-    contact.email_address AS contact_email_address,
-    contact.email_address_hash AS contact_email_address_hash,
-    contact.first_name AS contact_first_name,
-    contact.last_name AS contact_last_name,
-    contact.phone_number AS contact_phone_number,
-    contact.url AS contact_url,
-    contact.created_by AS contact_created_by,
-    event.id AS event_id,
-    event.address_id AS event_address_id,
-    event.description AS event_description,
-    event.start AS event_start,
-    event."end" AS event_end,
-    event.guest_count_maximum AS event_guest_count_maximum,
-    event.is_archived AS event_is_archived,
-    event.is_in_person AS event_is_in_person,
-    event.is_remote AS event_is_remote,
-    event.name AS event_name,
-    event.slug AS event_slug,
-    event.url AS event_url,
-    event.visibility AS event_visibility,
-    event.created_by AS event_created_by
-   FROM ((vibetype.guest
-     JOIN vibetype.contact ON ((guest.contact_id = contact.id)))
-     JOIN vibetype.event ON ((guest.event_id = event.id)));
-
-
-ALTER VIEW vibetype.guest_flat OWNER TO ci;
-
---
--- Name: VIEW guest_flat; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON VIEW vibetype.guest_flat IS 'View returning flattened guests.';
 
 
 --
@@ -6019,6 +5966,20 @@ CREATE INDEX idx_account_username_like ON vibetype.account USING gin (username p
 --
 
 COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+
+
+--
+-- Name: idx_account_username_lower; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_username_lower ON vibetype.account USING btree (lower(username));
+
+
+--
+-- Name: INDEX idx_account_username_lower; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_username_lower IS 'Unique index rejecting usernames that differ only in capitalization and serving the case-insensitive username lookup.';
 
 
 --
@@ -8649,14 +8610,6 @@ GRANT UPDATE(status) ON TABLE vibetype.friendship TO vibetype_account;
 --
 
 GRANT INSERT(created_by) ON TABLE vibetype.friendship TO vibetype_account;
-
-
---
--- Name: TABLE guest_flat; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.guest_flat TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.guest_flat TO vibetype_anonymous;
 
 
 --

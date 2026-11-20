@@ -28,7 +28,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - Ensure that PostGraphile Smart Comments properly control API exposure
 - Prefer `security invoker`; only use `security definer` when necessary
 - Every `security definer` function needs `SET search_path = pg_catalog, public, pg_temp`, which a test enforces; `CREATE OR REPLACE` drops the setting unless it is repeated
-- `vibetype_account` has no table-wide `UPDATE` on `vibetype.account`, so a new editable column needs its own `GRANT UPDATE (column)` (see `privilege_write_column`)
+- `vibetype_account` has no table-wide `UPDATE` on `vibetype.account`, so a new editable column needs its own `GRANT UPDATE (column)` (see `table_account_public_policy`)
 - Grant `INSERT` only on the columns a client may set when the others are set by a service or a trigger; `@behavior -insert` doesn't protect them either
 - Hide a function from GraphQL with `@behavior -*`; the v4 `@omit` tag has no effect
 - Never let the PostGraphile connection role inherit a service role, as requests without a token run as the connection role
@@ -63,6 +63,7 @@ Breaking changes get `!` in the title and target `beta`, where they wait until t
 ## Docker
 
 - You may need to use `sudo` to run Docker
+- The test image is plain `postgres` plus PostGIS packages without an init script, so the `extension_postgis` migration alone must create PostGIS
 
 ## General instructions
 

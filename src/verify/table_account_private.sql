@@ -10,7 +10,8 @@ SELECT id,
        password_reset_verification_valid_until,
        upload_quota_bytes,
        created_at,
-       last_activity
+       last_activity,
+       guest_claims
 FROM vibetype_private.account WHERE FALSE;
 
 

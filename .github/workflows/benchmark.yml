@@ -23,7 +23,7 @@ jobs:
       pull-requests: write
     services:
       postgres:
-        image: postgis/postgis:18-3.6
+        image: ghcr.io/maevsi/postgres:1.0.0
         env:
           POSTGRES_DB: ci_database
           POSTGRES_PASSWORD: postgres

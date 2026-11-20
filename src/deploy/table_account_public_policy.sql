@@ -1,14 +1,15 @@
 BEGIN;
 
 GRANT SELECT ON TABLE vibetype.account TO vibetype_account, vibetype_anonymous;
-GRANT UPDATE ON TABLE vibetype.account TO vibetype_account;
+-- `@behavior -update` only hides a column from GraphQL, so writes are granted per column.
+GRANT UPDATE (description, display_name, imprint_url) ON TABLE vibetype.account TO vibetype_account;
 
 ALTER TABLE vibetype.account ENABLE ROW LEVEL SECURITY;
 
 -- Make all accounts accessible by everyone.
 CREATE POLICY account_select ON vibetype.account FOR SELECT
 USING (
-  NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = account.id)
+  NOT EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.account_block_ids())) AS b WHERE b = account.id)
 );
 
 CREATE POLICY account_update ON vibetype.account FOR UPDATE
