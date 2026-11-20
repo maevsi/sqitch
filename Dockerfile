@@ -37,7 +37,12 @@ ENV SQITCH_VERSION="1.5.2-1"
 
 WORKDIR /srv/app
 
-RUN sed -i 's|http://apt.postgresql.org|https://apt.postgresql.org|' /etc/apt/sources.list.d/pgdg.list  # plain HTTP to apt.postgresql.org gets blocked with 403 behind TLS-inspecting proxies
+# plain HTTP to apt.postgresql.org gets blocked with 403 behind TLS-inspecting proxies, and HTTPS needs the certificates that the base image lacks, which come from Debian's sources alone
+RUN mv /etc/apt/sources.list.d/pgdg.list /tmp/pgdg.list \
+  && apt-get update \
+  && apt-get install --no-install-recommends -y ca-certificates \
+  && sed 's|http://apt.postgresql.org|https://apt.postgresql.org|' /tmp/pgdg.list > /etc/apt/sources.list.d/pgdg.list \
+  && rm /tmp/pgdg.list
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
