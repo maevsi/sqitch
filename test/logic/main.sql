@@ -66,6 +66,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/upload/constraints.sql
 \i scenario/model/account_block_accounts.sql
 \i scenario/model/account_delete.sql
+\i scenario/model/account_display_name.sql
 \i scenario/model/account_password_reset_request.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql
