@@ -1,3 +1,17 @@
+## [14.0.0-beta.7](https://github.com/maevsi/sqitch/compare/14.0.0-beta.6...14.0.0-beta.7) (2026-11-20)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** reject usernames differing only in case (#411)
+
+### Features
+
+* **extension:** create postgis in a migration ([#408](https://github.com/maevsi/sqitch/issues/408)) ([260a333](https://github.com/maevsi/sqitch/commit/260a3332dd733a8c247615206cdee48430236bc8))
+
+### Bug Fixes
+
+* **account:** reject usernames differing only in case ([#411](https://github.com/maevsi/sqitch/issues/411)) ([32a8d8d](https://github.com/maevsi/sqitch/commit/32a8d8d3802d434a5124787677e71b4e2519fd7b))
+
 ## [14.0.0-beta.6](https://github.com/maevsi/sqitch/compare/14.0.0-beta.5...14.0.0-beta.6) (2026-11-19)
 
 ### Features
