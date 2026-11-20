@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype_private.trigger_audit_log() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _account_id UUID;
@@ -12,6 +13,17 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
+  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
+  IF TG_OP = 'UPDATE'
+    AND TG_TABLE_SCHEMA = 'vibetype'
+    AND TG_TABLE_NAME = 'event'
+    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
+    AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
+  THEN
+    RETURN NEW;
+  END IF;
+
   _account_id := NULLIF(current_setting('jwt.claims.sub', true), '')::UUID;
 
   IF _account_id IS NULL THEN
@@ -52,13 +64,19 @@ BEGIN
 
   END IF;
 
+  -- Credentials and message contents are not copied into the log.
+  IF TG_TABLE_SCHEMA = 'vibetype_private' AND TG_TABLE_NAME IN ('account', 'notification') THEN
+    _values_new := _values_new - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
+    _values_old := _values_old - ARRAY['email_address_verification', 'password_hash', 'password_reset_verification', 'payload'];
+  END IF;
+
   IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
     INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, values_new)
       VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, NEW.id, TG_OP, _user_name, _values_old, _values_new);
 
     RETURN NEW;
   ELSE
-    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, _alues_new)
+    INSERT INTO vibetype_private.audit_log (schema_name, table_name, record_id, operation_type, created_by, values_old, values_new)
       VALUES (TG_TABLE_SCHEMA, TG_TABLE_NAME, OLD.id, TG_OP, _user_name, _values_old, _values_new);
 
     RETURN OLD;
@@ -282,7 +300,7 @@ COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable(TEXT,TEXT) IS 'Fu
 CREATE FUNCTION vibetype_private.adjust_audit_log_id_seq ()
 RETURNS void AS $$
 DECLARE
-  _value_max INTEGER;
+  _value_max BIGINT;
 BEGIN
   SELECT MAX(id) INTO _value_max
     FROM vibetype_private.audit_log;
