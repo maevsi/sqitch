@@ -77,6 +77,18 @@
 ### Code Refactoring
 
 * **guest:** drop the unused flat view ([#360](https://github.com/maevsi/sqitch/issues/360)) ([d3f481c](https://github.com/maevsi/sqitch/commit/d3f481c662d8eddd8cd83cde7f47a1f33cf71ba5))
+## [13.7.0](https://github.com/maevsi/sqitch/compare/13.6.0...13.7.0) (2026-11-20)
+
+### Features
+
+* **contact:** link guest claims to the account on verification and sign-in ([#409](https://github.com/maevsi/sqitch/issues/409)) ([467a291](https://github.com/maevsi/sqitch/commit/467a29166c394bb6a52c30a41417dfcc1cc8a3ca))
+
+## [13.6.0](https://github.com/maevsi/sqitch/compare/13.5.0...13.6.0) (2026-11-19)
+
+### Features
+
+* **event:** add nearby search ([#406](https://github.com/maevsi/sqitch/issues/406)) ([2456b13](https://github.com/maevsi/sqitch/commit/2456b135dbe6e141d5d6d5ae96b149fbd6c7a825))
+
 ## [13.5.0](https://github.com/maevsi/sqitch/compare/13.4.0...13.5.0) (2026-11-19)
 
 ### Features
