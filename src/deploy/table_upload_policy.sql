@@ -3,7 +3,10 @@ BEGIN;
 \set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
 
 GRANT SELECT ON TABLE vibetype.upload TO vibetype_anonymous;
-GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.upload TO vibetype_account;
+-- The storage key and type of an upload are set by the service.
+GRANT SELECT, DELETE ON TABLE vibetype.upload TO vibetype_account;
+GRANT INSERT (created_by, name, size_byte) ON TABLE vibetype.upload TO vibetype_account;
+GRANT UPDATE (name) ON TABLE vibetype.upload TO vibetype_account;
 GRANT SELECT, UPDATE ON TABLE vibetype.upload TO :role_service_vibetype_username;
 
 ALTER TABLE vibetype.upload ENABLE ROW LEVEL SECURITY;

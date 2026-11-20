@@ -1,7 +1,8 @@
 BEGIN;
 
-GRANT SELECT, INSERT, UPDATE ON TABLE vibetype.attendance TO vibetype_account;
-GRANT SELECT, UPDATE ON TABLE vibetype.attendance TO vibetype_anonymous;
+GRANT SELECT, INSERT ON TABLE vibetype.attendance TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.attendance TO vibetype_anonymous;
+GRANT UPDATE (checked_out) ON TABLE vibetype.attendance TO vibetype_account, vibetype_anonymous;
 
 ALTER TABLE vibetype.attendance ENABLE ROW LEVEL SECURITY;
 

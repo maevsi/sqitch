@@ -1,7 +1,8 @@
 BEGIN;
 
 GRANT SELECT ON TABLE vibetype.account TO vibetype_account, vibetype_anonymous;
-GRANT UPDATE ON TABLE vibetype.account TO vibetype_account;
+-- `@behavior -update` only hides a column from GraphQL, so writes are granted per column.
+GRANT UPDATE (description, display_name, imprint_url) ON TABLE vibetype.account TO vibetype_account;
 
 ALTER TABLE vibetype.account ENABLE ROW LEVEL SECURITY;
 

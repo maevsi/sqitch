@@ -42,7 +42,10 @@ CREATE TRIGGER update
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
-GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.friendship TO vibetype_account;
+-- A friendship is requested by one participant and accepted by the other, its participants never change.
+GRANT SELECT, DELETE ON TABLE vibetype.friendship TO vibetype_account;
+GRANT INSERT (a_account_id, b_account_id, created_by) ON TABLE vibetype.friendship TO vibetype_account;
+GRANT UPDATE (status) ON TABLE vibetype.friendship TO vibetype_account;
 
 ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 
