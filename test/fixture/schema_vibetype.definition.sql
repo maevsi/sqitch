@@ -628,7 +628,9 @@ CREATE TABLE vibetype.account (
     description text,
     imprint_url text,
     username text NOT NULL COLLATE pg_catalog.unicode,
+    display_name text,
     CONSTRAINT account_description_check CHECK ((char_length(description) <= 1000)),
+    CONSTRAINT account_display_name_check CHECK (((char_length(display_name) > 0) AND (char_length(display_name) <= 100))),
     CONSTRAINT account_imprint_url_check CHECK (((char_length(imprint_url) <= 2000) AND (imprint_url ~ '^https://[^[:space:]]+$'::text))),
     CONSTRAINT account_username_check CHECK (((char_length(username) <= 100) AND (username ~ '^[-A-Za-z0-9]+$'::text)))
 );
@@ -672,6 +674,13 @@ COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL. M
 
 COMMENT ON COLUMN vibetype.account.username IS '@behavior -update
 The account''s username. Must be alphanumeric with hyphens and not exceed 100 characters.';
+
+
+--
+-- Name: COLUMN account.display_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account.display_name IS 'The account''s display name, shown in place of the username where set. Must be between 1 and 100 characters.';
 
 
 --
@@ -1550,6 +1559,7 @@ DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
+  _event_creator_display_name TEXT;
   _event_creator_profile_picture_upload_id UUID;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
@@ -1618,8 +1628,8 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event creator username
-  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
+  -- Event creator display name and username
+  SELECT display_name, username INTO _event_creator_display_name, _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
 
   -- Event creator profile picture storage key
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
@@ -1635,6 +1645,7 @@ BEGIN
             'timeZone', _contact.time_zone
           ),
           'event', _event,
+          'eventCreatorDisplayName', _event_creator_display_name,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
           'guest', jsonb_build_object(
@@ -7837,6 +7848,13 @@ GRANT UPDATE(description) ON TABLE vibetype.account TO vibetype_account;
 --
 
 GRANT UPDATE(imprint_url) ON TABLE vibetype.account TO vibetype_account;
+
+
+--
+-- Name: COLUMN account.display_name; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(display_name) ON TABLE vibetype.account TO vibetype_account;
 
 
 --
