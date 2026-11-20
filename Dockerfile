@@ -24,8 +24,7 @@ COPY ./src ./
 
 ###########################
 # sqitch is not available for alpine linux as of 2025-11-20 (https://github.com/sqitchers/sqitch/issues/351#issuecomment-614153859)
-# Use imresamu/postgis:* for ARM (Mac M) support.
-FROM postgis/postgis:18-3.6 AS postgres-base
+FROM postgres:18.7-trixie@sha256:eb63372c1e05c755f55fa30cbd07aecc443676fc6c0fa90b9002d01537841e1a AS postgres-base
 
 ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
@@ -43,6 +42,8 @@ RUN sed -i 's|http://apt.postgresql.org|https://apt.postgresql.org|' /etc/apt/so
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
     jq="${JQ_VERSION}" \
+    postgresql-18-postgis-3 \
+    postgresql-18-postgis-3-scripts \
     sqitch="${SQITCH_VERSION}" \
   && mkdir -p /run/secrets \
   && echo "gizmosql"      > /run/secrets/postgres-role-service-gizmosql-username \

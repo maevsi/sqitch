@@ -62,6 +62,7 @@ Breaking changes get `!` in the title and target `beta`, where they wait until t
 ## Docker
 
 - You may need to use `sudo` to run Docker
+- The test image is plain `postgres` plus PostGIS packages without an init script, so the `extension_postgis` migration alone must create PostGIS
 
 ## General instructions
 
