@@ -1,5 +1,7 @@
 BEGIN;
 
+\set role_service_vibetype_username `cat /run/secrets/postgres-role-service-vibetype-username`
+
 CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     AS $$
@@ -15,5 +17,6 @@ $$;
 COMMENT ON FUNCTION vibetype.notification_acknowledge(UUID, BOOLEAN) IS 'Allows to set the acknowledgement state of a notification.\n\nError codes:\n- **P0002** when no notification with the given id is found.';
 
 GRANT EXECUTE ON FUNCTION vibetype.notification_acknowledge(UUID, BOOLEAN) TO vibetype_anonymous;
+GRANT EXECUTE ON FUNCTION vibetype.notification_acknowledge(UUID, BOOLEAN) TO :role_service_vibetype_username;
 
 COMMIT;

@@ -14,7 +14,8 @@ SELECT id,
        url,
        visibility,
        created_at,
-       created_by
+       created_by,
+       effective_end
 FROM vibetype.event WHERE FALSE;
 
 SELECT 1/COUNT(*)
