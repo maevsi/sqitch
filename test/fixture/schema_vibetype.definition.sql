@@ -1750,13 +1750,18 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
     WHERE EXISTS (SELECT 1 FROM _account_activity_update)
   ),
+  _guest_claim_contact_link AS (
+    SELECT vibetype_private.guest_claim_contact_link(authenticated_account.id)
+    FROM _authenticated_account authenticated_account
+    WHERE EXISTS (SELECT 1 FROM _account_activity_update)
+  ),
   _jwt_insert AS (
     INSERT INTO vibetype_private.jwt (id, token)
     SELECT (token).jti, token
     FROM _jwt_token
     RETURNING token
   )
-  SELECT token FROM _jwt_insert;
+  SELECT token FROM _jwt_insert, _guest_claim_contact_link;
 $_$;
 
 
@@ -2538,6 +2543,57 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
+
+--
+-- Name: guest_claim_contact_link(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid) RETURNS integer
+    LANGUAGE plpgsql STRICT
+    AS $$
+DECLARE
+  _count INTEGER;
+  _invoker_account_id TEXT := current_setting('jwt.claims.sub', true);
+BEGIN
+  -- The contact update trigger rejects updates without an invoker, and the guest claims should exclude the events of accounts the account blocks.
+  PERFORM set_config('jwt.claims.sub', guest_claim_contact_link.account_id::TEXT, true);
+
+  WITH _contact AS (
+    SELECT DISTINCT ON (contact.created_by) contact.id
+    FROM vibetype.guest
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id
+    WHERE guest.id = ANY (vibetype.guest_claim_array())
+      AND contact.account_id IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype.contact existing
+        WHERE existing.created_by = contact.created_by
+          AND existing.account_id = guest_claim_contact_link.account_id
+      )
+    ORDER BY contact.created_by, contact.created_at
+  )
+  UPDATE vibetype.contact
+  SET account_id = guest_claim_contact_link.account_id
+  FROM _contact
+  WHERE contact.id = _contact.id;
+
+  GET DIAGNOSTICS _count = ROW_COUNT;
+
+  PERFORM set_config('jwt.claims.sub', COALESCE(_invoker_account_id, ''), true);
+
+  RETURN _count;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION guest_claim_contact_link(account_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid) IS 'Links the contacts of the current guest claims to the given account, skipping a contact whose creator already has one for the account. Returns the number of linked contacts.';
+
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -8265,6 +8321,13 @@ GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guest_claim_contact_link(account_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid) FROM PUBLIC;
 
 
 --
