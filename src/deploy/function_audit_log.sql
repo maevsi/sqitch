@@ -113,7 +113,7 @@ BEGIN
         ' FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_audit_log()';
   END LOOP;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create_multiple() IS 'Function creating all audit log triggers for all tables that should be audited.';
 
@@ -149,7 +149,7 @@ BEGIN
       USING ERRCODE = 'VTALT';
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_create(TEXT, TEXT) IS 'Function creating an audit log trigger for a single table.\n\nError codes:\n- **VTALT** when a table cannot have an audit log trigger.';
 
@@ -166,7 +166,7 @@ BEGIN
     EXECUTE 'DROP TRIGGER ' || _record.trigger_name || ' ON ' || _record.schema_name || '.' || _record.table_name;
   END LOOP;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_drop_multiple() IS 'Function dropping all audit log triggers for all tables that are currently audited.';
 
@@ -196,7 +196,7 @@ BEGIN
       trigger_audit_log_drop.schema_name, trigger_audit_log_drop.table_name;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_drop(TEXT,TEXT) IS 'Function dropping all audit log triggers for a single table.';
 
@@ -214,7 +214,7 @@ BEGIN
     EXECUTE 'ALTER TABLE ' || _record.schema_name || '.' || _record.table_name || ' ENABLE TRIGGER ' || _record.trigger_name;
   END LOOP;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable_multiple() IS 'Function enabling all audit log triggers that are currently disabled.';
 
@@ -244,7 +244,7 @@ BEGIN
     RAISE NOTICE 'WARNING: Table %.% has no audit log trigger', trigger_audit_log_enable.schema_name, trigger_audit_log_enable.table_name;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_enable(TEXT,TEXT) IS 'Function enabling audit log triggers for a single table.';
 
@@ -262,7 +262,7 @@ BEGIN
     EXECUTE 'ALTER TABLE ' || _record.schema_name || '.' || _record.table_name || ' DISABLE TRIGGER ' || _record.trigger_name;
   END LOOP;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable_multiple() IS 'Function disabling all audit log triggers that are currently enabled.';
 
@@ -292,7 +292,7 @@ BEGIN
     RAISE NOTICE 'WARNING: Table %.% has no audit log trigger', trigger_audit_log_enable.schema_name, trigger_audit_log_enable.table_name;
   END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.trigger_audit_log_disable(TEXT,TEXT) IS 'Function disabling an audit log triggers that are currently enabled.';
 
@@ -311,7 +311,7 @@ BEGIN
     false
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public, pg_temp;
 
 COMMENT ON FUNCTION vibetype_private.adjust_audit_log_id_seq() IS 'Function resetting the current value of the sequence vibetype_private.audit_log_id_seq according to the content of table audit_log.';
 

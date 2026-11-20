@@ -51,6 +51,7 @@ COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures eac
 
 CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF NEW.time_zone IS NOT NULL THEN
@@ -76,6 +77,7 @@ CREATE TRIGGER time_zone
 
 CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (

@@ -106,6 +106,4 @@ table_event_app [table_app table_event table_account_public role_account role_an
 table_email [schema_private function_trigger_metadata_update table_account_public] 2026-04-17T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Track email addresses that bounced or generated spam complaints via AWS SES.
 role_gizmosql 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role gizmosql.
 database_ducklake [role_gizmosql] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add the database for the lakehouse catalog.
-role_postgraphile_inherit [role_vibetype] 2026-11-13T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Stop the PostGraphile role from inheriting the service role.
-function_security_definer_search_path [function_audit_log function_account_search table_guest_policy] 2026-11-13T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Pin the search path of security definer functions.
 function_event_nearby [function_event_search table_address table_event] 2026-11-19T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Find public in-person events within a radius around coordinates.

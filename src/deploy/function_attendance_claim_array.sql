@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.attendance_claim_array() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH
   _claimed_attendance_ids AS (

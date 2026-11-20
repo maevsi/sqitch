@@ -4,6 +4,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.notification_acknowledge(id uuid, is_acknowledged boolean) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   IF (EXISTS (SELECT 1 FROM vibetype_private.notification WHERE "notification".id = notification_acknowledge.id)) THEN

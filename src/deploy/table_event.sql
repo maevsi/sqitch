@@ -61,6 +61,7 @@ COMMENT ON INDEX vibetype.idx_event_name_trgm IS 'GIN trigram index on the name,
 
 CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _ts_config regconfig;

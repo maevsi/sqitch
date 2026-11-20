@@ -32,6 +32,7 @@ USING (
 -- Needs SECURITY DEFINER to bypass RLS on attendance and guest tables.
 CREATE FUNCTION vibetype_private.events_with_claimed_attendance() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT COALESCE(array_agg(DISTINCT g.event_id), ARRAY[]::UUID[])
   FROM vibetype.attendance a

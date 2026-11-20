@@ -14,6 +14,7 @@ ALTER TABLE vibetype.guest ENABLE ROW LEVEL SECURITY;
 -- Needs SECURITY DEFINER to bypass RLS on the contact table.
 CREATE FUNCTION vibetype_private.contacts_referring_invoker() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT COALESCE(array_agg(c.id), ARRAY[]::UUID[])
   FROM vibetype.contact c
@@ -25,6 +26,7 @@ $$;
 -- Needs SECURITY DEFINER to bypass RLS on the contact table.
 CREATE FUNCTION vibetype_private.contacts_blocked() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids
@@ -39,6 +41,7 @@ $$;
 -- Needs SECURITY DEFINER to skip the event policies, which would otherwise be evaluated for every own event.
 CREATE FUNCTION vibetype_private.events_organized() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT COALESCE(array_agg(e.id), ARRAY[]::UUID[])
   FROM vibetype.event e

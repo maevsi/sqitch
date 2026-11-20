@@ -37,6 +37,7 @@ CREATE TRIGGER vibetype_trigger_attendance_metadata_update
 -- Guard to enforce one-time checkout
 CREATE FUNCTION vibetype.attendance_guard() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   IF TG_OP = 'UPDATE' THEN

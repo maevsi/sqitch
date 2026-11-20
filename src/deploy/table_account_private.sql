@@ -40,6 +40,7 @@ COMMENT ON INDEX vibetype_private.idx_account_password_reset_verification IS 'Un
 
 CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (NEW.email_address_verification IS NULL) THEN
@@ -66,6 +67,7 @@ CREATE TRIGGER email_address_verification
 
 CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (NEW.password_reset_verification IS NULL) THEN

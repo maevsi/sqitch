@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.guest_claim_array() RETURNS uuid[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH
   _claimed_guest_ids AS (

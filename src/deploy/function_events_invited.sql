@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype_private.events_invited() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   -- Return event IDs for events the invoker is invited to.
   WITH _blocked AS MATERIALIZED (

@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.guest_contact_ids() RETURNS TABLE(contact_id uuid)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH _blocked AS MATERIALIZED (
     SELECT vibetype_private.account_block_ids() AS ids

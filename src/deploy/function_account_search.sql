@@ -5,7 +5,7 @@ BEGIN;
 -- It must therefore exclude the invoker's blocked accounts itself, mirroring the account_select policy, so it never returns an id the invoker may not see; account_search() additionally joins vibetype.account by primary key, which applies the policy to the candidate rows.
 CREATE FUNCTION vibetype.account_search_match(query text) RETURNS TABLE(account_id UUID, similarity REAL)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    SET search_path = pg_catalog, public
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT
     a.id,
