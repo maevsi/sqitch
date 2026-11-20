@@ -336,8 +336,14 @@ BEGIN
   END IF;
 
   UPDATE vibetype_private.account
-    SET email_address_verification = NULL
+    SET
+      email_address_verification = NULL,
+      guest_claims = NULL
     WHERE email_address_verification = account_email_address_verification.code;
+
+  IF (_account.guest_claims IS NOT NULL) THEN
+    PERFORM vibetype_private.guest_claim_contact_link(_account.id, _account.guest_claims);
+  END IF;
 END;
 $$;
 
@@ -509,8 +515,8 @@ BEGIN
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
-  INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
+  INSERT INTO vibetype_private.account(birth_date, email_address, guest_claims, password_hash, last_activity) VALUES
+    (account_registration.birth_date, account_registration.email_address, NULLIF(vibetype.guest_claim_array(), ARRAY[]::UUID[]), public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES
@@ -1261,6 +1267,70 @@ COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a 
 
 
 --
+-- Name: event_nearby(double precision, double precision, double precision, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean DEFAULT false) RETURNS SETOF vibetype.event
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT e.*
+  FROM vibetype.event_nearby_match(event_nearby.latitude, event_nearby.longitude, event_nearby.radius) m
+  JOIN vibetype.event e ON e.id = m.event_id
+  WHERE
+    COALESCE(event_nearby.include_ended, false)
+    OR e.effective_end >= now()
+  ORDER BY
+    m.distance,
+    e.id;
+$$;
+
+
+ALTER FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) IS 'Lists public in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+
+
+--
+-- Name: event_nearby_match(double precision, double precision, double precision); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) RETURNS TABLE(event_id uuid, distance double precision)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  WITH _origin AS MATERIALIZED (
+    SELECT ST_Point(event_nearby_match.longitude, event_nearby_match.latitude, 4326)::geography AS location
+  )
+  SELECT
+    e.id,
+    ST_Distance(a.location, o.location)
+  FROM _origin o
+  JOIN vibetype.address a
+    ON ST_DWithin(a.location, o.location, event_nearby_match.radius)
+  JOIN vibetype.event e
+    ON e.address_id = a.id
+  WHERE
+    e.visibility = 'public'
+    AND NOT e.is_archived
+    AND e.is_in_person;
+$$;
+
+
+ALTER FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_nearby_match(latitude double precision, longitude double precision, radius double precision); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) IS '@behavior -*
+Returns ids of public, non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
+
+
+--
 -- Name: event_search(text, boolean); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1683,13 +1753,18 @@ CREATE FUNCTION vibetype.jwt_create(username text, password text) RETURNS vibety
     FROM _authenticated_account authenticated_account, _current_time, _expiry_duration
     WHERE EXISTS (SELECT 1 FROM _account_activity_update)
   ),
+  _guest_claim_contact_link AS (
+    SELECT vibetype_private.guest_claim_contact_link(authenticated_account.id, vibetype.guest_claim_array())
+    FROM _authenticated_account authenticated_account
+    WHERE EXISTS (SELECT 1 FROM _account_activity_update)
+  ),
   _jwt_insert AS (
     INSERT INTO vibetype_private.jwt (id, token)
     SELECT (token).jti, token
     FROM _jwt_token
     RETURNING token
   )
-  SELECT token FROM _jwt_insert;
+  SELECT token FROM _jwt_insert, _guest_claim_contact_link;
 $_$;
 
 
@@ -2471,6 +2546,62 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.events_with_claimed_attendance() OWNER TO ci;
+
+--
+-- Name: guest_claim_contact_link(uuid, uuid[]); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) RETURNS integer
+    LANGUAGE plpgsql STRICT
+    AS $$
+DECLARE
+  _blocked UUID[];
+  _count INTEGER;
+  _invoker_account_id TEXT := current_setting('jwt.claims.sub', true);
+BEGIN
+  -- The contact update trigger rejects updates without an invoker, and the blocks to respect are the account's, not the caller's.
+  PERFORM set_config('jwt.claims.sub', guest_claim_contact_link.account_id::TEXT, true);
+  _blocked := vibetype_private.account_block_ids();
+
+  WITH _contact AS (
+    SELECT DISTINCT ON (contact.created_by) contact.id
+    FROM vibetype.guest
+    INNER JOIN vibetype.contact ON contact.id = guest.contact_id
+    INNER JOIN vibetype.event ON event.id = guest.event_id
+    WHERE guest.id = ANY (guest_claim_contact_link.guest_ids)
+      AND contact.account_id IS NULL
+      AND NOT (contact.created_by = ANY (_blocked))
+      AND NOT (event.created_by = ANY (_blocked))
+      AND NOT EXISTS (
+        SELECT 1
+        FROM vibetype.contact existing
+        WHERE existing.created_by = contact.created_by
+          AND existing.account_id = guest_claim_contact_link.account_id
+      )
+    ORDER BY contact.created_by, contact.created_at
+  )
+  UPDATE vibetype.contact
+  SET account_id = guest_claim_contact_link.account_id
+  FROM _contact
+  WHERE contact.id = _contact.id;
+
+  GET DIAGNOSTICS _count = ROW_COUNT;
+
+  PERFORM set_config('jwt.claims.sub', COALESCE(_invoker_account_id, ''), true);
+
+  RETURN _count;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION guest_claim_contact_link(account_id uuid, guest_ids uuid[]); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) IS 'Links the contacts of the given guests to the given account, so their invitations outlast the session that claimed them. Skips a contact whose creator already has one for the account, which the unique constraint on `created_by` and `account_id` would reject, and the contacts of accounts the account blocks. Returns the number of linked contacts.';
+
 
 --
 -- Name: trigger_account_email_address_verification_valid_until(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -4693,6 +4824,7 @@ CREATE TABLE vibetype_private.account (
     upload_quota_bytes bigint DEFAULT 1073741824 NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     last_activity timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    guest_claims uuid[],
     CONSTRAINT account_email_address_check CHECK ((char_length(email_address) <= 254))
 );
 
@@ -4781,6 +4913,13 @@ COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the
 --
 
 COMMENT ON COLUMN vibetype_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
+
+
+--
+-- Name: COLUMN account.guest_claims; Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype_private.account.guest_claims IS 'The guests claimed by the session that registered the account, linked to it once its email address is verified.';
 
 
 --
@@ -7878,6 +8017,22 @@ GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibet
 
 
 --
+-- Name: FUNCTION event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_nearby_match(latitude double precision, longitude double precision, radius double precision); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) TO vibetype_account;
+
+
+--
 -- Name: FUNCTION event_search(query text, include_ended boolean); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8132,6 +8287,13 @@ GRANT ALL ON FUNCTION vibetype_private.events_organized() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.events_with_claimed_attendance() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION guest_claim_contact_link(account_id uuid, guest_ids uuid[]); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, guest_ids uuid[]) FROM PUBLIC;
 
 
 --
