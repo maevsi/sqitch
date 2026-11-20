@@ -35,7 +35,6 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \i scenario/database/achievement_code/constraints.sql
 \i scenario/database/jwt/generated_columns.sql
-\i scenario/database/jwt/contact_link.sql
 \i scenario/database/jwt/hash.sql
 \i scenario/database/jwt/ended.sql
 \i scenario/database/jwt/expired_delete.sql
@@ -45,6 +44,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/audit_log.sql
 \i scenario/database/event_guest_count.sql
 \i scenario/database/events_invited.sql
+\i scenario/database/guest_claim_contact_link.sql
 \i scenario/database/index.sql
 \i scenario/database/security_definer.sql
 \i scenario/database/upload_quota.sql
