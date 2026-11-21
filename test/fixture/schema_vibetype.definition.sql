@@ -3145,6 +3145,15 @@ BEGIN
   ) g
   WHERE event.id = g.event_id;
 
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.event
+    WHERE id IN (SELECT event_id FROM guest_inserted)
+      AND guest_count > guest_count_maximum
+  ) THEN
+    RAISE 'The event''s maximum guest count is reached.' USING ERRCODE = 'VTGCM';
+  END IF;
+
   RETURN NULL;
 END;
 $$;
@@ -7519,6 +7528,17 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id =
   WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
            FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
           WHERE (b.b = c.account_id)))))))));
+
+
+--
+-- Name: guest guest_insert_join; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY guest_insert_join ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.visibility = 'public'::vibetype.event_visibility) AND ((e.guest_count_maximum IS NULL) OR (e.guest_count_maximum > e.guest_count))))) AND (EXISTS ( SELECT 1
+   FROM vibetype.contact c
+  WHERE ((c.id = guest.contact_id) AND (c.account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)) AND (c.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)))))));
 
 
 --

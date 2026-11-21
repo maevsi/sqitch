@@ -44,3 +44,28 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.guest_test(TEXT, UUID, UUID[]) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.guest_join_rejected_test (
+  _test_case TEXT,
+  _account_id UUID,
+  _event_id UUID,
+  _contact_id UUID,
+  _sqlstate TEXT
+) RETURNS VOID AS $$
+BEGIN
+  PERFORM vibetype_test.invoker_set(_account_id);
+
+  BEGIN
+    INSERT INTO vibetype.guest(contact_id, event_id) VALUES (_contact_id, _event_id);
+    RAISE EXCEPTION '%: the guest should have been rejected', _test_case;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> _sqlstate THEN
+      RAISE EXCEPTION '%: expected error %, got % (%)', _test_case, _sqlstate, SQLSTATE, SQLERRM;
+    END IF;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.guest_join_rejected_test(TEXT, UUID, UUID, UUID, TEXT) TO vibetype_account;
