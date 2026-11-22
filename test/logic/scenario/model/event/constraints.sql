@@ -178,4 +178,35 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_insert_url_too_long;
 
+SAVEPOINT event_effective_end;
+DO $$
+DECLARE
+  accountA UUID;
+  event_id UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.event(created_by, name, slug, start, "end", visibility)
+  VALUES (accountA, 'Test Event', 'test-event', '2025-06-01 20:00', '2025-06-01 22:00', 'public')
+  RETURNING id INTO event_id;
+
+  IF (SELECT effective_end FROM vibetype.event WHERE id = event_id) IS DISTINCT FROM '2025-06-01 22:00'::TIMESTAMPTZ THEN
+    RAISE EXCEPTION 'Test failed (event_effective_end): an explicit end must be the effective end';
+  END IF;
+
+  UPDATE vibetype.event SET "end" = NULL WHERE id = event_id;
+
+  IF (SELECT effective_end FROM vibetype.event WHERE id = event_id) IS DISTINCT FROM '2025-06-01 20:00'::TIMESTAMPTZ THEN
+    RAISE EXCEPTION 'Test failed (event_effective_end): without an end the start must be the effective end';
+  END IF;
+
+  UPDATE vibetype.event SET start = '2025-06-02 20:00' WHERE id = event_id;
+
+  IF (SELECT effective_end FROM vibetype.event WHERE id = event_id) IS DISTINCT FROM '2025-06-02 20:00'::TIMESTAMPTZ THEN
+    RAISE EXCEPTION 'Test failed (event_effective_end): the effective end must follow an update of the start';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT event_effective_end;
+
 ROLLBACK;

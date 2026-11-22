@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH
   _current_time AS (
@@ -10,8 +11,14 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
   _expiry_duration AS (
     SELECT COALESCE(current_setting('vibetype.jwt_expiry_duration', true), '1 day')::INTERVAL AS duration
   ),
-  _existing_jwt_id AS (
+  _claimed_jwt_id AS (
     SELECT NULLIF(current_setting('jwt.claims.jti', true), '')::UUID AS id
+  ),
+  _existing_jwt_id AS (
+    SELECT
+      (SELECT jwt.id FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS id,
+      claimed.id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM vibetype_private.jwt WHERE jwt.id = claimed.id) AS is_ended
+    FROM _claimed_jwt_id claimed
   ),
   _jwt_claims AS (
     SELECT
@@ -25,13 +32,14 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         ELSE ARRAY[jwt_update_guest_add.guest_id]
       END AS guest_claims,
       COALESCE(
-        NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT,
+        CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.exp', true), '')::BIGINT END,
         EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
       ) AS expiration,
       COALESCE(existing_jwt.id, gen_random_uuid()) AS token_id,
-      COALESCE(NULLIF(current_setting('jwt.claims.role', true), ''), 'vibetype_anonymous') AS role,
-      vibetype.invoker_account_id() AS account_id,
-      NULLIF(current_setting('jwt.claims.username', true), '') AS username
+      COALESCE(CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.role', true), '') END, 'vibetype_anonymous') AS role,
+      CASE WHEN NOT existing_jwt.is_ended THEN vibetype.invoker_account_id() END AS account_id,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.username', true), '') END AS username,
+      CASE WHEN NOT existing_jwt.is_ended THEN NULLIF(current_setting('jwt.claims.language', true), '')::vibetype.language END AS language
     FROM _existing_jwt_id existing_jwt, _current_time, _expiry_duration
   ),
   _jwt_upsert AS (
@@ -45,7 +53,8 @@ CREATE FUNCTION vibetype.jwt_update_guest_add(guest_id uuid) RETURNS vibetype.jw
         token_id,
         role,
         account_id,
-        username
+        username,
+        language
       )::vibetype.jwt
     FROM _jwt_claims
     ON CONFLICT (id) DO UPDATE

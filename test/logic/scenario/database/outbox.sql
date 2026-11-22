@@ -208,11 +208,13 @@ BEGIN
   _guest_ac := vibetype_test.guest_create(_account_a, _event_id, _contact_ac);
 
   UPDATE vibetype_private.account SET email_address = 'b-account@example.com' WHERE id = _account_b;
+  UPDATE vibetype.account SET display_name = 'Jonas Thelemann' WHERE id = _account_a;
 
   SELECT * INTO _resolved FROM vibetype_private.outbox_guest_invitation_resolve(_guest_ab);
 
   IF _resolved.contact_email_address IS DISTINCT FROM 'b-account@example.com'
     OR _resolved.event ->> 'name' IS DISTINCT FROM 'Event'
+    OR _resolved.event_creator_display_name IS DISTINCT FROM 'Jonas Thelemann'
     OR _resolved.event_creator_username IS DISTINCT FROM 'a'
   THEN
     RAISE EXCEPTION 'Test failed (outbox_guest_invitation_resolve): unexpected invitation %', _resolved;
