@@ -39,6 +39,7 @@ CREATE POLICY event_upload_select ON vibetype.event_upload FOR SELECT USING (
 );
 
 -- Only allow inserts for events created by the current user and for uploads of the current_user.
+-- Reading `upload` under its policies here would recurse into `event_upload` through `upload_select_event`.
 CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK (
   EXISTS (
     SELECT 1 FROM vibetype.event e
@@ -46,11 +47,7 @@ CREATE POLICY event_upload_insert ON vibetype.event_upload FOR INSERT WITH CHECK
       AND e.created_by = vibetype.invoker_account_id()
   )
   AND
-  EXISTS (
-    SELECT 1 FROM vibetype.upload u
-    WHERE u.id = event_upload.upload_id
-      AND u.created_by = vibetype.invoker_account_id()
-  )
+  vibetype_private.upload_is_own(event_upload.upload_id)
 );
 
 -- Only allow deletes if event is created by the current user.

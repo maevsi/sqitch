@@ -186,3 +186,8 @@ SELECT vibetype_test.index_scan_check(
   'SELECT * FROM vibetype.event WHERE created_by = ''00000000-0000-0000-0000-000000000000''::UUID AND start >= now()',
   'idx_event_created_by_start'
 );
+
+SELECT vibetype_test.index_scan_check(
+  'SELECT e.id FROM vibetype.address a JOIN vibetype.event e ON e.address_id = a.id WHERE ST_DWithin(a.location, ST_Point(8.0, 50.0, 4326)::geography, 1000)',
+  'idx_address_location'
+);

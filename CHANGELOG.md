@@ -1,3 +1,80 @@
+## [14.0.0-beta.9](https://github.com/maevsi/sqitch/compare/14.0.0-beta.8...14.0.0-beta.9) (2026-11-20)
+
+### Features
+
+* **account:** add a display name ([#410](https://github.com/maevsi/sqitch/issues/410)) ([d9012a8](https://github.com/maevsi/sqitch/commit/d9012a8082732f454929a656177ac4086842a33b))
+
+## [14.0.0-beta.8](https://github.com/maevsi/sqitch/compare/14.0.0-beta.7...14.0.0-beta.8) (2026-11-20)
+
+### Features
+
+* **contact:** link guest claims to the account on verification and sign-in ([#409](https://github.com/maevsi/sqitch/issues/409)) ([467a291](https://github.com/maevsi/sqitch/commit/467a29166c394bb6a52c30a41417dfcc1cc8a3ca))
+* **event:** add nearby search ([#406](https://github.com/maevsi/sqitch/issues/406)) ([2456b13](https://github.com/maevsi/sqitch/commit/2456b135dbe6e141d5d6d5ae96b149fbd6c7a825))
+
+## [14.0.0-beta.7](https://github.com/maevsi/sqitch/compare/14.0.0-beta.6...14.0.0-beta.7) (2026-11-20)
+
+### ⚠ BREAKING CHANGES
+
+* **account:** reject usernames differing only in case (#411)
+
+### Features
+
+* **extension:** create postgis in a migration ([#408](https://github.com/maevsi/sqitch/issues/408)) ([260a333](https://github.com/maevsi/sqitch/commit/260a3332dd733a8c247615206cdee48430236bc8))
+
+### Bug Fixes
+
+* **account:** reject usernames differing only in case ([#411](https://github.com/maevsi/sqitch/issues/411)) ([32a8d8d](https://github.com/maevsi/sqitch/commit/32a8d8d3802d434a5124787677e71b4e2519fd7b))
+
+## [14.0.0-beta.6](https://github.com/maevsi/sqitch/compare/14.0.0-beta.5...14.0.0-beta.6) (2026-11-19)
+
+### Features
+
+* **upload:** show event uploads to the event's viewers ([#404](https://github.com/maevsi/sqitch/issues/404)) ([75a47ed](https://github.com/maevsi/sqitch/commit/75a47edd817a637e55de3b294cd78dd2a8e6913c))
+
+## [14.0.0-beta.5](https://github.com/maevsi/sqitch/compare/14.0.0-beta.4...14.0.0-beta.5) (2026-11-19)
+
+### Bug Fixes
+
+* **search:** drop the empty tsquery literal that logs a notice ([#402](https://github.com/maevsi/sqitch/issues/402)) ([4980312](https://github.com/maevsi/sqitch/commit/49803120ff87d279e4ba807a555e6c95cd4c1599))
+
+## [14.0.0-beta.4](https://github.com/maevsi/sqitch/compare/14.0.0-beta.3...14.0.0-beta.4) (2026-11-16)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** drop the connection filter behaviors (#398)
+
+### Features
+
+* **event:** let event search exclude ended events by argument ([#396](https://github.com/maevsi/sqitch/issues/396)) ([43e1737](https://github.com/maevsi/sqitch/commit/43e1737005453d4d27ba71288fe2bd6455b3817e))
+* **jwt:** add the language of the own contact to the token ([#395](https://github.com/maevsi/sqitch/issues/395)) ([5ea1996](https://github.com/maevsi/sqitch/commit/5ea1996d67d427fc28cc5eb28862b7fa071ae3c2))
+
+### Bug Fixes
+
+* **auth:** upgrade password hashes on sign-in and serialize the upload quota ([#389](https://github.com/maevsi/sqitch/issues/389)) ([4131bef](https://github.com/maevsi/sqitch/commit/4131befac254ba35114ef54111ea2342af4e09a5))
+
+### Code Refactoring
+
+* **event:** drop the connection filter behaviors ([#398](https://github.com/maevsi/sqitch/issues/398)) ([7c5c2bc](https://github.com/maevsi/sqitch/commit/7c5c2bccbbc1375ac9c0252e83d2a80eb1ba5c1d))
+
+## [14.0.0-beta.3](https://github.com/maevsi/sqitch/compare/14.0.0-beta.2...14.0.0-beta.3) (2026-11-15)
+
+### Bug Fixes
+
+* **audit-log:** record deletes instead of failing on a misspelled column ([#363](https://github.com/maevsi/sqitch/issues/363)) ([ffc8dc9](https://github.com/maevsi/sqitch/commit/ffc8dc9374f5a82accc2120f84d5779ce3e163a1))
+* **auth:** harden sessions, hashing and the audit log ([#385](https://github.com/maevsi/sqitch/issues/385)) ([580b611](https://github.com/maevsi/sqitch/commit/580b611b38179f5c82ef3bc691e5b9b42c2c8e29))
+* **security:** harden roles, grants and functions ([#378](https://github.com/maevsi/sqitch/issues/378)) ([77962ec](https://github.com/maevsi/sqitch/commit/77962ec268236546b7b3b88db5d08b90cea4c982))
+
+### Performance Improvements
+
+* **audit-log:** widen the id to bigint ([#372](https://github.com/maevsi/sqitch/issues/372)) ([9b13768](https://github.com/maevsi/sqitch/commit/9b13768194f0e9e2416e01ed22acf466377b892c))
+* **event:** maintain the guest count on the event ([#383](https://github.com/maevsi/sqitch/issues/383)) ([ff83271](https://github.com/maevsi/sqitch/commit/ff832718e6c13c5eeca6e1df1f60d5744904d3be))
+* **git:** track graph image with lfs ([#377](https://github.com/maevsi/sqitch/issues/377)) ([e7336bd](https://github.com/maevsi/sqitch/commit/e7336bdace8384ef69008091c1e51ddf7d55ff09))
+* **index:** drop indexes covered by unique ones and index verification codes ([#368](https://github.com/maevsi/sqitch/issues/368)) ([9eb6e73](https://github.com/maevsi/sqitch/commit/9eb6e732582f343893ed6caafc11e5a04dddc17b))
+* **jwt:** delete expired tokens of the account on login ([#379](https://github.com/maevsi/sqitch/issues/379)) ([0480e12](https://github.com/maevsi/sqitch/commit/0480e12adc911c8d78de6ad8df44eefe9d3e2868))
+* **policy:** evaluate helpers once per statement and let guest visibility use indexes ([#371](https://github.com/maevsi/sqitch/issues/371)) ([4bcee22](https://github.com/maevsi/sqitch/commit/4bcee22934cc2f87cd67927fef49cb083cd430c3))
+* **search:** let account search use its index under row level security ([#375](https://github.com/maevsi/sqitch/issues/375)) ([14e9d1f](https://github.com/maevsi/sqitch/commit/14e9d1f7ef4eba2669939da54a9d0ec62856e65b))
+* **search:** let event search use its indexes under row level security ([#380](https://github.com/maevsi/sqitch/issues/380)) ([e6db76b](https://github.com/maevsi/sqitch/commit/e6db76b328758e6f2fc18326a966ab47ba52d74e))
+
 ## [14.0.0-beta.2](https://github.com/maevsi/sqitch/compare/14.0.0-beta.1...14.0.0-beta.2) (2026-11-12)
 
 ### Features
@@ -13,6 +90,48 @@
 ### Code Refactoring
 
 * **guest:** drop the unused flat view ([#360](https://github.com/maevsi/sqitch/issues/360)) ([d3f481c](https://github.com/maevsi/sqitch/commit/d3f481c662d8eddd8cd83cde7f47a1f33cf71ba5))
+## [13.8.0](https://github.com/maevsi/sqitch/compare/13.7.0...13.8.0) (2026-11-20)
+
+### Features
+
+* **account:** add a display name ([#410](https://github.com/maevsi/sqitch/issues/410)) ([d9012a8](https://github.com/maevsi/sqitch/commit/d9012a8082732f454929a656177ac4086842a33b))
+
+## [13.7.0](https://github.com/maevsi/sqitch/compare/13.6.0...13.7.0) (2026-11-20)
+
+### Features
+
+* **contact:** link guest claims to the account on verification and sign-in ([#409](https://github.com/maevsi/sqitch/issues/409)) ([467a291](https://github.com/maevsi/sqitch/commit/467a29166c394bb6a52c30a41417dfcc1cc8a3ca))
+
+## [13.6.0](https://github.com/maevsi/sqitch/compare/13.5.0...13.6.0) (2026-11-19)
+
+### Features
+
+* **event:** add nearby search ([#406](https://github.com/maevsi/sqitch/issues/406)) ([2456b13](https://github.com/maevsi/sqitch/commit/2456b135dbe6e141d5d6d5ae96b149fbd6c7a825))
+
+## [13.5.0](https://github.com/maevsi/sqitch/compare/13.4.0...13.5.0) (2026-11-19)
+
+### Features
+
+* **upload:** show event uploads to the event's viewers ([#404](https://github.com/maevsi/sqitch/issues/404)) ([75a47ed](https://github.com/maevsi/sqitch/commit/75a47edd817a637e55de3b294cd78dd2a8e6913c))
+
+## [13.4.0](https://github.com/maevsi/sqitch/compare/13.3.0...13.4.0) (2026-11-16)
+
+### Features
+
+* **event:** let event search exclude ended events by argument ([#396](https://github.com/maevsi/sqitch/issues/396)) ([43e1737](https://github.com/maevsi/sqitch/commit/43e1737005453d4d27ba71288fe2bd6455b3817e))
+
+## [13.3.0](https://github.com/maevsi/sqitch/compare/13.2.12...13.3.0) (2026-11-16)
+
+### Features
+
+* **jwt:** add the language of the own contact to the token ([#395](https://github.com/maevsi/sqitch/issues/395)) ([5ea1996](https://github.com/maevsi/sqitch/commit/5ea1996d67d427fc28cc5eb28862b7fa071ae3c2))
+
+## [13.2.12](https://github.com/maevsi/sqitch/compare/13.2.11...13.2.12) (2026-11-15)
+
+### Bug Fixes
+
+* **auth:** upgrade password hashes on sign-in and serialize the upload quota ([#389](https://github.com/maevsi/sqitch/issues/389)) ([4131bef](https://github.com/maevsi/sqitch/commit/4131befac254ba35114ef54111ea2342af4e09a5))
+
 ## [13.2.11](https://github.com/maevsi/sqitch/compare/13.2.10...13.2.11) (2026-11-15)
 
 ### Bug Fixes

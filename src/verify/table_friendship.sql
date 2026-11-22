@@ -22,8 +22,8 @@ SET local role.vibetype_username TO :'role_service_vibetype_username';
 DO $$
 BEGIN
   ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.friendship', 'SELECT'));
-  ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.friendship', 'INSERT'));
-  ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.friendship', 'UPDATE'));
+  ASSERT (SELECT pg_catalog.has_any_column_privilege('vibetype_account', 'vibetype.friendship', 'INSERT'));
+  ASSERT (SELECT pg_catalog.has_any_column_privilege('vibetype_account', 'vibetype.friendship', 'UPDATE'));
   ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.friendship', 'DELETE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.friendship', 'SELECT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.friendship', 'INSERT'));

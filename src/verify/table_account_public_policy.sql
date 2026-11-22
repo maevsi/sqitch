@@ -7,7 +7,7 @@ DO $$
 BEGIN
   ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.account', 'SELECT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.account', 'INSERT'));
-  ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.account', 'UPDATE'));
+  ASSERT (SELECT pg_catalog.has_any_column_privilege('vibetype_account', 'vibetype.account', 'UPDATE'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_account', 'vibetype.account', 'DELETE'));
   ASSERT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.account', 'SELECT'));
   ASSERT NOT (SELECT pg_catalog.has_table_privilege('vibetype_anonymous', 'vibetype.account', 'INSERT'));

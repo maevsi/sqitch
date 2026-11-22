@@ -11,6 +11,11 @@ on:
       - main
       - renovate/**
 
+# Release branches queue instead of being cancelled, so a release never stops halfway.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(fromJSON('["refs/heads/alpha", "refs/heads/beta", "refs/heads/main"]'), github.ref) }}
+
 jobs:
   ci-optimization:
     name: CI optimization
@@ -38,6 +43,7 @@ jobs:
       id-token: write
       packages: write
     with:
+      SMOKE_TEST_SCRIPT: .github/smoke-test.sh
       TAG: ${{ needs.release_semantic_dry.outputs.new_release_version }}
   release_semantic:
     needs: build

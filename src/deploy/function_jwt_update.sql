@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH
   _current_time AS (
@@ -27,7 +28,9 @@ CREATE FUNCTION vibetype.jwt_update(jwt_id uuid) RETURNS vibetype.jwt
   ),
   _jwt_update AS (
     UPDATE vibetype_private.jwt
-    SET token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration))
+    SET
+      token.exp = EXTRACT(EPOCH FROM (_current_time.now + _expiry_duration.duration)),
+      token.language = (SELECT contact.language FROM vibetype.contact WHERE contact.created_by = jwt.subject AND contact.account_id = jwt.subject)
     FROM _current_time, _expiry_duration
     WHERE jwt.id = (SELECT id FROM _valid_jwt)
     RETURNING token

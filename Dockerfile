@@ -24,8 +24,7 @@ COPY ./src ./
 
 ###########################
 # sqitch is not available for alpine linux as of 2025-11-20 (https://github.com/sqitchers/sqitch/issues/351#issuecomment-614153859)
-# Use imresamu/postgis:* for ARM (Mac M) support.
-FROM postgis/postgis:18-3.6 AS postgres-base
+FROM postgres:18.7-trixie@sha256:eb63372c1e05c755f55fa30cbd07aecc443676fc6c0fa90b9002d01537841e1a AS postgres-base
 
 ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
@@ -38,11 +37,18 @@ ENV SQITCH_VERSION="1.5.2-1"
 
 WORKDIR /srv/app
 
-RUN sed -i 's|http://apt.postgresql.org|https://apt.postgresql.org|' /etc/apt/sources.list.d/pgdg.list  # plain HTTP to apt.postgresql.org gets blocked with 403 behind TLS-inspecting proxies
+# plain HTTP to apt.postgresql.org gets blocked with 403 behind TLS-inspecting proxies, and HTTPS needs the certificates that the base image lacks, which come from Debian's sources alone
+RUN mv /etc/apt/sources.list.d/pgdg.list /tmp/pgdg.list \
+  && apt-get update \
+  && apt-get install --no-install-recommends -y ca-certificates \
+  && sed 's|http://apt.postgresql.org|https://apt.postgresql.org|' /tmp/pgdg.list > /etc/apt/sources.list.d/pgdg.list \
+  && rm /tmp/pgdg.list
 
 RUN apt-get update \
   && apt-get install --no-install-recommends -y \
     jq="${JQ_VERSION}" \
+    postgresql-18-postgis-3 \
+    postgresql-18-postgis-3-scripts \
     sqitch="${SQITCH_VERSION}" \
   && mkdir -p /run/secrets \
   && echo "gizmosql"      > /run/secrets/postgres-role-service-gizmosql-username \
