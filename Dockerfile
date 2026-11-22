@@ -2,7 +2,18 @@
 # check=skip=SecretsUsedInArgOrEnv
 
 ##############################
+# The sqitch image ships no package manager, so tini comes from Debian.
+FROM debian:trixie-slim AS tini
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes tini
+
+
+##############################
 FROM sqitch/sqitch:v1.6.1.4 AS prepare
+
+# tini forwards stop signals to the whole process group, as `sh -c` in the entrypoint does not pass them on.
+COPY --from=tini /usr/bin/tini-static /usr/bin/tini
 
 WORKDIR /srv/app
 
@@ -12,7 +23,7 @@ FROM prepare AS development
 
 VOLUME /srv/app
 
-ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/srv/app/docker-entrypoint.sh"]
 CMD ["sqitch", "--chdir", "src", "deploy"]
 
 
@@ -117,5 +128,5 @@ ENV ENV=production
 COPY ./docker-entrypoint.sh /srv/app/docker-entrypoint.sh
 COPY --from=collect /srv/app ./
 
-ENTRYPOINT ["/srv/app/docker-entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/srv/app/docker-entrypoint.sh"]
 CMD ["sqitch", "deploy"]
