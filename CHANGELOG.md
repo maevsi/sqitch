@@ -96,6 +96,18 @@
 ### Code Refactoring
 
 * **guest:** drop the unused flat view ([#360](https://github.com/maevsi/sqitch/issues/360)) ([d3f481c](https://github.com/maevsi/sqitch/commit/d3f481c662d8eddd8cd83cde7f47a1f33cf71ba5))
+## [13.10.0](https://github.com/maevsi/sqitch/compare/13.9.1...13.10.0) (2026-11-22)
+
+### Features
+
+* **attendance:** store the serial number of the written tag ([#421](https://github.com/maevsi/sqitch/issues/421)) ([ff2f368](https://github.com/maevsi/sqitch/commit/ff2f368c583059ee30670307b4659e6519dd723f))
+
+## [13.9.1](https://github.com/maevsi/sqitch/compare/13.9.0...13.9.1) (2026-11-22)
+
+### Bug Fixes
+
+* **docker:** forward stop signals to sqitch ([#420](https://github.com/maevsi/sqitch/issues/420)) ([13948d0](https://github.com/maevsi/sqitch/commit/13948d04a784c3a24c95d7bdb15436a9ebc55ffd))
+
 ## [13.9.0](https://github.com/maevsi/sqitch/compare/13.8.0...13.9.0) (2026-11-22)
 
 ### Features
