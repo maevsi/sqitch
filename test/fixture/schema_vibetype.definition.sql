@@ -2236,6 +2236,31 @@ COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Populates vibetyp
 
 
 --
+-- Name: trigger_friendship_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_friendship_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM vibetype_private.outbox_insert('friendship', NEW.id, CASE TG_OP WHEN 'INSERT' THEN 'friendship.requested' ELSE 'friendship.accepted' END, to_jsonb(NEW));
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_friendship_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_friendship_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_friendship_outbox() IS 'Adds an outbox event of type `friendship.requested` or `friendship.accepted` with a snapshot of the friendship.';
+
+
+--
 -- Name: trigger_guest_update(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -2639,6 +2664,49 @@ ALTER FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) OWNER TO
 --
 
 COMMENT ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) IS 'Returns the account data that emails about an `account` outbox event need, or no row if the account is gone.';
+
+
+--
+-- Name: outbox_friendship_resolve(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) RETURNS TABLE(recipient_account_id uuid, recipient_email_address text, recipient_language text, recipient_username text, sender_username text, status text)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT
+    recipient.id,
+    recipient_private.email_address,
+    recipient_contact.language::text,
+    recipient.username,
+    sender.username,
+    f.status::text
+  FROM vibetype.friendship f
+  -- A request is sent by its creator, an acceptance by the other account.
+  CROSS JOIN LATERAL (
+    SELECT CASE WHEN f.created_by = f.account_a_id THEN f.account_b_id ELSE f.account_a_id END AS id
+  ) requested
+  JOIN vibetype.account sender ON sender.id = CASE f.status WHEN 'requested' THEN f.created_by ELSE requested.id END
+  JOIN vibetype.account recipient ON recipient.id = CASE f.status WHEN 'requested' THEN requested.id ELSE f.created_by END
+  JOIN vibetype_private.account recipient_private ON recipient_private.id = recipient.id
+  LEFT JOIN vibetype.contact recipient_contact ON recipient_contact.account_id = recipient.id AND recipient_contact.created_by = recipient.id
+  WHERE f.id = outbox_friendship_resolve.friendship_id
+    AND NOT EXISTS (
+      SELECT 1
+      FROM vibetype.account_block ab
+      WHERE (ab.created_by = f.account_a_id AND ab.blocked_account_id = f.account_b_id)
+        OR (ab.created_by = f.account_b_id AND ab.blocked_account_id = f.account_a_id)
+    );
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_friendship_resolve(friendship_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) IS 'Returns the data that notifications about a `friendship` outbox event need, depending on the friendship''s current status, which is returned as well: a request notifies the requested account, an acceptance the requester. Returns no row if the friendship is gone or one of its accounts blocked the other. The recipient''s language is the one of the contact the recipient keeps of itself and may be missing.';
 
 
 --
@@ -6688,6 +6756,20 @@ CREATE TRIGGER outbox AFTER DELETE ON vibetype.upload FOR EACH ROW EXECUTE FUNCT
 
 
 --
+-- Name: friendship outbox_accepted; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox_accepted AFTER UPDATE OF status ON vibetype.friendship FOR EACH ROW WHEN (((old.status = 'requested'::vibetype.friendship_status) AND (new.status = 'accepted'::vibetype.friendship_status))) EXECUTE FUNCTION vibetype.trigger_friendship_outbox();
+
+
+--
+-- Name: friendship outbox_requested; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox_requested AFTER INSERT ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_friendship_outbox();
+
+
+--
 -- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -8465,6 +8547,14 @@ GRANT ALL ON FUNCTION vibetype.trigger_event_search_vector() TO vibetype_anonymo
 
 
 --
+-- Name: FUNCTION trigger_friendship_outbox(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_friendship_outbox() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_friendship_outbox() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION trigger_guest_update(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8570,6 +8660,14 @@ REVOKE ALL ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid
 
 REVOKE ALL ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) TO vibetype;
+
+
+--
+-- Name: FUNCTION outbox_friendship_resolve(friendship_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) TO vibetype;
 
 
 --

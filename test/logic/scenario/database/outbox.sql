@@ -232,4 +232,64 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT outbox_guest_invitation_resolve;
 
+SAVEPOINT outbox_friendship;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  friendshipAB UUID;
+  _resolved RECORD;
+  _snapshot JSONB;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  UPDATE vibetype.contact SET language = 'de' WHERE account_id = accountB AND created_by = accountB;
+
+  PERFORM vibetype_test.outbox_capture();
+
+  friendshipAB := vibetype_test.friendship_create(accountA, accountB);
+  SELECT to_jsonb(f) INTO _snapshot FROM vibetype.friendship f WHERE id = friendshipAB;
+
+  IF vibetype_test.outbox_payload('friendship.requested', friendshipAB) -> 'data' IS DISTINCT FROM _snapshot THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): unexpected friendship.requested data';
+  END IF;
+
+  SELECT * INTO _resolved FROM vibetype_private.outbox_friendship_resolve(friendshipAB);
+
+  IF _resolved IS DISTINCT FROM ROW(accountB, 'b@example.com'::TEXT, 'de'::TEXT, 'b'::TEXT, 'a'::TEXT, 'requested'::TEXT) THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): unexpected request resolution %', _resolved;
+  END IF;
+
+  PERFORM vibetype_test.friendship_accept(accountB, friendshipAB);
+  SELECT to_jsonb(f) INTO _snapshot FROM vibetype.friendship f WHERE id = friendshipAB;
+
+  IF vibetype_test.outbox_payload('friendship.accepted', friendshipAB) -> 'data' IS DISTINCT FROM _snapshot THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): unexpected friendship.accepted data';
+  END IF;
+
+  SELECT * INTO _resolved FROM vibetype_private.outbox_friendship_resolve(friendshipAB);
+
+  IF _resolved IS DISTINCT FROM ROW(accountA, 'a@example.com'::TEXT, 'en'::TEXT, 'a'::TEXT, 'b'::TEXT, 'accepted'::TEXT) THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): unexpected acceptance resolution %', _resolved;
+  END IF;
+
+  PERFORM vibetype_test.account_block_create(accountA, accountB);
+
+  IF EXISTS (SELECT 1 FROM vibetype_private.outbox_friendship_resolve(friendshipAB)) THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): resolved a friendship between blocked accounts';
+  END IF;
+
+  PERFORM vibetype_test.account_block_delete(accountA, accountB);
+  PERFORM vibetype_test.friendship_delete(accountA, friendshipAB);
+
+  IF (SELECT count(*) FROM vibetype_private.outbox WHERE aggregate_type = 'friendship') <> 2 THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): ending a friendship added an outbox event';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM vibetype_private.outbox_friendship_resolve(friendshipAB)) THEN
+    RAISE EXCEPTION 'Test failed (outbox_friendship): resolved a missing friendship';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT outbox_friendship;
+
 ROLLBACK;
