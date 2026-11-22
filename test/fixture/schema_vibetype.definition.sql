@@ -69,6 +69,26 @@ COMMENT ON TYPE vibetype.achievement_type IS 'Achievements that can be unlocked 
 
 
 --
+-- Name: device_platform; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.device_platform AS ENUM (
+    'android',
+    'ios',
+    'web'
+);
+
+
+ALTER TYPE vibetype.device_platform OWNER TO ci;
+
+--
+-- Name: TYPE device_platform; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TYPE vibetype.device_platform IS 'Platforms a push registration is made on: android, ios, web.';
+
+
+--
 -- Name: event_size; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -204,6 +224,29 @@ CREATE TYPE vibetype.jwt AS (
 
 
 ALTER TYPE vibetype.jwt OWNER TO ci;
+
+--
+-- Name: notification_type; Type: TYPE; Schema: vibetype; Owner: ci
+--
+
+CREATE TYPE vibetype.notification_type AS ENUM (
+    'event_deleted',
+    'event_invitation',
+    'event_updated',
+    'friendship_accepted',
+    'friendship_requested',
+    'guest_feedback'
+);
+
+
+ALTER TYPE vibetype.notification_type OWNER TO ci;
+
+--
+-- Name: TYPE notification_type; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TYPE vibetype.notification_type IS 'Kinds of notifications an account receives: event_deleted, event_invitation, event_updated, friendship_accepted, friendship_requested, guest_feedback.';
+
 
 --
 -- Name: social_network; Type: TYPE; Schema: vibetype; Owner: ci
@@ -357,6 +400,56 @@ ALTER FUNCTION vibetype.account_email_address_verification(code uuid) OWNER TO c
 --
 
 COMMENT ON FUNCTION vibetype.account_email_address_verification(code uuid) IS 'Sets the account''s email address verification code to `NULL` for which the email address verification code equals the one passed and is up to date.\n\nError codes:\n- **P0002** when the verification code is unknown.\n- **55000** when the verification code has expired.';
+
+
+--
+-- Name: account_notification_read_all(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_notification_read_all() RETURNS integer
+    LANGUAGE sql
+    AS $$
+  WITH _read AS (
+    UPDATE vibetype.account_notification
+    SET read_at = CURRENT_TIMESTAMP
+    WHERE account_id = vibetype.invoker_account_id()
+      AND read_at IS NULL
+    RETURNING 1
+  )
+  SELECT COUNT(*)::INTEGER FROM _read;
+$$;
+
+
+ALTER FUNCTION vibetype.account_notification_read_all() OWNER TO ci;
+
+--
+-- Name: FUNCTION account_notification_read_all(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_notification_read_all() IS 'Marks all unread notifications of the invoker as read and returns their number.';
+
+
+--
+-- Name: account_notification_unread_count(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.account_notification_unread_count() RETURNS integer
+    LANGUAGE sql STABLE
+    AS $$
+  SELECT COUNT(*)::INTEGER
+  FROM vibetype.account_notification
+  WHERE account_id = vibetype.invoker_account_id()
+    AND read_at IS NULL;
+$$;
+
+
+ALTER FUNCTION vibetype.account_notification_unread_count() OWNER TO ci;
+
+--
+-- Name: FUNCTION account_notification_unread_count(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.account_notification_unread_count() IS 'Returns the number of unread notifications of the invoker.';
 
 
 --
@@ -977,6 +1070,135 @@ ALTER FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) OWNER T
 --
 
 COMMENT ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) IS 'Function for inserting multiple guest records.';
+
+
+--
+-- Name: device; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.device (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fcm_token text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    label text,
+    last_seen_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    platform vibetype.device_platform NOT NULL,
+    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) <= 300))),
+    CONSTRAINT device_label_check CHECK (((char_length(label) >= 1) AND (char_length(label) <= 100)))
+);
+
+
+ALTER TABLE vibetype.device OWNER TO ci;
+
+--
+-- Name: TABLE device; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.device IS '@behavior -insert -update
+A push registration of an account, one per Firebase Cloud Messaging token. Rows are created by `device_register` only.';
+
+
+--
+-- Name: COLUMN device.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.id IS '@behavior -insert -update
+The internal id of the device.';
+
+
+--
+-- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.fcm_token IS '@behavior -insert -update
+The Firebase Cloud Messaging token that is used to deliver notifications. Unique across all accounts.';
+
+
+--
+-- Name: COLUMN device.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.created_at IS '@behavior -insert -update
+Timestamp when the device was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN device.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.created_by IS '@behavior -insert -update
+Reference to the account that owns the registration.';
+
+
+--
+-- Name: COLUMN device.label; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.label IS '@behavior -insert -update
+A short human-readable name of the device, e.g. `Firefox on Linux`. `NULL` if unknown.';
+
+
+--
+-- Name: COLUMN device.last_seen_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.last_seen_at IS '@behavior -insert -update
+The timestamp when the registration was last refreshed. Registrations that are not refreshed for 90 days no longer receive notifications.';
+
+
+--
+-- Name: COLUMN device.platform; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.device.platform IS '@behavior -insert -update
+The platform the registration was made on.';
+
+
+--
+-- Name: device_register(text, vibetype.device_platform, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text DEFAULT NULL::text) RETURNS vibetype.device
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _account_id UUID := vibetype.invoker_account_id();
+  _device vibetype.device;
+BEGIN
+  IF _account_id IS NULL THEN
+    RAISE 'Not signed in!' USING ERRCODE = 'VTDNA';
+  END IF;
+
+  -- Shortcut: stale registrations of all accounts are pruned here, on the next registration by anyone.
+  -- Upgrade path: a scheduled job, after which this statement can go.
+  DELETE FROM vibetype.device WHERE last_seen_at < CURRENT_TIMESTAMP - INTERVAL '90 days';
+
+  INSERT INTO vibetype.device AS d (created_by, fcm_token, label, platform)
+  VALUES (_account_id, device_register.fcm_token, device_register.label, device_register.platform)
+  ON CONFLICT ON CONSTRAINT device_fcm_token_key DO UPDATE
+  SET created_by = EXCLUDED.created_by,
+      label = EXCLUDED.label,
+      last_seen_at = CURRENT_TIMESTAMP,
+      platform = EXCLUDED.platform
+  RETURNING d.* INTO _device;
+
+  RETURN _device;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) OWNER TO ci;
+
+--
+-- Name: FUNCTION device_register(fcm_token text, platform vibetype.device_platform, label text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) IS 'Registers a push token for the invoker, or refreshes the registration if the token exists already, taking it over from another account. Also deletes registrations that were not refreshed for 90 days.
+
+Error codes:
+- **VTDNA** when there is no invoker account.';
 
 
 --
@@ -2133,32 +2355,6 @@ COMMENT ON FUNCTION vibetype.trigger_contact_update_account_id() IS 'Prevents in
 
 
 --
--- Name: trigger_device_update_fcm_token(); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.trigger_device_update_fcm_token() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF NEW.fcm_token IS DISTINCT FROM OLD.fcm_token THEN
-    RAISE EXCEPTION 'When updating a device, the FCM token''s value must stay the same. The update only updates the `updated_at` and `updated_by` metadata columns. If you want to update the FCM token for the device, recreate the device with a new FCM token.'
-      USING ERRCODE = 'integrity_constraint_violation';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION vibetype.trigger_device_update_fcm_token() OWNER TO ci;
-
---
--- Name: FUNCTION trigger_device_update_fcm_token(); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger function to ensure that only the metadata fields `updated_at` and `updated_by` are updated when a device row is modified. Raises an exception if the `fcm_token` value is changed.';
-
-
---
 -- Name: trigger_event_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -2612,6 +2808,38 @@ COMMENT ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid, g
 
 
 --
+-- Name: outbox_account_notification_resolve(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) RETURNS TABLE(account_id uuid, event_id uuid, fcm_tokens text[], friendship_id uuid, guest_id uuid, is_push_enabled boolean, language text, payload jsonb, type vibetype.notification_type)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT
+    n.account_id,
+    n.event_id,
+    COALESCE((SELECT array_agg(d.fcm_token) FROM vibetype.device d WHERE d.created_by = n.account_id AND d.last_seen_at > CURRENT_TIMESTAMP - INTERVAL '90 days'), ARRAY[]::text[]),
+    n.friendship_id,
+    n.guest_id,
+    COALESCE((SELECT p.is_push_enabled FROM vibetype.preference_notification p WHERE p.account_id = n.account_id AND p.type = n.type), TRUE),
+    (SELECT c.language::text FROM vibetype.contact c WHERE c.account_id = n.account_id AND c.created_by = n.account_id),
+    n.payload,
+    n.type
+  FROM vibetype.account_notification n
+  WHERE n.id = outbox_account_notification_resolve.account_notification_id;
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_account_notification_resolve(account_notification_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) IS 'Returns the data that the push notification of an `account_notification.created` outbox event needs, or no row if the notification is gone, e.g. because it was deleted or replaced by a newer one. Devices that were not seen for 90 days are left out of `fcm_tokens`.';
+
+
+--
 -- Name: outbox_account_resolve(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -2754,6 +2982,371 @@ ALTER FUNCTION vibetype_private.trigger_account_email_address_verification_valid
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() IS 'Sets the valid until column of the email address verification to its default value.';
+
+
+--
+-- Name: trigger_account_notification_event_deleted(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_event_deleted() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  -- Joining the creator's account skips deletions cascading from the creator's own account deletion, as the account is gone by then.
+  INSERT INTO vibetype.account_notification (account_id, type, actor_account_id, payload)
+  SELECT
+    c.account_id,
+    'event_deleted'::vibetype.notification_type,
+    OLD.created_by,
+    jsonb_build_object(
+      'actor_username', a.username,
+      'event_creator_username', a.username,
+      'event_name', OLD.name,
+      'event_slug', OLD.slug,
+      'event_start', OLD.start
+    )
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  JOIN vibetype.account a ON a.id = OLD.created_by
+  WHERE g.event_id = OLD.id
+    AND c.account_id IS NOT NULL
+    AND c.account_id <> OLD.created_by
+    AND g.feedback IS DISTINCT FROM 'canceled'::vibetype.invitation_feedback
+    AND NOT EXISTS (
+      SELECT 1 FROM vibetype.account_block b
+      WHERE (b.created_by = OLD.created_by AND b.blocked_account_id = c.account_id)
+        OR (b.created_by = c.account_id AND b.blocked_account_id = OLD.created_by)
+    );
+
+  RETURN OLD;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_event_deleted() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_event_deleted(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_event_deleted() IS 'Notifies the guests of an event, who did not cancel, about its deletion.';
+
+
+--
+-- Name: trigger_account_notification_event_invitation(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_event_invitation() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  DELETE FROM vibetype.account_notification n
+  WHERE n.guest_id = NEW.aggregate_id
+    AND n.type = 'event_invitation'::vibetype.notification_type
+    AND n.read_at IS NULL;
+
+  INSERT INTO vibetype.account_notification (account_id, type, actor_account_id, event_id, guest_id, payload)
+  SELECT
+    c.account_id,
+    'event_invitation'::vibetype.notification_type,
+    e.created_by,
+    e.id,
+    g.id,
+    jsonb_build_object(
+      'actor_username', a.username,
+      'event_creator_username', a.username,
+      'event_name', e.name,
+      'event_slug', e.slug,
+      'event_start', e.start
+    )
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.account a ON a.id = e.created_by
+  WHERE g.id = NEW.aggregate_id
+    AND c.account_id IS NOT NULL
+    AND c.account_id <> e.created_by
+    AND NOT EXISTS (
+      SELECT 1 FROM vibetype.account_block b
+      WHERE (b.created_by = e.created_by AND b.blocked_account_id = c.account_id)
+        OR (b.created_by = c.account_id AND b.blocked_account_id = e.created_by)
+    );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_event_invitation() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_event_invitation(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_event_invitation() IS 'Notifies the invited account about a `guest.invited` outbox event and replaces the guest''s earlier unread invitation notification.';
+
+
+--
+-- Name: trigger_account_notification_event_updated(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_event_updated() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  WITH _changed AS (
+    SELECT
+      n.id,
+      n.created_by,
+      n.name,
+      n.slug,
+      n.start,
+      array_remove(ARRAY[
+        CASE WHEN n.start IS DISTINCT FROM o.start THEN 'start' END,
+        CASE WHEN n."end" IS DISTINCT FROM o."end" THEN 'end' END,
+        CASE WHEN n.address_id IS DISTINCT FROM o.address_id THEN 'address' END,
+        CASE WHEN n.is_in_person IS DISTINCT FROM o.is_in_person OR n.is_remote IS DISTINCT FROM o.is_remote THEN 'attendance' END
+      ], NULL) AS changes
+    FROM new_event n
+    JOIN old_event o ON o.id = n.id
+  ),
+  _recipient AS (
+    SELECT
+      ch.id,
+      ch.changes,
+      ch.created_by,
+      ch.name,
+      ch.slug,
+      ch.start,
+      a.username,
+      c.account_id AS recipient_id
+    FROM _changed ch
+    JOIN vibetype.account a ON a.id = ch.created_by
+    JOIN vibetype.guest g ON g.event_id = ch.id
+    JOIN vibetype.contact c ON c.id = g.contact_id
+    WHERE cardinality(ch.changes) > 0
+      AND c.account_id IS NOT NULL
+      AND c.account_id <> ch.created_by
+      AND g.feedback IS DISTINCT FROM 'canceled'::vibetype.invitation_feedback
+      AND NOT EXISTS (
+        SELECT 1 FROM vibetype.account_block b
+        WHERE (b.created_by = ch.created_by AND b.blocked_account_id = c.account_id)
+          OR (b.created_by = c.account_id AND b.blocked_account_id = ch.created_by)
+      )
+  ),
+  _collapsed AS (
+    DELETE FROM vibetype.account_notification n
+    USING _recipient r
+    WHERE n.type = 'event_updated'::vibetype.notification_type
+      AND n.read_at IS NULL
+      AND n.account_id = r.recipient_id
+      AND n.event_id = r.id
+    RETURNING n.account_id, n.event_id, n.payload -> 'changes' AS changes
+  )
+  INSERT INTO vibetype.account_notification (account_id, type, actor_account_id, event_id, payload)
+  SELECT
+    r.recipient_id,
+    'event_updated'::vibetype.notification_type,
+    r.created_by,
+    r.id,
+    jsonb_build_object(
+      'actor_username', r.username,
+      'changes', (
+        SELECT jsonb_agg(DISTINCT u.change ORDER BY u.change)
+        FROM (
+          SELECT unnest(r.changes) AS change
+          UNION ALL
+          SELECT jsonb_array_elements_text(d.changes)
+          FROM _collapsed d
+          WHERE d.account_id = r.recipient_id AND d.event_id = r.id
+        ) u
+      ),
+      'event_creator_username', r.username,
+      'event_name', r.name,
+      'event_slug', r.slug,
+      'event_start', r.start
+    )
+  FROM _recipient r;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_event_updated() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_event_updated(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_event_updated() IS 'Notifies the guests of an event, who did not cancel, about changed start, end, address or attendance mode, and merges the changes into their earlier unread notification of the event.';
+
+
+--
+-- Name: trigger_account_notification_friendship_accepted(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_friendship_accepted() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  DELETE FROM vibetype.account_notification n
+  WHERE n.friendship_id = NEW.id
+    AND n.type = 'friendship_requested'::vibetype.notification_type;
+
+  INSERT INTO vibetype.account_notification (account_id, type, actor_account_id, friendship_id, payload)
+  SELECT
+    NEW.created_by,
+    'friendship_accepted'::vibetype.notification_type,
+    NEW.updated_by,
+    NEW.id,
+    jsonb_build_object('actor_username', a.username)
+  FROM (SELECT 1) AS _
+  LEFT JOIN vibetype.account a ON a.id = NEW.updated_by
+  WHERE NOT EXISTS (
+    SELECT 1 FROM vibetype.account_block b
+    WHERE (b.created_by = NEW.created_by AND b.blocked_account_id = NEW.updated_by)
+      OR (b.created_by = NEW.updated_by AND b.blocked_account_id = NEW.created_by)
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_friendship_accepted() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_friendship_accepted(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_friendship_accepted() IS 'Notifies the requester about the acceptance of a friendship request and removes the accepting account''s request notification.';
+
+
+--
+-- Name: trigger_account_notification_friendship_requested(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_friendship_requested() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  INSERT INTO vibetype.account_notification (account_id, type, actor_account_id, friendship_id, payload)
+  SELECT
+    r.id,
+    'friendship_requested'::vibetype.notification_type,
+    NEW.created_by,
+    NEW.id,
+    jsonb_build_object('actor_username', a.username)
+  FROM (
+    SELECT CASE WHEN NEW.created_by = NEW.a_account_id THEN NEW.b_account_id ELSE NEW.a_account_id END AS id
+  ) r
+  JOIN vibetype.account a ON a.id = NEW.created_by
+  WHERE NOT EXISTS (
+    SELECT 1 FROM vibetype.account_block b
+    WHERE (b.created_by = NEW.created_by AND b.blocked_account_id = r.id)
+      OR (b.created_by = r.id AND b.blocked_account_id = NEW.created_by)
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_friendship_requested() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_friendship_requested(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_friendship_requested() IS 'Notifies the addressee of a friendship request.';
+
+
+--
+-- Name: trigger_account_notification_guest_feedback(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_guest_feedback() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  DELETE FROM vibetype.account_notification n
+  WHERE n.guest_id = NEW.id
+    AND n.type = 'guest_feedback'::vibetype.notification_type
+    AND n.read_at IS NULL;
+
+  INSERT INTO vibetype.account_notification (account_id, type, actor_account_id, event_id, guest_id, payload)
+  SELECT
+    e.created_by,
+    'guest_feedback'::vibetype.notification_type,
+    NEW.updated_by,
+    e.id,
+    NEW.id,
+    jsonb_build_object(
+      'actor_username', au.username,
+      'event_creator_username', cu.username,
+      'event_name', e.name,
+      'event_slug', e.slug,
+      'event_start', e.start,
+      'feedback', NEW.feedback,
+      'guest_name', COALESCE(NULLIF(btrim(concat_ws(' ', c.first_name, c.last_name)), ''), ca.username)
+    )
+  FROM vibetype.event e
+  JOIN vibetype.account cu ON cu.id = e.created_by
+  JOIN vibetype.contact c ON c.id = NEW.contact_id
+  LEFT JOIN vibetype.account au ON au.id = NEW.updated_by
+  LEFT JOIN vibetype.account ca ON ca.id = c.account_id
+  WHERE e.id = NEW.event_id
+    AND e.created_by IS DISTINCT FROM NEW.updated_by
+    AND NOT EXISTS (
+      SELECT 1 FROM vibetype.account_block b
+      WHERE (b.created_by = e.created_by AND b.blocked_account_id = NEW.updated_by)
+        OR (b.created_by = NEW.updated_by AND b.blocked_account_id = e.created_by)
+    );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_guest_feedback() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_guest_feedback(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_guest_feedback() IS 'Notifies the event creator about a guest''s feedback and replaces the guest''s earlier unread feedback notification.';
+
+
+--
+-- Name: trigger_account_notification_outbox(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_account_notification_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM vibetype_private.outbox_insert('account_notification', NEW.id, 'account_notification.created', '{}'::jsonb);
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_account_notification_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_account_notification_outbox(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_account_notification_outbox() IS 'Adds an outbox event of type `account_notification.created` without data, so no personal data leaves the database. Consumers resolve the notification by its id.';
 
 
 --
@@ -3393,6 +3986,114 @@ COMMENT ON COLUMN vibetype.account_block.created_by IS 'The account id of the us
 
 
 --
+-- Name: account_notification; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.account_notification (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    actor_account_id uuid,
+    event_id uuid,
+    friendship_id uuid,
+    guest_id uuid,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    read_at timestamp with time zone,
+    type vibetype.notification_type NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype.account_notification OWNER TO ci;
+
+--
+-- Name: TABLE account_notification; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.account_notification IS '@behavior -insert
+A notification in the inbox of an account. Rows are created by database triggers only.';
+
+
+--
+-- Name: COLUMN account_notification.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.id IS '@behavior -insert -update
+The notification''s internal id.';
+
+
+--
+-- Name: COLUMN account_notification.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.account_id IS '@behavior -insert -update
+The account that receives the notification.';
+
+
+--
+-- Name: COLUMN account_notification.actor_account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.actor_account_id IS '@behavior -insert -update
+The account that caused the notification. `NULL` if an anonymous guest caused it.';
+
+
+--
+-- Name: COLUMN account_notification.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.event_id IS '@behavior -insert -update
+The event the notification is about. `NULL` for deleted events and friendships.';
+
+
+--
+-- Name: COLUMN account_notification.friendship_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.friendship_id IS '@behavior -insert -update
+The friendship the notification is about. The notification is removed with the friendship, e.g. when a request is declined.';
+
+
+--
+-- Name: COLUMN account_notification.guest_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.guest_id IS '@behavior -insert -update
+The guest the notification is about.';
+
+
+--
+-- Name: COLUMN account_notification.payload; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.payload IS '@behavior -insert -update
+A snapshot of what is needed to render the notification. Possible keys: `actor_username`, `changes`, `event_creator_username`, `event_name`, `event_slug`, `event_start`, `feedback`, `guest_name`.';
+
+
+--
+-- Name: COLUMN account_notification.read_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.read_at IS '@behavior -insert
+The timestamp when the recipient read the notification. `NULL` while unread.';
+
+
+--
+-- Name: COLUMN account_notification.type; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.type IS '@behavior -insert -update
+The kind of the notification.';
+
+
+--
+-- Name: COLUMN account_notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.account_notification.created_at IS '@behavior -insert -update
+The timestamp when the notification was created.';
+
+
+--
 -- Name: account_social_network; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -3928,77 +4629,6 @@ COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that 
 --
 
 COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
-
-
---
--- Name: device; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.device (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    fcm_token text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    updated_at timestamp with time zone,
-    updated_by uuid,
-    CONSTRAINT device_fcm_token_check CHECK (((char_length(fcm_token) > 0) AND (char_length(fcm_token) <= 300)))
-);
-
-
-ALTER TABLE vibetype.device OWNER TO ci;
-
---
--- Name: TABLE device; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.device IS 'A device that''s assigned to an account.';
-
-
---
--- Name: COLUMN device.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.id IS '@behavior -insert -update
-The internal id of the device.';
-
-
---
--- Name: COLUMN device.fcm_token; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.fcm_token IS 'The Firebase Cloud Messaging token of the device that''s used to deliver notifications. Must be non-empty and not exceed 300 characters.';
-
-
---
--- Name: COLUMN device.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.created_at IS '@behavior -insert -update
-Timestamp when the device was created. Defaults to the current timestamp.';
-
-
---
--- Name: COLUMN device.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.created_by IS '@behavior -update
-Reference to the account that created the device.';
-
-
---
--- Name: COLUMN device.updated_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.updated_at IS '@behavior -insert -update
-Timestamp when the device was last updated.';
-
-
---
--- Name: COLUMN device.updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.device.updated_by IS '@behavior -insert -update
-Reference to the account that last updated the device.';
 
 
 --
@@ -4735,6 +5365,67 @@ COMMENT ON COLUMN vibetype.preference_event_size.event_size IS 'A preferred even
 
 COMMENT ON COLUMN vibetype.preference_event_size.created_at IS '@behavior -insert -update
 Timestamp of when the event size preference was created, defaults to the current timestamp.';
+
+
+--
+-- Name: preference_notification; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.preference_notification (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid NOT NULL,
+    is_push_enabled boolean NOT NULL,
+    type vibetype.notification_type NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype.preference_notification OWNER TO ci;
+
+--
+-- Name: TABLE preference_notification; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.preference_notification IS 'Whether an account wants push notifications per notification type. A missing row means push is enabled.';
+
+
+--
+-- Name: COLUMN preference_notification.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_notification.id IS '@behavior -insert -update
+The preference''s internal id.';
+
+
+--
+-- Name: COLUMN preference_notification.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_notification.account_id IS '@behavior -update
+The account the preference belongs to.';
+
+
+--
+-- Name: COLUMN preference_notification.is_push_enabled; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_notification.is_push_enabled IS 'Whether push notifications of the type are delivered.';
+
+
+--
+-- Name: COLUMN preference_notification.type; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_notification.type IS '@behavior -update
+The notification type the preference applies to.';
+
+
+--
+-- Name: COLUMN preference_notification.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.preference_notification.created_at IS '@behavior -insert -update
+The timestamp when the preference was created.';
 
 
 --
@@ -5597,6 +6288,14 @@ ALTER TABLE ONLY vibetype.account_block
 
 
 --
+-- Name: account_notification account_notification_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_notification
+    ADD CONSTRAINT account_notification_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: account account_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -5707,11 +6406,11 @@ ALTER TABLE ONLY vibetype.contact
 
 
 --
--- Name: device device_created_by_fcm_token_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+-- Name: device device_fcm_token_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
 ALTER TABLE ONLY vibetype.device
-    ADD CONSTRAINT device_created_by_fcm_token_key UNIQUE (created_by, fcm_token);
+    ADD CONSTRAINT device_fcm_token_key UNIQUE (fcm_token);
 
 
 --
@@ -5969,6 +6668,22 @@ ALTER TABLE ONLY vibetype.preference_event_size
 
 
 --
+-- Name: preference_notification preference_notification_account_id_type_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_notification
+    ADD CONSTRAINT preference_notification_account_id_type_key UNIQUE (account_id, type);
+
+
+--
+-- Name: preference_notification preference_notification_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_notification
+    ADD CONSTRAINT preference_notification_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: profile_picture profile_picture_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6135,6 +6850,62 @@ CREATE INDEX idx_account_block_blocked_account_id ON vibetype.account_block USIN
 
 
 --
+-- Name: idx_account_notification_account_id_created_at; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_notification_account_id_created_at ON vibetype.account_notification USING btree (account_id, created_at DESC);
+
+
+--
+-- Name: INDEX idx_account_notification_account_id_created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_notification_account_id_created_at IS 'B-Tree index to optimize listing an inbox by recency.';
+
+
+--
+-- Name: idx_account_notification_account_id_unread; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_notification_account_id_unread ON vibetype.account_notification USING btree (account_id) WHERE (read_at IS NULL);
+
+
+--
+-- Name: INDEX idx_account_notification_account_id_unread; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_notification_account_id_unread IS 'Partial B-Tree index to optimize counting unread notifications.';
+
+
+--
+-- Name: idx_account_notification_actor_account_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_notification_actor_account_id ON vibetype.account_notification USING btree (actor_account_id);
+
+
+--
+-- Name: idx_account_notification_event_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_notification_event_id ON vibetype.account_notification USING btree (event_id);
+
+
+--
+-- Name: idx_account_notification_friendship_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_notification_friendship_id ON vibetype.account_notification USING btree (friendship_id);
+
+
+--
+-- Name: idx_account_notification_guest_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_account_notification_guest_id ON vibetype.account_notification USING btree (guest_id);
+
+
+--
 -- Name: idx_account_username_like; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6275,17 +7046,31 @@ CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
 
 
 --
--- Name: idx_device_updated_by; Type: INDEX; Schema: vibetype; Owner: ci
+-- Name: idx_device_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
-CREATE INDEX idx_device_updated_by ON vibetype.device USING btree (updated_by);
+CREATE INDEX idx_device_created_by ON vibetype.device USING btree (created_by);
 
 
 --
--- Name: INDEX idx_device_updated_by; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: INDEX idx_device_created_by; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON INDEX vibetype.idx_device_updated_by IS 'B-Tree index to optimize lookups by updater.';
+COMMENT ON INDEX vibetype.idx_device_created_by IS 'B-Tree index to optimize lookups by owner.';
+
+
+--
+-- Name: idx_device_last_seen_at; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_device_last_seen_at ON vibetype.device USING btree (last_seen_at);
+
+
+--
+-- Name: INDEX idx_device_last_seen_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_device_last_seen_at IS 'B-Tree index to optimize pruning of stale registrations.';
 
 
 --
@@ -6667,6 +7452,48 @@ CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNC
 
 
 --
+-- Name: event notification_event_deleted; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER notification_event_deleted BEFORE DELETE ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_notification_event_deleted();
+
+
+--
+-- Name: event notification_event_updated; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER notification_event_updated AFTER UPDATE ON vibetype.event REFERENCING OLD TABLE AS old_event NEW TABLE AS new_event FOR EACH STATEMENT EXECUTE FUNCTION vibetype_private.trigger_account_notification_event_updated();
+
+
+--
+-- Name: friendship notification_friendship_accepted; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER notification_friendship_accepted AFTER UPDATE OF status ON vibetype.friendship FOR EACH ROW WHEN (((old.status = 'requested'::vibetype.friendship_status) AND (new.status = 'accepted'::vibetype.friendship_status))) EXECUTE FUNCTION vibetype_private.trigger_account_notification_friendship_accepted();
+
+
+--
+-- Name: friendship notification_friendship_requested; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER notification_friendship_requested AFTER INSERT ON vibetype.friendship FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_notification_friendship_requested();
+
+
+--
+-- Name: guest notification_guest_feedback; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER notification_guest_feedback AFTER UPDATE OF feedback ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS DISTINCT FROM old.feedback) AND (new.feedback IS NOT NULL))) EXECUTE FUNCTION vibetype_private.trigger_account_notification_guest_feedback();
+
+
+--
+-- Name: account_notification outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox AFTER INSERT ON vibetype.account_notification FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_notification_outbox();
+
+
+--
 -- Name: event outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6702,13 +7529,6 @@ CREATE TRIGGER update BEFORE UPDATE ON vibetype.address FOR EACH ROW EXECUTE FUN
 
 
 --
--- Name: device update; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER update BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_metadata_update();
-
-
---
 -- Name: friendship update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6737,13 +7557,6 @@ CREATE TRIGGER update_account_id BEFORE UPDATE OF account_id, created_by ON vibe
 
 
 --
--- Name: device update_fcm; Type: TRIGGER; Schema: vibetype; Owner: ci
---
-
-CREATE TRIGGER update_fcm BEFORE UPDATE ON vibetype.device FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_device_update_fcm_token();
-
-
---
 -- Name: attendance vibetype_trigger_attendance_guard; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6769,6 +7582,13 @@ CREATE TRIGGER delete AFTER INSERT ON vibetype_private.outbox FOR EACH ROW EXECU
 --
 
 CREATE TRIGGER email_address_verification BEFORE INSERT OR UPDATE OF email_address_verification ON vibetype_private.account FOR EACH ROW EXECUTE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until();
+
+
+--
+-- Name: outbox notification_event_invitation; Type: TRIGGER; Schema: vibetype_private; Owner: ci
+--
+
+CREATE TRIGGER notification_event_invitation AFTER INSERT ON vibetype_private.outbox FOR EACH ROW WHEN ((new.type = 'guest.invited'::text)) EXECUTE FUNCTION vibetype_private.trigger_account_notification_event_invitation();
 
 
 --
@@ -6814,6 +7634,46 @@ ALTER TABLE ONLY vibetype.account_block
 
 ALTER TABLE ONLY vibetype.account
     ADD CONSTRAINT account_id_fkey FOREIGN KEY (id) REFERENCES vibetype_private.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_notification account_notification_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_notification
+    ADD CONSTRAINT account_notification_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_notification account_notification_actor_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_notification
+    ADD CONSTRAINT account_notification_actor_account_id_fkey FOREIGN KEY (actor_account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_notification account_notification_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_notification
+    ADD CONSTRAINT account_notification_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_notification account_notification_friendship_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_notification
+    ADD CONSTRAINT account_notification_friendship_id_fkey FOREIGN KEY (friendship_id) REFERENCES vibetype.friendship(id) ON DELETE CASCADE;
+
+
+--
+-- Name: account_notification account_notification_guest_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.account_notification
+    ADD CONSTRAINT account_notification_guest_id_fkey FOREIGN KEY (guest_id) REFERENCES vibetype.guest(id) ON DELETE CASCADE;
 
 
 --
@@ -6910,14 +7770,6 @@ ALTER TABLE ONLY vibetype.contact
 
 ALTER TABLE ONLY vibetype.device
     ADD CONSTRAINT device_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
-
-
---
--- Name: device device_updated_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
---
-
-ALTER TABLE ONLY vibetype.device
-    ADD CONSTRAINT device_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES vibetype.account(id) ON DELETE SET NULL;
 
 
 --
@@ -7161,6 +8013,14 @@ ALTER TABLE ONLY vibetype.preference_event_size
 
 
 --
+-- Name: preference_notification preference_notification_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.preference_notification
+    ADD CONSTRAINT preference_notification_account_id_fkey FOREIGN KEY (account_id) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
 -- Name: profile_picture profile_picture_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -7265,6 +8125,40 @@ ALTER TABLE vibetype.account_block ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY account_block_all ON vibetype.account_block USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: account_notification; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.account_notification ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: account_notification account_notification_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_notification_delete ON vibetype.account_notification FOR DELETE TO vibetype_account USING ((account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
+
+
+--
+-- Name: account_notification account_notification_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_notification_select ON vibetype.account_notification FOR SELECT TO vibetype_account USING (((account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)) AND ((actor_account_id IS NULL) OR (NOT (actor_account_id = ANY (( SELECT vibetype_private.account_block_ids() AS account_block_ids)::uuid[]))))));
+
+
+--
+-- Name: account_notification account_notification_service_vibetype_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_notification_service_vibetype_select ON vibetype.account_notification FOR SELECT TO vibetype USING (true);
+
+
+--
+-- Name: account_notification account_notification_update; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY account_notification_update ON vibetype.account_notification FOR UPDATE TO vibetype_account USING ((account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
 
 
 --
@@ -7447,10 +8341,24 @@ CREATE POLICY contact_update ON vibetype.contact FOR UPDATE USING (((created_by 
 ALTER TABLE vibetype.device ENABLE ROW LEVEL SECURITY;
 
 --
--- Name: device device_all; Type: POLICY; Schema: vibetype; Owner: ci
+-- Name: device device_delete; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY device_all ON vibetype.device USING ((created_by = vibetype.invoker_account_id()));
+CREATE POLICY device_delete ON vibetype.device FOR DELETE USING ((created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
+
+
+--
+-- Name: device device_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY device_select ON vibetype.device FOR SELECT USING ((created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
+
+
+--
+-- Name: device device_service_vibetype_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY device_service_vibetype_delete ON vibetype.device FOR DELETE TO vibetype USING (true);
 
 
 --
@@ -7780,6 +8688,26 @@ CREATE POLICY preference_event_size_all ON vibetype.preference_event_size USING 
 
 
 --
+-- Name: preference_notification; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.preference_notification ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: preference_notification preference_notification_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY preference_notification_all ON vibetype.preference_notification TO vibetype_account USING ((account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
+
+
+--
+-- Name: preference_notification preference_notification_service_vibetype_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY preference_notification_service_vibetype_select ON vibetype.preference_notification FOR SELECT TO vibetype USING (true);
+
+
+--
 -- Name: profile_picture; Type: ROW SECURITY; Schema: vibetype; Owner: ci
 --
 
@@ -7948,6 +8876,22 @@ GRANT ALL ON FUNCTION vibetype.account_email_address_verification(code uuid) TO 
 
 
 --
+-- Name: FUNCTION account_notification_read_all(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_notification_read_all() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_notification_read_all() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION account_notification_unread_count(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.account_notification_unread_count() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.account_notification_unread_count() TO vibetype_account;
+
+
+--
 -- Name: FUNCTION account_password_change(password_current text, password_new text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8100,6 +9044,22 @@ GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 REVOKE ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) TO vibetype_account;
+
+
+--
+-- Name: TABLE device; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.device TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.device TO vibetype;
+
+
+--
+-- Name: FUNCTION device_register(fcm_token text, platform vibetype.device_platform, label text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.device_register(fcm_token text, platform vibetype.device_platform, label text) TO vibetype_account;
 
 
 --
@@ -8427,14 +9387,6 @@ GRANT ALL ON FUNCTION vibetype.trigger_contact_update_account_id() TO vibetype_a
 
 
 --
--- Name: FUNCTION trigger_device_update_fcm_token(); Type: ACL; Schema: vibetype; Owner: ci
---
-
-REVOKE ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_account;
-
-
---
 -- Name: FUNCTION trigger_event_outbox(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8551,6 +9503,14 @@ REVOKE ALL ON FUNCTION vibetype_private.guest_claim_contact_link(account_id uuid
 
 
 --
+-- Name: FUNCTION outbox_account_notification_resolve(account_notification_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.outbox_account_notification_resolve(account_notification_id uuid) TO vibetype;
+
+
+--
 -- Name: FUNCTION outbox_account_resolve(account_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -8579,6 +9539,55 @@ REVOKE ALL ON FUNCTION vibetype_private.outbox_insert(aggregate_type text, aggre
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_event_deleted(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_event_deleted() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_event_invitation(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_event_invitation() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_event_updated(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_event_updated() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_friendship_accepted(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_friendship_accepted() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_friendship_requested(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_friendship_requested() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_guest_feedback(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_guest_feedback() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_account_notification_outbox(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_account_notification_outbox() FROM PUBLIC;
 
 
 --
@@ -8698,6 +9707,21 @@ GRANT SELECT ON TABLE vibetype.account_block TO reccoom;
 
 
 --
+-- Name: TABLE account_notification; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.account_notification TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.account_notification TO vibetype;
+
+
+--
+-- Name: COLUMN account_notification.read_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(read_at) ON TABLE vibetype.account_notification TO vibetype_account;
+
+
+--
 -- Name: TABLE account_social_network; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8752,14 +9776,6 @@ GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.contact TO reccoom;
-
-
---
--- Name: TABLE device; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.device TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.device TO vibetype;
 
 
 --
@@ -8907,6 +9923,35 @@ GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_location TO vibety
 --
 
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.preference_event_size TO vibetype_account;
+
+
+--
+-- Name: TABLE preference_notification; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.preference_notification TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.preference_notification TO vibetype;
+
+
+--
+-- Name: COLUMN preference_notification.account_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(account_id) ON TABLE vibetype.preference_notification TO vibetype_account;
+
+
+--
+-- Name: COLUMN preference_notification.is_push_enabled; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(is_push_enabled),UPDATE(is_push_enabled) ON TABLE vibetype.preference_notification TO vibetype_account;
+
+
+--
+-- Name: COLUMN preference_notification.type; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(type) ON TABLE vibetype.preference_notification TO vibetype_account;
 
 
 --

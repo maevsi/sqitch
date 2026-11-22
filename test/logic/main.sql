@@ -18,6 +18,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i utility/database/outbox.sql
 \i utility/database/uuid.sql
 \i utility/model/account_block.sql
+\i utility/model/account_notification.sql
 \i utility/model/account_registration.sql
 \i utility/model/account.sql
 \i utility/model/attendance.sql
@@ -61,6 +62,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account/policy.sql
 \i scenario/model/contact/constraints.sql
 \i scenario/model/device/constraints.sql
+\i scenario/model/device/register.sql
 \i scenario/model/event/constraints.sql
 \i scenario/model/event/location.sql
 \i scenario/model/event/policy.sql
@@ -69,6 +71,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/account_block_accounts.sql
 \i scenario/model/account_delete.sql
 \i scenario/model/account_display_name.sql
+\i scenario/model/account_notification.sql
 \i scenario/model/account_password_reset_request.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql
