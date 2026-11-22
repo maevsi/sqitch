@@ -1,3 +1,9 @@
+## [13.9.1](https://github.com/maevsi/sqitch/compare/13.9.0...13.9.1) (2026-11-22)
+
+### Bug Fixes
+
+* **docker:** forward stop signals to sqitch ([#420](https://github.com/maevsi/sqitch/issues/420)) ([13948d0](https://github.com/maevsi/sqitch/commit/13948d04a784c3a24c95d7bdb15436a9ebc55ffd))
+
 ## [13.9.0](https://github.com/maevsi/sqitch/compare/13.8.0...13.9.0) (2026-11-22)
 
 ### Features
