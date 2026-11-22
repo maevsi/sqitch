@@ -5,7 +5,8 @@ CREATE TABLE vibetype.account (
 
   description TEXT CHECK (char_length(description) <= 1000),
   imprint_url TEXT CHECK (char_length(imprint_url) <= 2000 AND imprint_url ~ '^https://[^[:space:]]+$'),
-  username    TEXT NOT NULL COLLATE unicode CHECK (char_length(username) <= 100 AND username ~ '^[-A-Za-z0-9]+$') UNIQUE
+  username    TEXT NOT NULL COLLATE unicode CHECK (char_length(username) <= 100 AND username ~ '^[-A-Za-z0-9]+$') UNIQUE,
+  display_name TEXT CHECK (char_length(display_name) > 0 AND char_length(display_name) <= 100)
 );
 
 COMMENT ON TABLE vibetype.account IS E'@behavior -insert -delete\nPublic account data.';
@@ -13,8 +14,12 @@ COMMENT ON COLUMN vibetype.account.id IS E'@behavior -insert -update\nThe accoun
 COMMENT ON COLUMN vibetype.account.description IS 'The account''s description. Must not exceed 1,000 characters.';
 COMMENT ON COLUMN vibetype.account.imprint_url IS 'The account''s imprint URL. Must start with "https://" and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.account.username IS E'@behavior -update\nThe account''s username. Must be alphanumeric with hyphens and not exceed 100 characters.';
+COMMENT ON COLUMN vibetype.account.display_name IS 'The account''s display name, shown in place of the username where set. Must be between 1 and 100 characters.';
 
 CREATE INDEX idx_account_username_like ON vibetype.account USING gin(username gin_trgm_ops);
 COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram matching as in LIKE/ILIKE conditions on username.';
+
+CREATE UNIQUE INDEX idx_account_username_lower ON vibetype.account (lower(username));
+COMMENT ON INDEX vibetype.idx_account_username_lower IS 'Unique index rejecting usernames that differ only in capitalization and serving the case-insensitive username lookup.';
 
 COMMIT;

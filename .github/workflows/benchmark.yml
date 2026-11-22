@@ -23,7 +23,7 @@ jobs:
       pull-requests: write
     services:
       postgres:
-        image: postgis/postgis:18-3.6
+        image: ghcr.io/maevsi/postgres:1.0.0
         env:
           POSTGRES_DB: ci_database
           POSTGRES_PASSWORD: postgres
@@ -39,12 +39,15 @@ jobs:
     steps:
       - name: Check out PR branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
       - name: Check out base branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           clean: false
+          persist-credentials: false
           path: base
 
       - name: Create role secrets

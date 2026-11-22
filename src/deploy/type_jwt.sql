@@ -7,7 +7,8 @@ CREATE TYPE vibetype.jwt AS (
   jti UUID, -- JWT ID
   role TEXT,
   sub UUID, -- subject (account id)
-  username TEXT -- subject username
+  username TEXT, -- subject username
+  language vibetype.language
 );
 
 COMMIT;

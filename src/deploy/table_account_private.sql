@@ -15,8 +15,12 @@ CREATE TABLE vibetype_private.account (
   upload_quota_bytes                         BIGINT NOT NULL DEFAULT 1073741824, -- 1 GiB
 
   created_at                                 TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+  last_activity                              TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  guest_claims                               UUID[]
 );
+
+CREATE UNIQUE INDEX idx_account_email_address_verification ON vibetype_private.account (email_address_verification) WHERE email_address_verification IS NOT NULL;
+CREATE UNIQUE INDEX idx_account_password_reset_verification ON vibetype_private.account (password_reset_verification) WHERE password_reset_verification IS NOT NULL;
 
 COMMENT ON TABLE vibetype_private.account IS 'Private account data.';
 COMMENT ON COLUMN vibetype_private.account.id IS 'The account''s internal id.';
@@ -30,9 +34,13 @@ COMMENT ON COLUMN vibetype_private.account.password_reset_verification_valid_unt
 COMMENT ON COLUMN vibetype_private.account.upload_quota_bytes IS 'The account''s upload quota in bytes.';
 COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the account was last active.';
 COMMENT ON COLUMN vibetype_private.account.last_activity IS 'Timestamp at which the account last requested an access token.';
+COMMENT ON COLUMN vibetype_private.account.guest_claims IS 'The guests claimed by the session that registered the account, linked to it once its email address is verified.';
+COMMENT ON INDEX vibetype_private.idx_account_email_address_verification IS 'Unique partial index serving the lookup by email address verification code.';
+COMMENT ON INDEX vibetype_private.idx_account_password_reset_verification IS 'Unique partial index serving the lookup by password reset code.';
 
 CREATE FUNCTION vibetype_private.trigger_account_email_address_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (NEW.email_address_verification IS NULL) THEN
@@ -59,6 +67,7 @@ CREATE TRIGGER email_address_verification
 
 CREATE FUNCTION vibetype_private.trigger_account_password_reset_verification_valid_until() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (NEW.password_reset_verification IS NULL) THEN

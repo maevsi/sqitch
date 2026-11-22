@@ -1,6 +1,7 @@
 BEGIN;
 
 DROP POLICY upload_delete ON vibetype.upload;
+DROP POLICY upload_select_event ON vibetype.upload;
 DROP POLICY upload_select ON vibetype.upload;
 DROP POLICY upload_insert ON vibetype.upload;
 DROP TRIGGER insert ON vibetype.upload;

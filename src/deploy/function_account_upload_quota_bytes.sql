@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_upload_quota_bytes() RETURNS bigint
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT upload_quota_bytes FROM vibetype_private.account WHERE account.id = current_setting('jwt.claims.sub')::UUID;
 $$;

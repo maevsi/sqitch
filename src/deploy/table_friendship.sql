@@ -19,7 +19,6 @@ CREATE TABLE vibetype.friendship (
   CONSTRAINT friendship_updater_participant CHECK (updated_by IS NULL or updated_by = a_account_id or updated_by = b_account_id)
 );
 
-CREATE INDEX idx_friendship_a_account_id ON vibetype.friendship USING btree (a_account_id);
 CREATE INDEX idx_friendship_b_account_id ON vibetype.friendship USING btree (b_account_id);
 CREATE INDEX idx_friendship_created_by ON vibetype.friendship USING btree (created_by);
 CREATE INDEX idx_friendship_updated_by ON vibetype.friendship USING btree (updated_by);
@@ -43,7 +42,10 @@ CREATE TRIGGER update
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_metadata_update();
 
-GRANT INSERT, SELECT, UPDATE, DELETE ON TABLE vibetype.friendship TO vibetype_account;
+-- A friendship is requested by one participant and accepted by the other, its participants never change.
+GRANT SELECT, DELETE ON TABLE vibetype.friendship TO vibetype_account;
+GRANT INSERT (a_account_id, b_account_id, created_by) ON TABLE vibetype.friendship TO vibetype_account;
+GRANT UPDATE (status) ON TABLE vibetype.friendship TO vibetype_account;
 
 ALTER TABLE vibetype.friendship ENABLE ROW LEVEL SECURITY;
 
@@ -52,12 +54,12 @@ CREATE POLICY friendship_existing ON vibetype.friendship FOR ALL
 USING (
   (
     vibetype.invoker_account_id() = friendship.a_account_id
-    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = friendship.b_account_id)
+    AND NOT EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.account_block_ids())) AS b WHERE b = friendship.b_account_id)
   )
   OR
   (
     vibetype.invoker_account_id() = friendship.b_account_id
-    AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = friendship.a_account_id)
+    AND NOT EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.account_block_ids())) AS b WHERE b = friendship.a_account_id)
   )
 )
 WITH CHECK (FALSE);

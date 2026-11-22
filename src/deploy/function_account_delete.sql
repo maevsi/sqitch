@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_delete(password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _current_account_id UUID;
@@ -18,7 +19,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.account_delete(TEXT) IS 'Allows to delete an account.\n\nError codes:\n- **23503** when the account still has events.\n- **28P01** when the password is invalid.';
+COMMENT ON FUNCTION vibetype.account_delete(TEXT) IS E'Allows to delete an account.\n\nError codes:\n- **28P01** when the password is invalid.\n\nDeleting an account that organizes many events can take several seconds.';
 
 GRANT EXECUTE ON FUNCTION vibetype.account_delete(TEXT) TO vibetype_account;
 
