@@ -884,7 +884,8 @@ CREATE TABLE vibetype.guest (
     feedback_paper vibetype.invitation_feedback_paper,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
-    updated_by uuid
+    updated_by uuid,
+    is_ghost boolean DEFAULT false NOT NULL
 );
 
 
@@ -958,6 +959,14 @@ The id of the account which last updated the guest. `NULL` if the guest was upda
 
 
 --
+-- Name: COLUMN guest.is_ghost; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.is_ghost IS '@behavior -insert
+Whether the guest takes part without appearing among the event''s attendees. Only the guest''s own account can change it.';
+
+
+--
 -- Name: create_guests(uuid, uuid[]); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -977,6 +986,34 @@ ALTER FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) OWNER T
 --
 
 COMMENT ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) IS 'Function for inserting multiple guest records.';
+
+
+--
+-- Name: event_attendee_account_ids(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.event_attendee_account_ids(event_id uuid) RETURNS uuid[]
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT COALESCE(array_agg(DISTINCT c.account_id), ARRAY[]::UUID[])
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  WHERE g.event_id = event_attendee_account_ids.event_id
+    AND g.feedback = 'accepted'::vibetype.invitation_feedback
+    AND NOT g.is_ghost
+    AND g.updated_by = c.account_id
+    AND NOT (c.account_id = ANY (vibetype_private.account_block_ids()));
+$$;
+
+
+ALTER FUNCTION vibetype_private.event_attendee_account_ids(event_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_attendee_account_ids(event_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.event_attendee_account_ids(event_id uuid) IS 'Returns the ids of the accounts that accepted to take part in an event themselves and are not in ghost mode, omitting accounts involved in a block with the invoker.';
 
 
 --
@@ -1140,6 +1177,34 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
 The event''s end date and time, falling back to its start when no explicit end is set.';
+
+
+--
+-- Name: event_attendees(vibetype.event); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_attendees(event vibetype.event) RETURNS SETOF vibetype.account
+    LANGUAGE sql STABLE STRICT
+    BEGIN ATOMIC
+ SELECT a.id,
+     a.description,
+     a.imprint_url,
+     a.username,
+     a.display_name
+    FROM vibetype.account a
+   WHERE ((a.id = ANY (vibetype_private.event_attendee_account_ids((event_attendees.event).id))) AND (EXISTS ( SELECT 1
+            FROM vibetype.event e
+           WHERE (e.id = (event_attendees.event).id))));
+END;
+
+
+ALTER FUNCTION vibetype.event_attendees(event vibetype.event) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_attendees(event vibetype.event); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_attendees(event vibetype.event) IS 'The accounts that accepted to take part in the event and are not in ghost mode. Visible to every account that can see the event.';
 
 
 --
@@ -2261,6 +2326,70 @@ COMMENT ON FUNCTION vibetype.trigger_friendship_outbox() IS 'Adds an outbox even
 
 
 --
+-- Name: trigger_guest_is_ghost(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_guest_is_ghost() RETURNS trigger
+    LANGUAGE plpgsql STRICT
+    AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM vibetype.contact c
+    WHERE c.id = NEW.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
+  ) THEN
+    RAISE 'Only the guest''s own account is allowed to change the ghost mode!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  RETURN NEW;
+END $$;
+
+
+ALTER FUNCTION vibetype.trigger_guest_is_ghost() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_is_ghost(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_guest_is_ghost() IS 'Checks that a guest''s ghost mode is changed by the guest''s own account only.';
+
+
+--
+-- Name: trigger_guest_outbox(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_guest_outbox() RETURNS trigger
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  PERFORM vibetype_private.outbox_insert(
+    'guest',
+    NEW.id,
+    'guest.accepted',
+    jsonb_build_object(
+      'guest_id', NEW.id,
+      'event_id', NEW.event_id,
+      'contact_id', NEW.contact_id
+    )
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_guest_outbox() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_outbox(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_guest_outbox() IS 'Adds an outbox event of type `guest.accepted`.';
+
+
+--
 -- Name: trigger_guest_update(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -2707,6 +2836,55 @@ ALTER FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) OW
 --
 
 COMMENT ON FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) IS 'Returns the data that notifications about a `friendship` outbox event need, depending on the friendship''s current status, which is returned as well: a request notifies the requested account, an acceptance the requester. Returns no row if the friendship is gone or one of its accounts blocked the other. The recipient''s language is the one of the contact the recipient keeps of itself and may be missing.';
+
+
+--
+-- Name: outbox_guest_acceptance_resolve(uuid); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.outbox_guest_acceptance_resolve(guest_id uuid) RETURNS TABLE(attendee_username text, event_creator_username text, event_name text, event_slug text, recipient_account_id uuid, recipient_language text)
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT
+    attendee.username,
+    creator.username,
+    e.name,
+    e.slug,
+    recipient.id,
+    recipient_contact.language::text
+  FROM vibetype.guest g
+  JOIN vibetype.contact c ON c.id = g.contact_id
+  JOIN vibetype.account attendee ON attendee.id = c.account_id
+  JOIN vibetype.event e ON e.id = g.event_id
+  JOIN vibetype.account creator ON creator.id = e.created_by
+  JOIN vibetype.close_friend cf ON cf.created_by = attendee.id
+  JOIN vibetype.friendship f ON f.id = cf.friendship_id
+  JOIN vibetype.account recipient ON recipient.id = CASE WHEN f.account_a_id = attendee.id THEN f.account_b_id ELSE f.account_a_id END
+  LEFT JOIN vibetype.contact recipient_contact ON recipient_contact.account_id = recipient.id AND recipient_contact.created_by = recipient.id
+  WHERE g.id = outbox_guest_acceptance_resolve.guest_id
+    AND g.feedback = 'accepted'::vibetype.invitation_feedback
+    AND NOT g.is_ghost
+    AND g.updated_by = attendee.id
+    -- events of other visibilities could be ones the recipient cannot see
+    AND e.visibility = 'public'::vibetype.event_visibility
+    AND f.status = 'accepted'::vibetype.friendship_status
+    AND NOT EXISTS (
+      SELECT 1
+      FROM vibetype.account_block ab
+      WHERE (ab.created_by = recipient.id AND ab.blocked_account_id IN (attendee.id, creator.id))
+        OR (ab.blocked_account_id = recipient.id AND ab.created_by IN (attendee.id, creator.id))
+    );
+$$;
+
+
+ALTER FUNCTION vibetype_private.outbox_guest_acceptance_resolve(guest_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION outbox_guest_acceptance_resolve(guest_id uuid); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.outbox_guest_acceptance_resolve(guest_id uuid) IS 'Returns one row per friend that the attendee of a `guest.accepted` outbox event marked as close, with the data a notification about the attendance needs. Returns no row unless the guest''s own account accepted, is not in ghost mode and the event is public. Omits friends involved in a block with the attendee or the event''s creator. A recipient''s language is the one of the contact the recipient keeps of itself and may be missing.';
 
 
 --
@@ -6838,6 +7016,13 @@ CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNC
 
 
 --
+-- Name: guest is_ghost; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER is_ghost BEFORE UPDATE OF is_ghost ON vibetype.guest FOR EACH ROW WHEN ((new.is_ghost IS DISTINCT FROM old.is_ghost)) EXECUTE FUNCTION vibetype.trigger_guest_is_ghost();
+
+
+--
 -- Name: event outbox; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6856,6 +7041,13 @@ CREATE TRIGGER outbox AFTER DELETE ON vibetype.upload FOR EACH ROW EXECUTE FUNCT
 --
 
 CREATE TRIGGER outbox_accepted AFTER UPDATE OF status ON vibetype.friendship FOR EACH ROW WHEN (((old.status = 'requested'::vibetype.friendship_status) AND (new.status = 'accepted'::vibetype.friendship_status))) EXECUTE FUNCTION vibetype.trigger_friendship_outbox();
+
+
+--
+-- Name: guest outbox_accepted; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER outbox_accepted AFTER UPDATE OF feedback ON vibetype.guest FOR EACH ROW WHEN (((new.feedback = 'accepted'::vibetype.invitation_feedback) AND (old.feedback IS DISTINCT FROM new.feedback) AND (NOT new.is_ghost))) EXECUTE FUNCTION vibetype.trigger_guest_outbox();
 
 
 --
@@ -8332,11 +8524,26 @@ GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 
 --
+-- Name: COLUMN guest.is_ghost; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(is_ghost) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
 -- Name: FUNCTION create_guests(event_id uuid, contact_ids uuid[]); Type: ACL; Schema: vibetype; Owner: ci
 --
 
 REVOKE ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.create_guests(event_id uuid, contact_ids uuid[]) TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_attendee_account_ids(event_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.event_attendee_account_ids(event_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_attendee_account_ids(event_id uuid) TO vibetype_account;
 
 
 --
@@ -8458,6 +8665,14 @@ GRANT INSERT(created_at),UPDATE(created_at) ON TABLE vibetype.event TO vibetype_
 --
 
 GRANT INSERT(created_by),UPDATE(created_by) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: FUNCTION event_attendees(event vibetype.event); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_attendees(event vibetype.event) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_attendees(event vibetype.event) TO vibetype_account;
 
 
 --
@@ -8696,6 +8911,23 @@ GRANT ALL ON FUNCTION vibetype.trigger_friendship_outbox() TO vibetype_account;
 
 
 --
+-- Name: FUNCTION trigger_guest_is_ghost(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_guest_is_ghost() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_guest_is_ghost() TO vibetype_account;
+
+
+--
+-- Name: FUNCTION trigger_guest_outbox(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_guest_outbox() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.trigger_guest_outbox() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.trigger_guest_outbox() TO vibetype_anonymous;
+
+
+--
 -- Name: FUNCTION trigger_guest_update(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8809,6 +9041,14 @@ GRANT ALL ON FUNCTION vibetype_private.outbox_account_resolve(account_id uuid) T
 
 REVOKE ALL ON FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.outbox_friendship_resolve(friendship_id uuid) TO vibetype;
+
+
+--
+-- Name: FUNCTION outbox_guest_acceptance_resolve(guest_id uuid); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.outbox_guest_acceptance_resolve(guest_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.outbox_guest_acceptance_resolve(guest_id uuid) TO vibetype;
 
 
 --
