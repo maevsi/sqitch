@@ -1262,9 +1262,9 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
     AND (
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
-      -- Or event is accessible (public, invited, or has claimed attendance)
+      -- Or event is accessible (public or linked unlisted, invited, or has claimed attendance)
       OR (
-        e.visibility = 'public'
+        (e.visibility = 'public' OR e.id = vibetype_private.event_link_unlisted_id())
         AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
         AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
       )
@@ -2491,6 +2491,32 @@ $$;
 
 
 ALTER FUNCTION vibetype_private.contacts_referring_invoker() OWNER TO ci;
+
+--
+-- Name: event_link_unlisted_id(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.event_link_unlisted_id() RETURNS uuid
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT e.id
+  FROM vibetype.account a
+  JOIN vibetype.event e ON e.created_by = a.id
+  WHERE a.username = NULLIF(current_setting('event_link.username', true), '')
+    AND e.slug = NULLIF(current_setting('event_link.slug', true), '')
+    AND e.visibility = 'unlisted';
+$$;
+
+
+ALTER FUNCTION vibetype_private.event_link_unlisted_id() OWNER TO ci;
+
+--
+-- Name: FUNCTION event_link_unlisted_id(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.event_link_unlisted_id() IS 'Returns the id of the unlisted event named by the request''s event link settings, if any.';
+
 
 --
 -- Name: events_invited(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
@@ -7445,7 +7471,7 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING (((((visibility = 'public'::vibetype.event_visibility) OR (id = ( SELECT vibetype_private.event_link_unlisted_id() AS event_link_unlisted_id))) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.events_invited() AS events_invited)) inv(inv)
@@ -7550,7 +7576,7 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id =
 
 CREATE POLICY guest_insert_join ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE ((e.id = guest.event_id) AND (e.visibility = 'public'::vibetype.event_visibility) AND ((e.guest_count_maximum IS NULL) OR (e.guest_count_maximum > e.guest_count))))) AND (EXISTS ( SELECT 1
+  WHERE ((e.id = guest.event_id) AND ((e.visibility = 'public'::vibetype.event_visibility) OR (e.id = ( SELECT vibetype_private.event_link_unlisted_id() AS event_link_unlisted_id))) AND ((e.guest_count_maximum IS NULL) OR (e.guest_count_maximum > e.guest_count))))) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)) AND (c.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)))))));
 
@@ -8365,6 +8391,15 @@ GRANT ALL ON FUNCTION vibetype_private.contacts_blocked() TO vibetype_anonymous;
 REVOKE ALL ON FUNCTION vibetype_private.contacts_referring_invoker() FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype_private.contacts_referring_invoker() TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype_private.contacts_referring_invoker() TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION event_link_unlisted_id(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.event_link_unlisted_id() FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype_private.event_link_unlisted_id() TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype_private.event_link_unlisted_id() TO vibetype_anonymous;
 
 
 --
