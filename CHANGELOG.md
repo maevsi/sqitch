@@ -1,3 +1,51 @@
+## [13.9.0](https://github.com/maevsi/sqitch/compare/13.8.0...13.9.0) (2026-11-22)
+
+### Features
+
+* **guest:** let accounts join public events ([#418](https://github.com/maevsi/sqitch/issues/418)) ([3d69dc9](https://github.com/maevsi/sqitch/commit/3d69dc96fd60aaae539c18727b0521f24aee2f95))
+
+## [13.8.0](https://github.com/maevsi/sqitch/compare/13.7.0...13.8.0) (2026-11-20)
+
+### Features
+
+* **account:** add a display name ([#410](https://github.com/maevsi/sqitch/issues/410)) ([d9012a8](https://github.com/maevsi/sqitch/commit/d9012a8082732f454929a656177ac4086842a33b))
+
+## [13.7.0](https://github.com/maevsi/sqitch/compare/13.6.0...13.7.0) (2026-11-20)
+
+### Features
+
+* **contact:** link guest claims to the account on verification and sign-in ([#409](https://github.com/maevsi/sqitch/issues/409)) ([467a291](https://github.com/maevsi/sqitch/commit/467a29166c394bb6a52c30a41417dfcc1cc8a3ca))
+
+## [13.6.0](https://github.com/maevsi/sqitch/compare/13.5.0...13.6.0) (2026-11-19)
+
+### Features
+
+* **event:** add nearby search ([#406](https://github.com/maevsi/sqitch/issues/406)) ([2456b13](https://github.com/maevsi/sqitch/commit/2456b135dbe6e141d5d6d5ae96b149fbd6c7a825))
+
+## [13.5.0](https://github.com/maevsi/sqitch/compare/13.4.0...13.5.0) (2026-11-19)
+
+### Features
+
+* **upload:** show event uploads to the event's viewers ([#404](https://github.com/maevsi/sqitch/issues/404)) ([75a47ed](https://github.com/maevsi/sqitch/commit/75a47edd817a637e55de3b294cd78dd2a8e6913c))
+
+## [13.4.0](https://github.com/maevsi/sqitch/compare/13.3.0...13.4.0) (2026-11-16)
+
+### Features
+
+* **event:** let event search exclude ended events by argument ([#396](https://github.com/maevsi/sqitch/issues/396)) ([43e1737](https://github.com/maevsi/sqitch/commit/43e1737005453d4d27ba71288fe2bd6455b3817e))
+
+## [13.3.0](https://github.com/maevsi/sqitch/compare/13.2.12...13.3.0) (2026-11-16)
+
+### Features
+
+* **jwt:** add the language of the own contact to the token ([#395](https://github.com/maevsi/sqitch/issues/395)) ([5ea1996](https://github.com/maevsi/sqitch/commit/5ea1996d67d427fc28cc5eb28862b7fa071ae3c2))
+
+## [13.2.12](https://github.com/maevsi/sqitch/compare/13.2.11...13.2.12) (2026-11-15)
+
+### Bug Fixes
+
+* **auth:** upgrade password hashes on sign-in and serialize the upload quota ([#389](https://github.com/maevsi/sqitch/issues/389)) ([4131bef](https://github.com/maevsi/sqitch/commit/4131befac254ba35114ef54111ea2342af4e09a5))
+
 ## [13.2.11](https://github.com/maevsi/sqitch/compare/13.2.10...13.2.11) (2026-11-15)
 
 ### Bug Fixes

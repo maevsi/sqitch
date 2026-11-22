@@ -16,6 +16,7 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - The GraphQL API exposed should have a simple and consistent surface, especially when it comes to naming
 - Prefer CRUD behavior and constraints over custom functions, to keep the schema simple and maintainable
 - The `vibetype.jwt` composite type defines JWT payload fields; PostGraphile uses it for JWT signing
+- A new `vibetype.jwt` attribute breaks every positional `ROW(...)::vibetype.jwt` cast, so the migration adding it must replace each function that builds a token
 - Error codes consist of 5 capitalized letters starting with a `VT` prefix: e.g. `VTPLL` for "password length low"
 
 ## Security
@@ -27,10 +28,11 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 - Ensure that PostGraphile Smart Comments properly control API exposure
 - Prefer `security invoker`; only use `security definer` when necessary
 - Every `security definer` function needs `SET search_path = pg_catalog, public, pg_temp`, which a test enforces; `CREATE OR REPLACE` drops the setting unless it is repeated
+- `vibetype_account` has no table-wide `UPDATE` on `vibetype.account`, so a new editable column needs its own `GRANT UPDATE (column)` (see `privilege_write_column`)
 - Grant `INSERT` only on the columns a client may set when the others are set by a service or a trigger; `@behavior -insert` doesn't protect them either
 - Hide a function from GraphQL with `@behavior -*`; the v4 `@omit` tag has no effect
 - Never let the PostGraphile connection role inherit a service role, as requests without a token run as the connection role
-- Hash passwords with `gen_salt('bf', 10)` and end the account's other sessions in `vibetype_private.jwt` whenever its password changes
+- Hash passwords with `gen_salt('bf', 10)`, which `jwt_create` also expects when it decides whether to replace a hash on sign-in, and end the account's other sessions in `vibetype_private.jwt` whenever its password changes
 - Use the `vibetype_private` schema for internal logic and especially protected content that should never be exposed directly
 
 ## Performance
@@ -54,6 +56,9 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 4. Run `pnpm run test:update` to build the Docker test image, deploy all migrations, run test SQL, revert, and update schema fixture files
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
+
+A change is breaking when it removes or changes something another service or a client relies on, or when it only works with something new from another service of the stack.
+Breaking changes get `!` in the title and target `beta`, where they wait until the stack releases the majors of its services together; the rules are in [`stack`'s release bundle document](https://github.com/maevsi/stack/blob/main/docs/release-bundle.md).
 
 ## Docker
 

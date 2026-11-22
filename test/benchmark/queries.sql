@@ -154,6 +154,7 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('count_event_format_mappings', 'SELECT count(*) FROM vibetype.event_format_mapping', TRUE, '{}'),
   ('count_event_uploads', 'SELECT count(*) FROM vibetype.event_upload', TRUE, '{}'),
   ('event_guest_count_maximum',  'SELECT vibetype.event_guest_count_maximum(''{event_id}''::UUID)',                         FALSE, '{organizer_large,invitee_many,blocker_many}'),
+  ('event_list_upcoming',        'SELECT * FROM vibetype.event WHERE effective_end >= now() ORDER BY start, id LIMIT 10',     FALSE, '{}'),
   ('event_search',               'SELECT * FROM vibetype.event_search(''benchmark'')',                                      TRUE,  '{invitee_many,blocker_many}'),
   ('events_invited',             'SELECT vibetype_test.events_invited()',                                                   FALSE, '{invitee_many}'),
   ('guest_claim_array',          'SELECT vibetype.guest_claim_array()',                                                     FALSE, '{}'),
@@ -173,9 +174,11 @@ INSERT INTO vibetype_test.benchmark_queries (name, query_sql, authenticated_only
   ('select_event_format_mappings_limit', 'SELECT * FROM vibetype.event_format_mapping LIMIT 20', TRUE, '{}'),
   ('select_event_uploads_by_event', 'SELECT * FROM vibetype.event_upload WHERE event_id = ''{event_id}''::UUID', TRUE, '{}'),
   ('select_event_uploads_limit', 'SELECT * FROM vibetype.event_upload LIMIT 20', TRUE, '{}'),
+  ('select_event_header_images', 'SELECT u.storage_key FROM vibetype.event e JOIN vibetype.event_upload eu ON eu.event_id = e.id AND eu.is_header_image JOIN vibetype.upload u ON u.id = eu.upload_id WHERE e.effective_end >= now() ORDER BY e.start, e.id LIMIT 10', FALSE, '{organizer_large,invitee_many,blocker_many}'),
   ('select_events',              'SELECT * FROM vibetype.event',                                                            FALSE, '{invitee_many,blocker_many}'),
   ('select_guests',              'SELECT * FROM vibetype.guest',                                                            FALSE, '{organizer_large,invitee_many,blocker_many}'),
   ('select_guests_by_event',     'SELECT * FROM vibetype.guest WHERE event_id = ''{event_id}''::UUID',                      FALSE, '{organizer_large}'),
+  ('select_uploads',             'SELECT * FROM vibetype.upload',                                                           FALSE, '{organizer_large,invitee_many}'),
   -- Rewrites the row unchanged, so repeated runs keep the data stable; sorted last so its dead tuples don't affect earlier queries.
   ('update_attendance',          'UPDATE vibetype.attendance SET checked_out = checked_out WHERE id = ''{attendance_id}''::UUID', TRUE, '{organizer_large}');
 

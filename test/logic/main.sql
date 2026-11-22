@@ -36,15 +36,19 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 
 \i scenario/database/achievement_code/constraints.sql
 \i scenario/database/jwt/generated_columns.sql
+\i scenario/database/jwt/hash.sql
 \i scenario/database/jwt/ended.sql
 \i scenario/database/jwt/expired_delete.sql
+\i scenario/database/jwt/language.sql
 \i scenario/database/account_block_ids.sql
 \i scenario/database/account_password.sql
 \i scenario/database/audit_log.sql
 \i scenario/database/event_guest_count.sql
 \i scenario/database/events_invited.sql
+\i scenario/database/guest_claim_contact_link.sql
 \i scenario/database/index.sql
 \i scenario/database/security_definer.sql
+\i scenario/database/upload_quota.sql
 
 \echo ==========================================================
 \echo connect as user postgraphile and run tests
@@ -63,6 +67,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/upload/constraints.sql
 \i scenario/model/account_block_accounts.sql
 \i scenario/model/account_delete.sql
+\i scenario/model/account_display_name.sql
 \i scenario/model/account_password_reset_request.sql
 \i scenario/model/account_registration.sql
 \i scenario/model/account_search.sql
@@ -76,13 +81,16 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/event_favorite.sql
 \i scenario/model/event_guest_count.sql
 \i scenario/model/event_guest_count_maximum.sql
+\i scenario/model/event_nearby.sql
 \i scenario/model/event_search.sql
+\i scenario/model/event_upload.sql
 \i scenario/model/events_organized.sql
 \i scenario/model/friendship.sql
 \i scenario/model/guest_claim_array.sql
 \i scenario/model/guest_contact_ids.sql
 \i scenario/model/guest_count.sql
 \i scenario/model/guest_create_multiple.sql
+\i scenario/model/guest_join.sql
 \i scenario/model/guest.sql
 \i scenario/model/invoker_account_id.sql
 \i scenario/model/jwt_create.sql

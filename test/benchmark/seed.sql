@@ -1,5 +1,5 @@
 -- Deterministic synthetic data for benchmark measurements.
--- Generates 1000 accounts, 100 events, 1000 contacts, ~1000 guests, and 200 attendances.
+-- Generates 1000 accounts, 100 past events, 50 upcoming events, 1000 contacts, ~1000 guests, and 200 attendances.
 -- Uses bulk inserts for speed; only a few accounts go through proper registration.
 
 DO $$
@@ -96,6 +96,28 @@ INSERT INTO vibetype.event (name, slug, visibility, start, "end", guest_count_ma
   JOIN _benchmark_accounts a ON a.seq = sub.organizer_seq;
 
 DO $$ BEGIN RAISE NOTICE 'Seeded 100 events'; END $$;
+
+-- 50 upcoming events relative to now(), as every event above lies in the past: first 10 accounts each organize 5, the odd ones without an end
+INSERT INTO vibetype.event (name, slug, visibility, start, "end", created_by, description, language)
+  SELECT
+    'Benchmark Upcoming Event ' || event_num,
+    'benchmark-upcoming-event-' || event_num,
+    'public',
+    now() + (event_num || ' hours')::INTERVAL,
+    CASE WHEN event_num % 2 = 0 THEN now() + (event_num || ' hours')::INTERVAL + '4 hours'::INTERVAL END,
+    a.id,
+    'Description for upcoming benchmark event ' || event_num || '. Performance test under row-level security.',
+    CASE WHEN event_num % 2 = 0 THEN 'en' ELSE 'de' END::vibetype.language
+  FROM (
+    SELECT
+      ((organizer_seq - 1) * 5 + event_offset) AS event_num,
+      organizer_seq
+    FROM generate_series(1, 10) AS organizer_seq,
+         generate_series(1, 5) AS event_offset
+  ) sub
+  JOIN _benchmark_accounts a ON a.seq = sub.organizer_seq;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded 50 upcoming events'; END $$;
 
 -- Collect event data for guest assignment
 CREATE TEMP TABLE _benchmark_events AS
@@ -361,13 +383,20 @@ BEGIN
     SELECT e.id, md5('benchmark-format-' || f)::UUID
     FROM vibetype.event e, generate_series(1, 2) AS f;
 
-  INSERT INTO vibetype.upload (id, size_byte, created_by)
-    SELECT md5('benchmark-upload-' || e.id)::UUID, 1024, e.created_by
-    FROM vibetype.event e;
-
-  INSERT INTO vibetype.event_upload (id, event_id, upload_id)
-    SELECT md5('benchmark-event-upload-' || e.id)::UUID, e.id, md5('benchmark-upload-' || e.id)::UUID
-    FROM vibetype.event e;
-
   RAISE NOTICE 'Seeded child tables of events';
 END $$;
+
+-- One header image per event, uploaded by its organizer, and as many uploads attached to nothing, which no other account may see.
+INSERT INTO vibetype.upload (id, created_by, size_byte, storage_key)
+  SELECT md5('benchmark-event-upload-' || e.id)::UUID, e.created_by, 1, md5('benchmark-event-upload-' || e.id)
+  FROM vibetype.event e;
+
+INSERT INTO vibetype.event_upload (event_id, is_header_image, upload_id)
+  SELECT e.id, TRUE, md5('benchmark-event-upload-' || e.id)::UUID
+  FROM vibetype.event e;
+
+INSERT INTO vibetype.upload (id, created_by, size_byte, storage_key)
+  SELECT md5('benchmark-upload-unattached-' || e.id)::UUID, e.created_by, 1, md5('benchmark-upload-unattached-' || e.id)
+  FROM vibetype.event e;
+
+DO $$ BEGIN RAISE NOTICE 'Seeded uploads'; END $$;

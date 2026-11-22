@@ -26,7 +26,7 @@ A query that times out (`statement_timeout`) or raises an error is recorded with
 
 ### Seed Data
 
-The first part of `seed.sql` creates 1000 accounts, 100 events, 1000 contacts and about 1000 guests, spread evenly.
+The first part of `seed.sql` creates 1000 accounts, 100 events in 2025, 50 upcoming events dated relative to `now()`, 1000 contacts and about 1000 guests, spread evenly.
 At that size every query takes about a millisecond whatever its plan looks like, so the second part adds a few skewed accounts that make sequential scans, per-row function calls and unusable indexes visible.
 All of its rows are bulk inserted with `generate_series` and deterministic `md5(...)::UUID` ids, so seeding stays within seconds:
 
