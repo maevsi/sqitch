@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_email_address_verification(code uuid) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _account vibetype_private.account;
@@ -20,8 +21,14 @@ BEGIN
   END IF;
 
   UPDATE vibetype_private.account
-    SET email_address_verification = NULL
+    SET
+      email_address_verification = NULL,
+      guest_claims = NULL
     WHERE email_address_verification = account_email_address_verification.code;
+
+  IF (_account.guest_claims IS NOT NULL) THEN
+    PERFORM vibetype_private.guest_claim_contact_link(_account.id, _account.guest_claims);
+  END IF;
 END;
 $$;
 

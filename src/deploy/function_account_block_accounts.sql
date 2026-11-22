@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_block_accounts() RETURNS TABLE(id uuid, username text, storage_key text)
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT a.id, a.username, u.storage_key
   FROM vibetype.account AS a

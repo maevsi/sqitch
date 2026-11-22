@@ -2,11 +2,13 @@ BEGIN;
 
 CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
+  _event_creator_display_name TEXT;
   _event_creator_profile_picture_upload_id UUID;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
@@ -75,8 +77,8 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event creator username
-  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
+  -- Event creator display name and username
+  SELECT display_name, username INTO _event_creator_display_name, _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
 
   -- Event creator profile picture storage key
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
@@ -92,6 +94,7 @@ BEGIN
             'timeZone', _contact.time_zone
           ),
           'event', _event,
+          'eventCreatorDisplayName', _event_creator_display_name,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
           'guest', jsonb_build_object(

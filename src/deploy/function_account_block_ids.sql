@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype_private.account_block_ids() RETURNS UUID[]
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT COALESCE(array_agg(blocked_id), ARRAY[]::UUID[])
   FROM (

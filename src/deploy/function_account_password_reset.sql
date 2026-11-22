@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_password_reset(code uuid, password text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _account vibetype_private.account;
@@ -25,9 +26,11 @@ BEGIN
 
   UPDATE vibetype_private.account
     SET
-      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf')),
+      password_hash = public.crypt(account_password_reset.password, public.gen_salt('bf', 10)),
       password_reset_verification = NULL
     WHERE account.password_reset_verification = account_password_reset.code;
+
+  DELETE FROM vibetype_private.jwt WHERE subject = _account.id;
 END;
 $$;
 

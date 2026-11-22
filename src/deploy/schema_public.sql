@@ -13,4 +13,7 @@ GRANT USAGE ON SCHEMA vibetype TO
   :role_service_reccoom_username,
   :role_service_vibetype_username;
 
+-- Extensions live in `public`, which SECURITY DEFINER functions keep on their search path.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+
 COMMIT;
