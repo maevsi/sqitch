@@ -13,9 +13,9 @@ DECLARE
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
 
-  eventA := vibetype_test.event_create(accountA, 'Summer Party', 'summer-party', '2025-06-01 20:00', 'public');
-  eventB := vibetype_test.event_create(accountA, 'Winter Gala', 'winter-gala', '2025-12-01 19:00', 'public');
-  eventC := vibetype_test.event_create(accountA, 'Spring Festival', 'spring-festival', '2025-03-01 15:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Summer Party', 'summer-party', '2099-06-01 20:00', 'public');
+  eventB := vibetype_test.event_create(accountA, 'Winter Gala', 'winter-gala', '2099-12-01 19:00', 'public');
+  eventC := vibetype_test.event_create(accountA, 'Spring Festival', 'spring-festival', '2099-03-01 15:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -42,8 +42,8 @@ DECLARE
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
 
-  eventA := vibetype_test.event_create(accountA, 'Birthday Party', 'birthday-party', '2025-06-01 20:00', 'public');
-  eventB := vibetype_test.event_create(accountA, 'Anniversary Celebration', 'anniversary', '2025-07-01 18:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Birthday Party', 'birthday-party', '2099-06-01 20:00', 'public');
+  eventB := vibetype_test.event_create(accountA, 'Anniversary Celebration', 'anniversary', '2099-07-01 18:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -71,7 +71,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Test Event', 'test-event', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Test Event', 'test-event', '2099-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -92,7 +92,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'German Event Veranstaltung', 'german-event', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'German Event Veranstaltung', 'german-event', '2099-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -122,7 +122,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '2099-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -143,7 +143,7 @@ DECLARE
   searchResults UUID[];
 BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '2025-06-01 20:00', 'public');
+  eventA := vibetype_test.event_create(accountA, 'Jazz Concert', 'jazz-concert', '2099-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
 
@@ -181,7 +181,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set_anonymous();
 
   BEGIN
-    PERFORM vibetype.event_search('a');
+    PERFORM vibetype.event_search('a', include_ended => true);
     RAISE EXCEPTION 'Test failed (event_search_anonymous): anonymous invoker was able to search events.';
   EXCEPTION
     WHEN insufficient_privilege THEN
@@ -191,6 +191,72 @@ BEGIN
   END;
 END $$;
 ROLLBACK TO SAVEPOINT event_search_anonymous;
+
+SAVEPOINT event_search_include_ended;
+DO $$
+DECLARE
+  accountA UUID;
+  eventEndedExplicit UUID;
+  eventEndedImplicit UUID;
+  eventUpcomingExplicit UUID;
+  eventUpcomingImplicit UUID;
+  searchResults UUID[];
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.event (created_by, name, slug, start, "end", visibility) VALUES
+    (accountA, 'Ended Explicit', 'ended-explicit', now() - interval '3 hours', now() - interval '1 hour', 'public'),
+    (accountA, 'Ended Implicit', 'ended-implicit', now() - interval '1 hour', NULL, 'public'),
+    (accountA, 'Upcoming Explicit', 'upcoming-explicit', now() - interval '1 hour', now() + interval '1 hour', 'public'),
+    (accountA, 'Upcoming Implicit', 'upcoming-implicit', now() + interval '1 hour', NULL, 'public');
+
+  SELECT id INTO eventEndedExplicit FROM vibetype.event WHERE slug = 'ended-explicit';
+  SELECT id INTO eventEndedImplicit FROM vibetype.event WHERE slug = 'ended-implicit';
+  SELECT id INTO eventUpcomingExplicit FROM vibetype.event WHERE slug = 'upcoming-explicit';
+  SELECT id INTO eventUpcomingImplicit FROM vibetype.event WHERE slug = 'upcoming-implicit';
+
+  searchResults := ARRAY(SELECT id FROM vibetype.event_search('Ended') UNION ALL SELECT id FROM vibetype.event_search('Upcoming'));
+
+  IF eventEndedExplicit = ANY(searchResults) THEN
+    RAISE EXCEPTION 'Test failed: default search should exclude an event whose end is in the past';
+  END IF;
+
+  IF eventEndedImplicit = ANY(searchResults) THEN
+    RAISE EXCEPTION 'Test failed: default search should exclude an event without end whose start is in the past';
+  END IF;
+
+  IF NOT (eventUpcomingExplicit = ANY(searchResults)) THEN
+    RAISE EXCEPTION 'Test failed: default search should include an event whose end is in the future';
+  END IF;
+
+  IF NOT (eventUpcomingImplicit = ANY(searchResults)) THEN
+    RAISE EXCEPTION 'Test failed: default search should include an event without end whose start is in the future';
+  END IF;
+
+  searchResults := ARRAY(SELECT id FROM vibetype.event_search('Ended', include_ended => NULL) UNION ALL SELECT id FROM vibetype.event_search('Upcoming', include_ended => NULL));
+
+  IF eventEndedExplicit = ANY(searchResults) OR eventEndedImplicit = ANY(searchResults) THEN
+    RAISE EXCEPTION 'Test failed: a NULL include_ended should behave like false';
+  END IF;
+
+  IF NOT (eventUpcomingExplicit = ANY(searchResults) AND eventUpcomingImplicit = ANY(searchResults)) THEN
+    RAISE EXCEPTION 'Test failed: a NULL include_ended should still include upcoming events';
+  END IF;
+
+  searchResults := ARRAY(SELECT id FROM vibetype.event_search('Ended', include_ended => true) UNION ALL SELECT id FROM vibetype.event_search('Upcoming', include_ended => true));
+
+  IF NOT (
+    eventEndedExplicit = ANY(searchResults)
+    AND eventEndedImplicit = ANY(searchResults)
+    AND eventUpcomingExplicit = ANY(searchResults)
+    AND eventUpcomingImplicit = ANY(searchResults)
+  ) THEN
+    RAISE EXCEPTION 'Test failed: search with include_ended should return all four events';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT event_search_include_ended;
 
 SAVEPOINT event_search_invisible;
 DO $$
@@ -205,8 +271,8 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
 
-  eventHidden := vibetype_test.event_create(accountA, 'Zebras', 'secret-zebra', '2025-06-01 20:00', 'private');
-  eventVisible := vibetype_test.event_create(accountA, 'Zebra', 'public-zebra', '2025-06-01 20:00', 'public');
+  eventHidden := vibetype_test.event_create(accountA, 'Zebras', 'secret-zebra', '2099-06-01 20:00', 'private');
+  eventVisible := vibetype_test.event_create(accountA, 'Zebra', 'public-zebra', '2099-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountB);
 

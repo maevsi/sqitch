@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.event_delete(id uuid, password text) RETURNS vibetype.event
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _current_account_id UUID;

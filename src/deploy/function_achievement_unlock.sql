@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.achievement_unlock(code uuid, alias text) RETURNS uuid
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _account_id UUID;

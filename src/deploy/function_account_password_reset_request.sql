@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_password_reset_request(email_address text, language text, time_zone text DEFAULT 'UTC') RETURNS void
     LANGUAGE sql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   WITH updated AS (
     UPDATE vibetype_private.account

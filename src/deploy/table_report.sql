@@ -18,7 +18,6 @@ CREATE TABLE vibetype.report (
 CREATE INDEX idx_report_target_account_id ON vibetype.report USING btree (target_account_id);
 CREATE INDEX idx_report_target_event_id ON vibetype.report USING btree (target_event_id);
 CREATE INDEX idx_report_target_upload_id ON vibetype.report USING btree (target_upload_id);
-CREATE INDEX idx_report_created_by ON vibetype.report USING btree (created_by);
 
 COMMENT ON TABLE vibetype.report IS E'@behavior -update -delete\nStores reports made by users on other users, events, or uploads for moderation purposes.';
 COMMENT ON COLUMN vibetype.report.id IS E'@behavior -insert\nUnique identifier for the report, generated randomly using UUIDs.';
