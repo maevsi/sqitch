@@ -11,9 +11,10 @@ CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibe
   JOIN vibetype.guest g ON g.event_id = e.id
   JOIN vibetype.attendance a ON a.guest_id = g.id
   WHERE a.id = event_by_attendance_id.attendance_id
+    AND (e.is_published OR e.created_by = vibetype.invoker_account_id())
 $$;
 
-COMMENT ON FUNCTION vibetype.event_by_attendance_id(UUID) IS 'Returns the event associated with the given attendance ID.';
+COMMENT ON FUNCTION vibetype.event_by_attendance_id(UUID) IS 'Returns the event associated with the given attendance ID, unless it is unpublished and not organized by the invoker.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_by_attendance_id(UUID) TO vibetype_account, vibetype_anonymous;
 

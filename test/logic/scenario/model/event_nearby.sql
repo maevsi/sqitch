@@ -45,7 +45,7 @@ DO $$
 DECLARE
   _account UUID;
   _private UUID;
-  _unlisted UUID;
+  _unpublished UUID;
   _archived UUID;
   _remote UUID;
   _unset UUID;
@@ -55,30 +55,31 @@ BEGIN
   _account := vibetype_test.account_registration_verified('a', 'a@example.com');
 
   _private := vibetype_test.event_create(_account, 'Private', 'private', '2099-06-01 20:00', 'private');
-  _unlisted := vibetype_test.event_create(_account, 'Unlisted', 'unlisted', '2099-06-01 20:00', 'unlisted');
+  _unpublished := vibetype_test.event_create(_account, 'Unpublished', 'unpublished', '2099-06-01 20:00', 'public');
   _archived := vibetype_test.event_create(_account, 'Archived', 'archived', '2099-06-01 20:00', 'public');
   _remote := vibetype_test.event_create(_account, 'Remote', 'remote', '2099-06-01 20:00', 'public');
   _unset := vibetype_test.event_create(_account, 'Unset', 'unset', '2099-06-01 20:00', 'public');
   _public := vibetype_test.event_create(_account, 'Public', 'public', '2099-06-01 20:00', 'public');
   PERFORM vibetype_test.invoker_set(_account);
-  UPDATE vibetype.event SET is_in_person = TRUE WHERE id IN (_private, _unlisted, _archived, _public);
+  UPDATE vibetype.event SET is_in_person = TRUE WHERE id IN (_private, _unpublished, _archived, _public);
   UPDATE vibetype.event SET is_in_person = FALSE WHERE id = _remote;
   UPDATE vibetype.event SET is_archived = TRUE WHERE id = _archived;
+  UPDATE vibetype.event SET is_published = FALSE WHERE id = _unpublished;
   PERFORM vibetype_test.event_update_address_coordinates(_private, 50.0, 8.0);
-  PERFORM vibetype_test.event_update_address_coordinates(_unlisted, 50.0, 8.0);
+  PERFORM vibetype_test.event_update_address_coordinates(_unpublished, 50.0, 8.0);
   PERFORM vibetype_test.event_update_address_coordinates(_archived, 50.0, 8.0);
   PERFORM vibetype_test.event_update_address_coordinates(_remote, 50.0, 8.0);
   PERFORM vibetype_test.event_update_address_coordinates(_unset, 50.0, 8.0);
   PERFORM vibetype_test.event_update_address_coordinates(_public, 50.001, 8.0);
 
-  -- even the creator of a private or unlisted event does not get it back
+  -- even the creator of a private or unpublished event does not get it back
   PERFORM vibetype_test.invoker_set(_account);
   _result := ARRAY(SELECT id FROM vibetype.event_nearby(50.0, 8.0, 1000));
   IF _result IS DISTINCT FROM ARRAY[_public] THEN
     RAISE EXCEPTION 'Test failed (event_nearby_excluded): only the public in-person event should be returned, got %', _result;
   END IF;
 
-  -- the matcher itself must not leak private or unlisted events either
+  -- the matcher itself must not leak private or unpublished events either
   IF EXISTS (SELECT 1 FROM vibetype.event_nearby_match(50.0, 8.0, 1000) WHERE event_id <> _public) THEN
     RAISE EXCEPTION 'Test failed (event_nearby_excluded): matcher returned an event other than the public in-person one';
   END IF;

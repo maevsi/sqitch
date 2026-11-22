@@ -9,6 +9,7 @@ CREATE TABLE vibetype.event (
   guest_count_maximum      INTEGER CHECK (guest_count_maximum > 0),
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,
+  is_published             BOOLEAN NOT NULL DEFAULT TRUE,
   is_remote                BOOLEAN,
   language                 vibetype.language,
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") <= 100),
@@ -45,6 +46,7 @@ COMMENT ON COLUMN vibetype.event.end IS 'The event''s end date and time, with ti
 COMMENT ON COLUMN vibetype.event.guest_count_maximum IS 'The event''s maximum guest count. Must be greater than 0.';
 COMMENT ON COLUMN vibetype.event.is_archived IS 'Indicates whether the event is archived.';
 COMMENT ON COLUMN vibetype.event.is_in_person IS 'Indicates whether the event takes place in person.';
+COMMENT ON COLUMN vibetype.event.is_published IS 'Indicates whether the event is published. An unpublished event is a draft that only its organizer can see.';
 COMMENT ON COLUMN vibetype.event.is_remote IS 'Indicates whether the event takes place remotely.';
 COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty and not exceed 100 characters.';
 COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be alphanumeric with hyphens and not exceed 100 characters.';
