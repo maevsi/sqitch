@@ -34,45 +34,6 @@ COMMENT ON SCHEMA sqitch IS 'Sqitch database deployment metadata v1.1.';
 
 
 --
--- Name: tiger; Type: SCHEMA; Schema: -; Owner: ci
---
-
-CREATE SCHEMA tiger;
-
-
-ALTER SCHEMA tiger OWNER TO ci;
-
---
--- Name: topology; Type: SCHEMA; Schema: -; Owner: ci
---
-
-CREATE SCHEMA topology;
-
-
-ALTER SCHEMA topology OWNER TO ci;
-
---
--- Name: SCHEMA topology; Type: COMMENT; Schema: -; Owner: ci
---
-
-COMMENT ON SCHEMA topology IS 'PostGIS Topology schema';
-
-
---
--- Name: fuzzystrmatch; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS fuzzystrmatch WITH SCHEMA public;
-
-
---
--- Name: EXTENSION fuzzystrmatch; Type: COMMENT; Schema: -; Owner: 
---
-
-COMMENT ON EXTENSION fuzzystrmatch IS 'determine similarities and distance between strings';
-
-
---
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -111,35 +72,7 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 -- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
 --
 
-COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
-
-
---
--- Name: postgis_tiger_geocoder; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS postgis_tiger_geocoder WITH SCHEMA tiger;
-
-
---
--- Name: EXTENSION postgis_tiger_geocoder; Type: COMMENT; Schema: -; Owner: 
---
-
-COMMENT ON EXTENSION postgis_tiger_geocoder IS 'PostGIS tiger geocoder and reverse geocoder';
-
-
---
--- Name: postgis_topology; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS postgis_topology WITH SCHEMA topology;
-
-
---
--- Name: EXTENSION postgis_topology; Type: COMMENT; Schema: -; Owner: 
---
-
-COMMENT ON EXTENSION postgis_topology IS 'PostGIS topology spatial types and functions';
+COMMENT ON EXTENSION postgis IS 'Provides support for geographic objects and spatial queries.';
 
 
 SET default_tablespace = '';

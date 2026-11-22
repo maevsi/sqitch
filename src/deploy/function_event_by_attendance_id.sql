@@ -4,6 +4,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibetype.event
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT e.*
   FROM vibetype.event e

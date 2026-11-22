@@ -16,7 +16,7 @@ BEGIN
     RAISE 'Password too short!' USING ERRCODE = 'VTPLL';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE account.username = account_registration.username)) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE lower(account.username) = lower(account_registration.username))) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'VTAUV';
   END IF;
 
@@ -25,8 +25,8 @@ BEGIN
     RETURN; -- silent fail as we cannot return meta information about users' email addresses
   END IF;
 
-  INSERT INTO vibetype_private.account(birth_date, email_address, password_hash, last_activity) VALUES
-    (account_registration.birth_date, account_registration.email_address, public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
+  INSERT INTO vibetype_private.account(birth_date, email_address, guest_claims, password_hash, last_activity) VALUES
+    (account_registration.birth_date, account_registration.email_address, NULLIF(vibetype.guest_claim_array(), ARRAY[]::UUID[]), public.crypt(account_registration.password, public.gen_salt('bf', 10)), CURRENT_TIMESTAMP)
     RETURNING * INTO _new_account_private;
 
   INSERT INTO vibetype.account(id, username) VALUES

@@ -44,6 +44,7 @@ USING (
 -- Needs SECURITY DEFINER as querying vibetype.upload under RLS recurses into vibetype.profile_picture via `upload_select`.
 CREATE FUNCTION vibetype_private.upload_is_own(upload_id UUID) RETURNS boolean
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT EXISTS (
     SELECT 1

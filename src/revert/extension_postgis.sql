@@ -1,0 +1,5 @@
+BEGIN;
+
+DROP EXTENSION postgis;
+
+COMMIT;

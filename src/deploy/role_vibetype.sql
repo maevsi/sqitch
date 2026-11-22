@@ -19,6 +19,6 @@ BEGIN
   END IF;
 END $$;
 
-GRANT :role_service_vibetype_username TO :role_service_postgraphile_username;
+GRANT :role_service_vibetype_username TO :role_service_postgraphile_username WITH INHERIT FALSE, SET TRUE;
 
 COMMIT;

@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE FUNCTION vibetype.account_password_change(password_current text, password_new text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _current_account_id UUID;
@@ -13,7 +14,10 @@ BEGIN
   _current_account_id := current_setting('jwt.claims.sub')::UUID;
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_password_change.password_current, account.password_hash))) THEN
-    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf')) WHERE account.id = _current_account_id;
+    UPDATE vibetype_private.account SET password_hash = public.crypt(account_password_change.password_new, public.gen_salt('bf', 10)) WHERE account.id = _current_account_id;
+    DELETE FROM vibetype_private.jwt
+      WHERE subject = _current_account_id
+        AND id IS DISTINCT FROM NULLIF(current_setting('jwt.claims.jti', true), '')::UUID;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
   END IF;

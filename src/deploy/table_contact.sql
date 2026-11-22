@@ -25,7 +25,6 @@ CREATE TABLE vibetype.contact (
 
 CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
 CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id);
-CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
 CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name);
 CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
 
@@ -52,6 +51,7 @@ COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures eac
 
 CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF NEW.time_zone IS NOT NULL THEN
@@ -77,6 +77,7 @@ CREATE TRIGGER time_zone
 
 CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (

@@ -6,6 +6,7 @@ CREATE FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) 
   contact_email_address text,
   contact_time_zone text,
   event jsonb,
+  event_creator_display_name text,
   event_creator_username text,
   event_creator_profile_picture_upload_storage_key text
 )
@@ -29,6 +30,7 @@ CREATE FUNCTION vibetype_private.outbox_guest_invitation_resolve(guest_id uuid) 
       'visibility', e.visibility,
       'created_by', e.created_by
     ),
+    a.display_name,
     a.username,
     u.storage_key
   FROM vibetype.guest g
