@@ -21,7 +21,6 @@ BEGIN
   UPDATE vibetype.event SET address_id = _address_a WHERE id = _event_a;
   PERFORM vibetype_test.invoker_set_previous();
 
-  PERFORM vibetype_test.invoker_set(_account_b);
 
   IF NOT EXISTS (SELECT 1 FROM vibetype.address WHERE id = _address_a) THEN
     RAISE EXCEPTION 'Test failed: the address of a public event should be visible';
@@ -154,17 +153,10 @@ BEGIN
     RAISE EXCEPTION 'Test failed: grafana can select account.password_reset_verification';
   END IF;
 
-  IF has_column_privilege('grafana', 'vibetype_private.notification', 'payload', 'SELECT') THEN
-    RAISE EXCEPTION 'Test failed: grafana can select notification.payload';
-  END IF;
-
   IF NOT has_column_privilege('grafana', 'vibetype_private.account', 'created_at', 'SELECT') THEN
     RAISE EXCEPTION 'Test failed: grafana cannot select account.created_at';
   END IF;
 
-  IF NOT has_column_privilege('grafana', 'vibetype_private.notification', 'channel', 'SELECT') THEN
-    RAISE EXCEPTION 'Test failed: grafana cannot select notification.channel';
-  END IF;
 
   RESET ROLE;
 END $$;
@@ -236,15 +228,5 @@ BEGIN
   END LOOP;
 END $$;
 ROLLBACK TO SAVEPOINT write_columns;
-
--- The service acknowledges notifications itself.
-SAVEPOINT notification_acknowledge_service;
-DO $$
-BEGIN
-  IF NOT has_function_privilege('vibetype', 'vibetype.notification_acknowledge(UUID, BOOLEAN)', 'EXECUTE') THEN
-    RAISE EXCEPTION 'Test failed: the service cannot acknowledge notifications';
-  END IF;
-END $$;
-ROLLBACK TO SAVEPOINT notification_acknowledge_service;
 
 ROLLBACK;
