@@ -292,4 +292,92 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT outbox_friendship;
 
+SAVEPOINT outbox_guest_acceptance;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  accountC UUID;
+  accountD UUID;
+  contactAB UUID;
+  eventA UUID;
+  eventAPrivate UUID;
+  friendshipBC UUID;
+  friendshipBD UUID;
+  guestAB UUID;
+  guestABPrivate UUID;
+  _resolved RECORD;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  accountC := vibetype_test.account_registration_verified('c', 'c@example.com');
+  accountD := vibetype_test.account_registration_verified('d', 'd@example.com');
+  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event', 'event', '2025-06-01 20:00', 'public');
+  eventAPrivate := vibetype_test.event_create(accountA, 'Private', 'private', '2025-06-01 20:00', 'private');
+  guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
+  guestABPrivate := vibetype_test.guest_create(accountA, eventAPrivate, contactAB);
+  friendshipBC := vibetype_test.friendship_create_accepted(accountB, accountC);
+  friendshipBD := vibetype_test.friendship_create_accepted(accountB, accountD);
+
+  -- B marks C as close, D marks B as close
+  PERFORM vibetype_test.invoker_set(accountB);
+  INSERT INTO vibetype.close_friend(friendship_id, created_by) VALUES (friendshipBC, accountB);
+  PERFORM vibetype_test.invoker_set(accountD);
+  INSERT INTO vibetype.close_friend(friendship_id, created_by) VALUES (friendshipBD, accountD);
+  PERFORM vibetype_test.invoker_set_previous();
+
+  PERFORM vibetype_test.outbox_capture();
+
+  PERFORM vibetype_test.invoker_set(accountB);
+  UPDATE vibetype.guest SET feedback = 'accepted' WHERE id IN (guestAB, guestABPrivate);
+  PERFORM vibetype_test.invoker_set_previous();
+
+  IF vibetype_test.outbox_payload('guest.accepted', guestAB) -> 'data' IS DISTINCT FROM jsonb_build_object('guest_id', guestAB, 'event_id', eventA, 'contact_id', contactAB) THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): unexpected guest.accepted data';
+  END IF;
+
+  IF (SELECT count(*) FROM vibetype_private.outbox_guest_acceptance_resolve(guestAB)) <> 1 THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): not exactly the friend marked as close is notified';
+  END IF;
+
+  SELECT * INTO _resolved FROM vibetype_private.outbox_guest_acceptance_resolve(guestAB);
+
+  IF _resolved IS DISTINCT FROM ROW('b'::TEXT, 'a'::TEXT, 'Event'::TEXT, 'event'::TEXT, accountC, 'en'::TEXT) THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): unexpected resolution %', _resolved;
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM vibetype_private.outbox_guest_acceptance_resolve(guestABPrivate)) THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): a private event is announced';
+  END IF;
+
+  PERFORM vibetype_test.account_block_create(accountC, accountA);
+
+  IF EXISTS (SELECT 1 FROM vibetype_private.outbox_guest_acceptance_resolve(guestAB)) THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): a friend who blocked the event''s creator is notified';
+  END IF;
+
+  PERFORM vibetype_test.account_block_delete(accountC, accountA);
+
+  PERFORM vibetype_test.invoker_set(accountB);
+  UPDATE vibetype.guest SET is_ghost = TRUE WHERE id = guestAB;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  IF EXISTS (SELECT 1 FROM vibetype_private.outbox_guest_acceptance_resolve(guestAB)) THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): a ghost is announced';
+  END IF;
+
+  -- accepting again as a ghost stays silent
+  PERFORM vibetype_test.invoker_set(accountB);
+  UPDATE vibetype.guest SET feedback = 'canceled' WHERE id = guestAB;
+  UPDATE vibetype.guest SET feedback = 'accepted' WHERE id = guestAB;
+  UPDATE vibetype.guest SET is_ghost = FALSE WHERE id = guestAB;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  IF vibetype_test.outbox_count('guest.accepted', guestAB) <> 1 THEN
+    RAISE EXCEPTION 'Test failed (outbox_guest_acceptance): a ghost''s acceptance or leaving ghost mode added an outbox event';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT outbox_guest_acceptance;
+
 ROLLBACK;

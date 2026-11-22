@@ -24,3 +24,18 @@ RETURNS JSONB
 $$;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.outbox_payload(TEXT, UUID) TO vibetype_account, vibetype_anonymous;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.outbox_count(
+  _type TEXT,
+  _aggregate_id UUID
+)
+RETURNS BIGINT
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    AS $$
+  SELECT count(*)
+  FROM vibetype_private.outbox
+  WHERE type = _type AND aggregate_id = _aggregate_id;
+$$;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.outbox_count(TEXT, UUID) TO vibetype_account, vibetype_anonymous;
