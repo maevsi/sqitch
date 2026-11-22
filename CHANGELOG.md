@@ -1,3 +1,13 @@
+## [14.0.0-beta.11](https://github.com/maevsi/sqitch/compare/14.0.0-beta.10...14.0.0-beta.11) (2026-11-22)
+
+### Features
+
+* **attendance:** store the serial number of the written tag ([#421](https://github.com/maevsi/sqitch/issues/421)) ([ff2f368](https://github.com/maevsi/sqitch/commit/ff2f368c583059ee30670307b4659e6519dd723f))
+
+### Bug Fixes
+
+* **docker:** forward stop signals to sqitch ([#420](https://github.com/maevsi/sqitch/issues/420)) ([13948d0](https://github.com/maevsi/sqitch/commit/13948d04a784c3a24c95d7bdb15436a9ebc55ffd))
+
 ## [14.0.0-beta.10](https://github.com/maevsi/sqitch/compare/14.0.0-beta.9...14.0.0-beta.10) (2026-11-22)
 
 ### Features
