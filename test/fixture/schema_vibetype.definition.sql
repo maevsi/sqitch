@@ -3844,6 +3844,58 @@ Who last changed this entry. This may be empty if done without signing in.';
 
 
 --
+-- Name: close_friend; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.close_friend (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    friendship_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL
+);
+
+
+ALTER TABLE vibetype.close_friend OWNER TO ci;
+
+--
+-- Name: TABLE close_friend; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.close_friend IS '@behavior -update
+An account''s marking of a friend as close. The marking is private: the friend cannot see it, and each of the two friends marks the other independently. It ends together with the friendship.';
+
+
+--
+-- Name: COLUMN close_friend.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.close_friend.id IS '@behavior -insert
+The close friend marking''s internal id.';
+
+
+--
+-- Name: COLUMN close_friend.friendship_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.close_friend.friendship_id IS 'The friendship whose other account is marked as close.';
+
+
+--
+-- Name: COLUMN close_friend.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.close_friend.created_at IS '@behavior -insert
+Timestamp of when the close friend marking was created.';
+
+
+--
+-- Name: COLUMN close_friend.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.close_friend.created_by IS 'The account that marked the friend as close.';
+
+
+--
 -- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -5752,6 +5804,22 @@ ALTER TABLE ONLY vibetype.attendance
 
 
 --
+-- Name: close_friend close_friend_created_by_friendship_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.close_friend
+    ADD CONSTRAINT close_friend_created_by_friendship_id_key UNIQUE (created_by, friendship_id);
+
+
+--
+-- Name: close_friend close_friend_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.close_friend
+    ADD CONSTRAINT close_friend_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contact contact_created_by_account_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6312,6 +6380,34 @@ CREATE INDEX idx_attendance_updated_by ON vibetype.attendance USING btree (updat
 --
 
 COMMENT ON INDEX vibetype.idx_attendance_updated_by IS 'Speeds up searching by who changed an entry.';
+
+
+--
+-- Name: idx_close_friend_created_by; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_close_friend_created_by ON vibetype.close_friend USING btree (created_by);
+
+
+--
+-- Name: INDEX idx_close_friend_created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_close_friend_created_by IS 'B-Tree index to optimize lookups by creator.';
+
+
+--
+-- Name: idx_close_friend_friendship_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_close_friend_friendship_id ON vibetype.close_friend USING btree (friendship_id);
+
+
+--
+-- Name: INDEX idx_close_friend_friendship_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_close_friend_friendship_id IS 'B-Tree index to optimize lookups by friendship.';
 
 
 --
@@ -6970,6 +7066,22 @@ ALTER TABLE ONLY vibetype.attendance
 
 
 --
+-- Name: close_friend close_friend_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.close_friend
+    ADD CONSTRAINT close_friend_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: close_friend close_friend_friendship_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.close_friend
+    ADD CONSTRAINT close_friend_friendship_id_fkey FOREIGN KEY (friendship_id) REFERENCES vibetype.friendship(id) ON DELETE CASCADE;
+
+
+--
 -- Name: contact contact_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -7484,6 +7596,35 @@ CREATE POLICY attendance_update ON vibetype.attendance FOR UPDATE USING (((guest
   WHERE ((g.id = attendance.guest_id) AND (g.event_id = ANY (( SELECT vibetype_private.events_organized() AS events_organized)::uuid[])) AND (NOT (EXISTS ( SELECT 1
            FROM unnest(( SELECT vibetype_private.contacts_blocked() AS contacts_blocked)) c(c)
           WHERE (c.c = g.contact_id)))))))));
+
+
+--
+-- Name: close_friend; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.close_friend ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: close_friend close_friend_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY close_friend_delete ON vibetype.close_friend FOR DELETE USING ((created_by = vibetype.invoker_account_id()));
+
+
+--
+-- Name: close_friend close_friend_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY close_friend_insert ON vibetype.close_friend FOR INSERT WITH CHECK (((created_by = vibetype.invoker_account_id()) AND (EXISTS ( SELECT 1
+   FROM vibetype.friendship f
+  WHERE ((f.id = close_friend.friendship_id) AND (f.status = 'accepted'::vibetype.friendship_status) AND ((f.account_a_id = vibetype.invoker_account_id()) OR (f.account_b_id = vibetype.invoker_account_id())))))));
+
+
+--
+-- Name: close_friend close_friend_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY close_friend_select ON vibetype.close_friend FOR SELECT USING ((created_by = vibetype.invoker_account_id()));
 
 
 --
@@ -8855,6 +8996,13 @@ GRANT SELECT ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_account;
 GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
+
+
+--
+-- Name: TABLE close_friend; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE vibetype.close_friend TO vibetype_account;
 
 
 --
