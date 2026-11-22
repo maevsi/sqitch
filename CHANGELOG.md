@@ -90,6 +90,12 @@
 ### Code Refactoring
 
 * **guest:** drop the unused flat view ([#360](https://github.com/maevsi/sqitch/issues/360)) ([d3f481c](https://github.com/maevsi/sqitch/commit/d3f481c662d8eddd8cd83cde7f47a1f33cf71ba5))
+## [13.9.0](https://github.com/maevsi/sqitch/compare/13.8.0...13.9.0) (2026-11-22)
+
+### Features
+
+* **guest:** let accounts join public events ([#418](https://github.com/maevsi/sqitch/issues/418)) ([3d69dc9](https://github.com/maevsi/sqitch/commit/3d69dc96fd60aaae539c18727b0521f24aee2f95))
+
 ## [13.8.0](https://github.com/maevsi/sqitch/compare/13.7.0...13.8.0) (2026-11-20)
 
 ### Features

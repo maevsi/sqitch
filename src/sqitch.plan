@@ -107,3 +107,4 @@ table_email [schema_private function_trigger_metadata_update table_account_publi
 role_gizmosql 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add role gizmosql.
 database_ducklake [role_gizmosql] 2026-11-11T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add the database for the lakehouse catalog.
 function_event_nearby [function_event_search table_address table_event] 2026-11-19T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Find public in-person events within a radius around coordinates.
+table_guest_policy_join [table_event_policy table_guest_policy table_contact_policy] 2026-11-21T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Let accounts join public events as guests while there is room.
