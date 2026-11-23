@@ -1,3 +1,9 @@
+## [13.10.2](https://github.com/maevsi/sqitch/compare/13.10.1...13.10.2) (2026-11-23)
+
+### Bug Fixes
+
+* **event:** store unlisted events as private ([#426](https://github.com/maevsi/sqitch/issues/426)) ([e840a49](https://github.com/maevsi/sqitch/commit/e840a492e1408e239ad84adc0ed1e4036c666a8f))
+
 ## [13.10.1](https://github.com/maevsi/sqitch/compare/13.10.0...13.10.1) (2026-11-23)
 
 ### Bug Fixes
