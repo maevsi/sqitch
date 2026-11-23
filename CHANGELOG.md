@@ -1,3 +1,10 @@
+## [14.0.0-beta.13](https://github.com/maevsi/sqitch/compare/14.0.0-beta.12...14.0.0-beta.13) (2026-11-23)
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#428](https://github.com/maevsi/sqitch/issues/428)) ([dc3b84b](https://github.com/maevsi/sqitch/commit/dc3b84b62804ceb2c7c925323cb7b5fa5d061278))
+* **event:** store unlisted events as private ([#426](https://github.com/maevsi/sqitch/issues/426)) ([e840a49](https://github.com/maevsi/sqitch/commit/e840a492e1408e239ad84adc0ed1e4036c666a8f))
+
 ## [14.0.0-beta.12](https://github.com/maevsi/sqitch/compare/14.0.0-beta.11...14.0.0-beta.12) (2026-11-23)
 
 ### ⚠ BREAKING CHANGES
