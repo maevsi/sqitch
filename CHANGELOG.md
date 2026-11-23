@@ -1,3 +1,9 @@
+## [13.10.1](https://github.com/maevsi/sqitch/compare/13.10.0...13.10.1) (2026-11-23)
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#428](https://github.com/maevsi/sqitch/issues/428)) ([dc3b84b](https://github.com/maevsi/sqitch/commit/dc3b84b62804ceb2c7c925323cb7b5fa5d061278))
+
 ## [13.10.0](https://github.com/maevsi/sqitch/compare/13.9.1...13.10.0) (2026-11-22)
 
 ### Features
