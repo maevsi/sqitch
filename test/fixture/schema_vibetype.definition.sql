@@ -1378,6 +1378,7 @@ CREATE TABLE vibetype.event (
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
     effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
+    feedback_deadline timestamp with time zone,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1519,6 +1520,13 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
 The event''s end date and time, falling back to its start when no explicit end is set.';
+
+
+--
+-- Name: COLUMN event.feedback_deadline; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 
 
 --
@@ -1724,6 +1732,7 @@ Joins the event of a general invitation link as a guest who accepted, and return
 Error codes:
 - **VTILN** when the invitation link does not exist.
 - **VTEEN** when the event has ended.
+- **VTFDP** when the event''s feedback deadline has passed.
 - **VTIDM** when an email address or first name is missing without an account.
 - **VTGCM** when the event''s maximum guest count is reached.';
 
@@ -3616,6 +3625,39 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_insert() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest count of their events.';
+
+
+--
+-- Name: trigger_guest_feedback_deadline(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_guest_feedback_deadline() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = NEW.event_id
+      AND e.feedback_deadline <= CURRENT_TIMESTAMP
+      AND e.created_by IS DISTINCT FROM vibetype.invoker_account_id()
+  ) THEN
+    RAISE 'The event''s feedback deadline has passed.' USING ERRCODE = 'VTFDP';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_guest_feedback_deadline() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_feedback_deadline(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_guest_feedback_deadline() IS 'Rejects feedback from anyone but the organizer once the event''s feedback deadline has passed.';
 
 
 --
@@ -6922,6 +6964,20 @@ CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE 
 
 
 --
+-- Name: guest feedback_deadline_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER feedback_deadline_insert BEFORE INSERT ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS NOT NULL) OR (new.feedback_paper IS NOT NULL))) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+
+
+--
+-- Name: guest feedback_deadline_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER feedback_deadline_update BEFORE UPDATE OF feedback, feedback_paper ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS DISTINCT FROM old.feedback) OR (new.feedback_paper IS DISTINCT FROM old.feedback_paper))) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+
+
+--
 -- Name: guest guest_count_delete; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -8660,6 +8716,13 @@ GRANT INSERT(created_by),UPDATE(created_by) ON TABLE vibetype.event TO vibetype_
 
 
 --
+-- Name: COLUMN event.feedback_deadline; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(feedback_deadline),UPDATE(feedback_deadline) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
 -- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -9074,6 +9137,13 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_delete() FROM PUBLIC
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_guest_feedback_deadline(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_feedback_deadline() FROM PUBLIC;
 
 
 --

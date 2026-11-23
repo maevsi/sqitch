@@ -78,6 +78,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/contact_group.sql
 \i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
+\i scenario/model/event_feedback_deadline.sql
 \i scenario/model/event_guest_count.sql
 \i scenario/model/event_guest_count_maximum.sql
 \i scenario/model/event_nearby.sql
