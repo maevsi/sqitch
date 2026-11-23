@@ -1,3 +1,13 @@
+## [14.0.0-beta.14](https://github.com/maevsi/sqitch/compare/14.0.0-beta.13...14.0.0-beta.14) (2026-11-23)
+
+### Features
+
+* **event:** add general invitation links ([#423](https://github.com/maevsi/sqitch/issues/423)) ([5ec6720](https://github.com/maevsi/sqitch/commit/5ec6720d6c5ca3af9a2b0bc9628e755a8993efe4))
+
+### Bug Fixes
+
+* **event:** keep unpublished events out of invitation links ([947db16](https://github.com/maevsi/sqitch/commit/947db160fa59653a6e2885b52c11847004333386))
+
 ## [14.0.0-beta.13](https://github.com/maevsi/sqitch/compare/14.0.0-beta.12...14.0.0-beta.13) (2026-11-23)
 
 ### Bug Fixes
