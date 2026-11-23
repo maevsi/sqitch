@@ -1,3 +1,13 @@
+## [14.0.0-beta.12](https://github.com/maevsi/sqitch/compare/14.0.0-beta.11...14.0.0-beta.12) (2026-11-23)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** add scheduled publication and drop the unlisted visibility (#427)
+
+### Features
+
+* **event:** add scheduled publication and drop the unlisted visibility ([#427](https://github.com/maevsi/sqitch/issues/427)) ([46e05e1](https://github.com/maevsi/sqitch/commit/46e05e14721bb2064b295cc73749faae329f6161))
+
 ## [14.0.0-beta.11](https://github.com/maevsi/sqitch/compare/14.0.0-beta.10...14.0.0-beta.11) (2026-11-22)
 
 ### Features
