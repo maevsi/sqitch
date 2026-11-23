@@ -11,13 +11,14 @@ DECLARE
   _event_created_by UUID;
   _event_effective_end TIMESTAMP WITH TIME ZONE;
   _event_id UUID;
+  _event_published_at TIMESTAMP WITH TIME ZONE;
   _guest_id UUID;
 BEGIN
-  SELECT e.id, e.created_by, e.effective_end
-  INTO _event_id, _event_created_by, _event_effective_end
+  SELECT e.id, e.created_by, e.effective_end, e.published_at
+  INTO _event_id, _event_created_by, _event_effective_end, _event_published_at
   FROM vibetype.event_by_invitation_link(event_invitation_link_redeem.invitation_link_id) e;
 
-  IF _event_id IS NULL THEN
+  IF _event_id IS NULL OR _event_published_at IS NULL OR _event_published_at > CURRENT_TIMESTAMP THEN
     RAISE 'The invitation link does not exist.' USING ERRCODE = 'VTILN';
   END IF;
 
@@ -58,7 +59,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.event_invitation_link_redeem(UUID, TEXT, TEXT) IS E'@turnstileProtected\nJoins the event of a general invitation link as a guest who accepted, and returns the guest''s id. An account joins with its own contact and gets its existing guest back if it already joined. Without an account, the email address and first name become a new contact of the organizer.\n\nError codes:\n- **VTILN** when the invitation link does not exist.\n- **VTEEN** when the event has ended.\n- **VTIDM** when an email address or first name is missing without an account.\n- **VTGCM** when the event''s maximum guest count is reached.';
+COMMENT ON FUNCTION vibetype.event_invitation_link_redeem(UUID, TEXT, TEXT) IS E'@turnstileProtected\nJoins the event of a general invitation link as a guest who accepted, and returns the guest''s id. An account joins with its own contact and gets its existing guest back if it already joined. Without an account, the email address and first name become a new contact of the organizer.\n\nError codes:\n- **VTILN** when the invitation link does not exist or its event is a draft or not yet published.\n- **VTEEN** when the event has ended.\n- **VTIDM** when an email address or first name is missing without an account.\n- **VTGCM** when the event''s maximum guest count is reached.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_invitation_link_redeem(UUID, TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
 
