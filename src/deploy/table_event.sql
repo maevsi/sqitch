@@ -12,6 +12,7 @@ CREATE TABLE vibetype.event (
   is_remote                BOOLEAN,
   language                 vibetype.language,
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") <= 100),
+  published_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   slug                     TEXT NOT NULL CHECK (char_length(slug) <= 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
   url                      TEXT CHECK (char_length("url") <= 2000 AND "url" ~ '^https://[^[:space:]]+$'),
@@ -47,6 +48,7 @@ COMMENT ON COLUMN vibetype.event.is_archived IS 'Indicates whether the event is 
 COMMENT ON COLUMN vibetype.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN vibetype.event.is_remote IS 'Indicates whether the event takes place remotely.';
 COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty and not exceed 100 characters.';
+COMMENT ON COLUMN vibetype.event.published_at IS 'The timestamp from which the event is published. An event without one is a draft and one with a future timestamp is scheduled; until then only its organizer can see it.';
 COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be alphanumeric with hyphens and not exceed 100 characters.';
 COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. Must start with "https://" and not exceed 2,000 characters.';
@@ -97,6 +99,30 @@ CREATE TRIGGER search_vector
   ON vibetype.event
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_event_search_vector();
+
+CREATE FUNCTION vibetype.trigger_event_published_at() RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF (
+    NEW.published_at < CURRENT_TIMESTAMP
+    AND NOT (TG_OP = 'UPDATE' AND NEW.published_at IS NOT DISTINCT FROM OLD.published_at)
+  ) THEN
+    NEW.published_at := CURRENT_TIMESTAMP;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+COMMENT ON FUNCTION vibetype.trigger_event_published_at() IS 'Prevents backdating the publication of an event: a past published_at is replaced by the current timestamp, unless an update leaves an existing value unchanged.';
+
+CREATE TRIGGER published_at
+  BEFORE
+       INSERT
+    OR UPDATE OF published_at
+  ON vibetype.event
+  FOR EACH ROW
+  EXECUTE FUNCTION vibetype.trigger_event_published_at();
 
 -- GRANTs, RLS and POLICYs are specified in `table_event_policy`.
 

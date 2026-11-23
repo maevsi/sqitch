@@ -17,7 +17,7 @@ extension_pg_trgm [schema_public] 1970-01-01T00:00:00Z Sven Thelemann <sven.thel
 extension_postgis [privilege_execute_revoke schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add an extension for geographic data.
 function_invoker_account_id [privilege_execute_revoke schema_public role_account role_anonymous role_vibetype] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Returns the session's account id.
 enum_invitation_feedback [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible answers to an invitation: accepted, canceled.
-enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public, private and unlisted.
+enum_event_visibility [schema_public] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Possible visibilities of events and event groups: public and private.
 function_trigger_metadata_update [privilege_execute_revoke schema_public function_invoker_account_id role_account] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Trigger function to automatically update metadata fields `updated_at` and `updated_by` when a row is modified. Sets `updated_at` to the current timestamp and `updated_by` to the account ID of the invoker.
 table_notification [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Notifications that are sent via pg_notify.
 table_account_private [schema_private] 1970-01-01T00:00:00Z Jonas Thelemann <e-mail+vibetype/sqitch@jonas-thelemann.de> # Add private table account.

@@ -9,6 +9,7 @@ WITH CHECK (
     SELECT 1
     FROM vibetype.event e
     WHERE e.id = guest.event_id
+      AND e.published_at <= CURRENT_TIMESTAMP
       AND e.visibility = 'public'
       AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
   )
