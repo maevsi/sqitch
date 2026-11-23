@@ -1,3 +1,27 @@
+## [13.10.2](https://github.com/maevsi/sqitch/compare/13.10.1...13.10.2) (2026-11-23)
+
+### Bug Fixes
+
+* **event:** store unlisted events as private ([#426](https://github.com/maevsi/sqitch/issues/426)) ([e840a49](https://github.com/maevsi/sqitch/commit/e840a492e1408e239ad84adc0ed1e4036c666a8f))
+
+## [13.10.1](https://github.com/maevsi/sqitch/compare/13.10.0...13.10.1) (2026-11-23)
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#428](https://github.com/maevsi/sqitch/issues/428)) ([dc3b84b](https://github.com/maevsi/sqitch/commit/dc3b84b62804ceb2c7c925323cb7b5fa5d061278))
+
+## [13.10.0](https://github.com/maevsi/sqitch/compare/13.9.1...13.10.0) (2026-11-22)
+
+### Features
+
+* **attendance:** store the serial number of the written tag ([#421](https://github.com/maevsi/sqitch/issues/421)) ([ff2f368](https://github.com/maevsi/sqitch/commit/ff2f368c583059ee30670307b4659e6519dd723f))
+
+## [13.9.1](https://github.com/maevsi/sqitch/compare/13.9.0...13.9.1) (2026-11-22)
+
+### Bug Fixes
+
+* **docker:** forward stop signals to sqitch ([#420](https://github.com/maevsi/sqitch/issues/420)) ([13948d0](https://github.com/maevsi/sqitch/commit/13948d04a784c3a24c95d7bdb15436a9ebc55ffd))
+
 ## [13.9.0](https://github.com/maevsi/sqitch/compare/13.8.0...13.9.0) (2026-11-22)
 
 ### Features

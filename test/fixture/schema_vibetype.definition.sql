@@ -876,6 +876,11 @@ BEGIN
       RETURN NEW;
     END IF;
 
+    -- A guest binding their entry to another tag would make a copied tag pass as the original.
+    IF NEW.tag_serial_number IS DISTINCT FROM OLD.tag_serial_number THEN
+      RAISE EXCEPTION 'tag_serial_number can only be modified by the organizer' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
     -- For non-organizers, allow checkout exactly once: transition from FALSE/NULL -> TRUE only
     IF NEW.checked_out IS DISTINCT FROM OLD.checked_out THEN
       IF OLD.checked_out IS TRUE THEN
@@ -3585,7 +3590,9 @@ CREATE TABLE vibetype.attendance (
     guest_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
-    updated_by uuid
+    updated_by uuid,
+    tag_serial_number text,
+    CONSTRAINT attendance_tag_serial_number_check CHECK ((char_length(tag_serial_number) <= 100))
 );
 
 
@@ -3653,6 +3660,13 @@ When this entry was last changed. If someone checks out, this shows the checkout
 
 COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
 Who last changed this entry. This may be empty if done without signing in.';
+
+
+--
+-- Name: COLUMN attendance.tag_serial_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
 
 
 --
@@ -8555,6 +8569,13 @@ GRANT SELECT ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_account;
 GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN attendance.tag_serial_number; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(tag_serial_number) ON TABLE vibetype.attendance TO vibetype_account;
 
 
 --
