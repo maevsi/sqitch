@@ -1,3 +1,9 @@
+## [13.11.0](https://github.com/maevsi/sqitch/compare/13.10.2...13.11.0) (2026-11-23)
+
+### Features
+
+* **event:** add general invitation links ([#423](https://github.com/maevsi/sqitch/issues/423)) ([5ec6720](https://github.com/maevsi/sqitch/commit/5ec6720d6c5ca3af9a2b0bc9628e755a8993efe4))
+
 ## [13.10.2](https://github.com/maevsi/sqitch/compare/13.10.1...13.10.2) (2026-11-23)
 
 ### Bug Fixes
