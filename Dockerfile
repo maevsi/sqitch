@@ -1,16 +1,16 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1@sha256:572cebbc2b15e6f84c077742952674889cb63cd5e9b80abdffcbe587b6f19183
 # check=skip=SecretsUsedInArgOrEnv
 
 ##############################
 # The sqitch image ships no package manager, so tini comes from Debian.
-FROM debian:trixie-slim AS tini
+FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS tini
 
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes tini
 
 
 ##############################
-FROM sqitch/sqitch:v1.6.1.4 AS prepare
+FROM sqitch/sqitch:v1.6.1.4@sha256:e0934eab9f7dd00c7467361e09970a553c10d971155e10ef2c3410242eb95dbc AS prepare
 
 # tini forwards stop signals to the whole process group, as `sh -c` in the entrypoint does not pass them on.
 COPY --from=tini /usr/bin/tini-static /usr/bin/tini
@@ -36,7 +36,7 @@ COPY ./src ./
 ###########################
 # sqitch is not available for alpine linux as of 2025-11-20 (https://github.com/sqitchers/sqitch/issues/351#issuecomment-614153859)
 # Use imresamu/postgis:* for ARM (Mac M) support.
-FROM postgis/postgis:18-3.6 AS postgres-base
+FROM postgis/postgis:18-3.7@sha256:32d4f36c5ac6f109f99f0292d5cabb2a224e066f300046078fa71a9660e3c5bd AS postgres-base
 
 ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
