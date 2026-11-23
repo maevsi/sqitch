@@ -13,7 +13,7 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
       e.created_by = vibetype.invoker_account_id()
       -- Or event is published and accessible (public, invited, or has claimed attendance)
       OR (
-        e.is_published
+        e.published_at <= CURRENT_TIMESTAMP
         AND (
           (
             e.visibility = 'public'

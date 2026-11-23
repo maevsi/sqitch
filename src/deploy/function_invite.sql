@@ -39,9 +39,9 @@ BEGIN
     guest_count_maximum,
     is_archived,
     is_in_person,
-    is_published,
     is_remote,
     name,
+    published_at,
     slug,
     start,
     url,
@@ -56,7 +56,7 @@ BEGIN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
-  IF (NOT _event.is_published) THEN
+  IF (_event.published_at IS NULL OR _event.published_at > CURRENT_TIMESTAMP) THEN
     RAISE 'Cannot invite to an unpublished event!' USING ERRCODE = 'VTEUP';
   END IF;
 
@@ -112,7 +112,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.\n- **VTEUP** when the event is unpublished.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.\n- **VTEUP** when the event is a draft or not yet published.';
 
 GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 

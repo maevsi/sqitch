@@ -64,7 +64,7 @@ BEGIN
   UPDATE vibetype.event SET is_in_person = TRUE WHERE id IN (_private, _unpublished, _archived, _public);
   UPDATE vibetype.event SET is_in_person = FALSE WHERE id = _remote;
   UPDATE vibetype.event SET is_archived = TRUE WHERE id = _archived;
-  UPDATE vibetype.event SET is_published = FALSE WHERE id = _unpublished;
+  UPDATE vibetype.event SET published_at = NULL WHERE id = _unpublished;
   PERFORM vibetype_test.event_update_address_coordinates(_private, 50.0, 8.0);
   PERFORM vibetype_test.event_update_address_coordinates(_unpublished, 50.0, 8.0);
   PERFORM vibetype_test.event_update_address_coordinates(_archived, 50.0, 8.0);

@@ -21,12 +21,12 @@ CREATE FUNCTION vibetype.event_nearby_match(latitude DOUBLE PRECISION, longitude
     ON e.address_id = a.id
   WHERE
     e.visibility = 'public'
-    AND e.is_published
+    AND e.published_at <= CURRENT_TIMESTAMP
     AND NOT e.is_archived
     AND e.is_in_person;
 $$;
 
-COMMENT ON FUNCTION vibetype.event_nearby_match(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) IS E'@behavior -*\nReturns ids of public, published, non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
+COMMENT ON FUNCTION vibetype.event_nearby_match(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) IS E'@behavior -*\nReturns ids of public, published (not draft or scheduled), non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
 
 REVOKE ALL ON FUNCTION vibetype.event_nearby_match(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION vibetype.event_nearby_match(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION) TO vibetype_account;
@@ -45,7 +45,7 @@ CREATE FUNCTION vibetype.event_nearby(latitude DOUBLE PRECISION, longitude DOUBL
     e.id;
 $$;
 
-COMMENT ON FUNCTION vibetype.event_nearby(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, BOOLEAN) IS 'Lists public, published, non-archived in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_nearby(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, BOOLEAN) IS 'Lists public, published (not draft or scheduled), non-archived in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_nearby(DOUBLE PRECISION, DOUBLE PRECISION, DOUBLE PRECISION, BOOLEAN) TO vibetype_account;
 

@@ -23,7 +23,7 @@ BEGIN
     guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
     PERFORM vibetype_test.invoker_set(accountA);
-    UPDATE vibetype.event SET is_published = FALSE WHERE id = eventA;
+    UPDATE vibetype.event SET published_at = NULL WHERE id = eventA;
     PERFORM vibetype_test.invoker_set_previous();
 
     PERFORM vibetype_test.event_test(_visibility || ' draft is invisible to anonymous users', NULL, ARRAY[]::UUID[]);
@@ -40,7 +40,7 @@ BEGIN
     PERFORM vibetype_test.invoker_set_previous();
 
     PERFORM vibetype_test.invoker_set(accountA);
-    UPDATE vibetype.event SET is_published = TRUE WHERE id = eventA;
+    UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP WHERE id = eventA;
     PERFORM vibetype_test.invoker_set_previous();
 
     PERFORM vibetype_test.event_test(_visibility || ' published event is visible to the organizer', accountA, ARRAY[eventA]);
@@ -79,13 +79,13 @@ BEGIN
   eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
 
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.event SET is_published = FALSE WHERE id = eventA;
+  UPDATE vibetype.event SET published_at = NULL WHERE id = eventA;
   PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.guest_join_rejected_test('an unpublished public event cannot be joined', accountB, eventA, contactBB, '42501');
 
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.event SET is_published = TRUE WHERE id = eventA;
+  UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP WHERE id = eventA;
   PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.invoker_set(accountB);
@@ -112,7 +112,7 @@ BEGIN
     PERFORM vibetype_test.guest_create(accountA, eventA, contactAB);
 
     PERFORM vibetype_test.invoker_set(accountA);
-    UPDATE vibetype.event SET is_published = FALSE, guest_count_maximum = 10 WHERE id = eventA;
+    UPDATE vibetype.event SET published_at = NULL, guest_count_maximum = 10 WHERE id = eventA;
     IF vibetype.event_guest_count_maximum(eventA) IS DISTINCT FROM 10 THEN
       RAISE EXCEPTION '% draft: the organizer should get the maximum guest count', _visibility;
     END IF;
@@ -131,7 +131,7 @@ BEGIN
     PERFORM vibetype_test.invoker_set_previous();
 
     PERFORM vibetype_test.invoker_set(accountA);
-    UPDATE vibetype.event SET is_published = TRUE WHERE id = eventA;
+    UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP WHERE id = eventA;
     PERFORM vibetype_test.invoker_set_previous();
 
     PERFORM vibetype_test.invoker_set(accountB);
@@ -162,7 +162,7 @@ BEGIN
   guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
 
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.event SET is_published = FALSE WHERE id = eventA;
+  UPDATE vibetype.event SET published_at = NULL WHERE id = eventA;
 
   BEGIN
     PERFORM vibetype.invite(guestAB, 'de');
@@ -195,7 +195,7 @@ BEGIN
   attendanceB := vibetype_test.attendance_create(accountA, guestAB);
 
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.event SET is_published = FALSE WHERE id = eventA;
+  UPDATE vibetype.event SET published_at = NULL WHERE id = eventA;
 
   IF (SELECT id FROM vibetype.event_by_attendance_id(attendanceB)) IS DISTINCT FROM eventA THEN
     RAISE EXCEPTION 'Test failed (event_draft_by_attendance_id): the organizer should get the draft';
@@ -209,7 +209,7 @@ BEGIN
   PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.event SET is_published = TRUE WHERE id = eventA;
+  UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP WHERE id = eventA;
   PERFORM vibetype_test.invoker_set_previous();
 
   PERFORM vibetype_test.invoker_set(accountB);
@@ -219,5 +219,55 @@ BEGIN
   PERFORM vibetype_test.invoker_set_previous();
 END $$;
 ROLLBACK TO SAVEPOINT event_draft_by_attendance_id;
+
+SAVEPOINT event_draft_scheduled;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  accountC UUID;
+  contactAB UUID;
+  eventA UUID;
+  guestAB UUID;
+  _visibility TEXT;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  accountC := vibetype_test.account_registration_verified('c', 'c@example.com');
+  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
+
+  FOREACH _visibility IN ARRAY ARRAY['public', 'private'] LOOP
+    eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', _visibility);
+    guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
+
+    PERFORM vibetype_test.invoker_set(accountA);
+    UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP + INTERVAL '1 day' WHERE id = eventA;
+    PERFORM vibetype_test.invoker_set_previous();
+
+    PERFORM vibetype_test.event_test(_visibility || ' scheduled event is invisible to anonymous users', NULL, ARRAY[]::UUID[]);
+    PERFORM vibetype_test.event_test(_visibility || ' scheduled event is invisible to other accounts', accountC, ARRAY[]::UUID[]);
+
+    PERFORM vibetype_test.guest_claim_set(accountB);
+    PERFORM vibetype_test.event_test(_visibility || ' scheduled event is invisible to invited guests', accountB, ARRAY[]::UUID[]);
+    PERFORM vibetype_test.event_test(_visibility || ' scheduled event is visible to the organizer', accountA, ARRAY[eventA]);
+    PERFORM vibetype_test.invoker_set_previous();
+
+    PERFORM vibetype_test.invoker_set(accountA);
+    BEGIN
+      PERFORM vibetype.invite(guestAB, 'de');
+      RAISE EXCEPTION 'Test failed (event_draft_scheduled): inviting to a scheduled event should fail';
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLSTATE <> 'VTEUP' THEN
+        RAISE EXCEPTION 'Test failed (event_draft_scheduled): expected VTEUP, got % (%)', SQLSTATE, SQLERRM;
+      END IF;
+    END;
+    PERFORM vibetype_test.invoker_set_previous();
+
+    PERFORM vibetype_test.invoker_set(accountA);
+    DELETE FROM vibetype.event WHERE id = eventA;
+    PERFORM vibetype_test.invoker_set_previous();
+  END LOOP;
+END $$;
+ROLLBACK TO SAVEPOINT event_draft_scheduled;
 
 ROLLBACK;

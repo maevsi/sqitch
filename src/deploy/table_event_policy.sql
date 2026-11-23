@@ -7,12 +7,12 @@ GRANT SELECT, DELETE ON TABLE vibetype.event TO vibetype_account;
 -- Column level grants in place of table level ones, so that `guest_count` is the only column not writable.
 -- `guest.event_id` is not updatable (no column grant, and `trigger_guest_update` rejects it), so only inserts and deletes of guests move the counter.
 GRANT INSERT (
-  id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_published, is_remote,
-  language, name, slug, start, url, visibility, created_at, created_by
+  id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote,
+  language, name, published_at, slug, start, url, visibility, created_at, created_by
 ) ON TABLE vibetype.event TO vibetype_account;
 GRANT UPDATE (
-  id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_published, is_remote,
-  language, name, slug, start, url, visibility, created_at, created_by
+  id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote,
+  language, name, published_at, slug, start, url, visibility, created_at, created_by
 ) ON TABLE vibetype.event TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event TO :role_service_reccoom_username;
 
@@ -44,7 +44,7 @@ GRANT EXECUTE ON FUNCTION vibetype_private.events_with_claimed_attendance() TO v
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT
 USING (
-  event.is_published
+  event.published_at <= CURRENT_TIMESTAMP
   AND (
     (
       event.visibility = 'public'

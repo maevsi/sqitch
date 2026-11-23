@@ -43,6 +43,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/account_password.sql
 \i scenario/database/audit_log.sql
 \i scenario/database/event_guest_count.sql
+\i scenario/database/event_published_at.sql
 \i scenario/database/events_invited.sql
 \i scenario/database/guest_claim_contact_link.sql
 \i scenario/database/index.sql
