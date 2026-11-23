@@ -1210,6 +1210,31 @@ COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Retu
 
 
 --
+-- Name: event_by_invitation_link(uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) RETURNS vibetype.event
+    LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+  SELECT e.*
+  FROM vibetype.event_invitation_link l
+  JOIN vibetype.event e ON e.id = l.event_id
+  WHERE l.id = event_by_invitation_link.invitation_link_id
+    AND e.created_by <> ALL (vibetype_private.account_block_ids());
+$$;
+
+
+ALTER FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_by_invitation_link(invitation_link_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) IS 'Returns the event a general invitation link invites to, also when it is private, unless the link was deleted or its organizer is involved in a block with the invoker.';
+
+
+--
 -- Name: event_delete(uuid, text); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1291,6 +1316,84 @@ ALTER FUNCTION vibetype.event_guest_count_maximum(event_id uuid) OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) IS 'Add a function that returns the maximum guest count of an accessible event.';
+
+
+--
+-- Name: event_invitation_link_redeem(uuid, text, text); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uuid, email_address text DEFAULT NULL::text, first_name text DEFAULT NULL::text) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _account_id UUID := vibetype.invoker_account_id();
+  _contact_id UUID;
+  _event_created_by UUID;
+  _event_effective_end TIMESTAMP WITH TIME ZONE;
+  _event_id UUID;
+  _guest_id UUID;
+BEGIN
+  SELECT e.id, e.created_by, e.effective_end
+  INTO _event_id, _event_created_by, _event_effective_end
+  FROM vibetype.event_by_invitation_link(event_invitation_link_redeem.invitation_link_id) e;
+
+  IF _event_id IS NULL THEN
+    RAISE 'The invitation link does not exist.' USING ERRCODE = 'VTILN';
+  END IF;
+
+  IF _event_effective_end <= CURRENT_TIMESTAMP THEN
+    RAISE 'The event has ended.' USING ERRCODE = 'VTEEN';
+  END IF;
+
+  IF _account_id IS NOT NULL THEN
+    SELECT c.id INTO _contact_id
+    FROM vibetype.contact c
+    WHERE c.created_by = _account_id
+      AND c.account_id = _account_id;
+
+    SELECT g.id INTO _guest_id
+    FROM vibetype.guest g
+    WHERE g.event_id = _event_id
+      AND g.contact_id = _contact_id;
+
+    IF _guest_id IS NOT NULL THEN
+      RETURN _guest_id;
+    END IF;
+  ELSE
+    IF event_invitation_link_redeem.email_address IS NULL OR event_invitation_link_redeem.first_name IS NULL THEN
+      RAISE 'An email address and a first name are required without an account.' USING ERRCODE = 'VTIDM';
+    END IF;
+
+    -- A new contact every time, as reusing one by its email address would hand its guests and details to whoever types that address.
+    INSERT INTO vibetype.contact (created_by, email_address, first_name)
+    VALUES (_event_created_by, event_invitation_link_redeem.email_address, event_invitation_link_redeem.first_name)
+    RETURNING id INTO _contact_id;
+  END IF;
+
+  INSERT INTO vibetype.guest (contact_id, event_id, feedback)
+  VALUES (_contact_id, _event_id, 'accepted')
+  RETURNING id INTO _guest_id;
+
+  RETURN _guest_id;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text) OWNER TO ci;
+
+--
+-- Name: FUNCTION event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text) IS '@turnstileProtected
+Joins the event of a general invitation link as a guest who accepted, and returns the guest''s id. An account joins with its own contact and gets its existing guest back if it already joined. Without an account, the email address and first name become a new contact of the organizer.
+
+Error codes:
+- **VTILN** when the invitation link does not exist.
+- **VTEEN** when the event has ended.
+- **VTIDM** when an email address or first name is missing without an account.
+- **VTGCM** when the event''s maximum guest count is reached.';
 
 
 --
@@ -4188,6 +4291,50 @@ COMMENT ON COLUMN vibetype.event_format_mapping.format_id IS 'A format id.';
 
 
 --
+-- Name: event_invitation_link; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.event_invitation_link (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+ALTER TABLE vibetype.event_invitation_link OWNER TO ci;
+
+--
+-- Name: TABLE event_invitation_link; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.event_invitation_link IS '@behavior -update
+A general invitation link that lets anyone holding it join an event as a guest. Deleting it pauses the link, and creating a new one resets it.';
+
+
+--
+-- Name: COLUMN event_invitation_link.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_invitation_link.id IS '@behavior -insert
+The link''s secret code and primary key.';
+
+
+--
+-- Name: COLUMN event_invitation_link.event_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_invitation_link.event_id IS 'Reference to the event the link invites to.';
+
+
+--
+-- Name: COLUMN event_invitation_link.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event_invitation_link.created_at IS '@behavior -insert
+Timestamp when the link was created. Defaults to the current timestamp.';
+
+
+--
 -- Name: event_recommendation; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -5709,6 +5856,29 @@ ALTER TABLE ONLY vibetype.event_format
 
 
 --
+-- Name: event_invitation_link event_invitation_link_event_id_key; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_invitation_link
+    ADD CONSTRAINT event_invitation_link_event_id_key UNIQUE (event_id);
+
+
+--
+-- Name: CONSTRAINT event_invitation_link_event_id_key ON event_invitation_link; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON CONSTRAINT event_invitation_link_event_id_key ON vibetype.event_invitation_link IS 'Ensures that an event has at most one invitation link, which also indexes the reference to the event.';
+
+
+--
+-- Name: event_invitation_link event_invitation_link_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_invitation_link
+    ADD CONSTRAINT event_invitation_link_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: event event_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6886,6 +7056,14 @@ ALTER TABLE ONLY vibetype.event_format_mapping
 
 
 --
+-- Name: event_invitation_link event_invitation_link_event_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.event_invitation_link
+    ADD CONSTRAINT event_invitation_link_event_id_fkey FOREIGN KEY (event_id) REFERENCES vibetype.event(id) ON DELETE CASCADE;
+
+
+--
 -- Name: event_recommendation event_recommendation_account_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -7442,6 +7620,21 @@ CREATE POLICY event_format_mapping_insert ON vibetype.event_format_mapping FOR I
 CREATE POLICY event_format_mapping_select ON vibetype.event_format_mapping FOR SELECT USING ((EXISTS ( SELECT 1
    FROM vibetype.event e
   WHERE (e.id = event_format_mapping.event_id))));
+
+
+--
+-- Name: event_invitation_link; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.event_invitation_link ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: event_invitation_link event_invitation_link_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY event_invitation_link_all ON vibetype.event_invitation_link USING ((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = event_invitation_link.event_id) AND (e.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id))))));
 
 
 --
@@ -8128,6 +8321,15 @@ GRANT ALL ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) TO vib
 
 
 --
+-- Name: FUNCTION event_by_invitation_link(invitation_link_id uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) TO vibetype_anonymous;
+
+
+--
 -- Name: FUNCTION event_delete(id uuid, password text); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8142,6 +8344,15 @@ GRANT ALL ON FUNCTION vibetype.event_delete(id uuid, password text) TO vibetype_
 REVOKE ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibetype_account;
 GRANT ALL ON FUNCTION vibetype.event_guest_count_maximum(event_id uuid) TO vibetype_anonymous;
+
+
+--
+-- Name: FUNCTION event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text) TO vibetype_account;
+GRANT ALL ON FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uuid, email_address text, first_name text) TO vibetype_anonymous;
 
 
 --
@@ -8670,6 +8881,20 @@ GRANT SELECT ON TABLE vibetype.event_format TO reccoom;
 GRANT SELECT ON TABLE vibetype.event_format_mapping TO vibetype_anonymous;
 GRANT SELECT,INSERT,DELETE ON TABLE vibetype.event_format_mapping TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event_format_mapping TO reccoom;
+
+
+--
+-- Name: TABLE event_invitation_link; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.event_invitation_link TO vibetype_account;
+
+
+--
+-- Name: COLUMN event_invitation_link.event_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(event_id) ON TABLE vibetype.event_invitation_link TO vibetype_account;
 
 
 --
