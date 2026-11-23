@@ -24,6 +24,15 @@ BEGIN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
+  IF (NOT EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = _guest.event_id
+      AND e.published_at <= CURRENT_TIMESTAMP
+  )) THEN
+    RAISE 'Cannot invite to an unpublished event!' USING ERRCODE = 'VTEUP';
+  END IF;
+
   -- Contact
   SELECT account_id, email_address, contact.language INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
@@ -54,6 +63,6 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an outbox event of type `guest.invited`.\n\nError codes:\n- **P0002** when the guest, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds an outbox event of type `guest.invited`.\n\nError codes:\n- **P0002** when the guest, contact, the contact email address, or the account email address is not accessible.\n- **VTEUP** when the event is a draft or not yet published.';
 
 COMMIT;

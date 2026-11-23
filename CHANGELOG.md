@@ -1,3 +1,29 @@
+## [14.0.0-beta.12](https://github.com/maevsi/sqitch/compare/14.0.0-beta.11...14.0.0-beta.12) (2026-11-23)
+
+### ⚠ BREAKING CHANGES
+
+* **event:** add scheduled publication and drop the unlisted visibility (#427)
+
+### Features
+
+* **event:** add scheduled publication and drop the unlisted visibility ([#427](https://github.com/maevsi/sqitch/issues/427)) ([46e05e1](https://github.com/maevsi/sqitch/commit/46e05e14721bb2064b295cc73749faae329f6161))
+
+## [14.0.0-beta.11](https://github.com/maevsi/sqitch/compare/14.0.0-beta.10...14.0.0-beta.11) (2026-11-22)
+
+### Features
+
+* **attendance:** store the serial number of the written tag ([#421](https://github.com/maevsi/sqitch/issues/421)) ([ff2f368](https://github.com/maevsi/sqitch/commit/ff2f368c583059ee30670307b4659e6519dd723f))
+
+### Bug Fixes
+
+* **docker:** forward stop signals to sqitch ([#420](https://github.com/maevsi/sqitch/issues/420)) ([13948d0](https://github.com/maevsi/sqitch/commit/13948d04a784c3a24c95d7bdb15436a9ebc55ffd))
+
+## [14.0.0-beta.10](https://github.com/maevsi/sqitch/compare/14.0.0-beta.9...14.0.0-beta.10) (2026-11-22)
+
+### Features
+
+* **guest:** let accounts join public events ([#418](https://github.com/maevsi/sqitch/issues/418)) ([3d69dc9](https://github.com/maevsi/sqitch/commit/3d69dc96fd60aaae539c18727b0521f24aee2f95))
+
 ## [14.0.0-beta.9](https://github.com/maevsi/sqitch/compare/14.0.0-beta.8...14.0.0-beta.9) (2026-11-20)
 
 ### Features
@@ -90,6 +116,24 @@
 ### Code Refactoring
 
 * **guest:** drop the unused flat view ([#360](https://github.com/maevsi/sqitch/issues/360)) ([d3f481c](https://github.com/maevsi/sqitch/commit/d3f481c662d8eddd8cd83cde7f47a1f33cf71ba5))
+## [13.10.0](https://github.com/maevsi/sqitch/compare/13.9.1...13.10.0) (2026-11-22)
+
+### Features
+
+* **attendance:** store the serial number of the written tag ([#421](https://github.com/maevsi/sqitch/issues/421)) ([ff2f368](https://github.com/maevsi/sqitch/commit/ff2f368c583059ee30670307b4659e6519dd723f))
+
+## [13.9.1](https://github.com/maevsi/sqitch/compare/13.9.0...13.9.1) (2026-11-22)
+
+### Bug Fixes
+
+* **docker:** forward stop signals to sqitch ([#420](https://github.com/maevsi/sqitch/issues/420)) ([13948d0](https://github.com/maevsi/sqitch/commit/13948d04a784c3a24c95d7bdb15436a9ebc55ffd))
+
+## [13.9.0](https://github.com/maevsi/sqitch/compare/13.8.0...13.9.0) (2026-11-22)
+
+### Features
+
+* **guest:** let accounts join public events ([#418](https://github.com/maevsi/sqitch/issues/418)) ([3d69dc9](https://github.com/maevsi/sqitch/commit/3d69dc96fd60aaae539c18727b0521f24aee2f95))
+
 ## [13.8.0](https://github.com/maevsi/sqitch/compare/13.7.0...13.8.0) (2026-11-20)
 
 ### Features

@@ -117,4 +117,61 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT attendance_write;
 
+SAVEPOINT attendance_tag_serial_number;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  contactAX UUID;
+  eventA UUID;
+  guestAX UUID;
+  attendanceAX UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  contactAX := vibetype_test.contact_create(accountA, 'x@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  guestAX := vibetype_test.guest_create(accountA, eventA, contactAX);
+  attendanceAX := vibetype_test.attendance_create(accountA, guestAX);
+
+  PERFORM vibetype_test.invoker_set(accountA);
+  UPDATE vibetype.attendance SET tag_serial_number = '04:a2:3b:4c' WHERE id = attendanceAX;
+
+  IF (SELECT tag_serial_number FROM vibetype.attendance WHERE id = attendanceAX) IS DISTINCT FROM '04:a2:3b:4c' THEN
+    RAISE EXCEPTION 'Test failed: the organizer should store the tag serial number';
+  END IF;
+
+  PERFORM vibetype_test.invoker_set_previous();
+
+  PERFORM set_config('jwt.claims.guests', '["' || guestAX || '"]', true);
+  PERFORM vibetype_test.invoker_set(accountB);
+
+  BEGIN
+    UPDATE vibetype.attendance SET tag_serial_number = 'ff:ff:ff:ff' WHERE id = attendanceAX;
+    RAISE EXCEPTION 'Test failed: a signed-in claimed guest should not change the tag serial number';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  BEGIN
+    UPDATE vibetype.attendance SET tag_serial_number = 'ff:ff:ff:ff' WHERE id = attendanceAX;
+    RAISE EXCEPTION 'Test failed: an anonymous claimed guest should not change the tag serial number';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  UPDATE vibetype.attendance SET checked_out = TRUE WHERE id = attendanceAX;
+
+  IF (SELECT checked_out FROM vibetype.attendance WHERE id = attendanceAX) IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'Test failed: a claimed guest should still check out';
+  END IF;
+
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM set_config('jwt.claims.guests', '', true);
+END $$;
+ROLLBACK TO SAVEPOINT attendance_tag_serial_number;
+
 ROLLBACK;

@@ -1801,7 +1801,7 @@ The event's start date and time, with time zone.</td>
 	<tr>
 		<td align='left'></td>
 		<td align='left'> </td>
-		<td align='left'>'public', private', unlisted'</td>
+		<td align='left'>'public', private'</td>
 	</tr>
 	<tr>
 		<td align='left'></td>
@@ -3138,7 +3138,7 @@ Reference to the uploaded file.</td>
 	<tr>
 		<td align='left'></td>
 		<td align='left'> </td>
-		<td align='left'>'public', private', unlisted'</td>
+		<td align='left'>'public', private'</td>
 	</tr>
 	<tr>
 		<td port='event_created_by_424a8044.start' align='left'>event_created_by</td>

@@ -8,11 +8,11 @@ GRANT SELECT, DELETE ON TABLE vibetype.event TO vibetype_account;
 -- `guest.event_id` is not updatable (no column grant, and `trigger_guest_update` rejects it), so only inserts and deletes of guests move the counter.
 GRANT INSERT (
   id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote,
-  language, name, slug, start, url, visibility, created_at, created_by
+  language, name, published_at, slug, start, url, visibility, created_at, created_by
 ) ON TABLE vibetype.event TO vibetype_account;
 GRANT UPDATE (
   id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote,
-  language, name, slug, start, url, visibility, created_at, created_by
+  language, name, published_at, slug, start, url, visibility, created_at, created_by
 ) ON TABLE vibetype.event TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.event TO :role_service_reccoom_username;
 
@@ -24,7 +24,7 @@ USING (
   created_by = vibetype.invoker_account_id()
 );
 
--- Only display events that are public and not full and not organized by a blocked account.
+-- Only display events that are published and, of those, public and not full and not organized by a blocked account.
 -- Only display events to which oneself is invited, but not by a guest created by a blocked account.
 -- Only display events for which the invoker has a claimed attendance.
 
@@ -44,16 +44,19 @@ GRANT EXECUTE ON FUNCTION vibetype_private.events_with_claimed_attendance() TO v
 
 CREATE POLICY event_select ON vibetype.event FOR SELECT
 USING (
-  (
-    event.visibility = 'public'
-    AND (
-      event.guest_count_maximum IS NULL
-      OR event.guest_count_maximum > event.guest_count
+  event.published_at <= CURRENT_TIMESTAMP
+  AND (
+    (
+      event.visibility = 'public'
+      AND (
+        event.guest_count_maximum IS NULL
+        OR event.guest_count_maximum > event.guest_count
+      )
+      AND NOT EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.account_block_ids())) AS b WHERE b = event.created_by)
     )
-    AND NOT EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.account_block_ids())) AS b WHERE b = event.created_by)
+    OR EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.events_invited())) AS inv WHERE inv = event.id)
+    OR EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.events_with_claimed_attendance())) AS att WHERE att = event.id)
   )
-  OR EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.events_invited())) AS inv WHERE inv = event.id)
-  OR EXISTS (SELECT 1 FROM unnest((SELECT vibetype_private.events_with_claimed_attendance())) AS att WHERE att = event.id)
 );
 
 COMMIT;

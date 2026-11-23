@@ -95,8 +95,7 @@ COMMENT ON TYPE vibetype.event_size IS 'Possible event sizes: small, medium, lar
 
 CREATE TYPE vibetype.event_visibility AS ENUM (
     'public',
-    'private',
-    'unlisted'
+    'private'
 );
 
 
@@ -106,7 +105,7 @@ ALTER TYPE vibetype.event_visibility OWNER TO ci;
 -- Name: TYPE event_visibility; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TYPE vibetype.event_visibility IS 'Possible visibilities of events and event groups: public, private and unlisted.';
+COMMENT ON TYPE vibetype.event_visibility IS 'Possible visibilities of events and event groups: public and private.';
 
 
 --
@@ -847,6 +846,11 @@ BEGIN
       RETURN NEW;
     END IF;
 
+    -- A guest binding their entry to another tag would make a copied tag pass as the original.
+    IF NEW.tag_serial_number IS DISTINCT FROM OLD.tag_serial_number THEN
+      RAISE EXCEPTION 'tag_serial_number can only be modified by the organizer' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
     -- For non-organizers, allow checkout exactly once: transition from FALSE/NULL -> TRUE only
     IF NEW.checked_out IS DISTINCT FROM OLD.checked_out THEN
       IF OLD.checked_out IS TRUE THEN
@@ -994,6 +998,7 @@ CREATE TABLE vibetype.event (
     is_remote boolean,
     language vibetype.language,
     name text NOT NULL,
+    published_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     slug text NOT NULL,
     start timestamp with time zone NOT NULL,
     url text,
@@ -1084,6 +1089,13 @@ COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty a
 
 
 --
+-- Name: COLUMN event.published_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.published_at IS 'The timestamp from which the event is published. An event without one is a draft and one with a future timestamp is scheduled; until then only its organizer can see it.';
+
+
+--
 -- Name: COLUMN event.slug; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -1155,6 +1167,7 @@ CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibe
   JOIN vibetype.guest g ON g.event_id = e.id
   JOIN vibetype.attendance a ON a.guest_id = g.id
   WHERE a.id = event_by_attendance_id.attendance_id
+    AND (e.published_at <= CURRENT_TIMESTAMP OR e.created_by = vibetype.invoker_account_id())
 $$;
 
 
@@ -1164,7 +1177,7 @@ ALTER FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) OWNER TO ci;
 -- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Returns the event associated with the given attendance ID.';
+COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Returns the event associated with the given attendance ID, unless it is a draft or scheduled and not organized by the invoker.';
 
 
 --
@@ -1225,14 +1238,19 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
     AND (
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
-      -- Or event is accessible (public, invited, or has claimed attendance)
+      -- Or event is published and accessible (public, invited, or has claimed attendance)
       OR (
-        e.visibility = 'public'
-        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
-        AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
+        e.published_at <= CURRENT_TIMESTAMP
+        AND (
+          (
+            e.visibility = 'public'
+            AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
+            AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
+          )
+          OR e.id = ANY(vibetype_private.events_invited())
+          OR e.id = ANY(vibetype_private.events_with_claimed_attendance())
+        )
       )
-      OR e.id = ANY(vibetype_private.events_invited())
-      OR e.id = ANY(vibetype_private.events_with_claimed_attendance())
     );
 $$;
 
@@ -1271,7 +1289,7 @@ ALTER FUNCTION vibetype.event_nearby(latitude double precision, longitude double
 -- Name: FUNCTION event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) IS 'Lists public in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) IS 'Lists public, published (not draft or scheduled), non-archived in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -1295,6 +1313,7 @@ CREATE FUNCTION vibetype.event_nearby_match(latitude double precision, longitude
     ON e.address_id = a.id
   WHERE
     e.visibility = 'public'
+    AND e.published_at <= CURRENT_TIMESTAMP
     AND NOT e.is_archived
     AND e.is_in_person;
 $$;
@@ -1307,7 +1326,7 @@ ALTER FUNCTION vibetype.event_nearby_match(latitude double precision, longitude 
 --
 
 COMMENT ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) IS '@behavior -*
-Returns ids of public, non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
+Returns ids of public, published (not draft or scheduled), non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
 
 
 --
@@ -1543,6 +1562,15 @@ BEGIN
     RAISE 'Guest not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
+  IF (NOT EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = _guest.event_id
+      AND e.published_at <= CURRENT_TIMESTAMP
+  )) THEN
+    RAISE 'Cannot invite to an unpublished event!' USING ERRCODE = 'VTEUP';
+  END IF;
+
   -- Contact
   SELECT account_id, email_address, contact.language INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
@@ -1580,7 +1608,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type `guest.invited`.\n\nError codes:\n- **P0002** when the guest, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds an outbox event of type `guest.invited`.\n\nError codes:\n- **P0002** when the guest, contact, the contact email address, or the account email address is not accessible.\n- **VTEUP** when the event is a draft or not yet published.';
 
 
 --
@@ -2190,6 +2218,35 @@ ALTER FUNCTION vibetype.trigger_event_outbox() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype.trigger_event_outbox() IS 'Adds an outbox event of type `event.created`, `event.updated` or `event.deleted` with a snapshot of the event.';
+
+
+--
+-- Name: trigger_event_published_at(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_event_published_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF (
+    NEW.published_at < CURRENT_TIMESTAMP
+    AND NOT (TG_OP = 'UPDATE' AND NEW.published_at IS NOT DISTINCT FROM OLD.published_at)
+  ) THEN
+    NEW.published_at := CURRENT_TIMESTAMP;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_event_published_at() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_event_published_at(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_event_published_at() IS 'Prevents backdating the publication of an event: a past published_at is replaced by the current timestamp, unless an update leaves an existing value unchanged.';
 
 
 --
@@ -3253,6 +3310,15 @@ BEGIN
   ) g
   WHERE event.id = g.event_id;
 
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.event
+    WHERE id IN (SELECT event_id FROM guest_inserted)
+      AND guest_count > guest_count_maximum
+  ) THEN
+    RAISE 'The event''s maximum guest count is reached.' USING ERRCODE = 'VTGCM';
+  END IF;
+
   RETURN NULL;
 END;
 $$;
@@ -3705,7 +3771,9 @@ CREATE TABLE vibetype.attendance (
     guest_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
-    updated_by uuid
+    updated_by uuid,
+    tag_serial_number text,
+    CONSTRAINT attendance_tag_serial_number_check CHECK ((char_length(tag_serial_number) <= 100))
 );
 
 
@@ -3773,6 +3841,13 @@ When this entry was last changed. If someone checks out, this shows the checkout
 
 COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
 Who last changed this entry. This may be empty if done without signing in.';
+
+
+--
+-- Name: COLUMN attendance.tag_serial_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
 
 
 --
@@ -6681,6 +6756,13 @@ CREATE TRIGGER outbox AFTER DELETE ON vibetype.upload FOR EACH ROW EXECUTE FUNCT
 
 
 --
+-- Name: event published_at; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER published_at BEFORE INSERT OR UPDATE OF published_at ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_published_at();
+
+
+--
 -- Name: event search_vector; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -7584,13 +7666,13 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING (((published_at <= CURRENT_TIMESTAMP) AND (((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.events_invited() AS events_invited)) inv(inv)
   WHERE (inv.inv = event.id))) OR (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.events_with_claimed_attendance() AS events_with_claimed_attendance)) att(att)
-  WHERE (att.att = event.id)))));
+  WHERE (att.att = event.id))))));
 
 
 --
@@ -7681,6 +7763,17 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id =
   WHERE ((c.id = guest.contact_id) AND (c.created_by = vibetype.invoker_account_id()) AND (NOT (EXISTS ( SELECT 1
            FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
           WHERE (b.b = c.account_id)))))))));
+
+
+--
+-- Name: guest guest_insert_join; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY guest_insert_join ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+   FROM vibetype.event e
+  WHERE ((e.id = guest.event_id) AND (e.published_at <= CURRENT_TIMESTAMP) AND (e.visibility = 'public'::vibetype.event_visibility) AND ((e.guest_count_maximum IS NULL) OR (e.guest_count_maximum > e.guest_count))))) AND (EXISTS ( SELECT 1
+   FROM vibetype.contact c
+  WHERE ((c.id = guest.contact_id) AND (c.account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)) AND (c.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)))))));
 
 
 --
@@ -8182,6 +8275,13 @@ GRANT INSERT(name),UPDATE(name) ON TABLE vibetype.event TO vibetype_account;
 
 
 --
+-- Name: COLUMN event.published_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(published_at),UPDATE(published_at) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
 -- Name: COLUMN event.slug; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8439,6 +8539,13 @@ GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_acc
 --
 
 REVOKE ALL ON FUNCTION vibetype.trigger_event_outbox() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_event_published_at(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_event_published_at() FROM PUBLIC;
 
 
 --
@@ -8743,6 +8850,13 @@ GRANT SELECT ON TABLE vibetype.attendance TO vibetype_anonymous;
 
 GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_account;
 GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN attendance.tag_serial_number; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(tag_serial_number) ON TABLE vibetype.attendance TO vibetype_account;
 
 
 --

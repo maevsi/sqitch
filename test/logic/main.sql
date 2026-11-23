@@ -44,6 +44,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/database/account_password.sql
 \i scenario/database/audit_log.sql
 \i scenario/database/event_guest_count.sql
+\i scenario/database/event_published_at.sql
 \i scenario/database/events_invited.sql
 \i scenario/database/guest_claim_contact_link.sql
 \i scenario/database/index.sql
@@ -79,6 +80,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/contact.sql
 \i scenario/model/event_category_mapping.sql
 \i scenario/model/event_favorite.sql
+\i scenario/model/event_draft.sql
 \i scenario/model/event_guest_count.sql
 \i scenario/model/event_guest_count_maximum.sql
 \i scenario/model/event_nearby.sql
@@ -90,6 +92,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/guest_contact_ids.sql
 \i scenario/model/guest_count.sql
 \i scenario/model/guest_create_multiple.sql
+\i scenario/model/guest_join.sql
 \i scenario/model/guest.sql
 \i scenario/model/invoker_account_id.sql
 \i scenario/model/jwt_create.sql
