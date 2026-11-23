@@ -90,6 +90,7 @@ GRANT USAGE ON SCHEMA vibetype_test TO vibetype_anonymous, vibetype_account;
 \i scenario/model/guest_contact_ids.sql
 \i scenario/model/guest_count.sql
 \i scenario/model/guest_create_multiple.sql
+\i scenario/model/event_invitation_link.sql
 \i scenario/model/guest_join.sql
 \i scenario/model/guest.sql
 \i scenario/model/invoker_account_id.sql
