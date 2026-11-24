@@ -1,3 +1,13 @@
+## [14.0.0-beta.15](https://github.com/maevsi/sqitch/compare/14.0.0-beta.14...14.0.0-beta.15) (2026-11-24)
+
+### ⚠ BREAKING CHANGES
+
+* **guest:** let organizers override feedback (#434)
+
+### Features
+
+* **guest:** let organizers override feedback ([#434](https://github.com/maevsi/sqitch/issues/434)) ([a32ef9f](https://github.com/maevsi/sqitch/commit/a32ef9f3711d69543acf1698105086050ea6cd73))
+
 ## [14.0.0-beta.14](https://github.com/maevsi/sqitch/compare/14.0.0-beta.13...14.0.0-beta.14) (2026-11-23)
 
 ### Features
