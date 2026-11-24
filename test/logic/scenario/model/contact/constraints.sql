@@ -102,7 +102,7 @@ BEGIN
   BEGIN
     INSERT INTO vibetype.contact(created_by, first_name)
     VALUES (accountA, 'Jane');
-    RAISE EXCEPTION 'Test failed (contact_insert_identity_missing): contact without account_id or email_address accepted';
+    RAISE EXCEPTION 'Test failed (contact_insert_identity_missing): contact without account_id, email_address or phone_number accepted';
   EXCEPTION
     WHEN check_violation THEN
       NULL;
@@ -131,6 +131,26 @@ BEGIN
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_identity_email_only;
+
+-- Test that a phone_number alone satisfies the identity constraint
+SAVEPOINT contact_insert_identity_phone_number_only;
+DO $$
+DECLARE
+  accountA UUID;
+  contact_id UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.contact(created_by, phone_number)
+  VALUES (accountA, '+491234567890')
+  RETURNING id INTO contact_id;
+
+  IF contact_id IS NULL THEN
+    RAISE EXCEPTION 'Test failed (contact_insert_identity_phone_number_only): contact not created';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT contact_insert_identity_phone_number_only;
 
 -- Test that an account_id alone satisfies the identity constraint
 SAVEPOINT contact_insert_identity_account_only;

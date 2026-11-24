@@ -3,7 +3,7 @@
 
 ##############################
 # The sqitch image ships no package manager, so tini comes from Debian.
-FROM debian:trixie-slim AS tini
+FROM debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0 AS tini
 
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes tini
