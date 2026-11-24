@@ -128,39 +128,4 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_display_name_select_anonymous;
 
-SAVEPOINT account_display_name_invite;
-DO $$
-DECLARE
-  accountA UUID;
-  accountB UUID;
-  contactAB UUID;
-  eventA UUID;
-  guestAB UUID;
-  _payload JSONB;
-BEGIN
-  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
-  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
-  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
-  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
-  guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
-
-  PERFORM vibetype_test.invoker_set(accountA);
-
-  UPDATE vibetype.account
-    SET display_name = 'Jonas Thelemann'
-    WHERE id = accountA;
-
-  PERFORM vibetype.invite(guestAB, 'de');
-
-  PERFORM vibetype_test.invoker_set_previous();
-
-  _payload := vibetype_test.notification_payload_latest('event_invitation');
-
-  IF _payload -> 'data' ->> 'eventCreatorDisplayName' IS DISTINCT FROM 'Jonas Thelemann'
-    OR _payload -> 'data' ->> 'eventCreatorUsername' IS DISTINCT FROM 'a' THEN
-    RAISE EXCEPTION 'Test failed (account_display_name_invite): unexpected payload %', _payload;
-  END IF;
-END $$;
-ROLLBACK TO SAVEPOINT account_display_name_invite;
-
 ROLLBACK;

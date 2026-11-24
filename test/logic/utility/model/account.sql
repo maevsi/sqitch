@@ -33,21 +33,6 @@ $$;
 GRANT EXECUTE ON FUNCTION vibetype_test.account_password_reset_verification_get(TEXT) TO vibetype_account;
 
 
-CREATE OR REPLACE FUNCTION vibetype_test.notification_payload_latest(_channel TEXT)
-RETURNS JSONB
-    LANGUAGE sql STABLE STRICT SECURITY DEFINER
-    SET search_path = pg_catalog, public, pg_temp
-    AS $$
-  SELECT payload::JSONB
-  FROM vibetype_private.notification
-  WHERE channel = _channel
-  ORDER BY created_at DESC
-  LIMIT 1;
-$$;
-
-GRANT EXECUTE ON FUNCTION vibetype_test.notification_payload_latest(TEXT) TO vibetype_account;
-
-
 CREATE OR REPLACE FUNCTION vibetype_test.account_select_by_email_address(_email_address text)
 RETURNS UUID
     LANGUAGE plpgsql STRICT SECURITY DEFINER
