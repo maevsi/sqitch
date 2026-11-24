@@ -1,5 +1,5 @@
 digraph SchemaCrawler_Diagram {
-	graph [bb="0,0,11098,5865.7",
+	graph [bb="0,0,11112,5745.5",
 		fontname=Helvetica,
 		label=<
       <table border="1" cellborder="0" cellspacing="0" color="#888888">
@@ -14,7 +14,7 @@ digraph SchemaCrawler_Diagram {
     >,
 		labeljust=r,
 		lheight=0.62,
-		lp="10960,26.25",
+		lp="10973,26.25",
 		lwidth=3.63,
 		rankdir=RL
 	];
@@ -23,7 +23,7 @@ digraph SchemaCrawler_Diagram {
 		shape=none
 	];
 	edge [fontname=Helvetica];
-	account_9fd20e1c	[height=3.0903,
+	account_9fd20e1c	[height=3.6806,
 		label=<
       <table border="1" cellborder="0" cellspacing="0" color="#888888">
 	<tr>
@@ -76,11 +76,21 @@ The account's internal id.</td>
 		<td align='left'>@behavior -update
 The account's username. Must be alphanumeric with hyphens and not exceed 100 characters.</td>
 	</tr>
+	<tr>
+		<td port='display_name_bab3f94c.start' align='left'>display_name</td>
+		<td align='left'> </td>
+		<td port='display_name_bab3f94c.end' align='left'>text</td>
+	</tr>
+	<tr>
+		<td align='left'></td>
+		<td align='left'> </td>
+		<td align='left'>The account's display name, shown in place of the username where set. Must be between 1 and 100 characters.</td>
+	</tr>
       </table>
     >,
-		pos="1694.5,2969.2",
+		pos="1708,2826",
 		width=13.236];
-	account_eb1a3a58	[height=7.2222,
+	account_eb1a3a58	[height=7.8125,
 		label=<
       <table border="1" cellborder="0" cellspacing="0" color="#888888">
 	<tr>
@@ -200,16 +210,26 @@ The account's username. Must be alphanumeric with hyphens and not exceed 100 cha
 		<td align='left'> </td>
 		<td align='left'>Timestamp at which the account last requested an access token.</td>
 	</tr>
+	<tr>
+		<td port='guest_claims_fb6b7ca6.start' align='left'>guest_claims</td>
+		<td align='left'> </td>
+		<td port='guest_claims_fb6b7ca6.end' align='left'>_uuid</td>
+	</tr>
+	<tr>
+		<td align='left'></td>
+		<td align='left'> </td>
+		<td align='left'>The guests claimed by the session that registered the account, linked to it once its email address is verified.</td>
+	</tr>
       </table>
     >,
-		pos="520.5,2821.2",
-		width=14.458];
+		pos="527.25,2677",
+		width=14.646];
 	account_9fd20e1c:"id_5a6fc27f.start":w -> account_eb1a3a58:"id_782d1dc3.end":e	[arrowhead=teetee,
 		arrowtail=teetee,
 		dir=both,
 		label=<account_id_fkey>,
-		lp="1114.1,3031.7",
-		pos="s,1226,3022.3 e,1033,3023.1 1216.2,3022.3 1141.6,3022.4 1117.4,3023 1042.9,3023.1",
+		lp="1127.6,2908.9",
+		pos="s,1239.5,2900.4 e,1046.5,2900.1 1229.7,2900.4 1155.1,2900.3 1130.9,2900.1 1056.4,2900.1",
 		style=solid];
 	account_block_c5af1fea	[height=3.0903,
 		label=<
@@ -266,22 +286,22 @@ Timestamp of when the account block was created.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,5269.2",
+		pos="3288.8,5147",
 		width=9.6007];
 	account_block_c5af1fea:"blocked_account_id_599641f6.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<account_block_blocked_account_id_fkey>,
-		lp="2369.4,5255.6",
-		pos="s,2937.6,5279.8 e,2163,3022.3 2922.3,5279.8 2591.2,5280.2 2407.4,5288.5 2219.8,5010.2 2159.7,4921.2 2267.1,3128.3 2171.9,3026.8",
+		lp="2382.9,5133.4",
+		pos="s,2951.1,5157.6 e,2176.5,2900.4 2935.8,5157.6 2604.7,5157.9 2420.9,5166.3 2233.2,4888 2173.2,4799 2280.6,3006.3 2185.4,2904.8",
 		style=solid];
 	account_block_c5af1fea:"created_by_41d88664.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<account_block_created_by_fkey>,
-		lp="2369.4,4997.6",
-		pos="s,2937.6,5194.8 e,2163,3022.3 2922.3,5195 2752.9,5199.3 2660,5272.4 2537,5149.2 2511.7,5123.9 2536.7,5020.1 2519,4989 2436.5,4844.2 \
-2296.5,4911.1 2219.8,4763.2 2176.6,4680 2254.6,3124.2 2171.6,3027.1",
+		lp="2382.9,4875.4",
+		pos="s,2951.1,5072.6 e,2176.5,2900.4 2935.8,5072.8 2766.4,5077.1 2673.5,5150.2 2550.5,5027 2525.2,5001.6 2550.2,4897.9 2532.5,4866.7 \
+2450,4722 2310,4788.9 2233.2,4641 2190.1,4557.8 2268.1,3002.3 2185,2905.1",
 		style=solid];
 	account_social_network_908b839d	[height=2.7951,
 		label=<
@@ -330,14 +350,14 @@ Timestamp of when the account block was created.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,4586.2",
+		pos="3288.8,4464",
 		width=13.243];
 	account_social_network_908b839d:"account_id_51030c70.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<account_social_network_account_id_fkey>,
-		lp="2369.4,4621.1",
-		pos="s,2806.5,4628.7 e,2163,3022.3 2791.1,4628.7 2521.8,4628.7 2379.6,4626 2219.8,4403.2 2176.7,4343.2 2235,3121 2171.2,3027.9",
+		lp="2382.9,4498.9",
+		pos="s,2820,4506.5 e,2176.5,2900.4 2804.6,4506.5 2535.3,4506.5 2393.1,4503.7 2233.2,4281 2190.2,4221 2248.5,2999 2184.7,2906",
 		style=solid];
 	achievement_4e29131e	[height=3.3854,
 		label=<
@@ -396,14 +416,14 @@ Timestamp of when the account block was created.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,4345.2",
+		pos="3288.8,4223",
 		width=7.2569];
 	achievement_4e29131e:"account_id_47176d0f.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<achievement_account_id_fkey>,
-		lp="2369.4,4390.6",
-		pos="s,3022,4366.5 e,2163,3022.3 3006.6,4366.5 2652.3,4369.6 2453.2,4474.7 2219.8,4202.2 2136.5,4105.1 2286.3,3076.6 2172.4,3024.4",
+		lp="2382.9,4268.3",
+		pos="s,3035.5,4244.2 e,2176.5,2900.4 3020.1,4244.3 2665.8,4247.3 2466.7,4352.4 2233.2,4080 2150,3982.9 2299.8,2954.6 2185.9,2902.4",
 		style=solid];
 	address_a1961fe3	[height=8.4028,
 		label=<
@@ -552,21 +572,21 @@ Reference to the account that last updated the address.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,2423.2",
+		pos="3288.8,2301",
 		width=13.601];
 	address_a1961fe3:"created_by_e2d1858b.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<address_created_by_fkey>,
-		lp="2369.4,2882.6",
-		pos="s,2793.6,2242.6 e,2163,3022.3 2778.4,2243.6 2589.1,2267.2 2316.5,2716.7 2219.8,2874 2184.6,2931 2228.7,3013.5 2172.8,3021.7",
+		lp="2382.9,2760.4",
+		pos="s,2807.1,2120.4 e,2176.5,2900.4 2791.9,2121.3 2602.6,2144.9 2329.9,2594.5 2233.2,2751.7 2198.1,2808.9 2242.3,2891.5 2186.4,2899.7",
 		style=solid];
 	address_a1961fe3:"updated_by_7f916ed8.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<address_updated_by_fkey>,
-		lp="2369.4,2436.6",
-		pos="s,2793.6,2157.6 e,2163,3022.3 2774.5,2157.7 2505.7,2159.5 2378.2,2202.6 2219.8,2428 2145.4,2533.6 2287.8,2997 2172.9,3021.3",
+		lp="2382.9,2314.4",
+		pos="s,2807.1,2035.4 e,2176.5,2900.4 2788,2035.4 2519.2,2037.3 2391.7,2080.4 2233.2,2305.7 2158.9,2411.5 2301.4,2875 2186.4,2899.4",
 		style=solid];
 	app_e5fffe10	[height=4.8611,
 		label=<
@@ -651,15 +671,15 @@ Integrations that can be added to events. Each app has a name, icon, and an endp
 	</tr>
       </table>
     >,
-		pos="4566,3018.2",
+		pos="4579.5,2917",
 		width=14.847];
 	app_e5fffe10:"created_by_2ba36cfe.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<app_created_by_fkey>,
-		lp="3275.2,3298.6",
-		pos="s,4039.5,2880.1 e,2163,3022.3 4028.9,2891 4006.3,2950.4 4041.1,3233.4 4013.5,3259.2 3953.5,3315.2 2615.8,3282.1 2537,3259.2 2492.2,\
-3246.2 2240.8,3045.3 2172.6,3024.1",
+		lp="3288.8,3176.3",
+		pos="s,4053,2778.9 e,2176.5,2900.4 4042.7,2789.9 4021.7,2847.6 4053,3112.8 4027,3137 3966.9,3192.9 2629.3,3159.8 2550.5,3137 2505.8,3124 \
+2254.3,2923.3 2186.1,2902.2",
 		style=solid];
 	device_9669a245	[height=4.2708,
 		label=<
@@ -738,22 +758,22 @@ Reference to the account that last updated the device.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,3945.2",
+		pos="3288.8,3823",
 		width=15.403];
 	device_9669a245:"created_by_886e4f69.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<device_created_by_fkey>,
-		lp="2369.4,3925.6",
-		pos="s,2728.8,3913.3 e,2163,3022.3 2713.4,3913.4 2488.6,3915 2365.6,3950.4 2219.8,3773.2 2168.6,3711.1 2240.6,3075 2172.1,3025.4",
+		lp="2382.9,3803.4",
+		pos="s,2742.2,3791.1 e,2176.5,2900.4 2726.9,3791.2 2502.1,3792.8 2379.1,3828.1 2233.2,3651 2182.2,3588.9 2254.1,2953 2185.6,2903.4",
 		style=solid];
 	device_9669a245:"updated_by_252e38b6.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<device_updated_by_fkey>,
-		lp="2369.4,3760.6",
-		pos="s,2728.8,3828.3 e,2163,3022.3 2709.6,3828.4 2635.8,3828.9 2602.2,3830.3 2537,3782.2 2524.4,3772.9 2532.2,3760.3 2519,3752 2462.6,\
-3716.2 2266.6,3770.8 2219.8,3723.2 2167.3,3669.9 2234.8,3076.7 2172.2,3025.8",
+		lp="2382.9,3638.4",
+		pos="s,2742.2,3706.1 e,2176.5,2900.4 2723.1,3706.2 2649.3,3706.7 2615.7,3708 2550.5,3660 2537.9,3650.7 2545.7,3638.1 2532.5,3629.7 2476.1,\
+3594 2280.1,3648.6 2233.2,3601 2180.8,3547.7 2248.3,2954.7 2185.7,2903.8",
 		style=solid];
 	friendship_7d57e9c9	[height=5.7465,
 		label=<
@@ -860,35 +880,35 @@ The account that updated the friend relation's status.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,3566.2",
+		pos="3288.8,3444",
 		width=12.382];
 	friendship_7d57e9c9:"a_account_id_28f16a62.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<friendship_a_account_id_fkey>,
-		lp="2369.4,3710.4",
-		pos="s,2837.5,3672.5 e,2163,3022.3 2822.2,3672.6 2554.4,3676.4 2407.8,3777.3 2219.8,3580.2 2136.2,3492.6 2279.1,3048.5 2172.9,3023.4",
+		lp="2382.9,3588.6",
+		pos="s,2851,3550.2 e,2176.5,2900.4 2835.7,3550.3 2567.9,3554.2 2421.4,3655.9 2233.2,3459 2149.4,3371.2 2293,2925.7 2186.1,2901.4",
 		style=solid];
 	friendship_7d57e9c9:"b_account_id_30a30fc1.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<friendship_b_account_id_fkey>,
-		lp="2369.4,3559.6",
-		pos="s,2837.5,3630 e,2163,3022.3 2822.6,3627.2 2728.2,3607.3 2230.5,3483.4 2219.8,3471.2 2155.6,3398.4 2256,3048.2 2172.8,3023.7",
+		lp="2382.9,3443.1",
+		pos="s,2851,3507.7 e,2176.5,2900.4 2835.8,3505.8 2738.6,3489.6 2255,3374.7 2233.2,3350 2168.9,3277.1 2269.7,2926.3 2186.4,2901.7",
 		style=solid];
 	friendship_7d57e9c9:"created_by_7f48f865.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<friendship_created_by_fkey>,
-		lp="2369.4,3456.9",
-		pos="s,2837.5,3481.2 e,2163,3022.3 2822.2,3480.4 2725,3473.3 2242.7,3423.7 2219.8,3401.2 2161.4,3344.1 2241.1,3048.1 2172.6,3023.9",
+		lp="2382.9,3334.6",
+		pos="s,2851,3359 e,2176.5,2900.4 2835.7,3358.1 2738.5,3351.1 2256.2,3301.5 2233.2,3279 2175,3221.9 2254.5,2926.1 2186.1,2901.9",
 		style=solid];
 	friendship_7d57e9c9:"updated_by_1c08e1b2.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<friendship_updated_by_fkey>,
-		lp="2369.4,3386.8",
-		pos="s,2837.5,3396.2 e,2163,3022.3 2818.4,3395.6 2713.1,3391.6 2243.1,3366.5 2219.8,3345.2 2114.6,3249.3 2299.7,3032.8 2172.7,3022.7",
+		lp="2382.9,3264.6",
+		pos="s,2851,3274 e,2176.5,2900.4 2831.9,3273.4 2726.6,3269.4 2256.6,3244.2 2233.2,3223 2128.2,3127.2 2313.1,2910.8 2186.2,2900.7",
 		style=solid];
 	legal_term_acceptance_d9a9b273	[height=3.0903,
 		label=<
@@ -945,14 +965,14 @@ Timestamp showing when the legal terms were accepted, set automatically at the t
 	</tr>
       </table>
     >,
-		pos="3275.2,5510.2",
+		pos="3288.8,5388",
 		width=16.424];
 	legal_term_acceptance_d9a9b273:"account_id_2baab85a.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<legal_term_acceptance_account_id_fkey>,
-		lp="2369.4,5579.5",
-		pos="s,2692,5520.8 e,2163,3022.3 2676.8,5521.1 2476.2,5526.9 2362.7,5644.1 2219.8,5497.2 2173.3,5449.5 2228,3176.2 2169.3,3029.7",
+		lp="2382.9,5457.2",
+		pos="s,2705.5,5398.6 e,2176.5,2900.4 2690.3,5398.8 2489.7,5404.6 2376.2,5521.9 2233.2,5375 2186.8,5327.3 2241.5,3054.2 2182.8,2907.8",
 		style=solid];
 	legal_term_88bea21	[height=3.6806,
 		label=<
@@ -1017,14 +1037,14 @@ Legal terms like privacy policies or terms of service.</td>
 	</tr>
       </table>
     >,
-		pos="1694.5,5405.2",
+		pos="1708,5283",
 		width=14.09];
 	legal_term_acceptance_d9a9b273:"legal_term_id_4055a235.start":w -> legal_term_88bea21:"id_8f1671a.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<legal_term_acceptance_legal_term_id_fkey>,
-		lp="2369.4,5488.2",
-		pos="s,2692,5478.3 e,2193.8,5479.6 2676.7,5478.3 2471,5478.4 2411.8,5479.6 2203.5,5479.6",
+		lp="2382.9,5366",
+		pos="s,2705.5,5356.1 e,2207.2,5357.4 2690.2,5356.1 2484.5,5356.2 2425.3,5357.3 2217,5357.4",
 		style=solid];
 	preference_event_category_de974cd6	[height=2.5,
 		label=<
@@ -1068,14 +1088,14 @@ Legal terms like privacy policies or terms of service.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,547.22",
+		pos="8109.2,546.99",
 		width=6.7326];
 	preference_event_category_de974cd6:"account_id_c4706a57.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<preference_event_category_account_id_fkey>,
-		lp="4566,614.28",
-		pos="s,7861.4,557.84 e,2163,3022.3 7846,557.88 7494,559.1 2325.8,590.99 2219.8,702.22 2133,793.27 2284.2,2914.9 2171.9,3018.4",
+		lp="4579.5,605.66",
+		pos="s,7874.9,557.61 e,2176.5,2900.4 7859.7,557.59 7175.7,555.84 2614.9,443.99 2233.2,936.99 2168.3,1020.8 2279,2795.5 2185.2,2895.9",
 		style=solid];
 	event_category_afee4cf2	[height=1.9097,
 		label=<
@@ -1110,14 +1130,15 @@ Event categories.</td>
 	</tr>
       </table>
     >,
-		pos="5807.4,664.22",
+		pos="5820.9,800.99",
 		width=5.8299];
 	preference_event_category_de974cd6:"category_id_4ffaf9e6.start":w -> event_category_afee4cf2:"id_4ddb5e69.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<preference_event_category_category_id_fkey>,
-		lp="6669.5,604.59",
-		pos="s,7861.4,515.34 e,6009.2,674.84 7846.1,515.34 7259,515.62 7105.5,532.25 6514.2,595.97 6291.7,619.95 6238,673.25 6019.1,674.81",
+		lp="6683,727.92",
+		pos="s,7874.9,515.11 e,6022.8,811.61 7859.6,515.13 7415.9,516.29 7300.8,568.2 6856.2,645.99 6700.9,673.18 6664.4,691.75 6509.8,722.99 \
+6297.4,765.89 6244.3,810.25 6032.6,811.58",
 		style=solid];
 	preference_event_format_7aa86e0f	[height=2.7951,
 		label=<
@@ -1166,15 +1187,15 @@ Event categories.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,338.22",
+		pos="8109.2,337.99",
 		width=8.7361];
 	preference_event_format_7aa86e0f:"account_id_aa83703e.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<preference_event_format_account_id_fkey>,
-		lp="4566,445.62",
-		pos="s,7789.2,359.47 e,2163,3022.3 7773.9,359.47 5449.8,359.23 4849.7,306.13 2537,603.22 2395.1,621.45 2313.2,549.84 2219.8,658.22 2136.1,\
-755.28 2286.7,2913.1 2172.1,3018.4",
+		lp="4579.5,399.3",
+		pos="s,7802.8,359.24 e,2176.5,2900.4 7787.5,359.26 7370.2,360.48 7262.4,411.55 6838.2,435.99 4934.4,545.68 4379.9,56.775 2550.5,594.99 \
+2393.5,641.18 2316.3,640.98 2233.2,781.99 2175.1,880.74 2288,2795.3 2185.3,2896.2",
 		style=solid];
 	event_format_eb8c52b	[height=1.9097,
 		label=<
@@ -1209,14 +1230,14 @@ Event formats.</td>
 	</tr>
       </table>
     >,
-		pos="5807.4,464.22",
+		pos="5820.9,644.99",
 		width=5.7882];
 	preference_event_format_7aa86e0f:"format_id_465fb634.start":w -> event_format_eb8c52b:"id_c85fed50.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<preference_event_format_format_id_fkey>,
-		lp="6669.5,457",
-		pos="s,7789.2,316.97 e,6007.8,474.84 7773.9,316.99 6995.1,318.99 6799.1,473.55 6017.6,474.83",
+		lp="6683,550.04",
+		pos="s,7802.8,316.74 e,6021.2,655.61 7787.3,316.76 7375.5,317.98 7268.1,368.45 6856.2,447.99 6484,519.87 6405,653.31 6031,655.58",
 		style=solid];
 	preference_event_location_4ce42f8d	[height=3.6806,
 		label=<
@@ -1282,14 +1303,14 @@ Timestamp of when the event location preference was created, defaults to the cur
 	</tr>
       </table>
     >,
-		pos="3275.2,3117.2",
+		pos="3288.8,2995",
 		width=15.444];
 	preference_event_location_4ce42f8d:"created_by_a1456b21.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<preference_event_location_created_by_fkey>,
-		lp="2369.4,3031",
-		pos="s,2727.2,3021.6 e,2163,3022.3 2712.1,3021.6 2477.1,3021.6 2410.4,3022.3 2173,3022.3",
+		lp="2382.9,2909",
+		pos="s,2740.8,2899.4 e,2176.5,2900.4 2725.6,2899.4 2490.6,2899.4 2424,2900.3 2186.5,2900.4",
 		style=solid];
 	preference_event_size_8d76cc59	[height=3.0903,
 		label=<
@@ -1344,14 +1365,14 @@ Timestamp of when the event size preference was created, defaults to the current
 	</tr>
       </table>
     >,
-		pos="3275.2,2855.2",
+		pos="3288.8,2733",
 		width=15.434];
 	preference_event_size_8d76cc59:"account_id_f180db34.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<preference_event_size_account_id_fkey>,
-		lp="2369.4,2991.6",
-		pos="s,2727.6,2887.1 e,2163,3022.3 2712.4,2887.1 2494.9,2887.5 2426.9,2896.2 2219.8,2983 2194.9,2993.4 2193.6,3015.9 2172.8,3021.2",
+		lp="2382.9,2869.4",
+		pos="s,2741.1,2764.9 e,2176.5,2900.4 2725.9,2764.9 2508.4,2765.2 2440.2,2773.7 2233.2,2860.7 2208.3,2871.2 2207.1,2893.9 2186.3,2899.2",
 		style=solid];
 	upload_b40291f0	[height=4.8611,
 		label=<
@@ -1440,14 +1461,14 @@ Timestamp of when the upload was created, defaults to the current timestamp.</td
 	</tr>
       </table>
     >,
-		pos="5807.4,1011.2",
+		pos="5820.9,1190",
 		width=12.319];
 	upload_b40291f0:"created_by_1df3551e.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<upload_created_by_fkey>,
-		lp="3275.2,1016",
-		pos="s,5371.9,873.09 e,2163,3022.3 5356.5,873.06 4639.4,870.41 2695.9,688.3 2219.8,1200.2 2152.9,1272.1 2257.6,2918 2171.6,3017.6",
+		lp="3288.8,1194.3",
+		pos="s,5385.4,1051.9 e,2176.5,2900.4 5370,1051.8 4652.9,1049.2 2711.1,867.62 2233.2,1378 2177.4,1437.6 2255.3,2799.4 2184.8,2895.1",
 		style=solid];
 	contact_1eb5a80f	[height=10.174,
 		label=<
@@ -1624,30 +1645,30 @@ Timestamp when the contact was created. Defaults to the current timestamp.</td>
 	</tr>
       </table>
     >,
-		pos="5807.4,3923.2",
+		pos="5820.9,3801",
 		width=19.135];
 	contact_1eb5a80f:"account_id_881d763e.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<contact_account_id_fkey>,
-		lp="3275.2,4199.6",
-		pos="s,5126.5,4188.8 e,2163,3022.3 5107.1,4188.9 4846.6,4190 2275.5,4203.4 2219.8,4149.2 2132.3,4064.2 2279.9,3078.5 2172.7,3024.6",
+		lp="3288.8,4077.4",
+		pos="s,5140,4066.6 e,2176.5,2900.4 5120.6,4066.7 4860.1,4067.7 2289,4081.2 2233.2,4027 2145.8,3942 2293.4,2956.5 2186.2,2902.7",
 		style=solid];
 	contact_1eb5a80f:"created_by_9a302df.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<contact_created_by_fkey>,
-		lp="3275.2,4145.1",
-		pos="s,5126.5,3593.8 e,2163,3022.3 5111.1,3593.9 4580.8,3601.4 4540.7,3992.3 4013.5,4108.2 3853.3,4143.5 2696.1,4148.2 2537,4108.2 2381.8,\
-4069.3 2306.1,4072.9 2219.8,3938.2 2166.5,3855.2 2258.5,3076.6 2172.5,3025",
+		lp="3288.8,4022.8",
+		pos="s,5140,3471.6 e,2176.5,2900.4 5124.6,3471.7 4594.3,3479.2 4554.2,3870.1 4027,3986 3866.8,4021.2 2709.6,4025.9 2550.5,3986 2395.3,\
+3947 2319.6,3950.6 2233.2,3816 2180,3733 2271.9,2954.6 2186,2903",
 		style=solid];
 	contact_1eb5a80f:"address_id_7ee3b17.start":w -> address_a1961fe3:"id_912de998.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<contact_address_id_fkey>,
-		lp="4566,4154.7",
-		pos="s,5126.5,4146.3 e,3756.9,2667.6 5107.3,4146.3 4520.7,4140.7 4309.4,3878 4031.5,3352.2 3999.4,3291.6 4056.2,2788.9 4013.5,2735.2 \
-3942.2,2645.5 3878.5,2666.3 3766.8,2667.5",
+		lp="4579.5,4032.4",
+		pos="s,5140,4024.1 e,3770.4,2545.4 5120.8,4024 4534.2,4018.4 4322.9,3755.8 4045,3230 4012.9,3169.4 4069.7,2666.7 4027,2613 3955.7,2523.2 \
+3892,2544.1 3780.3,2545.3",
 		style=solid];
 	event_ebc4f689	[height=11.944,
 		label=<
@@ -1858,21 +1879,22 @@ The event's end date and time, falling back to its start when no explicit end is
 	</tr>
       </table>
     >,
-		pos="5807.4,1672.2",
+		pos="5820.9,1890",
 		width=12.844];
 	event_ebc4f689:"created_by_de7d83a5.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_created_by_fkey>,
-		lp="3275.2,1436.5",
-		pos="s,5353,1385.3 e,2163,3022.3 5337.7,1385.3 4626.4,1381.3 2679,1102.9 2219.8,1622.2 2170.1,1678.4 2235.6,2924.5 2171.1,3016.9",
+		lp="3288.8,1887.8",
+		pos="s,5366.5,1603.1 e,2176.5,2900.4 5351.1,1603.2 4758.1,1606.4 4624.5,1794.9 4027,1860 3927.9,1870.8 2303.9,1847.6 2233.2,1918 2158.2,\
+1992.8 2277.9,2844.6 2186.1,2897.8",
 		style=solid];
 	event_ebc4f689:"address_id_dcc8bbdd.start":w -> address_a1961fe3:"id_912de998.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<event_address_id_fkey>,
-		lp="4566,2043.6",
-		pos="s,5353,2001.6 e,3756.9,2667.6 5333.8,2001.5 4760,1995.2 4513.3,1710.1 4031.5,2035 3780.1,2204.5 4057.3,2657.7 3766.5,2667.4",
+		lp="4579.5,2273.4",
+		pos="s,5366.5,2219.4 e,3770.4,2545.4 5347.3,2219.3 4774.5,2215.2 4576.8,2030.3 4045,2264.7 3888.4,2333.8 3942.6,2537.2 3780.3,2545.1",
 		style=solid];
 	profile_picture_50415857	[height=2.5,
 		label=<
@@ -1917,22 +1939,23 @@ The profile picture's internal id.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,901.22",
+		pos="8109.2,744.99",
 		width=8.5069];
 	profile_picture_50415857:"account_id_8807cef6.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=teetee,
 		dir=both,
 		label=<profile_picture_account_id_fkey>,
-		lp="4566,777.59",
-		pos="s,7797.5,890.59 e,2163,3022.3 7787.8,890.58 7215.8,889.74 7072.5,814.83 6496.2,788.22 5876.5,759.59 5720.9,773.24 5100.5,768.97 \
-4625.4,765.69 4506.6,765.91 4031.5,768.97 3628.6,771.56 2486.4,534.2 2219.8,836.22 2141.4,924.98 2277.3,2917.2 2171.7,3018.4",
+		lp="4579.5,903.32",
+		pos="s,7811,734.36 e,2176.5,2900.4 7801.2,734.37 7227.5,735.57 7087.2,842.6 6509.8,878.99 4753.4,989.65 4296.3,716.73 2550.5,938.99 2406.6,\
+957.31 2324.6,903.29 2233.2,1016 2169.2,1095 2274.7,2796.2 2185.2,2895.8",
 		style=solid];
 	profile_picture_50415857:"upload_id_1c4caa2.start":w -> upload_b40291f0:"id_cc4fb92b.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<profile_picture_upload_id_fkey>,
-		lp="6669.5,1089",
-		pos="s,7797.5,848.09 e,6242.9,1128.1 7782.2,848.12 7365.3,849.85 7260.1,922.53 6842.8,1000.2 6711.9,1024.6 6394.5,1123.3 6252.8,1127.9",
+		lp="6683,816.36",
+		pos="s,7811,691.86 e,6256.4,1306.9 7795.9,691.8 7498.2,689.54 6741.8,625 6527.8,807.74 6502.9,828.95 6522.2,848.79 6509.8,878.99 6426.8,\
+1080.2 6475.8,1300.1 6266.2,1306.7",
 		style=solid];
 	event_app_e7e2c2eb	[height=3.6806,
 		label=<
@@ -2002,31 +2025,30 @@ Who installed this app.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,2586.2",
+		pos="8109.2,2783",
 		width=8.809];
 	event_app_e7e2c2eb:"created_by_66194383.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_app_created_by_fkey>,
-		lp="4566,2194.1",
-		pos="s,7786.6,2490.6 e,2163,3022.3 7771.3,2490.7 7361.2,2496.5 7142.2,2731.4 6842.8,2444.2 6811,2413.8 6856.7,2277.4 6824.8,2247.2 6768.4,\
-2193.8 4097.3,2187.5 4031.5,2146.2 4017,2137.1 4028.1,2121 4013.5,2112.2 3873,2027.6 2700.1,2094.4 2537,2112.2 2393.5,2127.9 2313.9,\
-2072.8 2219.8,2182.2 2160.9,2250.6 2249.9,2969.1 2172.2,3019.6",
+		lp="4579.5,2378.8",
+		pos="s,7800.1,2687.4 e,2176.5,2900.4 7784.8,2687.5 7374.7,2693.3 7154.7,2929.2 6856.2,2641 6821.9,2607.8 6872.8,2459.9 6838.2,2427 6782.1,\
+2373.4 4100.4,2379.4 4045,2325 4018.4,2298.9 4054.1,2015.6 4027,1990 3967.5,1933.6 2632,1981.1 2550.5,1990 2407,2005.6 2327.4,1950.5 \
+2233.2,2060 2174.4,2128.4 2263.4,2847.1 2185.7,2897.6",
 		style=solid];
 	event_app_e7e2c2eb:"app_id_c05a526e.start":w -> app_e5fffe10:"id_d9ffd10b.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_app_app_id_fkey>,
-		lp="6669.5,2857.6",
-		pos="s,7786.6,2618.1 e,5092.5,3135.1 7771.5,2618.1 6568.5,2622.4 6308.1,3132.3 5102.3,3135.1",
+		lp="6683,2921.3",
+		pos="s,7800.1,2814.9 e,5106,3033.9 7784.8,2814.9 6599.5,2816.7 6303.8,3032.7 5115.6,3033.9",
 		style=solid];
 	event_app_e7e2c2eb:"event_id_25095b55.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_app_event_id_fkey>,
-		lp="6669.5,2445.3",
-		pos="s,7786.6,2575.6 e,6261.8,2044.1 7771.2,2575.6 7360,2576.1 7233.5,2593.7 6842.8,2444.2 6678.4,2381.4 6659,2323.2 6514.2,2223.2 6403.8,\
-2146.9 6399.5,2049 6271.6,2044.3",
+		lp="6683,2637.2",
+		pos="s,7800.1,2772.4 e,6275.2,2261.9 7784.7,2772.4 7373.5,2772.8 7248.1,2787.7 6856.2,2641 6786.7,2614.9 6383.1,2286.9 6285,2263.2",
 		style=solid];
 	event_favorite_eb8d5990	[height=3.0903,
 		label=<
@@ -2083,24 +2105,24 @@ Timestamp when the favorite was created. Defaults to the current timestamp.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,2324.2",
+		pos="8109.2,2521",
 		width=12.205];
 	event_favorite_eb8d5990:"created_by_d7c1817e.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_favorite_created_by_fkey>,
-		lp="4566,2133.6",
-		pos="s,7664.4,2249.8 e,2163,3022.3 7649,2249.9 7294.9,2253.2 7164.2,2367.6 6842.8,2204.2 6831.5,2198.5 6836.1,2187.8 6824.8,2182.2 6739.5,\
-2140.7 5205.1,2182.9 5118.5,2144.2 5107.8,2139.4 5111.2,2129.8 5100.5,2125 4992.2,2076.1 4135.5,2152.7 4031.5,2095.2 4018.9,2088.2 \
-4026.2,2075 4013.5,2068.2 3925.6,2021.2 2288,2035.5 2219.8,2108.2 2152.4,2180 2257.4,2967.4 2172.4,3019.6",
+		lp="4579.5,2312.4",
+		pos="s,7677.9,2446.6 e,2176.5,2900.4 7662.5,2446.7 7307.8,2451.1 7154.4,2603.7 6856.2,2401 6840.5,2390.3 6854.2,2372.4 6838.2,2362 6758.9,\
+2310.1 5215.9,2373.2 5132,2329 5119.8,2322.6 5126.2,2310.2 5114,2303.7 5061.5,2276 4087.7,2323.2 4045,2282 3993.3,2232.1 4079.2,\
+2008.4 4027,1959 3954.6,1890.5 2302.9,1914.7 2233.2,1986 2164.5,2056.4 2270.8,2845.3 2185.9,2897.6",
 		style=solid];
 	event_favorite_eb8d5990:"event_id_96b19950.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_favorite_event_id_fkey>,
-		lp="6669.5,2210.6",
-		pos="s,7664.4,2334.8 e,6261.8,2044.1 7649,2334.8 7284.1,2332.7 7193.3,2257.1 6824.8,2202 6686.9,2181.4 6648.1,2197 6514.2,2158.2 6399.2,\
-2124.9 6385.6,2048.4 6271.6,2044.3",
+		lp="6683,2390.4",
+		pos="s,7677.9,2531.6 e,6275.2,2261.9 7662.6,2531.6 7304.6,2532.8 7178.2,2572 6856.2,2401 6845.9,2395.5 6848.6,2387.1 6838.2,2381.7 6714.6,\
+2317.4 6663.9,2367.9 6527.8,2338 6416.5,2313.5 6393.7,2264.7 6285,2262",
 		style=solid];
 	event_recommendation_9d21f7ed	[height=3.0903,
 		label=<
@@ -2154,24 +2176,22 @@ Timestamp when the favorite was created. Defaults to the current timestamp.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,1886.2",
+		pos="8109.2,1885",
 		width=8.2153];
 	event_recommendation_9d21f7ed:"account_id_d73b2220.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_recommendation_account_id_fkey>,
-		lp="4566,2082.6",
-		pos="s,7808,1939.3 e,2163,3022.3 7792.7,1939.3 7373.3,1934.8 7180.9,1749 6842.8,2006.2 6823.6,2020.8 6843.2,2041.8 6824.8,2057.2 6711.3,\
-2152.2 6643.7,2099.2 6496.2,2111.2 6420,2117.4 5183.3,2151.9 5118.5,2111.2 5102.9,2101.4 5116,2083.9 5100.5,2074 5050.5,2041.9 4087.1,\
-2073 4031.5,2052.2 4021.7,2048.6 4023.3,2040.8 4013.5,2037.2 3919.8,2003.3 2289.6,1990.2 2219.8,2061.2 2147.1,2135.1 2262.3,2967.8 \
-2172.4,3019.8",
+		lp="4579.5,1458.4",
+		pos="s,7821.5,1938.1 e,2176.5,2900.4 7806.2,1938.2 7232.2,1941.7 6915,2141.9 6527.8,1712 6488.8,1668.8 6552.2,1490.7 6509.8,1451 6408.9,\
+1356.9 4164.9,1450 4027,1450 3827.7,1449.9 2369,1340 2233.2,1486 2181.7,1541.4 2249.7,2801.5 2184.6,2894.9",
 		style=solid];
 	event_recommendation_9d21f7ed:"event_id_17b0c693.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_recommendation_event_id_fkey>,
-		lp="6669.5,2044.9",
-		pos="s,7808,1896.8 e,6261.8,2044.1 7792.9,1896.9 7118.4,1899 6948.6,2042.7 6271.3,2044.1",
+		lp="6683,2063.4",
+		pos="s,7821.5,1895.6 e,6275.2,2261.9 7806.3,1895.6 7238.9,1894.3 7052.4,1821.3 6527.8,2054.7 6398.2,2112.4 6419.3,2255 6285.2,2261.6",
 		style=solid];
 	guest_ebe0b1c7	[height=6.0417,
 		label=<
@@ -2279,29 +2299,29 @@ The id of the account which last updated the guest. `NULL` if the guest was upda
 	</tr>
       </table>
     >,
-		pos="8095.8,3511.2",
+		pos="8109.2,3389",
 		width=15.083];
 	guest_ebe0b1c7:"updated_by_7e991974.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<guest_updated_by_fkey>,
-		lp="4566,3353.1",
-		pos="s,7560.8,3330.6 e,2163,3022.3 7541.6,3330.6 7121.4,3332.1 2804.4,3371.1 2537,3311.2 2385.2,3277.2 2326.8,3276.1 2219.8,3163.2 2175.8,\
-3116.8 2224.8,3031.9 2172.7,3023.1",
+		lp="4579.5,3230.8",
+		pos="s,7574.2,3208.4 e,2176.5,2900.4 7555.1,3208.4 7134.9,3209.8 2817.9,3248.8 2550.5,3189 2398.7,3155 2340.3,3153.9 2233.2,3041 2189.3,\
+2994.7 2238.2,2909.9 2186.2,2901.1",
 		style=solid];
 	guest_ebe0b1c7:"contact_id_988be0b3.start":w -> contact_1eb5a80f:"id_b7ff66ec.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<guest_contact_id_fkey>,
-		lp="6669.5,3975.6",
-		pos="s,7560.8,3628.1 e,6488.2,4231.3 7545.4,3628.1 7066.6,3627.3 6817.6,3590.2 6514.2,3967 6479.5,4010.1 6538.9,4204.7 6497.9,4228.9",
+		lp="6683,3853.4",
+		pos="s,7574.2,3505.9 e,6501.8,4109.1 7558.9,3505.8 7080.1,3505 6831.1,3467.9 6527.8,3844.7 6493,3887.8 6552.4,4082.5 6511.4,4106.6",
 		style=solid];
 	guest_ebe0b1c7:"event_id_a0c947f9.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<guest_event_id_fkey>,
-		lp="6669.5,3342.4",
-		pos="s,7560.8,3585.6 e,6261.8,2044.1 7545.5,3585.5 7020.6,3582.2 6838.3,3404.6 6514.2,2983.2 6252.8,2643.3 6687.1,2053.4 6271.7,2044.2",
+		lp="6683,3274.3",
+		pos="s,7574.2,3463.4 e,6275.2,2261.9 7559,3463.3 7058.3,3461.3 6869,3356 6527.8,2981 6302,2732.9 6607.9,2271 6285,2262",
 		style=solid];
 	report_ae4ad923	[height=4.8611,
 		label=<
@@ -2388,39 +2408,40 @@ Timestamp of when the report was created, defaults to the current timestamp.</td
 	</tr>
       </table>
     >,
-		pos="8095.8,1184.2",
+		pos="8109.2,1340",
 		width=12.99];
 	report_ae4ad923:"created_by_6cb3f44b.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<report_created_by_fkey>,
-		lp="4566,801.04",
-		pos="s,7636.1,1046.1 e,2163,3022.3 7620.8,1046.1 7280,1047.4 7179,1089.8 6842.8,1000.2 6676.4,955.9 6663.7,867.27 6496.2,827.22 6282.3,\
-776.03 2749.4,778.11 2537,835.22 2380.7,877.25 2303.4,875.58 2219.8,1014.2 2163.7,1107.2 2268.6,2919.1 2171.7,3018.1",
+		lp="4579.5,1005.4",
+		pos="s,7649.6,1201.9 e,2176.5,2900.4 7634.2,1201.9 7141.3,1205.7 6894,1386.5 6527.8,1049 6512.5,1034.9 6527,1017.5 6509.8,1006 6252.1,\
+833.29 5424.2,997.77 5114,996.74 4544.3,994.85 3100.8,866.75 2550.5,1014 2394.3,1055.8 2317.3,1053.8 2233.2,1192 2185.5,1270.5 2266,\
+2797.1 2185.1,2895.4",
 		style=solid];
 	report_ae4ad923:"target_account_id_ab6c5718.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<report_target_account_id_fkey>,
-		lp="4566,1234.2",
-		pos="s,7636.1,1216.1 e,2163,3022.3 7616.7,1216.1 6984.4,1215.4 3084.5,1183 2537,1303.2 2387.2,1336.1 2306.5,1312.7 2219.8,1439.2 2171.7,\
-1509.3 2245.6,2920.8 2171.4,3017.2",
+		lp="4579.5,1400.3",
+		pos="s,7649.6,1371.9 e,2176.5,2900.4 7630.3,1371.9 7285.7,1372 7192.3,1375.5 6838.2,1378 6806.3,1378.2 2255.9,1393.5 2233.2,1416 2176.8,\
+1472 2253.1,2799.1 2184.8,2894.9",
 		style=solid];
 	report_ae4ad923:"target_upload_id_5a9ace28.start":w -> upload_b40291f0:"id_cc4fb92b.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<report_target_upload_id_fkey>,
-		lp="6669.5,1137.8",
-		pos="s,7636.1,1131.1 e,6242.9,1128.1 7616.8,1131.1 7016.8,1131 6857.3,1128.1 6252.7,1128.1",
+		lp="6683,1314",
+		pos="s,7649.6,1286.9 e,6256.4,1306.9 7630.3,1286.9 7030.3,1287.3 6870.9,1306.7 6266.2,1306.9",
 		style=solid];
 	report_ae4ad923:"target_event_id_3bd2ff0b.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<report_target_event_id_fkey>,
-		lp="6669.5,1301.6",
-		pos="s,7636.1,1173.6 e,6261.8,2044.1 7617,1173.5 7352.7,1171.9 6705,1139.9 6514.2,1293 6242.1,1511.3 6607.1,2034.3 6271.4,2044",
+		lp="6683,1365.4",
+		pos="s,7649.6,1329.4 e,6275.2,2261.9 7630.3,1329.3 7475.9,1328.3 6574.2,1320.6 6527.8,1356.7 6365.6,1483 6480.2,2237 6285.1,2261.3",
 		style=solid];
-	attendance_571666d8	[height=4.8611,
+	attendance_571666d8	[height=5.4514,
 		label=<
       <table border="1" cellborder="0" cellspacing="0" color="#888888">
 	<tr>
@@ -2508,31 +2529,41 @@ When this entry was last changed. If someone checks out, this shows the checkout
 		<td align='left'>@behavior -insert -update
 Who last changed this entry. This may be empty if done without signing in.</td>
 	</tr>
+	<tr>
+		<td port='tag_serial_number_9c28b037.start' align='left'>tag_serial_number</td>
+		<td align='left'> </td>
+		<td port='tag_serial_number_9c28b037.end' align='left'>text</td>
+	</tr>
+	<tr>
+		<td align='left'></td>
+		<td align='left'> </td>
+		<td align='left'>The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.</td>
+	</tr>
       </table>
     >,
-		pos="10331,3680.2",
+		pos="10345,3538",
 		width=21.309];
 	attendance_571666d8:"updated_by_7a1a0683.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<attendance_updated_by_fkey>,
-		lp="5807.4,217.84",
-		pos="s,9572,3542.1 e,2163,3022.3 9553.3,3539.3 9217.3,3435.4 9611.7,477.82 9348.8,228.22 8945.1,-154.91 8653.3,209.22 8096.8,209.22 8096.8,\
-209.22 8096.8,209.22 3274.2,209.22 2775.6,209.22 2487.7,171.7 2219.8,592.22 2184.7,647.27 2227.5,2867.3 2169.4,3014.7",
+		lp="5820.9,217.61",
+		pos="s,9585.5,3421.1 e,2176.5,2900.4 9566.5,3418.1 9244.1,3312.6 9615.7,467.98 9362.2,227.99 8958.1,-154.63 8666.8,208.99 8110.2,208.99 \
+8110.2,208.99 8110.2,208.99 3287.8,208.99 2788.4,208.99 2452,148.08 2233.2,596.99 2206.2,652.55 2238.2,2749.4 2182.7,2892.7",
 		style=solid];
 	attendance_571666d8:"contact_id_940ccdc2.start":w -> contact_1eb5a80f:"id_b7ff66ec.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<attendance_contact_id_fkey>,
-		lp="8095.8,4186",
-		pos="s,9572,3712.1 e,6488.2,4231.3 9553,3713.2 9260.4,3738.7 6738,4216.1 6497.9,4231",
+		lp="8109.2,4063.9",
+		pos="s,9585.5,3591.1 e,6501.8,4109.1 9566.5,3592.2 9273.9,3617.7 6751.5,4093.9 6511.4,4108.8",
 		style=solid];
 	attendance_571666d8:"guest_id_376cc90a.start":w -> guest_ebe0b1c7:"id_90359434.end":e	[arrowhead=teetee,
 		arrowtail=teetee,
 		dir=both,
 		label=<attendance_guest_id_fkey>,
-		lp="9456.4,3678.3",
-		pos="s,9572,3669.6 e,8630.8,3670.6 9562.3,3669.6 9155.3,3669.6 9047.5,3670.6 8640.7,3670.6",
+		lp="9469.9,3557.2",
+		pos="s,9585.5,3548.6 e,8644.2,3548.4 9575.8,3548.6 9168.8,3548.6 9061,3548.4 8654.2,3548.4",
 		style=solid];
 	email_3708fbc7	[height=6.0417,
 		label=<
@@ -2636,14 +2667,14 @@ Who last changed this entry. This may be empty if done without signing in.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,4922.2",
+		pos="3288.8,4800",
 		width=20.507];
 	email_3708fbc7:"updated_by_987a0f74.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<email_updated_by_fkey>,
-		lp="2369.4,4750.7",
-		pos="s,2545,4741.6 e,2163,3022.3 2525.7,4741.7 2385.6,4742.5 2307.1,4750 2219.8,4633.2 2167.9,4563.9 2247,3122.9 2171.3,3027.3",
+		lp="2382.9,4628.4",
+		pos="s,2558.5,4619.4 e,2176.5,2900.4 2539.2,4619.4 2399.1,4620.3 2320.6,4627.8 2233.2,4511 2181.4,4441.7 2260.5,3000.9 2184.8,2905.3",
 		style=solid];
 	jwt_31484cf2	[height=5.4514,
 		label=<
@@ -2737,21 +2768,21 @@ Who last changed this entry. This may be empty if done without signing in.</td>
 	</tr>
       </table>
     >,
-		pos="3275.2,1792.2",
+		pos="3288.8,1655",
 		width=11.09];
 	jwt_31484cf2:"subject_886ba67a.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<jwt_subject_fkey>,
-		lp="2369.4,1993.6",
-		pos="s,2884,1824.1 e,2163,3022.3 2864.6,1824 2573.1,1821.1 2409.8,1756.5 2219.8,1985 2148.1,2071.1 2270.8,2967.5 2172.5,3019.9",
+		lp="2382.9,1864.4",
+		pos="s,2897.5,1686.9 e,2176.5,2900.4 2878.5,1686.8 2585.9,1684.2 2422.6,1625.4 2233.2,1855.7 2161.6,1942.9 2285.1,2845.2 2186.1,2898",
 		style=solid];
 	jwt_31484cf2:"updated_by_e624e3a9.start":w -> account_9fd20e1c:"id_5a6fc27f.end":e	[arrowhead=teetee,
 		arrowtail=crowodot,
 		dir=both,
 		label=<jwt_updated_by_fkey>,
-		lp="2369.4,1804.6",
-		pos="s,2884,1632.8 e,2163,3022.3 2864.6,1632.7 2572.8,1629.9 2408.7,1566.2 2219.8,1796 2135.2,1898.8 2291.4,2968.2 2172.5,3020.4",
+		lp="2382.9,1670.4",
+		pos="s,2897.5,1495.6 e,2176.5,2900.4 2878.1,1495.5 2586,1492.8 2421.8,1431.3 2233.2,1661.7 2148.1,1765.8 2306.2,2845.7 2186.1,2898.4",
 		style=solid];
 	event_category_mapping_875e5981	[height=1.9097,
 		label=<
@@ -2785,22 +2816,22 @@ Who last changed this entry. This may be empty if done without signing in.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,1447.2",
+		pos="8109.2,921.99",
 		width=5.4444];
 	event_category_mapping_875e5981:"event_id_7500977f.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_category_mapping_event_id_fkey>,
-		lp="6669.5,1522.6",
-		pos="s,7907.8,1457.8 e,6261.8,2044.1 7892.4,1457.8 7571.4,1454.2 6768.8,1346 6514.2,1514 6299.2,1655.9 6517,2034.3 6271.5,2043.9",
+		lp="6683,956.36",
+		pos="s,7921.2,932.61 e,6275.2,2261.9 7906.1,932.4 7704.4,927.61 6635.8,842.98 6527.8,947.74 6510.7,964.23 6513.3,1350.6 6509.8,1374 6449.2,\
+1774.3 6679.6,2254.1 6285,2261.8",
 		style=solid];
 	event_category_mapping_875e5981:"category_id_c015829b.start":w -> event_category_afee4cf2:"id_4ddb5e69.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_category_mapping_category_id_fkey>,
-		lp="6669.5,1389.9",
-		pos="s,7907.8,1415.3 e,6009.2,674.84 7892.5,1415.4 7690,1415.9 6613.4,1424 6514.2,1310.2 6479,1269.7 6528.9,869.89 6496.2,827.22 6360.6,\
-649.64 6239.6,674.07 6019.1,674.82",
+		lp="6683,851.3",
+		pos="s,7921.2,890.11 e,6022.8,811.61 7905.8,890.08 7477.2,888.26 6456.1,812.81 6032.6,811.63",
 		style=solid];
 	event_format_mapping_936d88ba	[height=1.9097,
 		label=<
@@ -2834,23 +2865,77 @@ Who last changed this entry. This may be empty if done without signing in.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,724.22",
+		pos="8109.2,1078",
 		width=5.0903];
 	event_format_mapping_936d88ba:"event_id_ead74f66.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_format_mapping_event_id_fkey>,
-		lp="6669.5,992.59",
-		pos="s,7920.5,734.84 e,6261.8,2044.1 7905.2,734.79 7278.9,730.33 6856.8,455.67 6514.2,983.97 6488.6,1023.5 6504.6,1148.8 6496.2,1195.2 \
-6427.8,1577.2 6649.3,2036.2 6271.6,2044",
+		lp="6683,1287.4",
+		pos="s,7934,1088.6 e,6275.2,2261.9 7918.8,1088.6 7297.4,1084 6930.8,800.24 6527.8,1278.7 6500,1311.7 6519.3,1332 6509.8,1374 6420.4,1768.9 \
+6679.2,2254 6285,2261.8",
 		style=solid];
 	event_format_mapping_936d88ba:"format_id_463df0e9.start":w -> event_format_eb8c52b:"id_c85fed50.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_format_mapping_format_id_fkey>,
-		lp="6669.5,672.1",
-		pos="s,7920.5,692.34 e,6007.8,474.84 7905.2,692.34 7702.7,692.36 6644.6,691.63 6514.2,613.22 6501.9,605.78 6508.1,594.4 6496.2,586.22 \
-6315.6,461.69 6232.9,474.43 6017.4,474.83",
+		lp="6683,1000.4",
+		pos="s,7934,1046.1 e,6021.2,655.61 7918.7,1046.1 7451.7,1047.5 7317.4,1111 6856.2,999.99 6847.7,997.93 6846.8,993.93 6838.2,991.74 6804.7,\
+983.13 6552.2,993.45 6527.8,968.99 6489,930.23 6547.2,762.97 6509.8,722.99 6362.1,565.55 6244,652.87 6031.1,655.55",
+		style=solid];
+	event_invitation_link_347a12a	[height=2.5,
+		label=<
+      <table border="1" cellborder="0" cellspacing="0" color="#888888">
+	<tr>
+		<td colspan='2' bgcolor='#C2D0F2' align='left'><b><i>vibetype.event_invitation_link</i></b></td>
+		<td bgcolor='#C2D0F2' align='right'>[table]</td>
+	</tr>
+	<tr>
+		<td colspan='3' align='left'>@behavior -update
+A general invitation link that lets anyone holding it join an event as a guest. Deleting it pauses the link, and creating a new one resets it.</td>
+	</tr>
+	<tr>
+		<td port='id_65ac9131.start' align='left'><b><i>id</i></b></td>
+		<td align='left'> </td>
+		<td port='id_65ac9131.end' align='left'>uuid not null</td>
+	</tr>
+	<tr>
+		<td align='left'></td>
+		<td align='left'> </td>
+		<td align='left'>@behavior -insert
+The link's secret code and primary key.</td>
+	</tr>
+	<tr>
+		<td port='event_id_764044f6.start' align='left'>event_id</td>
+		<td align='left'> </td>
+		<td port='event_id_764044f6.end' align='left'>uuid not null</td>
+	</tr>
+	<tr>
+		<td align='left'></td>
+		<td align='left'> </td>
+		<td align='left'>Reference to the event the link invites to.</td>
+	</tr>
+	<tr>
+		<td port='created_at_b7502d00.start' align='left'>created_at</td>
+		<td align='left'> </td>
+		<td port='created_at_b7502d00.end' align='left'>timestamptz not null</td>
+	</tr>
+	<tr>
+		<td align='left'></td>
+		<td align='left'> </td>
+		<td align='left'>@behavior -insert
+Timestamp when the link was created. Defaults to the current timestamp.</td>
+	</tr>
+      </table>
+    >,
+		pos="8109.2,2104",
+		width=15.347];
+	event_invitation_link_347a12a:"event_id_764044f6.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
+		arrowtail=teetee,
+		dir=both,
+		label=<event_invitation_link_event_id_fkey>,
+		lp="6683,2256.1",
+		pos="s,7564.8,2093.4 e,6275.2,2261.9 7555.1,2093.4 6988.5,2095.2 6851.5,2260 6284.9,2261.8",
 		style=solid];
 	event_upload_285cdb35	[height=3.0903,
 		label=<
@@ -2907,22 +2992,21 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,1645.2",
+		pos="8109.2,1644",
 		width=11.486];
 	event_upload_285cdb35:"upload_id_2d19a384.start":w -> upload_b40291f0:"id_cc4fb92b.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_upload_upload_id_fkey>,
-		lp="6669.5,1706.3",
-		pos="s,7690.2,1570.8 e,6242.9,1128.1 7675,1570.9 7161.8,1577.1 6885.3,1892.5 6514.2,1531.2 6466.7,1484.9 6534.7,1287.3 6496.2,1233.2 \
-6427.5,1136.6 6368.1,1128.5 6252.7,1128.1",
+		lp="6683,1525.4",
+		pos="s,7703.8,1569.6 e,6256.4,1306.9 7688.4,1569.6 7323.7,1570.4 7220.8,1598.1 6856.2,1524 6581.7,1468.2 6540.8,1310.6 6266.2,1306.9",
 		style=solid];
 	event_upload_285cdb35:"event_id_f3d24c4b.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=teetee,
 		dir=both,
 		label=<event_upload_event_id_fkey>,
-		lp="6669.5,1933.9",
-		pos="s,7690.2,1655.8 e,6261.8,2044.1 7680.3,1655.8 7308.6,1655.9 7203.8,1659.3 6842.8,1766.2 6810.3,1775.8 6350.1,2016.6 6271.2,2041.9",
+		lp="6683,1927.4",
+		pos="s,7703.8,1654.6 e,6275.2,2261.9 7694,1654.6 7165.3,1653.7 6939.4,1581 6527.8,1918.7 6383.9,2036.7 6461.7,2254.1 6285,2261.7",
 		style=solid];
 	event_search_vector_94f2ab00	[height=2.5,
 		label=<
@@ -2966,14 +3050,14 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="8095.8,2105.2",
+		pos="8109.2,2302",
 		width=34.806];
 	event_search_vector_94f2ab00:"event_id_19f675e0.start":w -> event_ebc4f689:"id_8cd9e7b2.end":e	[arrowhead=teetee,
 		arrowtail=crowtee,
 		dir=both,
 		label=<event_search_vector_event_id_fkey>,
-		lp="6669.5,2145.3",
-		pos="s,6850.8,2137.1 e,6261.8,2044.1 6835.5,2137 6586.5,2133.5 6523.2,2046.3 6271.6,2044.1",
+		lp="6683,2325.4",
+		pos="s,6864.2,2333.9 e,6275.2,2261.9 6850.7,2326.7 6847.6,2323.1 6844.6,2319 6838.2,2316.7 6722.7,2275.9 6417,2262.5 6285.2,2261.9",
 		style=solid];
 	guest_flat_7d71f56f	[height=10.174,
 		label=<
@@ -3147,7 +3231,7 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="10331,4239.2",
+		pos="10345,4119",
 		width=5.8854];
 	achievement_code_adfaad28	[height=2.7951,
 		label=<
@@ -3196,7 +3280,7 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="10331,4724.2",
+		pos="10345,4604",
 		width=14.674];
 	audit_log_3cc9b90b	[height=6.3368,
 		label=<
@@ -3305,7 +3389,7 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="10331,5071.2",
+		pos="10345,4951",
 		width=12.299];
 	audit_log_trigger_3685d584	[height=3.6806,
 		label=<
@@ -3369,7 +3453,7 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="10331,5450.2",
+		pos="10345,5330",
 		width=15.403];
 	notification_54c13916	[height=3.6806,
 		label=<
@@ -3433,6 +3517,6 @@ Reference to the uploaded file.</td>
 	</tr>
       </table>
     >,
-		pos="10331,5733.2",
+		pos="10345,5613",
 		width=7.7986];
 }
