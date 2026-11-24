@@ -148,26 +148,6 @@ COMMENT ON TYPE vibetype.invitation_feedback IS 'Possible answers to an invitati
 
 
 --
--- Name: invitation_feedback_paper; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.invitation_feedback_paper AS ENUM (
-    'none',
-    'paper',
-    'digital'
-);
-
-
-ALTER TYPE vibetype.invitation_feedback_paper OWNER TO ci;
-
---
--- Name: TYPE invitation_feedback_paper; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
-
-
---
 -- Name: language; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -914,7 +894,7 @@ CREATE TABLE vibetype.guest (
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
     feedback vibetype.invitation_feedback,
-    feedback_paper vibetype.invitation_feedback_paper,
+    feedback_override vibetype.invitation_feedback,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid
@@ -956,14 +936,14 @@ COMMENT ON COLUMN vibetype.guest.event_id IS 'The internal id of the guest''s ev
 -- Name: COLUMN guest.feedback; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.feedback IS 'The guest''s general feedback status.';
+COMMENT ON COLUMN vibetype.guest.feedback IS 'The guest''s own feedback status. Only the guest can set it.';
 
 
 --
--- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN guest.feedback_override; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.feedback_paper IS 'The guest''s paper feedback status.';
+COMMENT ON COLUMN vibetype.guest.feedback_override IS 'The organizer''s correction of the guest''s feedback, which takes precedence over it. Only the event''s organizer can set it, so the guest''s own feedback stays as given.';
 
 
 --
@@ -2428,19 +2408,37 @@ COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Populates vibetyp
 CREATE FUNCTION vibetype.trigger_guest_update() RETURNS trigger
     LANGUAGE plpgsql STRICT
     AS $$
+DECLARE
+  _is_invited BOOLEAN;
+  _is_organizer BOOLEAN;
 BEGIN
-  IF
-      TG_OP = 'UPDATE'
-    AND ( -- Invited.
-      OLD.id = ANY (vibetype.guest_claim_array())
-      OR
-      EXISTS (
-        SELECT 1
-        FROM vibetype.contact c
-        WHERE c.id = OLD.contact_id
-        AND c.account_id = vibetype.invoker_account_id()
-      )
+  _is_invited := (
+    OLD.id = ANY (vibetype.guest_claim_array())
+    OR
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = OLD.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
     )
+  );
+  _is_organizer := EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = OLD.event_id
+    AND e.created_by = vibetype.invoker_account_id()
+  );
+
+  IF NEW.feedback IS DISTINCT FROM OLD.feedback AND NOT _is_invited THEN
+    RAISE 'Only the guest is allowed to alter the feedback, the organizer can set feedback_override instead!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF NEW.feedback_override IS DISTINCT FROM OLD.feedback_override AND NOT _is_organizer THEN
+    RAISE 'Only the organizer is allowed to alter the feedback override!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF
+      _is_invited
     AND (
       NEW.id IS DISTINCT FROM OLD.id
       OR NEW.contact_id IS DISTINCT FROM OLD.contact_id
@@ -2450,12 +2448,12 @@ BEGIN
       OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
     )
   THEN
-    RAISE 'You''re only allowed to alter these columns: feedback, feedback_paper!' USING ERRCODE = 'insufficient_privilege';
-  ELSE
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    NEW.updated_by = vibetype.invoker_account_id();
-    RETURN NEW;
+    RAISE 'You''re only allowed to alter these columns: feedback, feedback_override!' USING ERRCODE = 'insufficient_privilege';
   END IF;
+
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.updated_by = vibetype.invoker_account_id();
+  RETURN NEW;
 END $$;
 
 
@@ -2465,7 +2463,7 @@ ALTER FUNCTION vibetype.trigger_guest_update() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback, the organizer sets the feedback override.';
 
 
 --
@@ -8170,11 +8168,10 @@ GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 
 --
--- Name: COLUMN guest.feedback_paper; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: COLUMN guest.feedback_override; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_account;
-GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_anonymous;
+GRANT UPDATE(feedback_override) ON TABLE vibetype.guest TO vibetype_account;
 
 
 --

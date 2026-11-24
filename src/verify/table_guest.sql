@@ -3,7 +3,7 @@ BEGIN;
 SELECT id,
        event_id,
        feedback,
-       feedback_paper,
+       feedback_override,
        created_at,
        updated_at,
        updated_by
