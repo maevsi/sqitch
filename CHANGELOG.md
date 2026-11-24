@@ -1,3 +1,9 @@
+## [13.14.1](https://github.com/maevsi/sqitch/compare/13.14.0...13.14.1) (2026-11-24)
+
+### Bug Fixes
+
+* **docker:** refresh base images ([eb6c23c](https://github.com/maevsi/sqitch/commit/eb6c23c82d66b14409c923717639779fec9f93c3))
+
 ## [13.14.0](https://github.com/maevsi/sqitch/compare/13.13.0...13.14.0) (2026-11-24)
 
 ### Features
