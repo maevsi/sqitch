@@ -1,3 +1,10 @@
+## [14.0.0-beta.16](https://github.com/maevsi/sqitch/compare/14.0.0-beta.15...14.0.0-beta.16) (2026-11-24)
+
+### Features
+
+* **contact:** add groups ([#431](https://github.com/maevsi/sqitch/issues/431)) ([0071b41](https://github.com/maevsi/sqitch/commit/0071b4137b0af234b085950c17e17b9fa085d167))
+* **event:** add feedback deadline ([#433](https://github.com/maevsi/sqitch/issues/433)) ([2bc59c7](https://github.com/maevsi/sqitch/commit/2bc59c7422091944db598da29be98abda794dc89))
+
 ## [14.0.0-beta.15](https://github.com/maevsi/sqitch/compare/14.0.0-beta.14...14.0.0-beta.15) (2026-11-24)
 
 ### ⚠ BREAKING CHANGES
