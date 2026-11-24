@@ -1,3 +1,9 @@
+## [14.0.0-beta.17](https://github.com/maevsi/sqitch/compare/14.0.0-beta.16...14.0.0-beta.17) (2026-11-24)
+
+### Features
+
+* **guest:** add reason to feedback ([#432](https://github.com/maevsi/sqitch/issues/432)) ([a0f8174](https://github.com/maevsi/sqitch/commit/a0f81746fac3dc5fd267d8e1de3909fbf9e37259))
+
 ## [14.0.0-beta.16](https://github.com/maevsi/sqitch/compare/14.0.0-beta.15...14.0.0-beta.16) (2026-11-24)
 
 ### Features
