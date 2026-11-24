@@ -20,7 +20,7 @@ CREATE TABLE vibetype.contact (
   created_by            UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
   UNIQUE (created_by, account_id),
-  CONSTRAINT contact_identity_check CHECK (account_id IS NOT NULL OR email_address IS NOT NULL)
+  CONSTRAINT contact_identity_check CHECK (account_id IS NOT NULL OR email_address IS NOT NULL OR phone_number IS NOT NULL)
 );
 
 CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
@@ -46,7 +46,7 @@ COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must
 COMMENT ON COLUMN vibetype.contact.created_at IS E'@behavior -insert -update\nTimestamp when the contact was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), its own `email_address`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 -- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.
 

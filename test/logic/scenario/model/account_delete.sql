@@ -49,7 +49,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT account_delete_nullifies_peer_contact;
 
--- Deleting an account must also delete peer contacts that reference it via account_id only (no email_address fallback), which would otherwise violate contact_identity_check once ON DELETE SET NULL nullifies account_id.
+-- Deleting an account must also delete peer contacts that reference it via account_id only (no email_address or phone_number fallback), which would otherwise violate contact_identity_check once ON DELETE SET NULL nullifies account_id.
 SAVEPOINT account_delete_deletes_peer_contact_without_email_fallback;
 DO $$
 DECLARE

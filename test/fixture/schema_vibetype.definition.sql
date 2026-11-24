@@ -288,7 +288,7 @@ BEGIN
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
-    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_address IS NULL; -- contacts with no email fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
+    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_address IS NULL AND phone_number IS NULL; -- contacts with no email or phone fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -1067,7 +1067,7 @@ CREATE TABLE vibetype.contact (
     created_by uuid NOT NULL,
     CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
-    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL))),
+    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL) OR (phone_number IS NOT NULL))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
@@ -1197,7 +1197,7 @@ COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that 
 -- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), its own `email_address`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 
 --
