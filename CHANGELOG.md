@@ -1,3 +1,13 @@
+## [14.0.0-beta.19](https://github.com/maevsi/sqitch/compare/14.0.0-beta.18...14.0.0-beta.19) (2026-11-24)
+
+### ⚠ BREAKING CHANGES
+
+* **contact:** store several email addresses (#439)
+
+### Features
+
+* **contact:** store several email addresses ([#439](https://github.com/maevsi/sqitch/issues/439)) ([e6f1928](https://github.com/maevsi/sqitch/commit/e6f1928ec040ed9a983d6a718dffe9403e7fd07a))
+
 ## [14.0.0-beta.18](https://github.com/maevsi/sqitch/compare/14.0.0-beta.17...14.0.0-beta.18) (2026-11-24)
 
 ### Features
