@@ -3,7 +3,7 @@
 
 ##############################
 # The sqitch image ships no package manager, so tini comes from Debian.
-FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS tini
+FROM debian:trixie-slim@sha256:8aa5a7bf5a1955bddbe7d74fcdd0b91ab30e74362a8b73af672b0481b35b44a0 AS tini
 
 RUN apt-get update \
     && apt-get install --no-install-recommends --yes tini
@@ -36,7 +36,7 @@ COPY ./src ./
 ###########################
 # sqitch is not available for alpine linux as of 2025-11-20 (https://github.com/sqitchers/sqitch/issues/351#issuecomment-614153859)
 # Use imresamu/postgis:* for ARM (Mac M) support.
-FROM postgis/postgis:18-3.7@sha256:32d4f36c5ac6f109f99f0292d5cabb2a224e066f300046078fa71a9660e3c5bd AS postgres-base
+FROM postgis/postgis:18-3.7@sha256:7e7edf180d2990c9226fa098f59507317c669d1356620ab06f488c362e87ceff AS postgres-base
 
 ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
