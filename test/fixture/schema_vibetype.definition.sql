@@ -907,6 +907,348 @@ COMMENT ON FUNCTION vibetype.attendance_guard() IS 'Ensures that checking out ca
 
 
 --
+-- Name: contact_group_member; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact_group_member (
+    contact_group_id uuid NOT NULL,
+    contact_id uuid NOT NULL
+);
+
+
+ALTER TABLE vibetype.contact_group_member OWNER TO ci;
+
+--
+-- Name: TABLE contact_group_member; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact_group_member IS '@behavior -update
+Mapping contacts to contact groups (M:N relationship).';
+
+
+--
+-- Name: COLUMN contact_group_member.contact_group_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group_member.contact_group_id IS 'A contact group id.';
+
+
+--
+-- Name: COLUMN contact_group_member.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group_member.contact_id IS 'A contact id.';
+
+
+--
+-- Name: create_contact_group_members(uuid[], uuid[]); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) RETURNS SETOF vibetype.contact_group_member
+    LANGUAGE sql STRICT
+    AS $$
+  INSERT INTO vibetype.contact_group_member(contact_group_id, contact_id)
+  SELECT contact_group_id, contact_id
+  FROM unnest(contact_group_ids, contact_ids) AS m(contact_group_id, contact_id)
+  ON CONFLICT DO NOTHING
+  RETURNING *
+$$;
+
+
+ALTER FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) IS 'Pairs the group ids and contact ids by position and inserts the memberships that do not exist yet. Arrays of different lengths pad with NULL, which fails the whole call.';
+
+
+--
+-- Name: contact_group; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact_group (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT contact_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100)))
+);
+
+
+ALTER TABLE vibetype.contact_group OWNER TO ci;
+
+--
+-- Name: TABLE contact_group; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact_group IS 'A private group an account sorts its contacts into, e.g. to filter the invitation contact picker.';
+
+
+--
+-- Name: COLUMN contact_group.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.id IS '@behavior -insert -update
+Primary key, uniquely identifies each contact group.';
+
+
+--
+-- Name: COLUMN contact_group.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.name IS 'Name of the group. Must be between 1 and 100 characters and unique per account, ignoring case.';
+
+
+--
+-- Name: COLUMN contact_group.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.created_at IS '@behavior -insert -update
+Timestamp when the group was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact_group.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.created_by IS '@behavior -update
+Reference to the account that created this group. Enforces cascading deletion.';
+
+
+--
+-- Name: create_contact_groups(text[]); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.create_contact_groups(names text[]) RETURNS SETOF vibetype.contact_group
+    LANGUAGE sql STRICT
+    AS $$
+  INSERT INTO vibetype.contact_group(created_by, name)
+  SELECT (SELECT vibetype.invoker_account_id()), n
+  FROM unnest(names) AS n
+  ON CONFLICT (created_by, lower(name)) DO NOTHING;
+
+  SELECT g.*
+  FROM vibetype.contact_group g
+  WHERE g.created_by = (SELECT vibetype.invoker_account_id())
+    AND lower(g.name) IN (SELECT lower(n) FROM unnest(names) AS n);
+$$;
+
+
+ALTER FUNCTION vibetype.create_contact_groups(names text[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION create_contact_groups(names text[]); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.create_contact_groups(names text[]) IS 'Creates the contact groups of the invoker that do not exist yet, ignoring case, and returns all groups matching the names, existing ones included.';
+
+
+--
+-- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid,
+    address_id uuid,
+    email_address text,
+    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
+    first_name text,
+    language vibetype.language,
+    last_name text,
+    nickname text,
+    note text,
+    phone_number text,
+    time_zone text,
+    url text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
+    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL))),
+    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
+    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
+    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
+);
+
+
+ALTER TABLE vibetype.contact OWNER TO ci;
+
+--
+-- Name: TABLE contact; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
+
+
+--
+-- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
+Primary key, uniquely identifies each contact.';
+
+
+--
+-- Name: COLUMN contact.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
+
+
+--
+-- Name: COLUMN contact.address_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
+
+
+--
+-- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
+
+
+--
+-- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
+Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+
+
+--
+-- Name: COLUMN contact.first_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
+
+
+--
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
+
+
+--
+-- Name: COLUMN contact.last_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
+
+
+--
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
+
+
+--
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
+
+
+--
+-- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
+
+
+--
+-- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
+
+
+--
+-- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
+
+
+--
+-- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
+Timestamp when the contact was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
+
+
+--
+-- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+
+
+--
+-- Name: create_contacts(vibetype.contact[]); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) RETURNS SETOF vibetype.contact
+    LANGUAGE sql STRICT
+    AS $$
+  INSERT INTO vibetype.contact(
+    account_id,
+    address_id,
+    created_by,
+    email_address,
+    first_name,
+    language,
+    last_name,
+    nickname,
+    note,
+    phone_number,
+    time_zone,
+    url
+  )
+  SELECT
+    c.account_id,
+    c.address_id,
+    (SELECT vibetype.invoker_account_id()),
+    c.email_address,
+    c.first_name,
+    c.language,
+    c.last_name,
+    c.nickname,
+    c.note,
+    c.phone_number,
+    c.time_zone,
+    c.url
+  FROM unnest(contacts) AS c
+  RETURNING *
+$$;
+
+
+ALTER FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION create_contacts(contacts vibetype.contact[]); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) IS 'Inserts multiple contacts for the invoker. Ids, timestamps and the creator passed in are ignored. Rows are not returned in input order.';
+
+
+--
 -- Name: guest; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -1036,6 +1378,7 @@ CREATE TABLE vibetype.event (
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
     effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
+    feedback_deadline timestamp with time zone,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1177,6 +1520,13 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
 The event''s end date and time, falling back to its start when no explicit end is set.';
+
+
+--
+-- Name: COLUMN event.feedback_deadline; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 
 
 --
@@ -1382,6 +1732,7 @@ Joins the event of a general invitation link as a guest who accepted, and return
 Error codes:
 - **VTILN** when the invitation link does not exist.
 - **VTEEN** when the event has ended.
+- **VTFDP** when the event''s feedback deadline has passed.
 - **VTIDM** when an email address or first name is missing without an account.
 - **VTGCM** when the event''s maximum guest count is reached.';
 
@@ -3277,6 +3628,39 @@ COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the g
 
 
 --
+-- Name: trigger_guest_feedback_deadline(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_guest_feedback_deadline() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = NEW.event_id
+      AND e.feedback_deadline <= CURRENT_TIMESTAMP
+      AND e.created_by IS DISTINCT FROM vibetype.invoker_account_id()
+  ) THEN
+    RAISE 'The event''s feedback deadline has passed.' USING ERRCODE = 'VTFDP';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_guest_feedback_deadline() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_feedback_deadline(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_guest_feedback_deadline() IS 'Rejects feedback from anyone but the organizer once the event''s feedback deadline has passed.';
+
+
+--
 -- Name: tsquery_prefix(regconfig, text); Type: FUNCTION; Schema: vibetype_private; Owner: ci
 --
 
@@ -3770,161 +4154,6 @@ Who last changed this entry. This may be empty if done without signing in.';
 --
 
 COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
-
-
---
--- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.contact (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid,
-    address_id uuid,
-    email_address text,
-    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
-    first_name text,
-    language vibetype.language,
-    last_name text,
-    nickname text,
-    note text,
-    phone_number text,
-    time_zone text,
-    url text,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
-    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
-    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL))),
-    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
-    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
-    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
-    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
-);
-
-
-ALTER TABLE vibetype.contact OWNER TO ci;
-
---
--- Name: TABLE contact; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
-
-
---
--- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
-Primary key, uniquely identifies each contact.';
-
-
---
--- Name: COLUMN contact.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
-
-
---
--- Name: COLUMN contact.address_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-
-
---
--- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-
-
---
--- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
-Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
-
-
---
--- Name: COLUMN contact.first_name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
-
-
---
--- Name: COLUMN contact.language; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
-
-
---
--- Name: COLUMN contact.last_name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
-
-
---
--- Name: COLUMN contact.nickname; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
-
-
---
--- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
-
-
---
--- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
-
-
---
--- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
-
-
---
--- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
-
-
---
--- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
-Timestamp when the contact was created. Defaults to the current timestamp.';
-
-
---
--- Name: COLUMN contact.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
-
-
---
--- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address) or its own `email_address`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 
 --
@@ -5750,6 +5979,22 @@ COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS '
 
 
 --
+-- Name: contact_group_member contact_group_member_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_group_member
+    ADD CONSTRAINT contact_group_member_pkey PRIMARY KEY (contact_group_id, contact_id);
+
+
+--
+-- Name: contact_group contact_group_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_group
+    ADD CONSTRAINT contact_group_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: contact contact_pkey; Type: CONSTRAINT; Schema: vibetype; Owner: ci
 --
 
@@ -6313,6 +6558,27 @@ CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id)
 
 
 --
+-- Name: idx_contact_group_created_by_name; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_contact_group_created_by_name ON vibetype.contact_group USING btree (created_by, lower(name));
+
+
+--
+-- Name: INDEX idx_contact_group_created_by_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_contact_group_created_by_name IS 'Ensures that an account has each group name only once, ignoring case, which also indexes the reference to the account.';
+
+
+--
+-- Name: idx_contact_group_member_contact_id; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE INDEX idx_contact_group_member_contact_id ON vibetype.contact_group_member USING btree (contact_id);
+
+
+--
 -- Name: idx_contact_name_first; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6698,6 +6964,20 @@ CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE 
 
 
 --
+-- Name: guest feedback_deadline_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER feedback_deadline_insert BEFORE INSERT ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS NOT NULL) OR (new.feedback_paper IS NOT NULL))) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+
+
+--
+-- Name: guest feedback_deadline_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER feedback_deadline_update BEFORE UPDATE OF feedback, feedback_paper ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS DISTINCT FROM old.feedback) OR (new.feedback_paper IS DISTINCT FROM old.feedback_paper))) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+
+
+--
 -- Name: guest guest_count_delete; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -6933,6 +7213,30 @@ ALTER TABLE ONLY vibetype.contact
 
 ALTER TABLE ONLY vibetype.contact
     ADD CONSTRAINT contact_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact_group contact_group_created_by_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_group
+    ADD CONSTRAINT contact_group_created_by_fkey FOREIGN KEY (created_by) REFERENCES vibetype.account(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact_group_member contact_group_member_contact_group_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_group_member
+    ADD CONSTRAINT contact_group_member_contact_group_id_fkey FOREIGN KEY (contact_group_id) REFERENCES vibetype.contact_group(id) ON DELETE CASCADE;
+
+
+--
+-- Name: contact_group_member contact_group_member_contact_id_fkey; Type: FK CONSTRAINT; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE ONLY vibetype.contact_group_member
+    ADD CONSTRAINT contact_group_member_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES vibetype.contact(id) ON DELETE CASCADE;
 
 
 --
@@ -7448,6 +7752,54 @@ ALTER TABLE vibetype.contact ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY contact_delete ON vibetype.contact FOR DELETE USING (((created_by = vibetype.invoker_account_id()) AND (account_id IS DISTINCT FROM vibetype.invoker_account_id())));
+
+
+--
+-- Name: contact_group; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.contact_group ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: contact_group contact_group_all; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY contact_group_all ON vibetype.contact_group USING ((created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)));
+
+
+--
+-- Name: contact_group_member; Type: ROW SECURITY; Schema: vibetype; Owner: ci
+--
+
+ALTER TABLE vibetype.contact_group_member ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: contact_group_member contact_group_member_delete; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY contact_group_member_delete ON vibetype.contact_group_member FOR DELETE USING ((EXISTS ( SELECT 1
+   FROM vibetype.contact_group g
+  WHERE ((g.id = contact_group_member.contact_group_id) AND (g.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id))))));
+
+
+--
+-- Name: contact_group_member contact_group_member_insert; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY contact_group_member_insert ON vibetype.contact_group_member FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
+   FROM vibetype.contact_group g
+  WHERE ((g.id = contact_group_member.contact_group_id) AND (g.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id))))) AND (EXISTS ( SELECT 1
+   FROM vibetype.contact c
+  WHERE ((c.id = contact_group_member.contact_id) AND (c.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)))))));
+
+
+--
+-- Name: contact_group_member contact_group_member_select; Type: POLICY; Schema: vibetype; Owner: ci
+--
+
+CREATE POLICY contact_group_member_select ON vibetype.contact_group_member FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM vibetype.contact_group g
+  WHERE ((g.id = contact_group_member.contact_group_id) AND (g.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id))))));
 
 
 --
@@ -8140,6 +8492,81 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 
 
 --
+-- Name: TABLE contact_group_member; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.contact_group_member TO vibetype_account;
+
+
+--
+-- Name: COLUMN contact_group_member.contact_group_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(contact_group_id) ON TABLE vibetype.contact_group_member TO vibetype_account;
+
+
+--
+-- Name: COLUMN contact_group_member.contact_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(contact_id) ON TABLE vibetype.contact_group_member TO vibetype_account;
+
+
+--
+-- Name: FUNCTION create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) TO vibetype_account;
+
+
+--
+-- Name: TABLE contact_group; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT,DELETE ON TABLE vibetype.contact_group TO vibetype_account;
+
+
+--
+-- Name: COLUMN contact_group.name; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE vibetype.contact_group TO vibetype_account;
+
+
+--
+-- Name: COLUMN contact_group.created_by; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_by) ON TABLE vibetype.contact_group TO vibetype_account;
+
+
+--
+-- Name: FUNCTION create_contact_groups(names text[]); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.create_contact_groups(names text[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.create_contact_groups(names text[]) TO vibetype_account;
+
+
+--
+-- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO reccoom;
+
+
+--
+-- Name: FUNCTION create_contacts(contacts vibetype.contact[]); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) TO vibetype_account;
+
+
+--
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8291,6 +8718,13 @@ GRANT INSERT(created_at),UPDATE(created_at) ON TABLE vibetype.event TO vibetype_
 --
 
 GRANT INSERT(created_by),UPDATE(created_by) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
+-- Name: COLUMN event.feedback_deadline; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(feedback_deadline),UPDATE(feedback_deadline) ON TABLE vibetype.event TO vibetype_account;
 
 
 --
@@ -8711,6 +9145,13 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC
 
 
 --
+-- Name: FUNCTION trigger_guest_feedback_deadline(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_feedback_deadline() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION tsquery_prefix(ts_config regconfig, search_text text); Type: ACL; Schema: vibetype_private; Owner: ci
 --
 
@@ -8787,15 +9228,6 @@ GRANT UPDATE(checked_out) ON TABLE vibetype.attendance TO vibetype_anonymous;
 --
 
 GRANT UPDATE(tag_serial_number) ON TABLE vibetype.attendance TO vibetype_account;
-
-
---
--- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.contact TO reccoom;
 
 
 --
