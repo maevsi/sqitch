@@ -1237,9 +1237,11 @@ CREATE TABLE vibetype.guest (
     event_id uuid NOT NULL,
     feedback vibetype.invitation_feedback,
     feedback_override vibetype.invitation_feedback,
+    feedback_reason text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
-    updated_by uuid
+    updated_by uuid,
+    CONSTRAINT guest_feedback_reason_check CHECK (((char_length(feedback_reason) > 0) AND (char_length(feedback_reason) <= 1000)))
 );
 
 
@@ -1286,6 +1288,13 @@ COMMENT ON COLUMN vibetype.guest.feedback IS 'The guest''s own feedback status. 
 --
 
 COMMENT ON COLUMN vibetype.guest.feedback_override IS 'The organizer''s correction of the guest''s feedback, which takes precedence over it. Only the event''s organizer can set it, so the guest''s own feedback stays as given.';
+
+
+--
+-- Name: COLUMN guest.feedback_reason; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.feedback_reason IS 'The guest''s optional reason for their feedback, e.g. why they declined. Only the guest can set it.';
 
 
 --
@@ -2780,8 +2789,8 @@ BEGIN
     AND e.created_by = vibetype.invoker_account_id()
   );
 
-  IF NEW.feedback IS DISTINCT FROM OLD.feedback AND NOT _is_invited THEN
-    RAISE 'Only the guest is allowed to alter the feedback, the organizer can set feedback_override instead!' USING ERRCODE = 'insufficient_privilege';
+  IF (NEW.feedback IS DISTINCT FROM OLD.feedback OR NEW.feedback_reason IS DISTINCT FROM OLD.feedback_reason) AND NOT _is_invited THEN
+    RAISE 'Only the guest is allowed to alter the feedback and its reason, the organizer can set feedback_override instead!' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   IF NEW.feedback_override IS DISTINCT FROM OLD.feedback_override AND NOT _is_organizer THEN
@@ -2799,7 +2808,7 @@ BEGIN
       OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
     )
   THEN
-    RAISE 'You''re only allowed to alter these columns: feedback, feedback_override!' USING ERRCODE = 'insufficient_privilege';
+    RAISE 'You''re only allowed to alter these columns: feedback, feedback_override, feedback_reason!' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   NEW.updated_at = CURRENT_TIMESTAMP;
@@ -2814,7 +2823,7 @@ ALTER FUNCTION vibetype.trigger_guest_update() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback, the organizer sets the feedback override.';
+COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback and its reason, the organizer sets the feedback override.';
 
 
 --
@@ -8599,6 +8608,14 @@ GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
 --
 
 GRANT UPDATE(feedback_override) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.feedback_reason; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 
 --
