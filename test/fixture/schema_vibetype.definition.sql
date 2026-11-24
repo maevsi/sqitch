@@ -72,7 +72,7 @@ COMMENT ON TYPE vibetype.achievement_type IS 'Achievements that can be unlocked 
 -- Name: email_address; Type: DOMAIN; Schema: vibetype; Owner: ci
 --
 
-CREATE DOMAIN vibetype.email_address AS text
+CREATE DOMAIN vibetype.email_address AS text NOT NULL
 	CONSTRAINT email_address_check CHECK ((char_length(VALUE) <= 254));
 
 
@@ -1061,7 +1061,7 @@ CREATE TABLE vibetype.contact (
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    CONSTRAINT contact_email_addresses_check CHECK ((((cardinality(email_addresses) >= 1) AND (cardinality(email_addresses) <= 10)) AND (array_position(email_addresses, (NULL::text)::vibetype.email_address) IS NULL))),
+    CONSTRAINT contact_email_addresses_check CHECK (((cardinality(email_addresses) >= 1) AND (cardinality(email_addresses) <= 10))),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
     CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_addresses IS NOT NULL) OR (phone_number IS NOT NULL))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),

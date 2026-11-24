@@ -196,7 +196,7 @@ BEGIN
       VALUES (accountA, _email_addresses::vibetype.email_address[]);
       RAISE EXCEPTION 'Test failed (contact_insert_email_addresses_invalid): email addresses % accepted', _email_addresses;
     EXCEPTION
-      WHEN check_violation THEN
+      WHEN check_violation OR not_null_violation THEN
         NULL;
     END;
   END LOOP;

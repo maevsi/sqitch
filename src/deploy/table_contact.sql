@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE DOMAIN vibetype.email_address AS TEXT CHECK (char_length(VALUE) <= 254); -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
+CREATE DOMAIN vibetype.email_address AS TEXT NOT NULL CHECK (char_length(VALUE) <= 254); -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
 
 COMMENT ON DOMAIN vibetype.email_address IS 'An email address. Must not exceed 254 characters (RFC 5321).';
 
@@ -9,7 +9,7 @@ CREATE TABLE vibetype.contact (
 
   account_id            UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
   address_id            UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
-  email_addresses       vibetype.email_address[] CHECK (cardinality(email_addresses) BETWEEN 1 AND 10 AND array_position(email_addresses, NULL) IS NULL),
+  email_addresses       vibetype.email_address[] CHECK (cardinality(email_addresses) BETWEEN 1 AND 10),
   email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_addresses[1], '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
   language              vibetype.language,
