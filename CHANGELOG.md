@@ -1,3 +1,13 @@
+## [14.0.0-beta.18](https://github.com/maevsi/sqitch/compare/14.0.0-beta.17...14.0.0-beta.18) (2026-11-24)
+
+### Features
+
+* **contact:** accept a phone number as identity ([#437](https://github.com/maevsi/sqitch/issues/437)) ([b787cdc](https://github.com/maevsi/sqitch/commit/b787cdca1b7727b5528b3b63f5196e26baac98ad))
+
+### Bug Fixes
+
+* **docker:** refresh base images ([eb6c23c](https://github.com/maevsi/sqitch/commit/eb6c23c82d66b14409c923717639779fec9f93c3))
+
 ## [14.0.0-beta.17](https://github.com/maevsi/sqitch/compare/14.0.0-beta.16...14.0.0-beta.17) (2026-11-24)
 
 ### Features
