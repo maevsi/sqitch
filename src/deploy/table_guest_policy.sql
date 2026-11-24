@@ -5,8 +5,8 @@ BEGIN;
 GRANT SELECT ON TABLE vibetype.guest TO vibetype_account, vibetype_anonymous;
 -- A guest's event and contact are fixed once created, only the feedback columns are meant to change.
 -- Anonymous invokers can never organize an event, so they have no use for the override.
-GRANT UPDATE (feedback, feedback_override) ON TABLE vibetype.guest TO vibetype_account;
-GRANT UPDATE (feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
+GRANT UPDATE (feedback, feedback_override, feedback_reason) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE (feedback, feedback_reason) ON TABLE vibetype.guest TO vibetype_anonymous;
 GRANT INSERT, DELETE ON TABLE vibetype.guest TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.guest TO :role_service_reccoom_username;
 
@@ -140,8 +140,8 @@ BEGIN
     AND e.created_by = vibetype.invoker_account_id()
   );
 
-  IF NEW.feedback IS DISTINCT FROM OLD.feedback AND NOT _is_invited THEN
-    RAISE 'Only the guest is allowed to alter the feedback, the organizer can set feedback_override instead!' USING ERRCODE = 'insufficient_privilege';
+  IF (NEW.feedback IS DISTINCT FROM OLD.feedback OR NEW.feedback_reason IS DISTINCT FROM OLD.feedback_reason) AND NOT _is_invited THEN
+    RAISE 'Only the guest is allowed to alter the feedback and its reason, the organizer can set feedback_override instead!' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   IF NEW.feedback_override IS DISTINCT FROM OLD.feedback_override AND NOT _is_organizer THEN
@@ -159,14 +159,14 @@ BEGIN
       OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
     )
   THEN
-    RAISE 'You''re only allowed to alter these columns: feedback, feedback_override!' USING ERRCODE = 'insufficient_privilege';
+    RAISE 'You''re only allowed to alter these columns: feedback, feedback_override, feedback_reason!' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   NEW.updated_at = CURRENT_TIMESTAMP;
   NEW.updated_by = vibetype.invoker_account_id();
   RETURN NEW;
 END $$;
-COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback, the organizer sets the feedback override.';
+COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback and its reason, the organizer sets the feedback override.';
 GRANT EXECUTE ON FUNCTION vibetype.trigger_guest_update() TO vibetype_account, vibetype_anonymous;
 
 CREATE TRIGGER update

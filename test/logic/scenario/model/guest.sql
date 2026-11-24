@@ -316,4 +316,49 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT guest_feedback_override;
 
+SAVEPOINT guest_feedback_reason;
+DO $$
+DECLARE
+  accountA UUID;
+  contactAX UUID;
+  eventA UUID;
+  guestAX UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  contactAX := vibetype_test.contact_create(accountA, 'x@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  guestAX := vibetype_test.guest_create(accountA, eventA, contactAX);
+
+  PERFORM set_config('jwt.claims.guests', '["' || guestAX || '"]', true);
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  UPDATE vibetype.guest SET feedback = 'canceled', feedback_reason = 'I am on vacation.' WHERE id = guestAX;
+
+  IF (SELECT feedback_reason FROM vibetype.guest WHERE id = guestAX) IS DISTINCT FROM 'I am on vacation.' THEN
+    RAISE EXCEPTION 'Test failed: a claimed guest should store a feedback reason';
+  END IF;
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback_reason = '' WHERE id = guestAX;
+    RAISE EXCEPTION 'Test failed: an empty feedback reason should be rejected';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM set_config('jwt.claims.guests', '', true);
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback_reason = 'Overwritten by the organizer.' WHERE id = guestAX;
+    RAISE EXCEPTION 'Test failed: the organizer should not alter the guest''s feedback reason';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT guest_feedback_reason;
+
 ROLLBACK;
