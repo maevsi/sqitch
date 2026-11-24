@@ -1,3 +1,9 @@
+## [13.14.0](https://github.com/maevsi/sqitch/compare/13.13.0...13.14.0) (2026-11-24)
+
+### Features
+
+* **contact:** accept a phone number as identity ([#437](https://github.com/maevsi/sqitch/issues/437)) ([b787cdc](https://github.com/maevsi/sqitch/commit/b787cdca1b7727b5528b3b63f5196e26baac98ad))
+
 ## [13.13.0](https://github.com/maevsi/sqitch/compare/13.12.0...13.13.0) (2026-11-24)
 
 ### Features
