@@ -1,3 +1,9 @@
+## [13.12.0](https://github.com/maevsi/sqitch/compare/13.11.0...13.12.0) (2026-11-24)
+
+### Features
+
+* **contact:** add groups ([#431](https://github.com/maevsi/sqitch/issues/431)) ([0071b41](https://github.com/maevsi/sqitch/commit/0071b4137b0af234b085950c17e17b9fa085d167))
+
 ## [13.11.0](https://github.com/maevsi/sqitch/compare/13.10.2...13.11.0) (2026-11-23)
 
 ### Features
