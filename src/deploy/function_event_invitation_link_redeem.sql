@@ -46,8 +46,8 @@ BEGIN
     END IF;
 
     -- A new contact every time, as reusing one by its email address would hand its guests and details to whoever types that address.
-    INSERT INTO vibetype.contact (created_by, email_address, first_name)
-    VALUES (_event_created_by, event_invitation_link_redeem.email_address, event_invitation_link_redeem.first_name)
+    INSERT INTO vibetype.contact (created_by, email_addresses, first_name)
+    VALUES (_event_created_by, ARRAY[event_invitation_link_redeem.email_address], event_invitation_link_redeem.first_name)
     RETURNING id INTO _contact_id;
   END IF;
 

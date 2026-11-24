@@ -3,7 +3,7 @@ BEGIN;
 SELECT id,
        account_id,
        address_id,
-       email_address,
+       email_addresses,
        email_address_hash,
        first_name,
        language,

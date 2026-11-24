@@ -68,7 +68,7 @@ BEGIN
   INSERT INTO vibetype.contact (
       "id",
       -- "address",
-      "email_address",
+      "email_addresses",
       "first_name",
       "last_name",
       "created_by"
@@ -76,7 +76,7 @@ BEGIN
     VALUES (
       '59462df6-10a9-11ea-bf8e-0f50c4d91a5a',
       -- e'A B\n12345 D',
-      'mail+sqitch-3@maev.si',
+      ARRAY['mail+sqitch-3@maev.si'],
       'Max',
       'Mustermann',
       _account_id_jonas

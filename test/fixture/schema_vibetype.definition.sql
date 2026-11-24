@@ -69,6 +69,23 @@ COMMENT ON TYPE vibetype.achievement_type IS 'Achievements that can be unlocked 
 
 
 --
+-- Name: email_address; Type: DOMAIN; Schema: vibetype; Owner: ci
+--
+
+CREATE DOMAIN vibetype.email_address AS text NOT NULL
+	CONSTRAINT email_address_check CHECK ((char_length(VALUE) <= 254));
+
+
+ALTER DOMAIN vibetype.email_address OWNER TO ci;
+
+--
+-- Name: DOMAIN email_address; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON DOMAIN vibetype.email_address IS 'An email address. Must not exceed 254 characters (RFC 5321).';
+
+
+--
 -- Name: event_size; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -267,7 +284,7 @@ BEGIN
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
-    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_address IS NULL AND phone_number IS NULL; -- contacts with no email or phone fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
+    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_addresses IS NULL AND phone_number IS NULL; -- contacts with no email or phone fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -1032,8 +1049,8 @@ CREATE TABLE vibetype.contact (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid,
     address_id uuid,
-    email_address text,
-    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
+    email_addresses vibetype.email_address[],
+    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"((email_addresses[1])::text, '\S(?:.*\S)*'::text)))) STORED,
     first_name text,
     language vibetype.language,
     last_name text,
@@ -1044,9 +1061,9 @@ CREATE TABLE vibetype.contact (
     url text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
-    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
+    CONSTRAINT contact_email_addresses_check CHECK (((cardinality(email_addresses) >= 1) AND (cardinality(email_addresses) <= 10))),
     CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
-    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL) OR (phone_number IS NOT NULL))),
+    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_addresses IS NOT NULL) OR (phone_number IS NOT NULL))),
     CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
     CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
     CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
@@ -1087,10 +1104,10 @@ COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the phys
 
 
 --
--- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN contact.email_addresses; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
+COMMENT ON COLUMN vibetype.contact.email_addresses IS 'Email addresses of the contact, between 1 and 10 when set. The first one is the primary address, which invitations are sent to.';
 
 
 --
@@ -1098,7 +1115,7 @@ COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contac
 --
 
 COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
-Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+Hash of the primary email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 
 
 --
@@ -1176,7 +1193,7 @@ COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that 
 -- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), its own `email_address`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), one of its own `email_addresses`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 
 --
@@ -1190,7 +1207,7 @@ CREATE FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) RETURNS SE
     account_id,
     address_id,
     created_by,
-    email_address,
+    email_addresses,
     first_name,
     language,
     last_name,
@@ -1204,7 +1221,7 @@ CREATE FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) RETURNS SE
     c.account_id,
     c.address_id,
     (SELECT vibetype.invoker_account_id()),
-    c.email_address,
+    c.email_addresses,
     c.first_name,
     c.language,
     c.last_name,
@@ -1707,8 +1724,8 @@ BEGIN
     END IF;
 
     -- A new contact every time, as reusing one by its email address would hand its guests and details to whoever types that address.
-    INSERT INTO vibetype.contact (created_by, email_address, first_name)
-    VALUES (_event_created_by, event_invitation_link_redeem.email_address, event_invitation_link_redeem.first_name)
+    INSERT INTO vibetype.contact (created_by, email_addresses, first_name)
+    VALUES (_event_created_by, ARRAY[event_invitation_link_redeem.email_address], event_invitation_link_redeem.first_name)
     RETURNING id INTO _contact_id;
   END IF;
 
@@ -2073,7 +2090,7 @@ BEGIN
   END IF;
 
   -- Contact
-  SELECT account_id, email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_addresses[1] AS email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';

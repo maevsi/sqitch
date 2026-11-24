@@ -310,14 +310,14 @@ BEGIN
 
   SELECT count(*) INTO _count
   FROM vibetype.create_contacts(ARRAY[
-    jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_address', 'c@example.com', 'first_name', 'C', 'created_by', accountB, 'id', _foreign_id)),
-    jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_address', 'd@example.com'))
+    jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_addresses', jsonb_build_array('c@example.com'), 'first_name', 'C', 'created_by', accountB, 'id', _foreign_id)),
+    jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_addresses', jsonb_build_array('d@example.com')))
   ]);
   IF _count <> 2 THEN
     RAISE EXCEPTION 'Test failed (contact_create_multiple): % contacts created instead of 2', _count;
   END IF;
 
-  SELECT count(*) INTO _count FROM vibetype.contact WHERE created_by = accountA AND email_address IN ('c@example.com', 'd@example.com');
+  SELECT count(*) INTO _count FROM vibetype.contact WHERE created_by = accountA AND email_addresses[1] IN ('c@example.com', 'd@example.com');
   IF _count <> 2 THEN
     RAISE EXCEPTION 'Test failed (contact_create_multiple): the contacts are not owned by the invoker';
   END IF;
@@ -328,7 +328,7 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set_previous();
 
-  SELECT count(*) INTO _created_by_other FROM vibetype.contact WHERE created_by = accountB AND email_address IN ('c@example.com', 'd@example.com');
+  SELECT count(*) INTO _created_by_other FROM vibetype.contact WHERE created_by = accountB AND email_addresses[1] IN ('c@example.com', 'd@example.com');
   IF _created_by_other <> 0 THEN
     RAISE EXCEPTION 'Test failed (contact_create_multiple): the passed created_by was used';
   END IF;
@@ -347,8 +347,8 @@ BEGIN
 
   BEGIN
     PERFORM vibetype.create_contacts(ARRAY[
-      jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_address', 'c@example.com')),
-      jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_address', 'd@example.com', 'phone_number', 'invalid'))
+      jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_addresses', jsonb_build_array('c@example.com'))),
+      jsonb_populate_record(NULL::vibetype.contact, jsonb_build_object('email_addresses', jsonb_build_array('d@example.com'), 'phone_number', 'invalid'))
     ]);
     RAISE EXCEPTION 'Test failed (contact_create_multiple_atomic): a row violating a check was accepted';
   EXCEPTION
@@ -356,7 +356,7 @@ BEGIN
       NULL;
   END;
 
-  SELECT count(*) INTO _count FROM vibetype.contact WHERE email_address IN ('c@example.com', 'd@example.com');
+  SELECT count(*) INTO _count FROM vibetype.contact WHERE email_addresses[1] IN ('c@example.com', 'd@example.com');
   IF _count <> 0 THEN
     RAISE EXCEPTION 'Test failed (contact_create_multiple_atomic): % contacts were inserted despite a failing row', _count;
   END IF;

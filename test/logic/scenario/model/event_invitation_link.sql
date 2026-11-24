@@ -155,7 +155,7 @@ BEGIN
       AND g.feedback = 'accepted'
       AND c.created_by = _organizer_id
       AND c.account_id IS NULL
-      AND c.email_address = 'guest@example.com'
+      AND c.email_addresses = ARRAY['guest@example.com']::vibetype.email_address[]
       AND c.first_name = 'Guest'
   ) THEN
     RAISE EXCEPTION 'Test failed: the anonymous visitor did not join with a new contact of the organizer';

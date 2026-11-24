@@ -7,5 +7,6 @@ DROP TRIGGER time_zone ON vibetype.contact;
 DROP FUNCTION vibetype.trigger_contact_check_time_zone();
 
 DROP TABLE vibetype.contact;
+DROP DOMAIN vibetype.email_address;
 
 COMMIT;
