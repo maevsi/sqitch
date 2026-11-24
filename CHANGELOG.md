@@ -1,3 +1,43 @@
+## [14.0.0-beta.17](https://github.com/maevsi/sqitch/compare/14.0.0-beta.16...14.0.0-beta.17) (2026-11-24)
+
+### Features
+
+* **guest:** add reason to feedback ([#432](https://github.com/maevsi/sqitch/issues/432)) ([a0f8174](https://github.com/maevsi/sqitch/commit/a0f81746fac3dc5fd267d8e1de3909fbf9e37259))
+
+## [14.0.0-beta.16](https://github.com/maevsi/sqitch/compare/14.0.0-beta.15...14.0.0-beta.16) (2026-11-24)
+
+### Features
+
+* **contact:** add groups ([#431](https://github.com/maevsi/sqitch/issues/431)) ([0071b41](https://github.com/maevsi/sqitch/commit/0071b4137b0af234b085950c17e17b9fa085d167))
+* **event:** add feedback deadline ([#433](https://github.com/maevsi/sqitch/issues/433)) ([2bc59c7](https://github.com/maevsi/sqitch/commit/2bc59c7422091944db598da29be98abda794dc89))
+
+## [14.0.0-beta.15](https://github.com/maevsi/sqitch/compare/14.0.0-beta.14...14.0.0-beta.15) (2026-11-24)
+
+### ⚠ BREAKING CHANGES
+
+* **guest:** let organizers override feedback (#434)
+
+### Features
+
+* **guest:** let organizers override feedback ([#434](https://github.com/maevsi/sqitch/issues/434)) ([a32ef9f](https://github.com/maevsi/sqitch/commit/a32ef9f3711d69543acf1698105086050ea6cd73))
+
+## [14.0.0-beta.14](https://github.com/maevsi/sqitch/compare/14.0.0-beta.13...14.0.0-beta.14) (2026-11-23)
+
+### Features
+
+* **event:** add general invitation links ([#423](https://github.com/maevsi/sqitch/issues/423)) ([5ec6720](https://github.com/maevsi/sqitch/commit/5ec6720d6c5ca3af9a2b0bc9628e755a8993efe4))
+
+### Bug Fixes
+
+* **event:** keep unpublished events out of invitation links ([947db16](https://github.com/maevsi/sqitch/commit/947db160fa59653a6e2885b52c11847004333386))
+
+## [14.0.0-beta.13](https://github.com/maevsi/sqitch/compare/14.0.0-beta.12...14.0.0-beta.13) (2026-11-23)
+
+### Bug Fixes
+
+* **deps:** update all non-major dependencies ([#428](https://github.com/maevsi/sqitch/issues/428)) ([dc3b84b](https://github.com/maevsi/sqitch/commit/dc3b84b62804ceb2c7c925323cb7b5fa5d061278))
+* **event:** store unlisted events as private ([#426](https://github.com/maevsi/sqitch/issues/426)) ([e840a49](https://github.com/maevsi/sqitch/commit/e840a492e1408e239ad84adc0ed1e4036c666a8f))
+
 ## [14.0.0-beta.12](https://github.com/maevsi/sqitch/compare/14.0.0-beta.11...14.0.0-beta.12) (2026-11-23)
 
 ### ⚠ BREAKING CHANGES

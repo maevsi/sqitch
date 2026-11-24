@@ -111,7 +111,7 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(_account_b);
 
-  UPDATE vibetype.guest SET feedback = 'accepted' WHERE id = _guest_b;
+  UPDATE vibetype.guest SET feedback_override = 'accepted' WHERE id = _guest_b;
 
   BEGIN
     UPDATE vibetype.guest SET event_id = _event_a, contact_id = _contact_b_self WHERE id = _guest_b;
