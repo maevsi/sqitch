@@ -28,8 +28,8 @@ DECLARE
 BEGIN
   PERFORM vibetype_test.invoker_set(_invoker_id);
 
-  INSERT INTO vibetype.contact(created_by, email_address)
-  VALUES (_invoker_id, _email_address)
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+  VALUES (_invoker_id, ARRAY[_email_address])
   RETURNING id INTO _id;
 
   _account_id := vibetype_test.account_select_by_email_address(_email_address);

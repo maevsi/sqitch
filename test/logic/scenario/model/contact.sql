@@ -11,8 +11,8 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, email_address)
-    VALUES (accountA, 'b@example.com');
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+    VALUES (accountA, ARRAY['b@example.com']);
 END $$;
 ROLLBACK TO SAVEPOINT contact_create_account;
 
@@ -26,8 +26,8 @@ BEGIN
   PERFORM vibetype_test.invoker_set_anonymous();
 
   BEGIN
-    INSERT INTO vibetype.contact(created_by, email_address)
-      VALUES (accountA, 'b@example.com');
+    INSERT INTO vibetype.contact(created_by, email_addresses)
+      VALUES (accountA, ARRAY['b@example.com']);
     RAISE EXCEPTION 'Test failed (contact_create_anonymous): account % was able to create a contact while invoker is unset.', accountA;
   EXCEPTION
     WHEN insufficient_privilege THEN
@@ -115,8 +115,8 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, email_address, time_zone)
-    VALUES (accountA, 'b@example.com', 'Europe/Berlin');
+  INSERT INTO vibetype.contact(created_by, email_addresses, time_zone)
+    VALUES (accountA, ARRAY['b@example.com'], 'Europe/Berlin');
 END $$;
 ROLLBACK TO SAVEPOINT contact_create_time_zone;
 
@@ -430,5 +430,37 @@ BEGIN
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT contact_delete_other;
+
+SAVEPOINT contact_invite_email_address_primary;
+DO $$
+DECLARE
+  accountA UUID;
+  contactId UUID;
+  eventA UUID;
+  guestId UUID;
+  _email_address TEXT;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+  VALUES (accountA, ARRAY['first@example.com', 'second@example.com'])
+  RETURNING id INTO contactId;
+
+  guestId := vibetype_test.guest_create(accountA, eventA, contactId);
+
+  PERFORM vibetype_test.invoker_set(accountA);
+  PERFORM vibetype.invite(guestId, 'de');
+  PERFORM vibetype_test.invoker_set_previous();
+
+  _email_address := vibetype_test.notification_payload_latest('event_invitation') -> 'data' -> 'contact' ->> 'emailAddress';
+
+  IF _email_address IS DISTINCT FROM 'first@example.com' THEN
+    RAISE EXCEPTION 'Test failed (contact_invite_email_address_primary): the invitation went to % instead of the first email address', _email_address;
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT contact_invite_email_address_primary;
 
 ROLLBACK;

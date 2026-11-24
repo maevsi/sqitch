@@ -126,9 +126,9 @@ CREATE TEMP TABLE _benchmark_events AS
   WHERE slug LIKE 'benchmark-event-%';
 
 -- 1000 contacts: first 20 accounts each create 50 contacts
-INSERT INTO vibetype.contact (email_address, first_name, last_name, created_by)
+INSERT INTO vibetype.contact (email_addresses, first_name, last_name, created_by)
   SELECT
-    'contact-' || contact_num || '@example.test',
+    ARRAY['contact-' || contact_num || '@example.test'],
     'First' || contact_num,
     'Last' || contact_num,
     a.id
@@ -203,7 +203,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO _accounts FROM vibetype.account WHERE username LIKE 'benchmark-%';
   SELECT count(*) INTO _events FROM vibetype.event WHERE slug LIKE 'benchmark-%';
-  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_address LIKE 'contact-%';
+  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_addresses[1] LIKE 'contact-%';
   SELECT count(*) INTO _guests FROM vibetype.guest;
   SELECT count(*) INTO _attendances FROM vibetype.attendance;
   RAISE NOTICE 'Benchmark seed complete: % accounts, % events, % contacts, % guests, % attendances',
@@ -265,10 +265,10 @@ BEGIN
     FROM generate_series(1, 500) AS e;
 
   -- 2000 contacts owned by the organizer; each event invites 80 of them, which makes 40000 guests.
-  INSERT INTO vibetype.contact (id, email_address, first_name, last_name, created_by)
+  INSERT INTO vibetype.contact (id, email_addresses, first_name, last_name, created_by)
     SELECT
       md5('benchmark-large-contact-' || c)::UUID,
-      'large-contact-' || c || '@example.test',
+      ARRAY['large-contact-' || c || '@example.test'],
       'LargeFirst' || c,
       'LargeLast' || c,
       md5('benchmark-persona-organizer-large')::UUID
