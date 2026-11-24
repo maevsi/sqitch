@@ -1,3 +1,9 @@
+## [13.13.0](https://github.com/maevsi/sqitch/compare/13.12.0...13.13.0) (2026-11-24)
+
+### Features
+
+* **event:** add feedback deadline ([#433](https://github.com/maevsi/sqitch/issues/433)) ([2bc59c7](https://github.com/maevsi/sqitch/commit/2bc59c7422091944db598da29be98abda794dc89))
+
 ## [13.12.0](https://github.com/maevsi/sqitch/compare/13.11.0...13.12.0) (2026-11-24)
 
 ### Features
