@@ -903,145 +903,6 @@ COMMENT ON FUNCTION vibetype.attendance_guard() IS 'Ensures that checking out ca
 
 
 --
--- Name: contact_group_member; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.contact_group_member (
-    contact_group_id uuid NOT NULL,
-    contact_id uuid NOT NULL
-);
-
-
-ALTER TABLE vibetype.contact_group_member OWNER TO ci;
-
---
--- Name: TABLE contact_group_member; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.contact_group_member IS '@behavior -update
-Mapping contacts to contact groups (M:N relationship).';
-
-
---
--- Name: COLUMN contact_group_member.contact_group_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact_group_member.contact_group_id IS 'A contact group id.';
-
-
---
--- Name: COLUMN contact_group_member.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact_group_member.contact_id IS 'A contact id.';
-
-
---
--- Name: create_contact_group_members(uuid[], uuid[]); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) RETURNS SETOF vibetype.contact_group_member
-    LANGUAGE sql STRICT
-    AS $$
-  INSERT INTO vibetype.contact_group_member(contact_group_id, contact_id)
-  SELECT contact_group_id, contact_id
-  FROM unnest(contact_group_ids, contact_ids) AS m(contact_group_id, contact_id)
-  ON CONFLICT DO NOTHING
-  RETURNING *
-$$;
-
-
-ALTER FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) OWNER TO ci;
-
---
--- Name: FUNCTION create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) IS 'Pairs the group ids and contact ids by position and inserts the memberships that do not exist yet. Arrays of different lengths pad with NULL, which fails the whole call.';
-
-
---
--- Name: contact_group; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.contact_group (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    CONSTRAINT contact_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100)))
-);
-
-
-ALTER TABLE vibetype.contact_group OWNER TO ci;
-
---
--- Name: TABLE contact_group; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.contact_group IS 'A private group an account sorts its contacts into, e.g. to filter the invitation contact picker.';
-
-
---
--- Name: COLUMN contact_group.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact_group.id IS '@behavior -insert -update
-Primary key, uniquely identifies each contact group.';
-
-
---
--- Name: COLUMN contact_group.name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact_group.name IS 'Name of the group. Must be between 1 and 100 characters and unique per account, ignoring case.';
-
-
---
--- Name: COLUMN contact_group.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact_group.created_at IS '@behavior -insert -update
-Timestamp when the group was created. Defaults to the current timestamp.';
-
-
---
--- Name: COLUMN contact_group.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact_group.created_by IS '@behavior -update
-Reference to the account that created this group. Enforces cascading deletion.';
-
-
---
--- Name: create_contact_groups(text[]); Type: FUNCTION; Schema: vibetype; Owner: ci
---
-
-CREATE FUNCTION vibetype.create_contact_groups(names text[]) RETURNS SETOF vibetype.contact_group
-    LANGUAGE sql STRICT
-    AS $$
-  INSERT INTO vibetype.contact_group(created_by, name)
-  SELECT (SELECT vibetype.invoker_account_id()), n
-  FROM unnest(names) AS n
-  ON CONFLICT (created_by, lower(name)) DO NOTHING;
-
-  SELECT g.*
-  FROM vibetype.contact_group g
-  WHERE g.created_by = (SELECT vibetype.invoker_account_id())
-    AND lower(g.name) IN (SELECT lower(n) FROM unnest(names) AS n);
-$$;
-
-
-ALTER FUNCTION vibetype.create_contact_groups(names text[]) OWNER TO ci;
-
---
--- Name: FUNCTION create_contact_groups(names text[]); Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON FUNCTION vibetype.create_contact_groups(names text[]) IS 'Creates the contact groups of the invoker that do not exist yet, ignoring case, and returns all groups matching the names, existing ones included.';
-
-
---
 -- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -1194,6 +1055,254 @@ COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that 
 --
 
 COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), one of its own `email_addresses`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+
+
+--
+-- Name: contact_merge(vibetype.contact, uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) RETURNS vibetype.contact
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _account_id UUID := vibetype.invoker_account_id();
+  _blocked UUID[] := vibetype_private.account_block_ids();
+  _kept vibetype.contact;
+  _merged vibetype.contact;
+  _result vibetype.contact;
+BEGIN
+  SELECT * INTO _kept
+  FROM vibetype.contact c
+  WHERE c.id = contact_merge.contact.id
+    AND c.created_by = _account_id
+    AND (c.account_id IS NULL OR NOT (c.account_id = ANY (_blocked)))
+  FOR UPDATE;
+
+  SELECT * INTO _merged
+  FROM vibetype.contact c
+  WHERE c.id = contact_merge.contact_id_merged
+    AND c.created_by = _account_id
+    AND (c.account_id IS NULL OR NOT (c.account_id = ANY (_blocked)))
+  FOR UPDATE;
+
+  IF _kept.id IS NULL OR _merged.id IS NULL OR _kept.id = _merged.id THEN
+    RAISE 'Both contacts must be distinct contacts of yours.' USING ERRCODE = 'VTCMN';
+  END IF;
+
+  IF _kept.account_id = _account_id OR _merged.account_id = _account_id THEN
+    RAISE 'Your own account''s contact cannot be merged.' USING ERRCODE = 'VTCMS';
+  END IF;
+
+  IF _kept.account_id <> _merged.account_id THEN
+    RAISE 'Contacts of two different accounts cannot be merged.' USING ERRCODE = 'VTCMA';
+  END IF;
+
+  IF contact_merge.contact.account_id IS DISTINCT FROM COALESCE(_kept.account_id, _merged.account_id)
+    OR (
+      contact_merge.contact.address_id IS NOT NULL
+      AND contact_merge.contact.address_id IS DISTINCT FROM _kept.address_id
+      AND contact_merge.contact.address_id IS DISTINCT FROM _merged.address_id
+    )
+  THEN
+    RAISE 'The account and address must be taken from either contact.' USING ERRCODE = 'VTCMV';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.guest g_kept
+    JOIN vibetype.guest g_merged ON g_merged.event_id = g_kept.event_id
+    WHERE g_kept.contact_id = _kept.id
+      AND g_merged.contact_id = _merged.id
+  ) THEN
+    RAISE 'Both contacts are guests of the same event.' USING ERRCODE = 'VTCMG';
+  END IF;
+
+  UPDATE vibetype.guest SET contact_id = _kept.id WHERE guest.contact_id = _merged.id;
+  UPDATE vibetype.attendance SET contact_id = _kept.id WHERE attendance.contact_id = _merged.id;
+
+  INSERT INTO vibetype.contact_group_member (contact_group_id, contact_id)
+  SELECT m.contact_group_id, _kept.id
+  FROM vibetype.contact_group_member m
+  WHERE m.contact_id = _merged.id
+  ON CONFLICT DO NOTHING;
+
+  -- Deleted before the update, as the unique constraint on `created_by` and `account_id` would reject the kept contact taking over the merged contact's account.
+  DELETE FROM vibetype.contact WHERE id = _merged.id;
+
+  UPDATE vibetype.contact SET
+    account_id = contact_merge.contact.account_id,
+    address_id = contact_merge.contact.address_id,
+    email_addresses = contact_merge.contact.email_addresses,
+    first_name = contact_merge.contact.first_name,
+    language = contact_merge.contact.language,
+    last_name = contact_merge.contact.last_name,
+    nickname = contact_merge.contact.nickname,
+    note = contact_merge.contact.note,
+    phone_number = contact_merge.contact.phone_number,
+    time_zone = contact_merge.contact.time_zone,
+    url = contact_merge.contact.url
+  WHERE id = _kept.id
+  RETURNING * INTO _result;
+
+  RETURN _result;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) OWNER TO ci;
+
+--
+-- Name: FUNCTION contact_merge(contact vibetype.contact, contact_id_merged uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) IS 'Merges a contact into another one of yours and returns the kept contact. The kept contact is identified by the given contact''s `id` and takes over its other fields, so the caller picks each value. The merged contact''s guests, attendances and group memberships move to the kept contact, so existing invitations stay valid, and the merged contact is deleted.
+
+Error codes:
+- **VTCMN** when either contact is not one of yours or both are the same.
+- **VTCMS** when either contact is your own account''s contact.
+- **VTCMA** when the contacts refer to two different accounts.
+- **VTCMV** when the account or address is not taken from either contact.
+- **VTCMG** when both contacts are guests of the same event.';
+
+
+--
+-- Name: contact_group_member; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact_group_member (
+    contact_group_id uuid NOT NULL,
+    contact_id uuid NOT NULL
+);
+
+
+ALTER TABLE vibetype.contact_group_member OWNER TO ci;
+
+--
+-- Name: TABLE contact_group_member; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact_group_member IS '@behavior -update
+Mapping contacts to contact groups (M:N relationship).';
+
+
+--
+-- Name: COLUMN contact_group_member.contact_group_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group_member.contact_group_id IS 'A contact group id.';
+
+
+--
+-- Name: COLUMN contact_group_member.contact_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group_member.contact_id IS 'A contact id.';
+
+
+--
+-- Name: create_contact_group_members(uuid[], uuid[]); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) RETURNS SETOF vibetype.contact_group_member
+    LANGUAGE sql STRICT
+    AS $$
+  INSERT INTO vibetype.contact_group_member(contact_group_id, contact_id)
+  SELECT contact_group_id, contact_id
+  FROM unnest(contact_group_ids, contact_ids) AS m(contact_group_id, contact_id)
+  ON CONFLICT DO NOTHING
+  RETURNING *
+$$;
+
+
+ALTER FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.create_contact_group_members(contact_group_ids uuid[], contact_ids uuid[]) IS 'Pairs the group ids and contact ids by position and inserts the memberships that do not exist yet. Arrays of different lengths pad with NULL, which fails the whole call.';
+
+
+--
+-- Name: contact_group; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact_group (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT contact_group_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100)))
+);
+
+
+ALTER TABLE vibetype.contact_group OWNER TO ci;
+
+--
+-- Name: TABLE contact_group; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact_group IS 'A private group an account sorts its contacts into, e.g. to filter the invitation contact picker.';
+
+
+--
+-- Name: COLUMN contact_group.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.id IS '@behavior -insert -update
+Primary key, uniquely identifies each contact group.';
+
+
+--
+-- Name: COLUMN contact_group.name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.name IS 'Name of the group. Must be between 1 and 100 characters and unique per account, ignoring case.';
+
+
+--
+-- Name: COLUMN contact_group.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.created_at IS '@behavior -insert -update
+Timestamp when the group was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact_group.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact_group.created_by IS '@behavior -update
+Reference to the account that created this group. Enforces cascading deletion.';
+
+
+--
+-- Name: create_contact_groups(text[]); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.create_contact_groups(names text[]) RETURNS SETOF vibetype.contact_group
+    LANGUAGE sql STRICT
+    AS $$
+  INSERT INTO vibetype.contact_group(created_by, name)
+  SELECT (SELECT vibetype.invoker_account_id()), n
+  FROM unnest(names) AS n
+  ON CONFLICT (created_by, lower(name)) DO NOTHING;
+
+  SELECT g.*
+  FROM vibetype.contact_group g
+  WHERE g.created_by = (SELECT vibetype.invoker_account_id())
+    AND lower(g.name) IN (SELECT lower(n) FROM unnest(names) AS n);
+$$;
+
+
+ALTER FUNCTION vibetype.create_contact_groups(names text[]) OWNER TO ci;
+
+--
+-- Name: FUNCTION create_contact_groups(names text[]); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.create_contact_groups(names text[]) IS 'Creates the contact groups of the invoker that do not exist yet, ignoring case, and returns all groups matching the names, existing ones included.';
 
 
 --
@@ -8529,6 +8638,23 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 
 
 --
+-- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO reccoom;
+
+
+--
+-- Name: FUNCTION contact_merge(contact vibetype.contact, contact_id_merged uuid); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) TO vibetype_account;
+
+
+--
 -- Name: TABLE contact_group_member; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8584,15 +8710,6 @@ GRANT INSERT(created_by) ON TABLE vibetype.contact_group TO vibetype_account;
 
 REVOKE ALL ON FUNCTION vibetype.create_contact_groups(names text[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION vibetype.create_contact_groups(names text[]) TO vibetype_account;
-
-
---
--- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.contact TO reccoom;
 
 
 --

@@ -72,3 +72,38 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_test(TEXT, UUID, UUID[]) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.contact_merge_rejected_test (
+  _test_case TEXT,
+  _account_id UUID,
+  _contact_id UUID,
+  _contact_id_merged UUID,
+  _sqlstate TEXT
+) RETURNS VOID AS $$
+DECLARE
+  _contact vibetype.contact;
+BEGIN
+  -- Only the id is set, as every rejection is checked before the other values are applied.
+  _contact.id := _contact_id;
+
+  IF _account_id IS NULL THEN
+    PERFORM vibetype_test.invoker_set_anonymous();
+  ELSE
+    PERFORM vibetype_test.invoker_set(_account_id);
+  END IF;
+
+  BEGIN
+    PERFORM vibetype.contact_merge(_contact, _contact_id_merged);
+    RAISE EXCEPTION 'Test failed (%): the merge succeeded', _test_case;
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLSTATE <> _sqlstate THEN
+        RAISE EXCEPTION 'Test failed (%): expected error % but got %: %', _test_case, _sqlstate, SQLSTATE, SQLERRM;
+      END IF;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.contact_merge_rejected_test(TEXT, UUID, UUID, UUID, TEXT) TO vibetype_account, vibetype_anonymous;
