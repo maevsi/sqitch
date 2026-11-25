@@ -84,8 +84,8 @@ CREATE OR REPLACE FUNCTION vibetype_test.contact_merge_rejected_test (
 DECLARE
   _contact vibetype.contact;
 BEGIN
-  -- Only the id is set, as every rejection is checked before the other values are applied.
-  _contact.id := _contact_id;
+  -- Rejections are checked before the values apply, so only a value making the row non-null for the strict function is set.
+  _contact.created_by := _account_id;
 
   IF _account_id IS NULL THEN
     PERFORM vibetype_test.invoker_set_anonymous();
@@ -94,7 +94,7 @@ BEGIN
   END IF;
 
   BEGIN
-    PERFORM vibetype.contact_merge(_contact, _contact_id_merged);
+    PERFORM vibetype.contact_merge(_contact_id, _contact_id_merged, _contact);
     RAISE EXCEPTION 'Test failed (%): the merge succeeded', _test_case;
   EXCEPTION
     WHEN OTHERS THEN

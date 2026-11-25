@@ -36,7 +36,7 @@ BEGIN
   _contact.email_addresses := ARRAY['kept@example.com', 'merged@example.com'];
   _contact.first_name := 'Merged';
 
-  _result := vibetype.contact_merge(_contact, contactMerged);
+  _result := vibetype.contact_merge(contactKept, contactMerged, _contact);
 
   IF _result.id <> contactKept OR _result.email_addresses <> ARRAY['kept@example.com', 'merged@example.com']::vibetype.email_address[] OR _result.first_name <> 'Merged' THEN
     RAISE EXCEPTION 'Test failed (contact_merge_success): the kept contact did not take the given values: %', _result;
@@ -87,7 +87,7 @@ BEGIN
   SELECT * INTO _contact FROM vibetype.contact WHERE id = contactKept;
   _contact.account_id := accountB;
 
-  _result := vibetype.contact_merge(_contact, contactMerged);
+  _result := vibetype.contact_merge(contactKept, contactMerged, _contact);
 
   IF _result.account_id IS DISTINCT FROM accountB THEN
     RAISE EXCEPTION 'Test failed (contact_merge_account): the kept contact did not take over the merged contact''s account, it is %', _result.account_id;

@@ -1058,10 +1058,10 @@ COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures eac
 
 
 --
--- Name: contact_merge(vibetype.contact, uuid); Type: FUNCTION; Schema: vibetype; Owner: ci
+-- Name: contact_merge(uuid, uuid, vibetype.contact); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
-CREATE FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) RETURNS vibetype.contact
+CREATE FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) RETURNS vibetype.contact
     LANGUAGE plpgsql STRICT SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
@@ -1074,7 +1074,7 @@ DECLARE
 BEGIN
   SELECT * INTO _kept
   FROM vibetype.contact c
-  WHERE c.id = contact_merge.contact.id
+  WHERE c.id = contact_merge.contact_id
     AND c.created_by = _account_id
     AND (c.account_id IS NULL OR NOT (c.account_id = ANY (_blocked)))
   FOR UPDATE;
@@ -1150,13 +1150,13 @@ END;
 $$;
 
 
-ALTER FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) OWNER TO ci;
+ALTER FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) OWNER TO ci;
 
 --
--- Name: FUNCTION contact_merge(contact vibetype.contact, contact_id_merged uuid); Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: FUNCTION contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) IS 'Merges a contact into another one of yours and returns the kept contact. The kept contact is identified by the given contact''s `id` and takes over its other fields, so the caller picks each value. The merged contact''s guests, attendances and group memberships move to the kept contact, so existing invitations stay valid, and the merged contact is deleted.
+COMMENT ON FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) IS 'Merges a contact into another one of yours and returns the kept contact. The kept contact takes over the given contact''s account, address, email addresses, names, language, note, phone number, time zone and URL, so the caller picks each value. The merged contact''s guests, attendances and group memberships move to the kept contact, so existing invitations stay valid, and the merged contact is deleted.
 
 Error codes:
 - **VTCMN** when either contact is not one of yours or both are the same.
@@ -8647,11 +8647,11 @@ GRANT SELECT ON TABLE vibetype.contact TO reccoom;
 
 
 --
--- Name: FUNCTION contact_merge(contact vibetype.contact, contact_id_merged uuid); Type: ACL; Schema: vibetype; Owner: ci
+-- Name: FUNCTION contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact); Type: ACL; Schema: vibetype; Owner: ci
 --
 
-REVOKE ALL ON FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) FROM PUBLIC;
-GRANT ALL ON FUNCTION vibetype.contact_merge(contact vibetype.contact, contact_id_merged uuid) TO vibetype_account;
+REVOKE ALL ON FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) TO vibetype_account;
 
 
 --

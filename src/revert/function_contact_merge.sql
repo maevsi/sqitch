@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION vibetype.contact_merge(vibetype.contact, UUID);
+DROP FUNCTION vibetype.contact_merge(UUID, UUID, vibetype.contact);
 
 COMMIT;
