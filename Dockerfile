@@ -36,7 +36,7 @@ COPY ./src ./
 ###########################
 # sqitch is not available for alpine linux as of 2025-11-20 (https://github.com/sqitchers/sqitch/issues/351#issuecomment-614153859)
 # Use imresamu/postgis:* for ARM (Mac M) support.
-FROM postgis/postgis:18-3.7@sha256:7e7edf180d2990c9226fa098f59507317c669d1356620ab06f488c362e87ceff AS postgres-base
+FROM postgis/postgis:18-3.7@sha256:57e61cca60b05756e56da5979c23f8360c13d3eb18d1cfbd9e44c467c5926c87 AS postgres-base
 
 ENV POSTGRES_DB=ci_database
 ENV POSTGRES_PASSWORD_FILE=/run/secrets/postgres-password
