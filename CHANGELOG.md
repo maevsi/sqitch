@@ -1,3 +1,13 @@
+## [14.0.0-beta.21](https://github.com/maevsi/sqitch/compare/14.0.0-beta.20...14.0.0-beta.21) (2026-11-25)
+
+### ⚠ BREAKING CHANGES
+
+* **guest:** request additional guests (#441)
+
+### Features
+
+* **guest:** request additional guests ([#441](https://github.com/maevsi/sqitch/issues/441)) ([75e7ee7](https://github.com/maevsi/sqitch/commit/75e7ee75f344395926ec38986adacb4fb99f9450))
+
 ## [14.0.0-beta.20](https://github.com/maevsi/sqitch/compare/14.0.0-beta.19...14.0.0-beta.20) (2026-11-25)
 
 ### Features
