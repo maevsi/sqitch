@@ -16,7 +16,7 @@ BEGIN
   UPDATE vibetype.event
   SET guest_count = event.guest_count + g.guest_count
   FROM (
-    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
     FROM guest_inserted
     GROUP BY event_id
   ) g

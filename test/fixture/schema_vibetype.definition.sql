@@ -1364,9 +1364,13 @@ CREATE TABLE vibetype.guest (
     feedback vibetype.invitation_feedback,
     feedback_override vibetype.invitation_feedback,
     feedback_reason text,
+    companion_count integer DEFAULT 0 NOT NULL,
+    companion_count_requested integer,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
+    CONSTRAINT guest_companion_count_check CHECK ((companion_count >= 0)),
+    CONSTRAINT guest_companion_count_requested_check CHECK ((companion_count_requested > 0)),
     CONSTRAINT guest_feedback_reason_check CHECK (((char_length(feedback_reason) > 0) AND (char_length(feedback_reason) <= 1000)))
 );
 
@@ -1421,6 +1425,20 @@ COMMENT ON COLUMN vibetype.guest.feedback_override IS 'The organizer''s correcti
 --
 
 COMMENT ON COLUMN vibetype.guest.feedback_reason IS 'The guest''s optional reason for their feedback, e.g. why they declined. Only the guest can set it.';
+
+
+--
+-- Name: COLUMN guest.companion_count; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.companion_count IS 'The number of additional guests the organizer approved for the guest, each of whom takes a seat of the event. The organizer can raise it up to the request, the guest can only lower it. Setting it fails with error code **VTGCM** when the event''s maximum guest count would be exceeded. Resets to 0 when the guest''s effective feedback is `canceled`.';
+
+
+--
+-- Name: COLUMN guest.companion_count_requested; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.companion_count_requested IS 'The number of additional guests the guest asks the organizer to approve in total. `NULL` when there is no pending request, which also holds for a request that does not exceed the approved companion count. The organizer clears it by approving or rejecting. Resets to `NULL` when the guest''s effective feedback is `canceled`.';
 
 
 --
@@ -1630,7 +1648,7 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 --
 
 COMMENT ON COLUMN vibetype.event.guest_count IS '@behavior -insert -update
-The number of guests of the event, maintained by triggers on the guest table.';
+The number of seats taken at the event, each guest taking one plus their approved companions, maintained by triggers on the guest table.';
 
 
 --
@@ -2121,7 +2139,7 @@ CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
-  SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
+  SELECT COALESCE(SUM(1 + companion_count), 0)::INTEGER FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
 $$;
 
 
@@ -2131,7 +2149,7 @@ ALTER FUNCTION vibetype.guest_count(event_id uuid) OWNER TO ci;
 -- Name: FUNCTION guest_count(event_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the guest count for an event.';
+COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the number of seats taken for an event: each guest plus their approved companions.';
 
 
 --
@@ -2908,6 +2926,8 @@ BEGIN
       AND c.account_id = vibetype.invoker_account_id()
     )
   );
+  -- The invoker has no usage on `vibetype_private`, so `events_organized()` is out of reach here.
+  -- An anonymous invoker cannot organize an event, so the event policies hiding events from it do no harm.
   _is_organizer := EXISTS (
     SELECT 1
     FROM vibetype.event e
@@ -2923,6 +2943,40 @@ BEGIN
     RAISE 'Only the organizer is allowed to alter the feedback override!' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
+  -- The organizer rejects a request by clearing it, anything else about a request is up to the guest.
+  IF
+    NEW.companion_count_requested IS DISTINCT FROM OLD.companion_count_requested
+    AND NOT _is_invited
+    AND NOT (_is_organizer AND NEW.companion_count_requested IS NULL)
+  THEN
+    RAISE 'Only the guest is allowed to request companions, the organizer can only clear the request!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF NEW.companion_count > OLD.companion_count THEN
+    IF NOT _is_organizer THEN
+      RAISE 'Only the organizer is allowed to approve companions!' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    IF NEW.companion_count > GREATEST(OLD.companion_count, COALESCE(OLD.companion_count_requested, 0)) THEN
+      RAISE 'The organizer can approve at most the requested companions!' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    -- An approval settles the request, whether in full or in part.
+    NEW.companion_count_requested = NULL;
+  ELSIF NEW.companion_count < OLD.companion_count AND NOT (_is_invited OR _is_organizer) THEN
+    RAISE 'Only the guest or the organizer is allowed to lower the companions!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF COALESCE(NEW.feedback_override, NEW.feedback) = 'canceled' THEN
+    NEW.companion_count = 0;
+    NEW.companion_count_requested = NULL;
+  END IF;
+
+  -- A request that does not exceed the approved companions asks for nothing.
+  IF NEW.companion_count_requested <= NEW.companion_count THEN
+    NEW.companion_count_requested = NULL;
+  END IF;
+
   IF
       _is_invited
     AND (
@@ -2934,7 +2988,7 @@ BEGIN
       OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
     )
   THEN
-    RAISE 'You''re only allowed to alter these columns: feedback, feedback_override, feedback_reason!' USING ERRCODE = 'insufficient_privilege';
+    RAISE 'You''re only allowed to alter these columns: companion_count, companion_count_requested, feedback, feedback_override, feedback_reason!' USING ERRCODE = 'insufficient_privilege';
   END IF;
 
   NEW.updated_at = CURRENT_TIMESTAMP;
@@ -2949,7 +3003,7 @@ ALTER FUNCTION vibetype.trigger_guest_update() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback and its reason, the organizer sets the feedback override.';
+COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback and its reason, requests companions and lowers them, the organizer sets the feedback override and approves companions up to the request.';
 
 
 --
@@ -3740,7 +3794,7 @@ BEGIN
   UPDATE vibetype.event
   SET guest_count = event.guest_count - g.guest_count
   FROM (
-    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
     FROM guest_deleted
     GROUP BY event_id
   ) g
@@ -3778,7 +3832,7 @@ BEGIN
   UPDATE vibetype.event
   SET guest_count = event.guest_count + g.guest_count
   FROM (
-    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
     FROM guest_inserted
     GROUP BY event_id
   ) g
@@ -3805,6 +3859,64 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_insert() OWNER TO ci;
 --
 
 COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest count of their events.';
+
+
+--
+-- Name: trigger_guest_count_update(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_guest_count_update() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _exceeded BOOLEAN;
+BEGIN
+  PERFORM 1
+  FROM vibetype.event
+  WHERE id IN (
+    SELECT n.event_id
+    FROM guest_updated_new n
+    JOIN guest_updated_old o ON o.id = n.id
+    WHERE n.companion_count <> o.companion_count
+  )
+  ORDER BY id
+  FOR UPDATE;
+
+  WITH delta AS (
+    SELECT n.event_id, SUM(n.companion_count - o.companion_count)::INTEGER AS delta
+    FROM guest_updated_new n
+    JOIN guest_updated_old o ON o.id = n.id
+    GROUP BY n.event_id
+    HAVING SUM(n.companion_count - o.companion_count) <> 0
+  ),
+  updated AS (
+    UPDATE vibetype.event
+    SET guest_count = event.guest_count + delta.delta
+    FROM delta
+    WHERE event.id = delta.event_id
+    RETURNING event.guest_count, event.guest_count_maximum, delta.delta
+  )
+  SELECT COALESCE(bool_or(delta > 0 AND guest_count > guest_count_maximum), FALSE)
+  INTO _exceeded
+  FROM updated;
+
+  IF _exceeded THEN
+    RAISE 'The event''s maximum guest count is reached.' USING ERRCODE = 'VTGCM';
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_guest_count_update() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_count_update(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_update() IS 'Applies the change of the guests'' companion counts of an update statement to the guest count of their events.';
 
 
 --
@@ -7136,6 +7248,13 @@ CREATE TRIGGER guest_count_insert AFTER INSERT ON vibetype.guest REFERENCING NEW
 
 
 --
+-- Name: guest guest_count_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER guest_count_update AFTER UPDATE ON vibetype.guest REFERENCING OLD TABLE AS guest_updated_old NEW TABLE AS guest_updated_new FOR EACH STATEMENT EXECUTE FUNCTION vibetype_private.trigger_guest_count_update();
+
+
+--
 -- Name: upload insert; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
@@ -8724,16 +8843,37 @@ GRANT ALL ON FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) TO v
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE vibetype.guest TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.guest TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.guest TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.guest TO reccoom;
+
+
+--
+-- Name: COLUMN guest.id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(id) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.contact_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(contact_id) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.event_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(event_id) ON TABLE vibetype.guest TO vibetype_account;
 
 
 --
 -- Name: COLUMN guest.feedback; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_account;
+GRANT INSERT(feedback),UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_account;
 GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 
@@ -8741,15 +8881,52 @@ GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
 -- Name: COLUMN guest.feedback_override; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT UPDATE(feedback_override) ON TABLE vibetype.guest TO vibetype_account;
+GRANT INSERT(feedback_override),UPDATE(feedback_override) ON TABLE vibetype.guest TO vibetype_account;
 
 
 --
 -- Name: COLUMN guest.feedback_reason; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_account;
+GRANT INSERT(feedback_reason),UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_account;
 GRANT UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.companion_count; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(companion_count) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(companion_count) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.companion_count_requested; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(companion_count_requested) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(companion_count_requested) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.created_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_at) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.updated_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(updated_at) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.updated_by; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(updated_by) ON TABLE vibetype.guest TO vibetype_account;
 
 
 --
@@ -9317,6 +9494,13 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_delete() FROM PUBLIC
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_guest_count_update(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_update() FROM PUBLIC;
 
 
 --
