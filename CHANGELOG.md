@@ -1,3 +1,9 @@
+## [14.0.0-beta.20](https://github.com/maevsi/sqitch/compare/14.0.0-beta.19...14.0.0-beta.20) (2026-11-25)
+
+### Features
+
+* **contact:** add merge ([#440](https://github.com/maevsi/sqitch/issues/440)) ([868601e](https://github.com/maevsi/sqitch/commit/868601e792f1cb3e5a2624f1dd0e7335a78d8037))
+
 ## [14.0.0-beta.19](https://github.com/maevsi/sqitch/compare/14.0.0-beta.18...14.0.0-beta.19) (2026-11-24)
 
 ### ⚠ BREAKING CHANGES
