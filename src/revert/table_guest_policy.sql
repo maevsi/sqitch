@@ -1,7 +1,9 @@
 BEGIN;
 
+DROP TRIGGER guest_count_update ON vibetype.guest;
 DROP TRIGGER guest_count_delete ON vibetype.guest;
 DROP TRIGGER guest_count_insert ON vibetype.guest;
+DROP FUNCTION vibetype_private.trigger_guest_count_update();
 DROP FUNCTION vibetype_private.trigger_guest_count_delete();
 DROP FUNCTION vibetype_private.trigger_guest_count_insert();
 

@@ -1,17 +1,19 @@
 BEGIN;
 
 CREATE TABLE vibetype.guest (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id                        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-  contact_id        UUID NOT NULL REFERENCES vibetype.contact(id) ON DELETE CASCADE,
-  event_id          UUID NOT NULL REFERENCES vibetype.event(id) ON DELETE CASCADE,
-  feedback          vibetype.invitation_feedback,
-  feedback_override vibetype.invitation_feedback,
-  feedback_reason   TEXT CHECK (char_length(feedback_reason) > 0 AND char_length(feedback_reason) <= 1000),
+  contact_id                UUID NOT NULL REFERENCES vibetype.contact(id) ON DELETE CASCADE,
+  event_id                  UUID NOT NULL REFERENCES vibetype.event(id) ON DELETE CASCADE,
+  feedback                  vibetype.invitation_feedback,
+  feedback_override         vibetype.invitation_feedback,
+  feedback_reason           TEXT CHECK (char_length(feedback_reason) > 0 AND char_length(feedback_reason) <= 1000),
+  companion_count           INTEGER NOT NULL DEFAULT 0 CHECK (companion_count >= 0),
+  companion_count_requested INTEGER CHECK (companion_count_requested > 0),
 
-  created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at        TIMESTAMP WITH TIME ZONE,
-  updated_by        UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
+  created_at                TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                TIMESTAMP WITH TIME ZONE,
+  updated_by                UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
 
   UNIQUE (event_id, contact_id)
 );
@@ -26,6 +28,8 @@ COMMENT ON COLUMN vibetype.guest.event_id IS 'The internal id of the guest''s ev
 COMMENT ON COLUMN vibetype.guest.feedback IS 'The guest''s own feedback status. Only the guest can set it.';
 COMMENT ON COLUMN vibetype.guest.feedback_override IS 'The organizer''s correction of the guest''s feedback, which takes precedence over it. Only the event''s organizer can set it, so the guest''s own feedback stays as given.';
 COMMENT ON COLUMN vibetype.guest.feedback_reason IS 'The guest''s optional reason for their feedback, e.g. why they declined. Only the guest can set it.';
+COMMENT ON COLUMN vibetype.guest.companion_count IS E'The number of additional guests the organizer approved for the guest, each of whom takes a seat of the event. The organizer can raise it up to the request, the guest can only lower it. Setting it fails with error code **VTGCM** when the event''s maximum guest count would be exceeded. Resets to 0 when the guest''s effective feedback is `canceled`.';
+COMMENT ON COLUMN vibetype.guest.companion_count_requested IS 'The number of additional guests the guest asks the organizer to approve in total. `NULL` when there is no pending request, which also holds for a request that does not exceed the approved companion count. The organizer clears it by approving or rejecting. Resets to `NULL` when the guest''s effective feedback is `canceled`.';
 COMMENT ON COLUMN vibetype.guest.created_at IS E'@behavior -insert -update\nTimestamp of when the guest was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.guest.updated_at IS E'@behavior -insert -update\nTimestamp of when the guest was last updated.';
 COMMENT ON COLUMN vibetype.guest.updated_by IS E'@behavior -insert -update\nThe id of the account which last updated the guest. `NULL` if the guest was updated by an anonymous user.';
