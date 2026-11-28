@@ -1,3 +1,9 @@
+## [14.0.0-beta.24](https://github.com/maevsi/sqitch/compare/14.0.0-beta.23...14.0.0-beta.24) (2026-11-28)
+
+### Bug Fixes
+
+* **account:** give usernames differing only in case a numeric suffix ([#444](https://github.com/maevsi/sqitch/issues/444)) ([79ea75a](https://github.com/maevsi/sqitch/commit/79ea75a31d5a60f862ba0e10d8e1120d974bf76b))
+
 ## [14.0.0-beta.23](https://github.com/maevsi/sqitch/compare/14.0.0-beta.22...14.0.0-beta.23) (2026-11-28)
 
 ### Bug Fixes
