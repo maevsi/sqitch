@@ -5637,7 +5637,7 @@ COMMENT ON COLUMN vibetype_private.account.upload_quota_bytes IS 'The account''s
 -- Name: COLUMN account.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the account was last active.';
+COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the account was created.';
 
 
 --
