@@ -1510,6 +1510,7 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
+    guest_count_accepted integer DEFAULT 0 NOT NULL,
     effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
     feedback_deadline timestamp with time zone,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
@@ -1649,6 +1650,14 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 
 COMMENT ON COLUMN vibetype.event.guest_count IS '@behavior -insert -update
 The number of seats taken at the event, each guest taking one plus their approved companions, maintained by triggers on the guest table.';
+
+
+--
+-- Name: COLUMN event.guest_count_accepted; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.guest_count_accepted IS '@behavior -insert -update
+The number of seats taken by guests whose effective feedback is accepted, the organizer''s override taking precedence, each such guest taking one plus their approved companions, maintained by triggers on the guest table.';
 
 
 --
@@ -3389,13 +3398,13 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
-  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` and `guest_count_accepted` is not a change anyone made to the event, so it leaves no entry.
   -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
-    AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'guest_count_accepted' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'guest_count_accepted' - 'effective_end'
+    AND to_jsonb(NEW) - 'effective_end' IS DISTINCT FROM to_jsonb(OLD) - 'effective_end'
   THEN
     RETURN NEW;
   END IF;
@@ -3792,9 +3801,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count - g.guest_count
+  SET guest_count = event.guest_count - g.guest_count,
+      guest_count_accepted = event.guest_count_accepted - g.guest_count_accepted
   FROM (
-    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_deleted
     GROUP BY event_id
   ) g
@@ -3811,7 +3823,7 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_delete() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_count_delete(); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest counts of their events.';
 
 
 --
@@ -3830,9 +3842,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count + g.guest_count
+  SET guest_count = event.guest_count + g.guest_count,
+      guest_count_accepted = event.guest_count_accepted + g.guest_count_accepted
   FROM (
-    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_inserted
     GROUP BY event_id
   ) g
@@ -3858,7 +3873,7 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_insert() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_count_insert(); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest counts of their events.';
 
 
 --
@@ -3879,20 +3894,32 @@ BEGIN
     FROM guest_updated_new n
     JOIN guest_updated_old o ON o.id = n.id
     WHERE n.companion_count <> o.companion_count
+      OR n.feedback IS DISTINCT FROM o.feedback
+      OR n.feedback_override IS DISTINCT FROM o.feedback_override
   )
   ORDER BY id
   FOR UPDATE;
 
   WITH delta AS (
-    SELECT n.event_id, SUM(n.companion_count - o.companion_count)::INTEGER AS delta
+    SELECT n.event_id,
+           SUM(n.companion_count - o.companion_count)::INTEGER AS delta,
+           SUM(
+             (CASE WHEN COALESCE(n.feedback_override, n.feedback) = 'accepted' THEN 1 + n.companion_count ELSE 0 END)
+             - (CASE WHEN COALESCE(o.feedback_override, o.feedback) = 'accepted' THEN 1 + o.companion_count ELSE 0 END)
+           )::INTEGER AS delta_accepted
     FROM guest_updated_new n
     JOIN guest_updated_old o ON o.id = n.id
     GROUP BY n.event_id
     HAVING SUM(n.companion_count - o.companion_count) <> 0
+      OR SUM(
+        (CASE WHEN COALESCE(n.feedback_override, n.feedback) = 'accepted' THEN 1 + n.companion_count ELSE 0 END)
+        - (CASE WHEN COALESCE(o.feedback_override, o.feedback) = 'accepted' THEN 1 + o.companion_count ELSE 0 END)
+      ) <> 0
   ),
   updated AS (
     UPDATE vibetype.event
-    SET guest_count = event.guest_count + delta.delta
+    SET guest_count = event.guest_count + delta.delta,
+        guest_count_accepted = event.guest_count_accepted + delta.delta_accepted
     FROM delta
     WHERE event.id = delta.event_id
     RETURNING event.guest_count, event.guest_count_maximum, delta.delta
@@ -3916,7 +3943,7 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_update() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_count_update(); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_update() IS 'Applies the change of the guests'' companion counts of an update statement to the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_update() IS 'Applies the change of the guests'' companion counts and effective feedback of an update statement to the guest counts of their events.';
 
 
 --

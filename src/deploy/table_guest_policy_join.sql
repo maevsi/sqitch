@@ -36,9 +36,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count + g.guest_count
+  SET guest_count = event.guest_count + g.guest_count,
+      guest_count_accepted = event.guest_count_accepted + g.guest_count_accepted
   FROM (
-    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_inserted
     GROUP BY event_id
   ) g

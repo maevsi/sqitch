@@ -183,7 +183,7 @@ SELECT vibetype_test.index_scan_check(
 );
 
 SELECT vibetype_test.index_scan_check(
-  'SELECT * FROM vibetype.event WHERE created_by = ''00000000-0000-0000-0000-000000000000''::UUID AND start >= now()',
+  'SELECT * FROM vibetype.event WHERE created_by = ''00000000-0000-0000-0000-000000000000''::UUID AND start >= now() ORDER BY start',
   'idx_event_created_by_start'
 );
 

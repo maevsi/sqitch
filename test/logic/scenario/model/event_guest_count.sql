@@ -330,4 +330,245 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT event_guest_count_capped;
 
+-- The accepted counter only holds seats of guests who accepted, next to the all-seats counter.
+CREATE FUNCTION pg_temp.expect(_test_case TEXT, _event_id UUID, _guest_count INTEGER, _guest_count_accepted INTEGER) RETURNS VOID
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _event vibetype.event;
+BEGIN
+  SELECT * INTO _event FROM vibetype.event WHERE id = _event_id;
+
+  IF _event.guest_count IS DISTINCT FROM _guest_count OR _event.guest_count_accepted IS DISTINCT FROM _guest_count_accepted THEN
+    RAISE EXCEPTION 'Test failed: % expected counters (%, %), got (%, %)',
+      _test_case, _guest_count, _guest_count_accepted, _event.guest_count, _event.guest_count_accepted;
+  END IF;
+END $$;
+
+CREATE FUNCTION pg_temp.set_feedback(_account_id UUID, _guest_id UUID, _feedback vibetype.invitation_feedback) RETURNS VOID
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _rows INTEGER;
+BEGIN
+  PERFORM vibetype_test.invoker_set(_account_id);
+  UPDATE vibetype.guest SET feedback = _feedback WHERE id = _guest_id;
+  GET DIAGNOSTICS _rows = ROW_COUNT;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  IF _rows <> 1 THEN
+    RAISE EXCEPTION 'Test failed: the feedback update must reach exactly one guest, reached % (account %, guest %, feedback %)', _rows, _account_id, _guest_id, _feedback;
+  END IF;
+END $$;
+
+CREATE FUNCTION pg_temp.set_override(_account_id UUID, _guest_id UUID, _feedback vibetype.invitation_feedback) RETURNS VOID
+    LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM vibetype_test.invoker_set(_account_id);
+  UPDATE vibetype.guest SET feedback_override = _feedback WHERE id = _guest_id;
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+
+-- The guest requests companions and the organizer approves them in full, lowering is up to the guest.
+CREATE FUNCTION pg_temp.set_companions(_organizer_id UUID, _account_id UUID, _guest_id UUID, _count INTEGER, _lower BOOLEAN DEFAULT FALSE) RETURNS VOID
+    LANGUAGE plpgsql AS $$
+BEGIN
+  IF _lower THEN
+    PERFORM vibetype_test.invoker_set(_account_id);
+    UPDATE vibetype.guest SET companion_count = _count WHERE id = _guest_id;
+    PERFORM vibetype_test.invoker_set_previous();
+  ELSE
+    PERFORM vibetype_test.invoker_set(_account_id);
+    UPDATE vibetype.guest SET companion_count_requested = _count WHERE id = _guest_id;
+    PERFORM vibetype_test.invoker_set_previous();
+    PERFORM vibetype_test.invoker_set(_organizer_id);
+    UPDATE vibetype.guest SET companion_count = _count WHERE id = _guest_id;
+    PERFORM vibetype_test.invoker_set_previous();
+  END IF;
+END $$;
+
+SAVEPOINT event_guest_count_accepted;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  accountC UUID;
+  contactAB UUID;
+  contactAC UUID;
+  eventA UUID;
+  eventB UUID;
+  guestAB UUID;
+  guestAC UUID;
+
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  accountC := vibetype_test.account_registration_verified('c', 'c@example.com');
+
+  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
+  contactAC := vibetype_test.contact_create(accountA, 'c@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event A', 'event-a', '2025-06-01 20:00', 'public');
+  eventB := vibetype_test.event_create(accountA, 'Event B', 'event-b', '2025-07-01 20:00', 'public');
+
+  -- unanswered guests take seats but are not accepted
+  guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
+  PERFORM pg_temp.expect('unanswered insert', eventA, 1, 0);
+
+  -- accepted and canceled guests inserted in one statement, spanning two events
+  PERFORM vibetype_test.invoker_set(accountA);
+  INSERT INTO vibetype.guest (event_id, contact_id, feedback) VALUES
+    (eventA, contactAC, 'accepted'), (eventB, contactAB, 'accepted'), (eventB, contactAC, 'canceled');
+  SELECT id INTO guestAC FROM vibetype.guest WHERE event_id = eventA AND contact_id = contactAC;
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM pg_temp.expect('multi-row insert, event A', eventA, 2, 1);
+  PERFORM pg_temp.expect('multi-row insert, event B', eventB, 2, 1);
+
+  -- unanswered to accepted
+  PERFORM pg_temp.set_feedback(accountB, guestAB, 'accepted');
+  PERFORM pg_temp.expect('NULL to accepted', eventA, 2, 2);
+
+  -- accepted to canceled
+  PERFORM pg_temp.set_feedback(accountB, guestAB, 'canceled');
+  PERFORM pg_temp.expect('accepted to canceled', eventA, 2, 1);
+
+  -- accepted to unanswered
+  PERFORM pg_temp.set_feedback(accountC, guestAC, NULL);
+  PERFORM pg_temp.expect('accepted to NULL', eventA, 2, 0);
+
+  PERFORM pg_temp.set_feedback(accountC, guestAC, 'accepted');
+  PERFORM pg_temp.expect('NULL to accepted again', eventA, 2, 1);
+
+  -- companions of an accepted guest take accepted seats
+  PERFORM pg_temp.set_companions(accountA, accountC, guestAC, 2);
+  PERFORM pg_temp.expect('companions on an accepted guest', eventA, 4, 3);
+
+  PERFORM pg_temp.set_companions(accountA, accountC, guestAC, 1, TRUE);
+  PERFORM pg_temp.expect('fewer companions on an accepted guest', eventA, 3, 2);
+
+  -- companions of an unanswered guest only take seats
+  PERFORM pg_temp.set_feedback(accountC, guestAC, NULL);
+  PERFORM pg_temp.expect('accepted with companions to NULL', eventA, 3, 0);
+  PERFORM pg_temp.set_companions(accountA, accountC, guestAC, 2);
+  PERFORM pg_temp.expect('companions on an unanswered guest', eventA, 4, 0);
+
+  -- accepting with companions, then canceling drops the companions as well
+  PERFORM pg_temp.set_feedback(accountC, guestAC, 'accepted');
+  PERFORM pg_temp.expect('unanswered with companions to accepted', eventA, 4, 3);
+  PERFORM pg_temp.set_feedback(accountC, guestAC, 'canceled');
+  PERFORM pg_temp.expect('accepted with companions to canceled', eventA, 2, 0);
+
+  -- one update statement spanning two events, as the guest invited to both
+  PERFORM vibetype_test.invoker_set(accountB);
+  UPDATE vibetype.guest SET feedback = NULL WHERE contact_id = contactAB;
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM pg_temp.expect('multi-event update to NULL, event A', eventA, 2, 0);
+  PERFORM pg_temp.expect('multi-event update to NULL, event B', eventB, 2, 0);
+
+  PERFORM vibetype_test.invoker_set(accountB);
+  UPDATE vibetype.guest SET feedback = 'accepted' WHERE contact_id = contactAB;
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM pg_temp.expect('multi-event update to accepted, event A', eventA, 2, 1);
+  PERFORM pg_temp.expect('multi-event update to accepted, event B', eventB, 2, 1);
+
+  -- delete of an accepted guest
+  PERFORM vibetype_test.invoker_set(accountA);
+  DELETE FROM vibetype.guest WHERE id = guestAB;
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM pg_temp.expect('delete of an accepted guest', eventA, 1, 0);
+
+  -- cascade delete of the guests with their event
+  PERFORM vibetype_test.invoker_set(accountA);
+  DELETE FROM vibetype.event WHERE id = eventB;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  PERFORM pg_temp.expect('delete of another event', eventA, 1, 0);
+
+  -- the counter always matches the accepted seats
+  IF (SELECT guest_count_accepted FROM vibetype.event WHERE id = eventA) IS DISTINCT FROM (
+    SELECT COALESCE(SUM(1 + companion_count), 0) FROM vibetype.guest WHERE event_id = eventA AND feedback = 'accepted'
+  ) THEN
+    RAISE EXCEPTION 'Test failed: the accepted counter must match the accepted seats';
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT event_guest_count_accepted;
+
+-- The organizer's override takes precedence over the guest's own feedback.
+SAVEPOINT event_guest_count_accepted_override;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  accountC UUID;
+  contactAB UUID;
+  contactAC UUID;
+  eventA UUID;
+  guestAB UUID;
+  guestAC UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+  accountC := vibetype_test.account_registration_verified('c', 'c@example.com');
+
+  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
+  contactAC := vibetype_test.contact_create(accountA, 'c@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event A', 'event-a', '2025-06-01 20:00', 'public');
+  guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
+  guestAC := vibetype_test.guest_create(accountA, eventA, contactAC);
+  PERFORM pg_temp.set_companions(accountA, accountB, guestAB, 2);
+  PERFORM pg_temp.expect('setup', eventA, 4, 0);
+
+  -- override on an unanswered guest
+  PERFORM pg_temp.set_override(accountA, guestAB, 'accepted');
+  PERFORM pg_temp.expect('override accepted on an unanswered guest', eventA, 4, 3);
+
+  -- the guest's own feedback does not move the counter while the override is set
+  PERFORM pg_temp.set_feedback(accountB, guestAB, 'canceled');
+  PERFORM pg_temp.expect('feedback while an override is set', eventA, 4, 3);
+
+  -- clearing the override restores the guest's own feedback
+  PERFORM pg_temp.set_override(accountA, guestAB, NULL);
+  PERFORM pg_temp.expect('override cleared, own feedback canceled', eventA, 2, 0);
+  PERFORM pg_temp.set_feedback(accountB, guestAB, 'accepted');
+  PERFORM pg_temp.expect('own feedback accepted', eventA, 2, 1);
+
+  -- override canceled on an accepted guest
+  PERFORM pg_temp.set_override(accountA, guestAB, 'canceled');
+  PERFORM pg_temp.expect('override canceled on an accepted guest', eventA, 2, 0);
+
+  PERFORM pg_temp.set_override(accountA, guestAB, NULL);
+  PERFORM pg_temp.expect('override canceled cleared', eventA, 2, 1);
+END $$;
+ROLLBACK TO SAVEPOINT event_guest_count_accepted_override;
+
+-- The counter is maintained by triggers only.
+SAVEPOINT event_guest_count_accepted_privilege;
+DO $$
+DECLARE
+  accountA UUID;
+  eventA UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event A', 'event-a', '2025-06-01 20:00', 'public');
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  BEGIN
+    UPDATE vibetype.event SET guest_count_accepted = 5 WHERE id = eventA;
+    RAISE EXCEPTION 'Test failed: an account must not update guest_count_accepted';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+  END;
+
+  BEGIN
+    INSERT INTO vibetype.event (name, slug, start, visibility, created_by, guest_count_accepted)
+    VALUES ('Event X', 'event-x', '2025-06-01 20:00', 'public', accountA, 5);
+    RAISE EXCEPTION 'Test failed: an account must not insert guest_count_accepted';
+  EXCEPTION
+    WHEN insufficient_privilege THEN
+      NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT event_guest_count_accepted_privilege;
+
 ROLLBACK;
