@@ -1,3 +1,9 @@
+## [14.0.0-beta.23](https://github.com/maevsi/sqitch/compare/14.0.0-beta.22...14.0.0-beta.23) (2026-11-28)
+
+### Bug Fixes
+
+* **docker:** refresh base images ([ef34b53](https://github.com/maevsi/sqitch/commit/ef34b53c21107f736e940e0bdf12977bc47a0509))
+
 ## [14.0.0-beta.22](https://github.com/maevsi/sqitch/compare/14.0.0-beta.21...14.0.0-beta.22) (2026-11-28)
 
 ### Features
