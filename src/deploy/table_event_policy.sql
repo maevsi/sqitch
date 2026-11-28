@@ -4,8 +4,8 @@ BEGIN;
 
 GRANT SELECT ON TABLE vibetype.event TO vibetype_anonymous;
 GRANT SELECT, DELETE ON TABLE vibetype.event TO vibetype_account;
--- Column level grants in place of table level ones, so that `guest_count` is the only column not writable.
--- `guest.event_id` is not updatable (no column grant, and `trigger_guest_update` rejects it), so only inserts and deletes of guests move the counter.
+-- Column level grants in place of table level ones, so that `guest_count` and `guest_count_accepted` are the only columns not writable.
+-- `guest.event_id` is not updatable (no column grant, and `trigger_guest_update` rejects it), so only changes to the guests of an event (inserts, deletes, companions, feedback) move the counters.
 GRANT INSERT (
   id, address_id, description, "end", guest_count_maximum, is_archived, is_in_person, is_remote,
   language, name, published_at, slug, start, url, visibility, created_at, created_by

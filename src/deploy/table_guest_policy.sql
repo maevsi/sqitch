@@ -217,7 +217,7 @@ CREATE TRIGGER update
 
 -- Security definer because guest inserters have no update privilege on event.
 -- The events are locked in id order before they are updated, so concurrent statements touching several of the same events cannot deadlock.
--- The counter holds seats: each guest takes one plus their approved companions.
+-- The counters hold seats: each guest takes one plus their approved companions, and `guest_count_accepted` counts only guests whose effective feedback is accepted, where the organizer's override takes precedence.
 -- A statement level trigger on a transition table updates every affected event once, even when a cascade removes many guests.
 CREATE FUNCTION vibetype_private.trigger_guest_count_insert() RETURNS TRIGGER
     LANGUAGE plpgsql SECURITY DEFINER
@@ -231,9 +231,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count + g.guest_count
+  SET guest_count = event.guest_count + g.guest_count,
+      guest_count_accepted = event.guest_count_accepted + g.guest_count_accepted
   FROM (
-    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_inserted
     GROUP BY event_id
   ) g
@@ -243,7 +246,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest counts of their events.';
 REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC;
 
 CREATE FUNCTION vibetype_private.trigger_guest_count_delete() RETURNS TRIGGER
@@ -258,9 +261,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count - g.guest_count
+  SET guest_count = event.guest_count - g.guest_count,
+      guest_count_accepted = event.guest_count_accepted - g.guest_count_accepted
   FROM (
-    SELECT event_id, SUM(1 + companion_count)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_deleted
     GROUP BY event_id
   ) g
@@ -270,10 +276,10 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest counts of their events.';
 REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_delete() FROM PUBLIC;
 
--- Transition tables rule out a column list on the trigger, so the function skips statements that leave `companion_count` as it was.
+-- Transition tables rule out a column list on the trigger, so the function skips rows that leave `companion_count`, `feedback` and `feedback_override` as they were.
 -- Only increases are checked against the maximum, so lowering companions or the maximum never blocks a decrease.
 CREATE FUNCTION vibetype_private.trigger_guest_count_update() RETURNS TRIGGER
     LANGUAGE plpgsql SECURITY DEFINER
@@ -289,20 +295,32 @@ BEGIN
     FROM guest_updated_new n
     JOIN guest_updated_old o ON o.id = n.id
     WHERE n.companion_count <> o.companion_count
+      OR n.feedback IS DISTINCT FROM o.feedback
+      OR n.feedback_override IS DISTINCT FROM o.feedback_override
   )
   ORDER BY id
   FOR UPDATE;
 
   WITH delta AS (
-    SELECT n.event_id, SUM(n.companion_count - o.companion_count)::INTEGER AS delta
+    SELECT n.event_id,
+           SUM(n.companion_count - o.companion_count)::INTEGER AS delta,
+           SUM(
+             (CASE WHEN COALESCE(n.feedback_override, n.feedback) = 'accepted' THEN 1 + n.companion_count ELSE 0 END)
+             - (CASE WHEN COALESCE(o.feedback_override, o.feedback) = 'accepted' THEN 1 + o.companion_count ELSE 0 END)
+           )::INTEGER AS delta_accepted
     FROM guest_updated_new n
     JOIN guest_updated_old o ON o.id = n.id
     GROUP BY n.event_id
     HAVING SUM(n.companion_count - o.companion_count) <> 0
+      OR SUM(
+        (CASE WHEN COALESCE(n.feedback_override, n.feedback) = 'accepted' THEN 1 + n.companion_count ELSE 0 END)
+        - (CASE WHEN COALESCE(o.feedback_override, o.feedback) = 'accepted' THEN 1 + o.companion_count ELSE 0 END)
+      ) <> 0
   ),
   updated AS (
     UPDATE vibetype.event
-    SET guest_count = event.guest_count + delta.delta
+    SET guest_count = event.guest_count + delta.delta,
+        guest_count_accepted = event.guest_count_accepted + delta.delta_accepted
     FROM delta
     WHERE event.id = delta.event_id
     RETURNING event.guest_count, event.guest_count_maximum, delta.delta
@@ -319,7 +337,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_update() IS 'Applies the change of the guests'' companion counts of an update statement to the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_update() IS 'Applies the change of the guests'' companion counts and effective feedback of an update statement to the guest counts of their events.';
 REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_update() FROM PUBLIC;
 
 CREATE TRIGGER guest_count_insert

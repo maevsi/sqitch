@@ -13,13 +13,13 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
-  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` and `guest_count_accepted` is not a change anyone made to the event, so it leaves no entry.
   -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
-    AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'guest_count_accepted' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'guest_count_accepted' - 'effective_end'
+    AND to_jsonb(NEW) - 'effective_end' IS DISTINCT FROM to_jsonb(OLD) - 'effective_end'
   THEN
     RETURN NEW;
   END IF;

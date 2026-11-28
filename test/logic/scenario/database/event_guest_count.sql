@@ -72,6 +72,15 @@ BEGIN
   END IF;
 
   PERFORM vibetype_test.invoker_set(accountA);
+  INSERT INTO vibetype.guest (event_id, contact_id, feedback) VALUES (eventA, contactAB, 'accepted');
+  PERFORM vibetype_test.invoker_set_previous();
+
+  IF (SELECT guest_count_accepted FROM vibetype.event WHERE id = eventA) IS DISTINCT FROM 1
+    OR (SELECT count(*) FROM vibetype_private.audit_log WHERE table_name = 'event' AND record_id = eventA::TEXT) != _count THEN
+    RAISE EXCEPTION 'Test failed: accepted counter updates must not be audited';
+  END IF;
+
+  PERFORM vibetype_test.invoker_set(accountA);
   UPDATE vibetype.event SET name = 'Renamed' WHERE id = eventA;
   PERFORM vibetype_test.invoker_set_previous();
 
