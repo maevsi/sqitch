@@ -1,3 +1,9 @@
+## [14.0.0-beta.22](https://github.com/maevsi/sqitch/compare/14.0.0-beta.21...14.0.0-beta.22) (2026-11-28)
+
+### Features
+
+* **event:** count accepted guests ([#442](https://github.com/maevsi/sqitch/issues/442)) ([b4d2dd3](https://github.com/maevsi/sqitch/commit/b4d2dd3b51b6c6334dcec8c033d8ae3260fe38e8))
+
 ## [14.0.0-beta.21](https://github.com/maevsi/sqitch/compare/14.0.0-beta.20...14.0.0-beta.21) (2026-11-25)
 
 ### ⚠ BREAKING CHANGES
