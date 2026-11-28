@@ -6,6 +6,7 @@ CREATE TABLE vibetype.event (
   address_id               UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") <= 10000),
   "end"                    TIMESTAMP WITH TIME ZONE,
+  feedback_deadline        TIMESTAMP WITH TIME ZONE,
   guest_count_maximum      INTEGER CHECK (guest_count_maximum > 0),
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,
@@ -44,6 +45,7 @@ COMMENT ON COLUMN vibetype.event.id IS E'@behavior -insert -update\nThe event''s
 COMMENT ON COLUMN vibetype.event.address_id IS 'Optional reference to the physical address of the event.';
 COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must be non-empty and not exceed 10,000 characters.';
 COMMENT ON COLUMN vibetype.event.end IS 'The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 COMMENT ON COLUMN vibetype.event.guest_count_maximum IS 'The event''s maximum guest count. Must be greater than 0.';
 COMMENT ON COLUMN vibetype.event.is_archived IS 'Indicates whether the event is archived.';
 COMMENT ON COLUMN vibetype.event.is_in_person IS 'Indicates whether the event takes place in person.';

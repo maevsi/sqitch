@@ -4,6 +4,7 @@ SELECT id,
        checked_out,
        contact_id,
        guest_id,
+       tag_serial_number,
        created_at,
        updated_at,
        updated_by

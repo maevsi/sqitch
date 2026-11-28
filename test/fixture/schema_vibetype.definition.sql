@@ -1496,6 +1496,7 @@ CREATE TABLE vibetype.event (
     address_id uuid,
     description text,
     "end" timestamp with time zone,
+    feedback_deadline timestamp with time zone,
     guest_count_maximum integer,
     is_archived boolean DEFAULT false NOT NULL,
     is_in_person boolean,
@@ -1512,7 +1513,6 @@ CREATE TABLE vibetype.event (
     guest_count integer DEFAULT 0 NOT NULL,
     guest_count_accepted integer DEFAULT 0 NOT NULL,
     effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
-    feedback_deadline timestamp with time zone,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1557,6 +1557,13 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must 
 --
 
 COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
+
+
+--
+-- Name: COLUMN event.feedback_deadline; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 
 
 --
@@ -1666,13 +1673,6 @@ The number of seats taken by guests whose effective feedback is accepted, the or
 
 COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
 The event''s end date and time, falling back to its start when no explicit end is set.';
-
-
---
--- Name: COLUMN event.feedback_deadline; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 
 
 --
@@ -4392,10 +4392,10 @@ CREATE TABLE vibetype.attendance (
     checked_out boolean,
     contact_id uuid,
     guest_id uuid NOT NULL,
+    tag_serial_number text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    tag_serial_number text,
     CONSTRAINT attendance_tag_serial_number_check CHECK ((char_length(tag_serial_number) <= 100))
 );
 
@@ -4443,6 +4443,13 @@ Who this entry is for.';
 
 
 --
+-- Name: COLUMN attendance.tag_serial_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
+
+
+--
 -- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -4464,13 +4471,6 @@ When this entry was last changed. If someone checks out, this shows the checkout
 
 COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
 Who last changed this entry. This may be empty if done without signing in.';
-
-
---
--- Name: COLUMN attendance.tag_serial_number; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
 
 
 --
@@ -9002,6 +9002,13 @@ GRANT INSERT("end"),UPDATE("end") ON TABLE vibetype.event TO vibetype_account;
 
 
 --
+-- Name: COLUMN event.feedback_deadline; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(feedback_deadline),UPDATE(feedback_deadline) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
 -- Name: COLUMN event.guest_count_maximum; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -9090,13 +9097,6 @@ GRANT INSERT(created_at),UPDATE(created_at) ON TABLE vibetype.event TO vibetype_
 --
 
 GRANT INSERT(created_by),UPDATE(created_by) ON TABLE vibetype.event TO vibetype_account;
-
-
---
--- Name: COLUMN event.feedback_deadline; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT INSERT(feedback_deadline),UPDATE(feedback_deadline) ON TABLE vibetype.event TO vibetype_account;
 
 
 --

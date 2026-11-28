@@ -100,6 +100,28 @@ WITH CHECK (
     )
 );
 
+-- Permissive policies combine with `OR`, so this adds to the organizer's `guest_insert` without touching it.
+-- The event lookup runs under `event_select`, which hides public events whose organizer is involved in a block with the invoker.
+-- The own contact is the one an account created for itself on registration.
+CREATE POLICY guest_insert_join ON vibetype.guest FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = guest.event_id
+      AND e.published_at <= CURRENT_TIMESTAMP
+      AND e.visibility = 'public'
+      AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM vibetype.contact c
+    WHERE c.id = guest.contact_id
+      AND c.account_id = (SELECT vibetype.invoker_account_id())
+      AND c.created_by = (SELECT vibetype.invoker_account_id())
+  )
+);
+
 CREATE POLICY guest_update ON vibetype.guest FOR UPDATE
 USING (
   (
@@ -215,10 +237,49 @@ CREATE TRIGGER update
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_guest_update();
 
+-- Security definer because guests without an account may be unable to select their event.
+CREATE FUNCTION vibetype_private.trigger_guest_feedback_deadline() RETURNS TRIGGER
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
+    AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = NEW.event_id
+      AND e.feedback_deadline <= CURRENT_TIMESTAMP
+      AND e.created_by IS DISTINCT FROM vibetype.invoker_account_id()
+  ) THEN
+    RAISE 'The event''s feedback deadline has passed.' USING ERRCODE = 'VTFDP';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+COMMENT ON FUNCTION vibetype_private.trigger_guest_feedback_deadline() IS 'Rejects feedback from anyone but the organizer once the event''s feedback deadline has passed.';
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_feedback_deadline() FROM PUBLIC;
+
+-- Inserts carry feedback when a guest joins an event or redeems an invitation link.
+CREATE TRIGGER feedback_deadline_insert
+  BEFORE INSERT
+  ON vibetype.guest
+  FOR EACH ROW
+  WHEN (NEW.feedback IS NOT NULL)
+  EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+
+CREATE TRIGGER feedback_deadline_update
+  BEFORE UPDATE OF feedback
+  ON vibetype.guest
+  FOR EACH ROW
+  WHEN (NEW.feedback IS DISTINCT FROM OLD.feedback)
+  EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+
 -- Security definer because guest inserters have no update privilege on event.
 -- The events are locked in id order before they are updated, so concurrent statements touching several of the same events cannot deadlock.
 -- The counters hold seats: each guest takes one plus their approved companions, and `guest_count_accepted` counts only guests whose effective feedback is accepted, where the organizer's override takes precedence.
 -- A statement level trigger on a transition table updates every affected event once, even when a cascade removes many guests.
+-- The insert policies compare against the guest count as it was before the statement, so concurrent joins or one statement inserting several guests could exceed the maximum.
+-- The counter is updated under a row lock, so checking it afterwards sees every committed guest.
 CREATE FUNCTION vibetype_private.trigger_guest_count_insert() RETURNS TRIGGER
     LANGUAGE plpgsql SECURITY DEFINER
     SET search_path = pg_catalog, public, pg_temp
@@ -241,6 +302,15 @@ BEGIN
     GROUP BY event_id
   ) g
   WHERE event.id = g.event_id;
+
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.event
+    WHERE id IN (SELECT event_id FROM guest_inserted)
+      AND guest_count > guest_count_maximum
+  ) THEN
+    RAISE 'The event''s maximum guest count is reached.' USING ERRCODE = 'VTGCM';
+  END IF;
 
   RETURN NULL;
 END;
