@@ -41,6 +41,8 @@ BEGIN
 
   ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_account', 'vibetype.trigger_guest_update()', 'EXECUTE'));
   ASSERT (SELECT pg_catalog.has_function_privilege('vibetype_anonymous', 'vibetype.trigger_guest_update()', 'EXECUTE'));
+  ASSERT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'vibetype' AND tablename = 'guest' AND policyname = 'guest_insert_join');
+  ASSERT (SELECT 'vibetype_private.trigger_guest_feedback_deadline()'::regprocedure IS NOT NULL);
 END $$;
 
 ROLLBACK;

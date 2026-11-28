@@ -57,6 +57,9 @@ This is a PostgreSQL migration project using [Sqitch](https://sqitch.org/) for s
 
 Note: if branching off of `beta`, migrations can be edited in-place. If branching off of `main`, changes must happen in new migrations only.
 
+`beta` holds no migration that only changes an object created earlier in the plan: a change made on `beta`, or brought in from `main` through `chore(beta): merge main`, is folded into the migration that first creates the object, with its revert and verify, and the patch migration is removed from the plan.
+A migration from `main` that only fixes existing rows is dropped from `beta` instead, as a major deploys into an empty database and the data copy of the upgrade starts from rows that the fix already corrected.
+
 A change is breaking when it removes or changes something another service or a client relies on, or when it only works with something new from another service of the stack.
 Breaking changes get `!` in the title and target `beta`, where they wait until the stack releases the majors of its services together; the rules are in [`stack`'s release bundle document](https://github.com/maevsi/stack/blob/main/docs/release-bundle.md).
 

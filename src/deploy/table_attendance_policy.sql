@@ -3,6 +3,8 @@ BEGIN;
 GRANT SELECT, INSERT ON TABLE vibetype.attendance TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.attendance TO vibetype_anonymous;
 GRANT UPDATE (checked_out) ON TABLE vibetype.attendance TO vibetype_account, vibetype_anonymous;
+-- Only the organizer may set it, which `attendance_guard` enforces for guests, who may update an attendance to check out.
+GRANT UPDATE (tag_serial_number) ON TABLE vibetype.attendance TO vibetype_account;
 
 ALTER TABLE vibetype.attendance ENABLE ROW LEVEL SECURITY;
 
