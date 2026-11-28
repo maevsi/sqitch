@@ -2,7 +2,7 @@
 
 BEGIN;
 
--- Test email_address field with exactly 254 characters (boundary)
+-- Test an email address with exactly 254 characters (boundary)
 SAVEPOINT contact_insert_email_exact_254;
 DO $$
 DECLARE
@@ -13,8 +13,8 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, email_address)
-  VALUES (accountA, email_254)
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+  VALUES (accountA, ARRAY[email_254])
   RETURNING id INTO contact_id;
 
   IF contact_id IS NULL THEN
@@ -23,7 +23,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_email_exact_254;
 
--- Test email_address field with 255 characters (should fail)
+-- Test an email address with 255 characters (should fail)
 SAVEPOINT contact_insert_email_too_long;
 DO $$
 DECLARE
@@ -34,9 +34,9 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   BEGIN
-    INSERT INTO vibetype.contact(created_by, email_address)
-    VALUES (accountA, email_255);
-    RAISE EXCEPTION 'Test failed (contact_insert_email_too_long): email_address with 255 characters accepted';
+    INSERT INTO vibetype.contact(created_by, email_addresses)
+    VALUES (accountA, ARRAY[email_255]);
+    RAISE EXCEPTION 'Test failed (contact_insert_email_too_long): an email address with 255 characters accepted';
   EXCEPTION
     WHEN check_violation THEN
       NULL;
@@ -57,8 +57,8 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, email_address, url)
-  VALUES (accountA, 'b@example.com', url_2000)
+  INSERT INTO vibetype.contact(created_by, email_addresses, url)
+  VALUES (accountA, ARRAY['b@example.com'], url_2000)
   RETURNING id INTO contact_id;
 
   IF contact_id IS NULL THEN
@@ -78,8 +78,8 @@ BEGIN
   PERFORM vibetype_test.invoker_set(accountA);
 
   BEGIN
-    INSERT INTO vibetype.contact(created_by, email_address, url)
-    VALUES (accountA, 'b@example.com', url_2001);
+    INSERT INTO vibetype.contact(created_by, email_addresses, url)
+    VALUES (accountA, ARRAY['b@example.com'], url_2001);
     RAISE EXCEPTION 'Test failed (contact_insert_url_too_long): url with 2001 characters accepted';
   EXCEPTION
     WHEN check_violation THEN
@@ -90,7 +90,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_url_too_long;
 
--- Test that a contact without an account_id or an email_address is rejected
+-- Test that a contact without an account_id, email_addresses or phone_number is rejected
 SAVEPOINT contact_insert_identity_missing;
 DO $$
 DECLARE
@@ -102,7 +102,7 @@ BEGIN
   BEGIN
     INSERT INTO vibetype.contact(created_by, first_name)
     VALUES (accountA, 'Jane');
-    RAISE EXCEPTION 'Test failed (contact_insert_identity_missing): contact without account_id, email_address or phone_number accepted';
+    RAISE EXCEPTION 'Test failed (contact_insert_identity_missing): contact without account_id, email_addresses or phone_number accepted';
   EXCEPTION
     WHEN check_violation THEN
       NULL;
@@ -112,7 +112,7 @@ BEGIN
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_identity_missing;
 
--- Test that an email_address alone satisfies the identity constraint
+-- Test that email_addresses alone satisfies the identity constraint
 SAVEPOINT contact_insert_identity_email_only;
 DO $$
 DECLARE
@@ -122,8 +122,8 @@ BEGIN
   accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
   PERFORM vibetype_test.invoker_set(accountA);
 
-  INSERT INTO vibetype.contact(created_by, email_address)
-  VALUES (accountA, 'b@example.com')
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+  VALUES (accountA, ARRAY['b@example.com'])
   RETURNING id INTO contact_id;
 
   IF contact_id IS NULL THEN
@@ -173,5 +173,54 @@ BEGIN
   END IF;
 END $$;
 ROLLBACK TO SAVEPOINT contact_insert_identity_account_only;
+
+-- Test that an empty array, a null element and more than 10 email addresses are rejected
+SAVEPOINT contact_insert_email_addresses_invalid;
+DO $$
+DECLARE
+  accountA UUID;
+  _email_addresses TEXT[];
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  FOR _email_addresses IN
+    SELECT unnest_case FROM (VALUES
+      (ARRAY[]::TEXT[]),
+      (ARRAY['b@example.com', NULL]),
+      (ARRAY(SELECT 'b' || i || '@example.com' FROM generate_series(1, 11) AS i))
+    ) AS cases(unnest_case)
+  LOOP
+    BEGIN
+      INSERT INTO vibetype.contact(created_by, email_addresses)
+      VALUES (accountA, _email_addresses::vibetype.email_address[]);
+      RAISE EXCEPTION 'Test failed (contact_insert_email_addresses_invalid): email addresses % accepted', _email_addresses;
+    EXCEPTION
+      WHEN check_violation OR not_null_violation THEN
+        NULL;
+    END;
+  END LOOP;
+END $$;
+ROLLBACK TO SAVEPOINT contact_insert_email_addresses_invalid;
+
+-- Test that 10 email addresses are accepted and that the hash follows the first one
+SAVEPOINT contact_insert_email_addresses_primary;
+DO $$
+DECLARE
+  accountA UUID;
+  _hash TEXT;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+  VALUES (accountA, ARRAY(SELECT ' B' || i || '@Example.com ' FROM generate_series(1, 10) AS i))
+  RETURNING email_address_hash INTO _hash;
+
+  IF _hash IS DISTINCT FROM md5('b1@example.com') THEN
+    RAISE EXCEPTION 'Test failed (contact_insert_email_addresses_primary): hash % does not match the first email address', _hash;
+  END IF;
+END $$;
+ROLLBACK TO SAVEPOINT contact_insert_email_addresses_primary;
 
 ROLLBACK;

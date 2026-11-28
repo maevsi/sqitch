@@ -9,10 +9,11 @@ CREATE FUNCTION vibetype.event_by_invitation_link(invitation_link_id UUID) RETUR
   FROM vibetype.event_invitation_link l
   JOIN vibetype.event e ON e.id = l.event_id
   WHERE l.id = event_by_invitation_link.invitation_link_id
+    AND (e.published_at <= CURRENT_TIMESTAMP OR e.created_by = vibetype.invoker_account_id())
     AND e.created_by <> ALL (vibetype_private.account_block_ids());
 $$;
 
-COMMENT ON FUNCTION vibetype.event_by_invitation_link(UUID) IS 'Returns the event a general invitation link invites to, also when it is private, unless the link was deleted or its organizer is involved in a block with the invoker.';
+COMMENT ON FUNCTION vibetype.event_by_invitation_link(UUID) IS 'Returns the event a general invitation link invites to, also when it is private, unless the link was deleted, the event is a draft or scheduled and not organized by the invoker, or its organizer is involved in a block with the invoker.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_by_invitation_link(UUID) TO vibetype_account, vibetype_anonymous;
 

@@ -228,7 +228,7 @@ BEGIN
 
   PERFORM vibetype_test.invoker_set(accountA);
 
-  UPDATE vibetype.guest SET feedback = 'accepted' WHERE id IN (guestAB, guestAX);
+  UPDATE vibetype.guest SET feedback_override = 'accepted' WHERE id IN (guestAB, guestAX);
   GET DIAGNOSTICS _count = ROW_COUNT;
 
   IF _count <> 1 THEN
@@ -238,5 +238,127 @@ BEGIN
   PERFORM vibetype_test.invoker_set_previous();
 END $$;
 ROLLBACK TO SAVEPOINT guest_select_contact_without_account;
+
+-- The guest sets the feedback, the organizer sets the feedback override, and neither can alter the other's column.
+SAVEPOINT guest_feedback_override;
+DO $$
+DECLARE
+  accountA UUID;
+  accountB UUID;
+  contactAA UUID;
+  contactAB UUID;
+  contactAX UUID;
+  eventA UUID;
+  guestAA UUID;
+  guestAB UUID;
+  guestAX UUID;
+  _feedback vibetype.invitation_feedback;
+  _feedback_override vibetype.invitation_feedback;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  accountB := vibetype_test.account_registration_verified('b', 'b@example.com');
+
+  contactAA := vibetype_test.contact_select_by_account_id(accountA);
+  contactAB := vibetype_test.contact_create(accountA, 'b@example.com');
+  contactAX := vibetype_test.contact_create(accountA, 'x@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'private');
+  guestAA := vibetype_test.guest_create(accountA, eventA, contactAA);
+  guestAB := vibetype_test.guest_create(accountA, eventA, contactAB);
+  guestAX := vibetype_test.guest_create(accountA, eventA, contactAX);
+
+  PERFORM vibetype_test.invoker_set(accountB);
+
+  UPDATE vibetype.guest SET feedback = 'accepted' WHERE id = guestAB;
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback_override = 'canceled' WHERE id = guestAB;
+    RAISE EXCEPTION 'Test failed: a guest altered the feedback override';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback = 'canceled' WHERE id = guestAB;
+    RAISE EXCEPTION 'Test failed: an organizer altered the feedback of a guest';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  UPDATE vibetype.guest SET feedback_override = 'canceled' WHERE id = guestAB;
+
+  SELECT feedback, feedback_override INTO _feedback, _feedback_override FROM vibetype.guest WHERE id = guestAB;
+
+  IF _feedback IS DISTINCT FROM 'accepted' OR _feedback_override IS DISTINCT FROM 'canceled' THEN
+    RAISE EXCEPTION 'Test failed: expected feedback accepted with override canceled, got % with override %', _feedback, _feedback_override;
+  END IF;
+
+  -- An organizer who is also the guest sets both columns.
+  UPDATE vibetype.guest SET feedback = 'accepted', feedback_override = 'canceled' WHERE id = guestAA;
+
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM vibetype_test.invoker_set_anonymous();
+  PERFORM set_config('jwt.claims.guests', json_build_array(guestAX)::TEXT, true);
+
+  UPDATE vibetype.guest SET feedback = 'accepted' WHERE id = guestAX;
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback_override = 'canceled' WHERE id = guestAX;
+    RAISE EXCEPTION 'Test failed: an anonymous guest altered the feedback override';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  PERFORM set_config('jwt.claims.guests', '', true);
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT guest_feedback_override;
+
+SAVEPOINT guest_feedback_reason;
+DO $$
+DECLARE
+  accountA UUID;
+  contactAX UUID;
+  eventA UUID;
+  guestAX UUID;
+BEGIN
+  accountA := vibetype_test.account_registration_verified('a', 'a@example.com');
+  contactAX := vibetype_test.contact_create(accountA, 'x@example.com');
+  eventA := vibetype_test.event_create(accountA, 'Event by A', 'event-by-a', '2025-06-01 20:00', 'public');
+  guestAX := vibetype_test.guest_create(accountA, eventA, contactAX);
+
+  PERFORM set_config('jwt.claims.guests', '["' || guestAX || '"]', true);
+  PERFORM vibetype_test.invoker_set_anonymous();
+
+  UPDATE vibetype.guest SET feedback = 'canceled', feedback_reason = 'I am on vacation.' WHERE id = guestAX;
+
+  IF (SELECT feedback_reason FROM vibetype.guest WHERE id = guestAX) IS DISTINCT FROM 'I am on vacation.' THEN
+    RAISE EXCEPTION 'Test failed: a claimed guest should store a feedback reason';
+  END IF;
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback_reason = '' WHERE id = guestAX;
+    RAISE EXCEPTION 'Test failed: an empty feedback reason should be rejected';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+  PERFORM set_config('jwt.claims.guests', '', true);
+
+  PERFORM vibetype_test.invoker_set(accountA);
+
+  BEGIN
+    UPDATE vibetype.guest SET feedback_reason = 'Overwritten by the organizer.' WHERE id = guestAX;
+    RAISE EXCEPTION 'Test failed: the organizer should not alter the guest''s feedback reason';
+  EXCEPTION WHEN insufficient_privilege THEN
+    NULL;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT guest_feedback_reason;
 
 ROLLBACK;

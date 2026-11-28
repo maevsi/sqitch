@@ -155,7 +155,7 @@ BEGIN
       AND g.feedback = 'accepted'
       AND c.created_by = _organizer_id
       AND c.account_id IS NULL
-      AND c.email_address = 'guest@example.com'
+      AND c.email_addresses = ARRAY['guest@example.com']::vibetype.email_address[]
       AND c.first_name = 'Guest'
   ) THEN
     RAISE EXCEPTION 'Test failed: the anonymous visitor did not join with a new contact of the organizer';
@@ -223,5 +223,75 @@ BEGIN
   PERFORM vibetype_test.invoker_set_previous();
 END $$;
 ROLLBACK TO SAVEPOINT event_invitation_link_redeem_rejected;
+
+-- Drafts and scheduled events are not returned or joinable until published, except by the organizer who cannot redeem them either.
+SAVEPOINT event_invitation_link_unpublished;
+DO $$
+DECLARE
+  _account_id UUID;
+  _event_id UUID;
+  _link_id UUID;
+  _organizer_id UUID;
+  _state TEXT;
+BEGIN
+  _organizer_id := vibetype_test.account_registration_verified('organizer', 'organizer@example.com');
+  _account_id := vibetype_test.account_registration_verified('guest', 'guest@example.com');
+  _event_id := vibetype_test.event_create(_organizer_id, 'Event', 'event', '2099-01-01 20:00', 'private');
+
+  PERFORM vibetype_test.invoker_set(_organizer_id);
+  INSERT INTO vibetype.event_invitation_link (event_id) VALUES (_event_id) RETURNING id INTO _link_id;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  FOREACH _state IN ARRAY ARRAY['draft', 'scheduled'] LOOP
+    PERFORM vibetype_test.invoker_set(_organizer_id);
+    IF _state = 'draft' THEN
+      UPDATE vibetype.event SET published_at = NULL WHERE id = _event_id;
+    ELSE
+      UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP + INTERVAL '1 day' WHERE id = _event_id;
+    END IF;
+    PERFORM vibetype_test.invoker_set_previous();
+
+    PERFORM vibetype_test.invoker_set(_account_id);
+    IF (vibetype.event_by_invitation_link(_link_id)).id IS NOT NULL THEN
+      RAISE EXCEPTION 'Test failed: the link returns a % event to a non-organizer', _state;
+    END IF;
+
+    BEGIN
+      PERFORM vibetype.event_invitation_link_redeem(_link_id);
+      RAISE EXCEPTION 'Test failed: a % event was redeemed', _state;
+    EXCEPTION WHEN SQLSTATE 'VTILN' THEN
+      NULL;
+    END;
+    PERFORM vibetype_test.invoker_set_previous();
+
+    PERFORM vibetype_test.invoker_set(_organizer_id);
+    IF (vibetype.event_by_invitation_link(_link_id)).id IS DISTINCT FROM _event_id THEN
+      RAISE EXCEPTION 'Test failed: the link does not return the % event to the organizer', _state;
+    END IF;
+
+    BEGIN
+      PERFORM vibetype.event_invitation_link_redeem(_link_id);
+      RAISE EXCEPTION 'Test failed: the organizer redeemed a % event', _state;
+    EXCEPTION WHEN SQLSTATE 'VTILN' THEN
+      NULL;
+    END;
+    PERFORM vibetype_test.invoker_set_previous();
+  END LOOP;
+
+  PERFORM vibetype_test.invoker_set(_organizer_id);
+  UPDATE vibetype.event SET published_at = CURRENT_TIMESTAMP WHERE id = _event_id;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  PERFORM vibetype_test.invoker_set(_account_id);
+  IF (vibetype.event_by_invitation_link(_link_id)).id IS DISTINCT FROM _event_id THEN
+    RAISE EXCEPTION 'Test failed: the link does not return the published event';
+  END IF;
+
+  IF vibetype.event_invitation_link_redeem(_link_id) IS NULL THEN
+    RAISE EXCEPTION 'Test failed: the published event was not redeemed';
+  END IF;
+  PERFORM vibetype_test.invoker_set_previous();
+END $$;
+ROLLBACK TO SAVEPOINT event_invitation_link_unpublished;
 
 ROLLBACK;

@@ -34,22 +34,6 @@ COMMENT ON SCHEMA sqitch IS 'Sqitch database deployment metadata v1.1.';
 
 
 --
--- Name: topology; Type: SCHEMA; Schema: -; Owner: ci
---
-
-CREATE SCHEMA topology;
-
-
-ALTER SCHEMA topology OWNER TO ci;
-
---
--- Name: SCHEMA topology; Type: COMMENT; Schema: -; Owner: ci
---
-
-COMMENT ON SCHEMA topology IS 'PostGIS Topology schema';
-
-
---
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -88,21 +72,7 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 -- Name: EXTENSION postgis; Type: COMMENT; Schema: -; Owner: 
 --
 
-COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
-
-
---
--- Name: postgis_topology; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS postgis_topology WITH SCHEMA topology;
-
-
---
--- Name: EXTENSION postgis_topology; Type: COMMENT; Schema: -; Owner: 
---
-
-COMMENT ON EXTENSION postgis_topology IS 'PostGIS topology spatial types and functions';
+COMMENT ON EXTENSION postgis IS 'Provides support for geographic objects and spatial queries.';
 
 
 SET default_tablespace = '';

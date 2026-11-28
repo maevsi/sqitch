@@ -1,12 +1,16 @@
 BEGIN;
 
+CREATE DOMAIN vibetype.email_address AS TEXT NOT NULL CHECK (char_length(VALUE) <= 254); -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
+
+COMMENT ON DOMAIN vibetype.email_address IS 'An email address. Must not exceed 254 characters (RFC 5321).';
+
 CREATE TABLE vibetype.contact (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   account_id            UUID REFERENCES vibetype.account(id) ON DELETE SET NULL,
   address_id            UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
-  email_address         TEXT CHECK (char_length(email_address) <= 254), -- no regex check as "a valid email address is one that you can send emails to" (http://www.dominicsayers.com/isemail/)
-  email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_address, '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
+  email_addresses       vibetype.email_address[] CHECK (cardinality(email_addresses) BETWEEN 1 AND 10),
+  email_address_hash    TEXT GENERATED ALWAYS AS (md5(lower(substring(email_addresses[1], '\S(?:.*\S)*')))) STORED, -- for gravatar profile pictures
   first_name            TEXT CHECK (char_length(first_name) > 0 AND char_length(first_name) <= 100),
   language              vibetype.language,
   last_name             TEXT CHECK (char_length(last_name) > 0 AND char_length(last_name) <= 100),
@@ -20,12 +24,11 @@ CREATE TABLE vibetype.contact (
   created_by            UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
   UNIQUE (created_by, account_id),
-  CONSTRAINT contact_identity_check CHECK (account_id IS NOT NULL OR email_address IS NOT NULL OR phone_number IS NOT NULL)
+  CONSTRAINT contact_identity_check CHECK (account_id IS NOT NULL OR email_addresses IS NOT NULL OR phone_number IS NOT NULL)
 );
 
 CREATE INDEX idx_contact_account_id ON vibetype.contact USING btree (account_id);
 CREATE INDEX idx_contact_address_id ON vibetype.contact USING btree (address_id);
-CREATE INDEX idx_contact_created_by ON vibetype.contact USING btree (created_by);
 CREATE INDEX idx_contact_name_first ON vibetype.contact USING btree (first_name);
 CREATE INDEX idx_contact_name_last ON vibetype.contact USING btree (last_name);
 
@@ -33,8 +36,8 @@ COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to acco
 COMMENT ON COLUMN vibetype.contact.id IS E'@behavior -insert -update\nPrimary key, uniquely identifies each contact.';
 COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
 COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS E'@behavior -insert -update\nHash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+COMMENT ON COLUMN vibetype.contact.email_addresses IS 'Email addresses of the contact, between 1 and 10 when set. The first one is the primary address, which invitations are sent to.';
+COMMENT ON COLUMN vibetype.contact.email_address_hash IS E'@behavior -insert -update\nHash of the primary email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
 COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
 COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
 COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
@@ -46,12 +49,13 @@ COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must
 COMMENT ON COLUMN vibetype.contact.created_at IS E'@behavior -insert -update\nTimestamp when the contact was created. Defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
 COMMENT ON CONSTRAINT contact_created_by_account_id_key ON vibetype.contact IS 'Ensures the uniqueness of the combination of `created_by` and `account_id` for a contact.';
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), its own `email_address`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), one of its own `email_addresses`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
 
 -- GRANTs, RLS and POLICYs are specified in `table_contact_policy`.
 
 CREATE FUNCTION vibetype.trigger_contact_check_time_zone() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF NEW.time_zone IS NOT NULL THEN
@@ -77,6 +81,7 @@ CREATE TRIGGER time_zone
 
 CREATE FUNCTION vibetype.trigger_contact_update_account_id() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   BEGIN
     IF (

@@ -69,3 +69,51 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.guest_join_rejected_test(TEXT, UUID, UUID, UUID, TEXT) TO vibetype_account;
+
+
+-- Runs a statement as the given invoker (NULL for anonymous) and expects it to fail with the given SQLSTATE.
+CREATE OR REPLACE FUNCTION vibetype_test.guest_companion_rejected_test (
+  _test_case TEXT,
+  _account_id UUID,
+  _statement TEXT,
+  _sqlstate TEXT
+) RETURNS VOID AS $$
+BEGIN
+  IF _account_id IS NULL THEN
+    PERFORM vibetype_test.invoker_set_anonymous();
+  ELSE
+    PERFORM vibetype_test.invoker_set(_account_id);
+  END IF;
+
+  BEGIN
+    EXECUTE _statement;
+    RAISE EXCEPTION '%: the statement should have been rejected', _test_case;
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLSTATE <> _sqlstate THEN
+      RAISE EXCEPTION '%: expected error %, got % (%)', _test_case, _sqlstate, SQLSTATE, SQLERRM;
+    END IF;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.guest_companion_rejected_test(TEXT, UUID, TEXT, TEXT) TO vibetype_account, vibetype_anonymous;
+
+
+-- Reads a companion column of a guest as the given account, as guests are only visible to their invoker.
+CREATE OR REPLACE FUNCTION vibetype_test.guest_companion_get (
+  _column TEXT,
+  _account_id UUID,
+  _guest_id UUID
+) RETURNS INTEGER AS $$
+DECLARE
+  _result INTEGER;
+BEGIN
+  PERFORM vibetype_test.invoker_set(_account_id);
+  EXECUTE format('SELECT %I FROM vibetype.guest WHERE id = $1', _column) INTO _result USING _guest_id;
+  PERFORM vibetype_test.invoker_set_previous();
+
+  RETURN _result;
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.guest_companion_get(TEXT, UUID, UUID) TO vibetype_account, vibetype_anonymous;

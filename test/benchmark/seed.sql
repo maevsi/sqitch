@@ -79,7 +79,7 @@ INSERT INTO vibetype.event (name, slug, visibility, start, "end", guest_count_ma
   SELECT
     'Benchmark Event ' || event_num,
     'benchmark-event-' || event_num,
-    (ARRAY['public', 'public', 'public', 'private', 'unlisted'])[1 + (event_num % 5)]::vibetype.event_visibility,
+    (ARRAY['public', 'public', 'public', 'private', 'public'])[1 + (event_num % 5)]::vibetype.event_visibility,
     '2025-06-01'::TIMESTAMPTZ + (event_num || ' hours')::INTERVAL,
     '2025-06-01'::TIMESTAMPTZ + (event_num || ' hours')::INTERVAL + '4 hours'::INTERVAL,
     CASE WHEN event_num % 10 = 0 THEN 50 ELSE NULL END,
@@ -126,9 +126,9 @@ CREATE TEMP TABLE _benchmark_events AS
   WHERE slug LIKE 'benchmark-event-%';
 
 -- 1000 contacts: first 20 accounts each create 50 contacts
-INSERT INTO vibetype.contact (email_address, first_name, last_name, created_by)
+INSERT INTO vibetype.contact (email_addresses, first_name, last_name, created_by)
   SELECT
-    'contact-' || contact_num || '@example.test',
+    ARRAY['contact-' || contact_num || '@example.test'],
     'First' || contact_num,
     'Last' || contact_num,
     a.id
@@ -203,7 +203,7 @@ DECLARE
 BEGIN
   SELECT count(*) INTO _accounts FROM vibetype.account WHERE username LIKE 'benchmark-%';
   SELECT count(*) INTO _events FROM vibetype.event WHERE slug LIKE 'benchmark-%';
-  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_address LIKE 'contact-%';
+  SELECT count(*) INTO _contacts FROM vibetype.contact WHERE email_addresses[1] LIKE 'contact-%';
   SELECT count(*) INTO _guests FROM vibetype.guest;
   SELECT count(*) INTO _attendances FROM vibetype.attendance;
   RAISE NOTICE 'Benchmark seed complete: % accounts, % events, % contacts, % guests, % attendances',
@@ -255,7 +255,7 @@ BEGIN
       md5('benchmark-large-event-' || e)::UUID,
       'Benchmark Large Event ' || e,
       'benchmark-large-event-' || e,
-      (ARRAY['public', 'public', 'public', 'private', 'unlisted'])[1 + (e % 5)]::vibetype.event_visibility,
+      (ARRAY['public', 'public', 'public', 'private', 'public'])[1 + (e % 5)]::vibetype.event_visibility,
       '2025-07-01'::TIMESTAMPTZ + (e || ' hours')::INTERVAL,
       '2025-07-01'::TIMESTAMPTZ + (e || ' hours')::INTERVAL + '4 hours'::INTERVAL,
       CASE WHEN e % 10 = 0 THEN 80 WHEN e % 5 = 0 THEN 1000 ELSE NULL END,
@@ -265,10 +265,10 @@ BEGIN
     FROM generate_series(1, 500) AS e;
 
   -- 2000 contacts owned by the organizer; each event invites 80 of them, which makes 40000 guests.
-  INSERT INTO vibetype.contact (id, email_address, first_name, last_name, created_by)
+  INSERT INTO vibetype.contact (id, email_addresses, first_name, last_name, created_by)
     SELECT
       md5('benchmark-large-contact-' || c)::UUID,
-      'large-contact-' || c || '@example.test',
+      ARRAY['large-contact-' || c || '@example.test'],
       'LargeFirst' || c,
       'LargeLast' || c,
       md5('benchmark-persona-organizer-large')::UUID
@@ -301,7 +301,7 @@ BEGIN
       md5('benchmark-invitation-event-' || n)::UUID,
       'Benchmark Invitation Event ' || n,
       'benchmark-invitation-event-' || n,
-      (ARRAY['public', 'private', 'unlisted'])[1 + (n % 3)]::vibetype.event_visibility,
+      (ARRAY['public', 'private', 'public'])[1 + (n % 3)]::vibetype.event_visibility,
       '2025-08-01'::TIMESTAMPTZ + (n || ' hours')::INTERVAL,
       '2025-08-01'::TIMESTAMPTZ + (n || ' hours')::INTERVAL + '4 hours'::INTERVAL,
       CASE WHEN n % 10 = 0 THEN 50 ELSE NULL END,

@@ -6,12 +6,14 @@ CREATE TABLE vibetype.event (
   address_id               UUID REFERENCES vibetype.address(id) ON DELETE SET NULL,
   description              TEXT CHECK (char_length("description") > 0 AND char_length("description") <= 10000),
   "end"                    TIMESTAMP WITH TIME ZONE,
+  feedback_deadline        TIMESTAMP WITH TIME ZONE,
   guest_count_maximum      INTEGER CHECK (guest_count_maximum > 0),
   is_archived              BOOLEAN NOT NULL DEFAULT FALSE,
   is_in_person             BOOLEAN,
   is_remote                BOOLEAN,
   language                 vibetype.language,
   name                     TEXT NOT NULL CHECK (char_length("name") > 0 AND char_length("name") <= 100),
+  published_at             TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   slug                     TEXT NOT NULL CHECK (char_length(slug) <= 100 AND slug ~ '^[-A-Za-z0-9]+$'),
   start                    TIMESTAMP WITH TIME ZONE NOT NULL,
   url                      TEXT CHECK (char_length("url") <= 2000 AND "url" ~ '^https://[^[:space:]]+$'),
@@ -20,40 +22,52 @@ CREATE TABLE vibetype.event (
   created_at               TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   created_by               UUID NOT NULL REFERENCES vibetype.account(id) ON DELETE CASCADE,
 
+  guest_count              INTEGER NOT NULL DEFAULT 0,
+  guest_count_accepted     INTEGER NOT NULL DEFAULT 0,
+
+  -- A stored generated column defines the rule once and can be indexed, which an expression index cannot under row level security.
+  -- Following RFC 5545, an event without an explicit end ends at its start (zero duration).
+  effective_end            TIMESTAMP WITH TIME ZONE GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
+
   UNIQUE (created_by, slug)
 );
 
 CREATE INDEX idx_event_address_id ON vibetype.event USING btree (address_id);
-CREATE INDEX idx_event_created_by ON vibetype.event USING btree (created_by);
+CREATE INDEX idx_event_created_by_start ON vibetype.event USING btree (created_by, start);
 CREATE INDEX idx_event_end ON vibetype.event USING btree ("end")
   WHERE "end" IS NOT NULL;
 CREATE INDEX idx_event_start ON vibetype.event USING btree (start);
+CREATE INDEX idx_event_start_effective_end ON vibetype.event USING btree (start, effective_end);
 CREATE INDEX idx_event_name_trgm ON vibetype.event USING gin (name gin_trgm_ops);
 
--- The event table and its `start`/`end` columns are opted into PostGraphile's
--- connection filter plugin, which is configured to be opt-in by default
--- (see `maevsi/postgraphile`'s `defaultBehavior`).
--- No other table or column is affected: filtering stays disabled everywhere else.
-COMMENT ON TABLE vibetype.event IS E'@behavior +filter\nAn event.';
+COMMENT ON TABLE vibetype.event IS 'An event.';
 COMMENT ON COLUMN vibetype.event.id IS E'@behavior -insert -update\nThe event''s internal id.';
 COMMENT ON COLUMN vibetype.event.address_id IS 'Optional reference to the physical address of the event.';
 COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must be non-empty and not exceed 10,000 characters.';
-COMMENT ON COLUMN vibetype.event.end IS E'@behavior +filterBy\nThe event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.end IS 'The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 COMMENT ON COLUMN vibetype.event.guest_count_maximum IS 'The event''s maximum guest count. Must be greater than 0.';
 COMMENT ON COLUMN vibetype.event.is_archived IS 'Indicates whether the event is archived.';
 COMMENT ON COLUMN vibetype.event.is_in_person IS 'Indicates whether the event takes place in person.';
 COMMENT ON COLUMN vibetype.event.is_remote IS 'Indicates whether the event takes place remotely.';
 COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty and not exceed 100 characters.';
+COMMENT ON COLUMN vibetype.event.published_at IS 'The timestamp from which the event is published. An event without one is a draft and one with a future timestamp is scheduled; until then only its organizer can see it.';
 COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be alphanumeric with hyphens and not exceed 100 characters.';
-COMMENT ON COLUMN vibetype.event.start IS E'@behavior +filterBy\nThe event''s start date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 COMMENT ON COLUMN vibetype.event.url IS 'The event''s unified resource locator. Must start with "https://" and not exceed 2,000 characters.';
 COMMENT ON COLUMN vibetype.event.visibility IS 'The event''s visibility.';
 COMMENT ON COLUMN vibetype.event.created_at IS E'@behavior -insert -update\nTimestamp of when the event was created, defaults to the current timestamp.';
 COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
+COMMENT ON COLUMN vibetype.event.guest_count IS E'@behavior -insert -update\nThe number of seats taken at the event, each guest taking one plus their approved companions, maintained by triggers on the guest table.';
+COMMENT ON COLUMN vibetype.event.guest_count_accepted IS E'@behavior -insert -update\nThe number of seats taken by guests whose effective feedback is accepted, the organizer''s override taking precedence, each such guest taking one plus their approved companions, maintained by triggers on the guest table.';
+COMMENT ON COLUMN vibetype.event.effective_end IS E'@behavior -*\nThe event''s end date and time, falling back to its start when no explicit end is set.';
+COMMENT ON INDEX vibetype.idx_event_created_by_start IS 'B-Tree index serving the events of a creator ordered by start.';
+COMMENT ON INDEX vibetype.idx_event_start_effective_end IS 'B-Tree index serving the upcoming events list, which reads events in start order and skips ended ones inside the index.';
 COMMENT ON INDEX vibetype.idx_event_name_trgm IS 'GIN trigram index on the name, used for prefix and typo-tolerant search fallback.';
 
 CREATE FUNCTION vibetype.trigger_event_search_vector() RETURNS TRIGGER
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _ts_config regconfig;
@@ -89,6 +103,30 @@ CREATE TRIGGER search_vector
   ON vibetype.event
   FOR EACH ROW
   EXECUTE FUNCTION vibetype.trigger_event_search_vector();
+
+CREATE FUNCTION vibetype.trigger_event_published_at() RETURNS TRIGGER
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF (
+    NEW.published_at < CURRENT_TIMESTAMP
+    AND NOT (TG_OP = 'UPDATE' AND NEW.published_at IS NOT DISTINCT FROM OLD.published_at)
+  ) THEN
+    NEW.published_at := CURRENT_TIMESTAMP;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+COMMENT ON FUNCTION vibetype.trigger_event_published_at() IS 'Prevents backdating the publication of an event: a past published_at is replaced by the current timestamp, unless an update leaves an existing value unchanged.';
+
+CREATE TRIGGER published_at
+  BEFORE
+       INSERT
+    OR UPDATE OF published_at
+  ON vibetype.event
+  FOR EACH ROW
+  EXECUTE FUNCTION vibetype.trigger_event_published_at();
 
 -- GRANTs, RLS and POLICYs are specified in `table_event_policy`.
 

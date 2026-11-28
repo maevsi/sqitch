@@ -59,13 +59,6 @@ BEGIN
     NULL;
   END;
 
-  BEGIN
-    UPDATE vibetype.guest SET feedback_paper = 'paper' WHERE id = guestBA;
-    RAISE EXCEPTION 'Test failed: a guest should not give paper feedback after the deadline';
-  EXCEPTION WHEN SQLSTATE 'VTFDP' THEN
-    NULL;
-  END;
-
   PERFORM vibetype_test.invoker_set(accountC);
 
   BEGIN
@@ -77,7 +70,7 @@ BEGIN
   END;
 
   PERFORM vibetype_test.invoker_set(accountA);
-  UPDATE vibetype.guest SET feedback = 'canceled' WHERE id = guestBA;
+  UPDATE vibetype.guest SET feedback_override = 'canceled' WHERE id = guestBA;
   GET DIAGNOSTICS _count = ROW_COUNT;
 
   PERFORM vibetype_test.invoker_set_previous();

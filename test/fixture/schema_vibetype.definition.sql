@@ -69,6 +69,23 @@ COMMENT ON TYPE vibetype.achievement_type IS 'Achievements that can be unlocked 
 
 
 --
+-- Name: email_address; Type: DOMAIN; Schema: vibetype; Owner: ci
+--
+
+CREATE DOMAIN vibetype.email_address AS text NOT NULL
+	CONSTRAINT email_address_check CHECK ((char_length(VALUE) <= 254));
+
+
+ALTER DOMAIN vibetype.email_address OWNER TO ci;
+
+--
+-- Name: DOMAIN email_address; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON DOMAIN vibetype.email_address IS 'An email address. Must not exceed 254 characters (RFC 5321).';
+
+
+--
 -- Name: event_size; Type: TYPE; Schema: vibetype; Owner: ci
 --
 
@@ -95,8 +112,7 @@ COMMENT ON TYPE vibetype.event_size IS 'Possible event sizes: small, medium, lar
 
 CREATE TYPE vibetype.event_visibility AS ENUM (
     'public',
-    'private',
-    'unlisted'
+    'private'
 );
 
 
@@ -106,7 +122,7 @@ ALTER TYPE vibetype.event_visibility OWNER TO ci;
 -- Name: TYPE event_visibility; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TYPE vibetype.event_visibility IS 'Possible visibilities of events and event groups: public, private and unlisted.';
+COMMENT ON TYPE vibetype.event_visibility IS 'Possible visibilities of events and event groups: public and private.';
 
 
 --
@@ -146,26 +162,6 @@ ALTER TYPE vibetype.invitation_feedback OWNER TO ci;
 --
 
 COMMENT ON TYPE vibetype.invitation_feedback IS 'Possible answers to an invitation: accepted, canceled.';
-
-
---
--- Name: invitation_feedback_paper; Type: TYPE; Schema: vibetype; Owner: ci
---
-
-CREATE TYPE vibetype.invitation_feedback_paper AS ENUM (
-    'none',
-    'paper',
-    'digital'
-);
-
-
-ALTER TYPE vibetype.invitation_feedback_paper OWNER TO ci;
-
---
--- Name: TYPE invitation_feedback_paper; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TYPE vibetype.invitation_feedback_paper IS 'Possible choices on how to receive a paper invitation: none, paper, digital.';
 
 
 --
@@ -288,7 +284,7 @@ BEGIN
 
   IF (EXISTS (SELECT 1 FROM vibetype_private.account WHERE account.id = _current_account_id AND account.password_hash = public.crypt(account_delete.password, account.password_hash))) THEN
     DELETE FROM vibetype.contact WHERE created_by = _current_account_id AND account_id = _current_account_id; -- needed because the ON DELETE SET NULL FK action on contact.account_id fires a BEFORE UPDATE trigger that blocks nullifying the own contact while the deleting account's JWT claims are still active in the same transaction
-    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_address IS NULL AND phone_number IS NULL; -- contacts with no email or phone fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
+    DELETE FROM vibetype.contact WHERE account_id = _current_account_id AND email_addresses IS NULL AND phone_number IS NULL; -- contacts with no email or phone fallback would violate contact_identity_check once ON DELETE SET NULL nullifies account_id
     DELETE FROM vibetype_private.account WHERE account.id = _current_account_id;
   ELSE
     RAISE 'Account with given password not found!' USING ERRCODE = 'invalid_password';
@@ -506,7 +502,7 @@ BEGIN
     RAISE 'Password too short!' USING ERRCODE = 'VTPLL';
   END IF;
 
-  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE account.username = account_registration.username)) THEN
+  IF (EXISTS (SELECT 1 FROM vibetype.account WHERE lower(account.username) = lower(account_registration.username))) THEN
     RAISE 'An account with this username already exists!' USING ERRCODE = 'VTAUV';
   END IF;
 
@@ -907,6 +903,270 @@ COMMENT ON FUNCTION vibetype.attendance_guard() IS 'Ensures that checking out ca
 
 
 --
+-- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
+--
+
+CREATE TABLE vibetype.contact (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_id uuid,
+    address_id uuid,
+    email_addresses vibetype.email_address[],
+    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"((email_addresses[1])::text, '\S(?:.*\S)*'::text)))) STORED,
+    first_name text,
+    language vibetype.language,
+    last_name text,
+    nickname text,
+    note text,
+    phone_number text,
+    time_zone text,
+    url text,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_by uuid NOT NULL,
+    CONSTRAINT contact_email_addresses_check CHECK (((cardinality(email_addresses) >= 1) AND (cardinality(email_addresses) <= 10))),
+    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
+    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_addresses IS NOT NULL) OR (phone_number IS NOT NULL))),
+    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
+    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
+    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
+    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
+    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
+);
+
+
+ALTER TABLE vibetype.contact OWNER TO ci;
+
+--
+-- Name: TABLE contact; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
+
+
+--
+-- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
+Primary key, uniquely identifies each contact.';
+
+
+--
+-- Name: COLUMN contact.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
+
+
+--
+-- Name: COLUMN contact.address_id; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
+
+
+--
+-- Name: COLUMN contact.email_addresses; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.email_addresses IS 'Email addresses of the contact, between 1 and 10 when set. The first one is the primary address, which invitations are sent to.';
+
+
+--
+-- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
+Hash of the primary email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
+
+
+--
+-- Name: COLUMN contact.first_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
+
+
+--
+-- Name: COLUMN contact.language; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
+
+
+--
+-- Name: COLUMN contact.last_name; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
+
+
+--
+-- Name: COLUMN contact.nickname; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
+
+
+--
+-- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
+
+
+--
+-- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
+
+
+--
+-- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
+
+
+--
+-- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
+
+
+--
+-- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
+Timestamp when the contact was created. Defaults to the current timestamp.';
+
+
+--
+-- Name: COLUMN contact.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
+
+
+--
+-- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), one of its own `email_addresses`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
+
+
+--
+-- Name: contact_merge(uuid, uuid, vibetype.contact); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) RETURNS vibetype.contact
+    LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _account_id UUID := vibetype.invoker_account_id();
+  _blocked UUID[] := vibetype_private.account_block_ids();
+  _kept vibetype.contact;
+  _merged vibetype.contact;
+  _result vibetype.contact;
+BEGIN
+  SELECT * INTO _kept
+  FROM vibetype.contact c
+  WHERE c.id = contact_merge.contact_id
+    AND c.created_by = _account_id
+    AND (c.account_id IS NULL OR NOT (c.account_id = ANY (_blocked)))
+  FOR UPDATE;
+
+  SELECT * INTO _merged
+  FROM vibetype.contact c
+  WHERE c.id = contact_merge.contact_id_merged
+    AND c.created_by = _account_id
+    AND (c.account_id IS NULL OR NOT (c.account_id = ANY (_blocked)))
+  FOR UPDATE;
+
+  IF _kept.id IS NULL OR _merged.id IS NULL OR _kept.id = _merged.id THEN
+    RAISE 'Both contacts must be distinct contacts of yours.' USING ERRCODE = 'VTCMN';
+  END IF;
+
+  IF _kept.account_id = _account_id OR _merged.account_id = _account_id THEN
+    RAISE 'Your own account''s contact cannot be merged.' USING ERRCODE = 'VTCMS';
+  END IF;
+
+  IF _kept.account_id <> _merged.account_id THEN
+    RAISE 'Contacts of two different accounts cannot be merged.' USING ERRCODE = 'VTCMA';
+  END IF;
+
+  IF contact_merge.contact.account_id IS DISTINCT FROM COALESCE(_kept.account_id, _merged.account_id)
+    OR (
+      contact_merge.contact.address_id IS NOT NULL
+      AND contact_merge.contact.address_id IS DISTINCT FROM _kept.address_id
+      AND contact_merge.contact.address_id IS DISTINCT FROM _merged.address_id
+    )
+  THEN
+    RAISE 'The account and address must be taken from either contact.' USING ERRCODE = 'VTCMV';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM vibetype.guest g_kept
+    JOIN vibetype.guest g_merged ON g_merged.event_id = g_kept.event_id
+    WHERE g_kept.contact_id = _kept.id
+      AND g_merged.contact_id = _merged.id
+  ) THEN
+    RAISE 'Both contacts are guests of the same event.' USING ERRCODE = 'VTCMG';
+  END IF;
+
+  UPDATE vibetype.guest SET contact_id = _kept.id WHERE guest.contact_id = _merged.id;
+  UPDATE vibetype.attendance SET contact_id = _kept.id WHERE attendance.contact_id = _merged.id;
+
+  INSERT INTO vibetype.contact_group_member (contact_group_id, contact_id)
+  SELECT m.contact_group_id, _kept.id
+  FROM vibetype.contact_group_member m
+  WHERE m.contact_id = _merged.id
+  ON CONFLICT DO NOTHING;
+
+  -- Deleted before the update, as the unique constraint on `created_by` and `account_id` would reject the kept contact taking over the merged contact's account.
+  DELETE FROM vibetype.contact WHERE id = _merged.id;
+
+  UPDATE vibetype.contact SET
+    account_id = contact_merge.contact.account_id,
+    address_id = contact_merge.contact.address_id,
+    email_addresses = contact_merge.contact.email_addresses,
+    first_name = contact_merge.contact.first_name,
+    language = contact_merge.contact.language,
+    last_name = contact_merge.contact.last_name,
+    nickname = contact_merge.contact.nickname,
+    note = contact_merge.contact.note,
+    phone_number = contact_merge.contact.phone_number,
+    time_zone = contact_merge.contact.time_zone,
+    url = contact_merge.contact.url
+  WHERE id = _kept.id
+  RETURNING * INTO _result;
+
+  RETURN _result;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) OWNER TO ci;
+
+--
+-- Name: FUNCTION contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) IS 'Merges a contact into another one of yours and returns the kept contact. The kept contact takes over the given contact''s account, address, email addresses, names, language, note, phone number, time zone and URL, so the caller picks each value. The merged contact''s guests, attendances and group memberships move to the kept contact, so existing invitations stay valid, and the merged contact is deleted.
+
+Error codes:
+- **VTCMN** when either contact is not one of yours or both are the same.
+- **VTCMS** when either contact is your own account''s contact.
+- **VTCMA** when the contacts refer to two different accounts.
+- **VTCMV** when the account or address is not taken from either contact.
+- **VTCMG** when both contacts are guests of the same event.';
+
+
+--
 -- Name: contact_group_member; Type: TABLE; Schema: vibetype; Owner: ci
 --
 
@@ -1046,161 +1306,6 @@ COMMENT ON FUNCTION vibetype.create_contact_groups(names text[]) IS 'Creates the
 
 
 --
--- Name: contact; Type: TABLE; Schema: vibetype; Owner: ci
---
-
-CREATE TABLE vibetype.contact (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    account_id uuid,
-    address_id uuid,
-    email_address text,
-    email_address_hash text GENERATED ALWAYS AS (md5(lower("substring"(email_address, '\S(?:.*\S)*'::text)))) STORED,
-    first_name text,
-    language vibetype.language,
-    last_name text,
-    nickname text,
-    note text,
-    phone_number text,
-    time_zone text,
-    url text,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    created_by uuid NOT NULL,
-    CONSTRAINT contact_email_address_check CHECK ((char_length(email_address) <= 254)),
-    CONSTRAINT contact_first_name_check CHECK (((char_length(first_name) > 0) AND (char_length(first_name) <= 100))),
-    CONSTRAINT contact_identity_check CHECK (((account_id IS NOT NULL) OR (email_address IS NOT NULL) OR (phone_number IS NOT NULL))),
-    CONSTRAINT contact_last_name_check CHECK (((char_length(last_name) > 0) AND (char_length(last_name) <= 100))),
-    CONSTRAINT contact_nickname_check CHECK (((char_length(nickname) > 0) AND (char_length(nickname) <= 100))),
-    CONSTRAINT contact_note_check CHECK (((char_length(note) > 0) AND (char_length(note) <= 1000))),
-    CONSTRAINT contact_phone_number_check CHECK ((phone_number ~ '^\+(?:[0-9] ?){6,14}[0-9]$'::text)),
-    CONSTRAINT contact_url_check CHECK (((char_length(url) <= 2000) AND (url ~ '^https://[^[:space:]]+$'::text)))
-);
-
-
-ALTER TABLE vibetype.contact OWNER TO ci;
-
---
--- Name: TABLE contact; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON TABLE vibetype.contact IS 'Stores contact information related to accounts, including personal details, communication preferences, and metadata.';
-
-
---
--- Name: COLUMN contact.id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.id IS '@behavior -insert -update
-Primary key, uniquely identifies each contact.';
-
-
---
--- Name: COLUMN contact.account_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.account_id IS 'Optional reference to an associated account.';
-
-
---
--- Name: COLUMN contact.address_id; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.address_id IS 'Optional reference to the physical address of the contact.';
-
-
---
--- Name: COLUMN contact.email_address; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address IS 'Email address of the contact. Must not exceed 254 characters (RFC 5321).';
-
-
---
--- Name: COLUMN contact.email_address_hash; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.email_address_hash IS '@behavior -insert -update
-Hash of the email address, generated using md5 on the lowercased trimmed version of the email. Useful to display a profile picture from Gravatar.';
-
-
---
--- Name: COLUMN contact.first_name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.first_name IS 'First name of the contact. Must be between 1 and 100 characters.';
-
-
---
--- Name: COLUMN contact.language; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.language IS 'Reference to the preferred language of the contact.';
-
-
---
--- Name: COLUMN contact.last_name; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.last_name IS 'Last name of the contact. Must be between 1 and 100 characters.';
-
-
---
--- Name: COLUMN contact.nickname; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.nickname IS 'Nickname of the contact. Must be between 1 and 100 characters. Useful when the contact is not commonly referred to by their legal name.';
-
-
---
--- Name: COLUMN contact.note; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.note IS 'Additional notes about the contact. Must be between 1 and 1,000 characters. Useful for providing context or distinguishing details if the name alone is insufficient.';
-
-
---
--- Name: COLUMN contact.phone_number; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.phone_number IS 'The international phone number of the contact, formatted according to E.164 (https://wikipedia.org/wiki/E.164).';
-
-
---
--- Name: COLUMN contact.time_zone; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.time_zone IS 'Time zone of the contact in IANA format, e.g., `Europe/Berlin` or `America/New_York`.';
-
-
---
--- Name: COLUMN contact.url; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.url IS 'URL associated with the contact, must start with "https://" and not exceed 2,000 characters.';
-
-
---
--- Name: COLUMN contact.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.created_at IS '@behavior -insert -update
-Timestamp when the contact was created. Defaults to the current timestamp.';
-
-
---
--- Name: COLUMN contact.created_by; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.contact.created_by IS 'Reference to the account that created this contact. Enforces cascading deletion.';
-
-
---
--- Name: CONSTRAINT contact_identity_check ON contact; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON CONSTRAINT contact_identity_check ON vibetype.contact IS 'Ensures each contact is reachable via a linked account (which always has an email address), its own `email_address`, or its own `phone_number`, to satisfy the GDPR duty to inform data subjects whose personal data is stored.';
-
-
---
 -- Name: create_contacts(vibetype.contact[]); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -1211,7 +1316,7 @@ CREATE FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) RETURNS SE
     account_id,
     address_id,
     created_by,
-    email_address,
+    email_addresses,
     first_name,
     language,
     last_name,
@@ -1225,7 +1330,7 @@ CREATE FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) RETURNS SE
     c.account_id,
     c.address_id,
     (SELECT vibetype.invoker_account_id()),
-    c.email_address,
+    c.email_addresses,
     c.first_name,
     c.language,
     c.last_name,
@@ -1257,10 +1362,16 @@ CREATE TABLE vibetype.guest (
     contact_id uuid NOT NULL,
     event_id uuid NOT NULL,
     feedback vibetype.invitation_feedback,
-    feedback_paper vibetype.invitation_feedback_paper,
+    feedback_override vibetype.invitation_feedback,
+    feedback_reason text,
+    companion_count integer DEFAULT 0 NOT NULL,
+    companion_count_requested integer,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
-    updated_by uuid
+    updated_by uuid,
+    CONSTRAINT guest_companion_count_check CHECK ((companion_count >= 0)),
+    CONSTRAINT guest_companion_count_requested_check CHECK ((companion_count_requested > 0)),
+    CONSTRAINT guest_feedback_reason_check CHECK (((char_length(feedback_reason) > 0) AND (char_length(feedback_reason) <= 1000)))
 );
 
 
@@ -1299,14 +1410,35 @@ COMMENT ON COLUMN vibetype.guest.event_id IS 'The internal id of the guest''s ev
 -- Name: COLUMN guest.feedback; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.feedback IS 'The guest''s general feedback status.';
+COMMENT ON COLUMN vibetype.guest.feedback IS 'The guest''s own feedback status. Only the guest can set it.';
 
 
 --
--- Name: COLUMN guest.feedback_paper; Type: COMMENT; Schema: vibetype; Owner: ci
+-- Name: COLUMN guest.feedback_override; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.guest.feedback_paper IS 'The guest''s paper feedback status.';
+COMMENT ON COLUMN vibetype.guest.feedback_override IS 'The organizer''s correction of the guest''s feedback, which takes precedence over it. Only the event''s organizer can set it, so the guest''s own feedback stays as given.';
+
+
+--
+-- Name: COLUMN guest.feedback_reason; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.feedback_reason IS 'The guest''s optional reason for their feedback, e.g. why they declined. Only the guest can set it.';
+
+
+--
+-- Name: COLUMN guest.companion_count; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.companion_count IS 'The number of additional guests the organizer approved for the guest, each of whom takes a seat of the event. The organizer can raise it up to the request, the guest can only lower it. Setting it fails with error code **VTGCM** when the event''s maximum guest count would be exceeded. Resets to 0 when the guest''s effective feedback is `canceled`.';
+
+
+--
+-- Name: COLUMN guest.companion_count_requested; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.guest.companion_count_requested IS 'The number of additional guests the guest asks the organizer to approve in total. `NULL` when there is no pending request, which also holds for a request that does not exceed the approved companion count. The organizer clears it by approving or rejecting. Resets to `NULL` when the guest''s effective feedback is `canceled`.';
 
 
 --
@@ -1364,12 +1496,14 @@ CREATE TABLE vibetype.event (
     address_id uuid,
     description text,
     "end" timestamp with time zone,
+    feedback_deadline timestamp with time zone,
     guest_count_maximum integer,
     is_archived boolean DEFAULT false NOT NULL,
     is_in_person boolean,
     is_remote boolean,
     language vibetype.language,
     name text NOT NULL,
+    published_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     slug text NOT NULL,
     start timestamp with time zone NOT NULL,
     url text,
@@ -1377,8 +1511,8 @@ CREATE TABLE vibetype.event (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     created_by uuid NOT NULL,
     guest_count integer DEFAULT 0 NOT NULL,
+    guest_count_accepted integer DEFAULT 0 NOT NULL,
     effective_end timestamp with time zone GENERATED ALWAYS AS (COALESCE("end", start)) STORED,
-    feedback_deadline timestamp with time zone,
     CONSTRAINT event_description_check CHECK (((char_length(description) > 0) AND (char_length(description) <= 10000))),
     CONSTRAINT event_guest_count_maximum_check CHECK ((guest_count_maximum > 0)),
     CONSTRAINT event_name_check CHECK (((char_length(name) > 0) AND (char_length(name) <= 100))),
@@ -1393,8 +1527,7 @@ ALTER TABLE vibetype.event OWNER TO ci;
 -- Name: TABLE event; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON TABLE vibetype.event IS '@behavior +filter
-An event.';
+COMMENT ON TABLE vibetype.event IS 'An event.';
 
 
 --
@@ -1423,8 +1556,14 @@ COMMENT ON COLUMN vibetype.event.description IS 'The event''s description. Must 
 -- Name: COLUMN event."end"; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event."end" IS '@behavior +filterBy
-The event''s end date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event."end" IS 'The event''s end date and time, with time zone.';
+
+
+--
+-- Name: COLUMN event.feedback_deadline; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 
 
 --
@@ -1463,6 +1602,13 @@ COMMENT ON COLUMN vibetype.event.name IS 'The event''s name. Must be non-empty a
 
 
 --
+-- Name: COLUMN event.published_at; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.published_at IS 'The timestamp from which the event is published. An event without one is a draft and one with a future timestamp is scheduled; until then only its organizer can see it.';
+
+
+--
 -- Name: COLUMN event.slug; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -1473,8 +1619,7 @@ COMMENT ON COLUMN vibetype.event.slug IS 'The event''s name, slugified. Must be 
 -- Name: COLUMN event.start; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype.event.start IS '@behavior +filterBy
-The event''s start date and time, with time zone.';
+COMMENT ON COLUMN vibetype.event.start IS 'The event''s start date and time, with time zone.';
 
 
 --
@@ -1511,7 +1656,15 @@ COMMENT ON COLUMN vibetype.event.created_by IS 'The event creator''s id.';
 --
 
 COMMENT ON COLUMN vibetype.event.guest_count IS '@behavior -insert -update
-The number of guests of the event, maintained by triggers on the guest table.';
+The number of seats taken at the event, each guest taking one plus their approved companions, maintained by triggers on the guest table.';
+
+
+--
+-- Name: COLUMN event.guest_count_accepted; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.event.guest_count_accepted IS '@behavior -insert -update
+The number of seats taken by guests whose effective feedback is accepted, the organizer''s override taking precedence, each such guest taking one plus their approved companions, maintained by triggers on the guest table.';
 
 
 --
@@ -1520,13 +1673,6 @@ The number of guests of the event, maintained by triggers on the guest table.';
 
 COMMENT ON COLUMN vibetype.event.effective_end IS '@behavior -*
 The event''s end date and time, falling back to its start when no explicit end is set.';
-
-
---
--- Name: COLUMN event.feedback_deadline; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.event.feedback_deadline IS 'The point in time from which on only the organizer can change the feedback of the event''s guests. No deadline when `NULL`.';
 
 
 --
@@ -1542,6 +1688,7 @@ CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibe
   JOIN vibetype.guest g ON g.event_id = e.id
   JOIN vibetype.attendance a ON a.guest_id = g.id
   WHERE a.id = event_by_attendance_id.attendance_id
+    AND (e.published_at <= CURRENT_TIMESTAMP OR e.created_by = vibetype.invoker_account_id())
 $$;
 
 
@@ -1551,7 +1698,7 @@ ALTER FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) OWNER TO ci;
 -- Name: FUNCTION event_by_attendance_id(attendance_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Returns the event associated with the given attendance ID.';
+COMMENT ON FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) IS 'Returns the event associated with the given attendance ID, unless it is a draft or scheduled and not organized by the invoker.';
 
 
 --
@@ -1566,6 +1713,7 @@ CREATE FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) RETUR
   FROM vibetype.event_invitation_link l
   JOIN vibetype.event e ON e.id = l.event_id
   WHERE l.id = event_by_invitation_link.invitation_link_id
+    AND (e.published_at <= CURRENT_TIMESTAMP OR e.created_by = vibetype.invoker_account_id())
     AND e.created_by <> ALL (vibetype_private.account_block_ids());
 $$;
 
@@ -1576,7 +1724,7 @@ ALTER FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) OWNER 
 -- Name: FUNCTION event_by_invitation_link(invitation_link_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) IS 'Returns the event a general invitation link invites to, also when it is private, unless the link was deleted or its organizer is involved in a block with the invoker.';
+COMMENT ON FUNCTION vibetype.event_by_invitation_link(invitation_link_id uuid) IS 'Returns the event a general invitation link invites to, also when it is private, unless the link was deleted, the event is a draft or scheduled and not organized by the invoker, or its organizer is involved in a block with the invoker.';
 
 
 --
@@ -1637,14 +1785,19 @@ CREATE FUNCTION vibetype.event_guest_count_maximum(event_id uuid) RETURNS intege
     AND (
       -- Event organized by invoker
       e.created_by = vibetype.invoker_account_id()
-      -- Or event is accessible (public, invited, or has claimed attendance)
+      -- Or event is published and accessible (public, invited, or has claimed attendance)
       OR (
-        e.visibility = 'public'
-        AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
-        AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
+        e.published_at <= CURRENT_TIMESTAMP
+        AND (
+          (
+            e.visibility = 'public'
+            AND (e.guest_count_maximum IS NULL OR e.guest_count_maximum > e.guest_count)
+            AND NOT EXISTS (SELECT 1 FROM unnest(vibetype_private.account_block_ids()) AS b WHERE b = e.created_by)
+          )
+          OR e.id = ANY(vibetype_private.events_invited())
+          OR e.id = ANY(vibetype_private.events_with_claimed_attendance())
+        )
       )
-      OR e.id = ANY(vibetype_private.events_invited())
-      OR e.id = ANY(vibetype_private.events_with_claimed_attendance())
     );
 $$;
 
@@ -1672,13 +1825,14 @@ DECLARE
   _event_created_by UUID;
   _event_effective_end TIMESTAMP WITH TIME ZONE;
   _event_id UUID;
+  _event_published_at TIMESTAMP WITH TIME ZONE;
   _guest_id UUID;
 BEGIN
-  SELECT e.id, e.created_by, e.effective_end
-  INTO _event_id, _event_created_by, _event_effective_end
+  SELECT e.id, e.created_by, e.effective_end, e.published_at
+  INTO _event_id, _event_created_by, _event_effective_end, _event_published_at
   FROM vibetype.event_by_invitation_link(event_invitation_link_redeem.invitation_link_id) e;
 
-  IF _event_id IS NULL THEN
+  IF _event_id IS NULL OR _event_published_at IS NULL OR _event_published_at > CURRENT_TIMESTAMP THEN
     RAISE 'The invitation link does not exist.' USING ERRCODE = 'VTILN';
   END IF;
 
@@ -1706,8 +1860,8 @@ BEGIN
     END IF;
 
     -- A new contact every time, as reusing one by its email address would hand its guests and details to whoever types that address.
-    INSERT INTO vibetype.contact (created_by, email_address, first_name)
-    VALUES (_event_created_by, event_invitation_link_redeem.email_address, event_invitation_link_redeem.first_name)
+    INSERT INTO vibetype.contact (created_by, email_addresses, first_name)
+    VALUES (_event_created_by, ARRAY[event_invitation_link_redeem.email_address], event_invitation_link_redeem.first_name)
     RETURNING id INTO _contact_id;
   END IF;
 
@@ -1730,7 +1884,7 @@ COMMENT ON FUNCTION vibetype.event_invitation_link_redeem(invitation_link_id uui
 Joins the event of a general invitation link as a guest who accepted, and returns the guest''s id. An account joins with its own contact and gets its existing guest back if it already joined. Without an account, the email address and first name become a new contact of the organizer.
 
 Error codes:
-- **VTILN** when the invitation link does not exist.
+- **VTILN** when the invitation link does not exist or its event is a draft or not yet published.
 - **VTEEN** when the event has ended.
 - **VTFDP** when the event''s feedback deadline has passed.
 - **VTIDM** when an email address or first name is missing without an account.
@@ -1762,7 +1916,7 @@ ALTER FUNCTION vibetype.event_nearby(latitude double precision, longitude double
 -- Name: FUNCTION event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) IS 'Lists public in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
+COMMENT ON FUNCTION vibetype.event_nearby(latitude double precision, longitude double precision, radius double precision, include_ended boolean) IS 'Lists public, published (not draft or scheduled), non-archived in-person events within the given radius in meters around the given coordinates, nearest first. Events that have ended are left out unless `include_ended` is true. Following RFC 5545, an event without an end ends at its start. Ordering is fully deterministic, so paginate through results via the GraphQL connection arguments rather than assuming a fixed result size.';
 
 
 --
@@ -1786,6 +1940,7 @@ CREATE FUNCTION vibetype.event_nearby_match(latitude double precision, longitude
     ON e.address_id = a.id
   WHERE
     e.visibility = 'public'
+    AND e.published_at <= CURRENT_TIMESTAMP
     AND NOT e.is_archived
     AND e.is_in_person;
 $$;
@@ -1798,7 +1953,7 @@ ALTER FUNCTION vibetype.event_nearby_match(latitude double precision, longitude 
 --
 
 COMMENT ON FUNCTION vibetype.event_nearby_match(latitude double precision, longitude double precision, radius double precision) IS '@behavior -*
-Returns ids of public, non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
+Returns ids of public, published (not draft or scheduled), non-archived, in-person events located within the given radius in meters around the given coordinates, with their distance in meters.';
 
 
 --
@@ -1993,7 +2148,7 @@ CREATE FUNCTION vibetype.guest_count(event_id uuid) RETURNS integer
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
     SET search_path TO 'pg_catalog', 'public', 'pg_temp'
     AS $$
-  SELECT COUNT(1) FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
+  SELECT COALESCE(SUM(1 + companion_count), 0)::INTEGER FROM vibetype.guest WHERE guest.event_id = guest_count.event_id;
 $$;
 
 
@@ -2003,7 +2158,7 @@ ALTER FUNCTION vibetype.guest_count(event_id uuid) OWNER TO ci;
 -- Name: FUNCTION guest_count(event_id uuid); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the guest count for an event.';
+COMMENT ON FUNCTION vibetype.guest_count(event_id uuid) IS 'Returns the number of seats taken for an event: each guest plus their approved companions.';
 
 
 --
@@ -2051,6 +2206,7 @@ BEGIN
     is_in_person,
     is_remote,
     name,
+    published_at,
     slug,
     start,
     url,
@@ -2065,8 +2221,12 @@ BEGIN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
+  IF (_event.published_at IS NULL OR _event.published_at > CURRENT_TIMESTAMP) THEN
+    RAISE 'Cannot invite to an unpublished event!' USING ERRCODE = 'VTEUP';
+  END IF;
+
   -- Contact
-  SELECT account_id, email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_addresses[1] AS email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -2124,7 +2284,7 @@ ALTER FUNCTION vibetype.invite(guest_id uuid, language text) OWNER TO ci;
 -- Name: FUNCTION invite(guest_id uuid, language text); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(guest_id uuid, language text) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.\n- **VTEUP** when the event is a draft or not yet published.';
 
 
 --
@@ -2683,6 +2843,35 @@ COMMENT ON FUNCTION vibetype.trigger_device_update_fcm_token() IS 'Trigger funct
 
 
 --
+-- Name: trigger_event_published_at(); Type: FUNCTION; Schema: vibetype; Owner: ci
+--
+
+CREATE FUNCTION vibetype.trigger_event_published_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF (
+    NEW.published_at < CURRENT_TIMESTAMP
+    AND NOT (TG_OP = 'UPDATE' AND NEW.published_at IS NOT DISTINCT FROM OLD.published_at)
+  ) THEN
+    NEW.published_at := CURRENT_TIMESTAMP;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype.trigger_event_published_at() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_event_published_at(); Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype.trigger_event_published_at() IS 'Prevents backdating the publication of an event: a past published_at is replaced by the current timestamp, unless an update leaves an existing value unchanged.';
+
+
+--
 -- Name: trigger_event_search_vector(); Type: FUNCTION; Schema: vibetype; Owner: ci
 --
 
@@ -2732,19 +2921,73 @@ COMMENT ON FUNCTION vibetype.trigger_event_search_vector() IS 'Populates vibetyp
 CREATE FUNCTION vibetype.trigger_guest_update() RETURNS trigger
     LANGUAGE plpgsql STRICT
     AS $$
+DECLARE
+  _is_invited BOOLEAN;
+  _is_organizer BOOLEAN;
 BEGIN
-  IF
-      TG_OP = 'UPDATE'
-    AND ( -- Invited.
-      OLD.id = ANY (vibetype.guest_claim_array())
-      OR
-      EXISTS (
-        SELECT 1
-        FROM vibetype.contact c
-        WHERE c.id = OLD.contact_id
-        AND c.account_id = vibetype.invoker_account_id()
-      )
+  _is_invited := (
+    OLD.id = ANY (vibetype.guest_claim_array())
+    OR
+    EXISTS (
+      SELECT 1
+      FROM vibetype.contact c
+      WHERE c.id = OLD.contact_id
+      AND c.account_id = vibetype.invoker_account_id()
     )
+  );
+  -- The invoker has no usage on `vibetype_private`, so `events_organized()` is out of reach here.
+  -- An anonymous invoker cannot organize an event, so the event policies hiding events from it do no harm.
+  _is_organizer := EXISTS (
+    SELECT 1
+    FROM vibetype.event e
+    WHERE e.id = OLD.event_id
+    AND e.created_by = vibetype.invoker_account_id()
+  );
+
+  IF (NEW.feedback IS DISTINCT FROM OLD.feedback OR NEW.feedback_reason IS DISTINCT FROM OLD.feedback_reason) AND NOT _is_invited THEN
+    RAISE 'Only the guest is allowed to alter the feedback and its reason, the organizer can set feedback_override instead!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF NEW.feedback_override IS DISTINCT FROM OLD.feedback_override AND NOT _is_organizer THEN
+    RAISE 'Only the organizer is allowed to alter the feedback override!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  -- The organizer rejects a request by clearing it, anything else about a request is up to the guest.
+  IF
+    NEW.companion_count_requested IS DISTINCT FROM OLD.companion_count_requested
+    AND NOT _is_invited
+    AND NOT (_is_organizer AND NEW.companion_count_requested IS NULL)
+  THEN
+    RAISE 'Only the guest is allowed to request companions, the organizer can only clear the request!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF NEW.companion_count > OLD.companion_count THEN
+    IF NOT _is_organizer THEN
+      RAISE 'Only the organizer is allowed to approve companions!' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    IF NEW.companion_count > GREATEST(OLD.companion_count, COALESCE(OLD.companion_count_requested, 0)) THEN
+      RAISE 'The organizer can approve at most the requested companions!' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+
+    -- An approval settles the request, whether in full or in part.
+    NEW.companion_count_requested = NULL;
+  ELSIF NEW.companion_count < OLD.companion_count AND NOT (_is_invited OR _is_organizer) THEN
+    RAISE 'Only the guest or the organizer is allowed to lower the companions!' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  IF COALESCE(NEW.feedback_override, NEW.feedback) = 'canceled' THEN
+    NEW.companion_count = 0;
+    NEW.companion_count_requested = NULL;
+  END IF;
+
+  -- A request that does not exceed the approved companions asks for nothing.
+  IF NEW.companion_count_requested <= NEW.companion_count THEN
+    NEW.companion_count_requested = NULL;
+  END IF;
+
+  IF
+      _is_invited
     AND (
       NEW.id IS DISTINCT FROM OLD.id
       OR NEW.contact_id IS DISTINCT FROM OLD.contact_id
@@ -2754,12 +2997,12 @@ BEGIN
       OR NEW.updated_by IS DISTINCT FROM OLD.updated_by
     )
   THEN
-    RAISE 'You''re only allowed to alter these columns: feedback, feedback_paper!' USING ERRCODE = 'insufficient_privilege';
-  ELSE
-    NEW.updated_at = CURRENT_TIMESTAMP;
-    NEW.updated_by = vibetype.invoker_account_id();
-    RETURN NEW;
+    RAISE 'You''re only allowed to alter these columns: companion_count, companion_count_requested, feedback, feedback_override, feedback_reason!' USING ERRCODE = 'insufficient_privilege';
   END IF;
+
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  NEW.updated_by = vibetype.invoker_account_id();
+  RETURN NEW;
 END $$;
 
 
@@ -2769,7 +3012,7 @@ ALTER FUNCTION vibetype.trigger_guest_update() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_update(); Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns.';
+COMMENT ON FUNCTION vibetype.trigger_guest_update() IS 'Checks if the caller has permissions to alter the desired columns: the guest sets the feedback and its reason, requests companions and lowers them, the organizer sets the feedback override and approves companions up to the request.';
 
 
 --
@@ -3155,13 +3398,13 @@ DECLARE
   _values_new JSONB;
   _values_old JSONB;
 BEGIN
-  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` is not a change anyone made to the event, so it leaves no entry.
+  -- The counter on `vibetype.event` is maintained by a trigger on `vibetype.guest`; an update that only moves `guest_count` and `guest_count_accepted` is not a change anyone made to the event, so it leaves no entry.
   -- `effective_end` is generated and not yet computed in this BEFORE trigger's NEW row, so it is left out of the comparison too.
   IF TG_OP = 'UPDATE'
     AND TG_TABLE_SCHEMA = 'vibetype'
     AND TG_TABLE_NAME = 'event'
-    AND to_jsonb(NEW) - 'guest_count' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'effective_end'
-    AND to_jsonb(NEW) -> 'guest_count' IS DISTINCT FROM to_jsonb(OLD) -> 'guest_count'
+    AND to_jsonb(NEW) - 'guest_count' - 'guest_count_accepted' - 'effective_end' = to_jsonb(OLD) - 'guest_count' - 'guest_count_accepted' - 'effective_end'
+    AND to_jsonb(NEW) - 'effective_end' IS DISTINCT FROM to_jsonb(OLD) - 'effective_end'
   THEN
     RETURN NEW;
   END IF;
@@ -3558,9 +3801,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count - g.guest_count
+  SET guest_count = event.guest_count - g.guest_count,
+      guest_count_accepted = event.guest_count_accepted - g.guest_count_accepted
   FROM (
-    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_deleted
     GROUP BY event_id
   ) g
@@ -3577,7 +3823,7 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_delete() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_count_delete(); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_delete() IS 'Subtracts the guests of a delete statement from the guest counts of their events.';
 
 
 --
@@ -3596,9 +3842,12 @@ BEGIN
   FOR UPDATE;
 
   UPDATE vibetype.event
-  SET guest_count = event.guest_count + g.guest_count
+  SET guest_count = event.guest_count + g.guest_count,
+      guest_count_accepted = event.guest_count_accepted + g.guest_count_accepted
   FROM (
-    SELECT event_id, COUNT(*)::INTEGER AS guest_count
+    SELECT event_id,
+           SUM(1 + companion_count)::INTEGER AS guest_count,
+           (COALESCE(SUM(1 + companion_count) FILTER (WHERE COALESCE(feedback_override, feedback) = 'accepted'), 0))::INTEGER AS guest_count_accepted
     FROM guest_inserted
     GROUP BY event_id
   ) g
@@ -3624,7 +3873,77 @@ ALTER FUNCTION vibetype_private.trigger_guest_count_insert() OWNER TO ci;
 -- Name: FUNCTION trigger_guest_count_insert(); Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest count of their events.';
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_insert() IS 'Adds the guests of an insert statement to the guest counts of their events.';
+
+
+--
+-- Name: trigger_guest_count_update(); Type: FUNCTION; Schema: vibetype_private; Owner: ci
+--
+
+CREATE FUNCTION vibetype_private.trigger_guest_count_update() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'pg_catalog', 'public', 'pg_temp'
+    AS $$
+DECLARE
+  _exceeded BOOLEAN;
+BEGIN
+  PERFORM 1
+  FROM vibetype.event
+  WHERE id IN (
+    SELECT n.event_id
+    FROM guest_updated_new n
+    JOIN guest_updated_old o ON o.id = n.id
+    WHERE n.companion_count <> o.companion_count
+      OR n.feedback IS DISTINCT FROM o.feedback
+      OR n.feedback_override IS DISTINCT FROM o.feedback_override
+  )
+  ORDER BY id
+  FOR UPDATE;
+
+  WITH delta AS (
+    SELECT n.event_id,
+           SUM(n.companion_count - o.companion_count)::INTEGER AS delta,
+           SUM(
+             (CASE WHEN COALESCE(n.feedback_override, n.feedback) = 'accepted' THEN 1 + n.companion_count ELSE 0 END)
+             - (CASE WHEN COALESCE(o.feedback_override, o.feedback) = 'accepted' THEN 1 + o.companion_count ELSE 0 END)
+           )::INTEGER AS delta_accepted
+    FROM guest_updated_new n
+    JOIN guest_updated_old o ON o.id = n.id
+    GROUP BY n.event_id
+    HAVING SUM(n.companion_count - o.companion_count) <> 0
+      OR SUM(
+        (CASE WHEN COALESCE(n.feedback_override, n.feedback) = 'accepted' THEN 1 + n.companion_count ELSE 0 END)
+        - (CASE WHEN COALESCE(o.feedback_override, o.feedback) = 'accepted' THEN 1 + o.companion_count ELSE 0 END)
+      ) <> 0
+  ),
+  updated AS (
+    UPDATE vibetype.event
+    SET guest_count = event.guest_count + delta.delta,
+        guest_count_accepted = event.guest_count_accepted + delta.delta_accepted
+    FROM delta
+    WHERE event.id = delta.event_id
+    RETURNING event.guest_count, event.guest_count_maximum, delta.delta
+  )
+  SELECT COALESCE(bool_or(delta > 0 AND guest_count > guest_count_maximum), FALSE)
+  INTO _exceeded
+  FROM updated;
+
+  IF _exceeded THEN
+    RAISE 'The event''s maximum guest count is reached.' USING ERRCODE = 'VTGCM';
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION vibetype_private.trigger_guest_count_update() OWNER TO ci;
+
+--
+-- Name: FUNCTION trigger_guest_count_update(); Type: COMMENT; Schema: vibetype_private; Owner: ci
+--
+
+COMMENT ON FUNCTION vibetype_private.trigger_guest_count_update() IS 'Applies the change of the guests'' companion counts and effective feedback of an update statement to the guest counts of their events.';
 
 
 --
@@ -3668,10 +3987,8 @@ CREATE FUNCTION vibetype_private.tsquery_prefix(ts_config regconfig, search_text
     LANGUAGE sql STABLE STRICT
     AS $$
   -- Builds an AND of prefix-matched lexemes (e.g. 'conc:*') so the last, possibly incomplete, word of a live-typed query matches by prefix instead of requiring a full word.
-  SELECT COALESCE(
-    string_agg(lexeme || ':*', ' & ')::tsquery,
-    ''::tsquery
-  )
+  -- Without lexemes (e.g. only stop words) this is NULL rather than an empty tsquery, which `@@` treats the same way but whose literal raises a NOTICE every time the body is parsed.
+  SELECT string_agg(lexeme || ':*', ' & ')::tsquery
   FROM unnest(tsvector_to_array(to_tsvector(tsquery_prefix.ts_config, tsquery_prefix.search_text))) AS lexeme;
 $$;
 
@@ -4075,10 +4392,10 @@ CREATE TABLE vibetype.attendance (
     checked_out boolean,
     contact_id uuid,
     guest_id uuid NOT NULL,
+    tag_serial_number text,
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at timestamp with time zone,
     updated_by uuid,
-    tag_serial_number text,
     CONSTRAINT attendance_tag_serial_number_check CHECK ((char_length(tag_serial_number) <= 100))
 );
 
@@ -4126,6 +4443,13 @@ Who this entry is for.';
 
 
 --
+-- Name: COLUMN attendance.tag_serial_number; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
+
+
+--
 -- Name: COLUMN attendance.created_at; Type: COMMENT; Schema: vibetype; Owner: ci
 --
 
@@ -4147,13 +4471,6 @@ When this entry was last changed. If someone checks out, this shows the checkout
 
 COMMENT ON COLUMN vibetype.attendance.updated_by IS '@behavior -insert -update
 Who last changed this entry. This may be empty if done without signing in.';
-
-
---
--- Name: COLUMN attendance.tag_serial_number; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
 
 
 --
@@ -4712,54 +5029,6 @@ The timestamp when the friend relation''s status was updated.';
 
 COMMENT ON COLUMN vibetype.friendship.updated_by IS '@behavior -insert -update
 The account that updated the friend relation''s status.';
-
-
---
--- Name: guest_flat; Type: VIEW; Schema: vibetype; Owner: ci
---
-
-CREATE VIEW vibetype.guest_flat WITH (security_invoker='true') AS
- SELECT guest.id AS guest_id,
-    guest.contact_id AS guest_contact_id,
-    guest.event_id AS guest_event_id,
-    guest.feedback AS guest_feedback,
-    guest.feedback_paper AS guest_feedback_paper,
-    contact.id AS contact_id,
-    contact.account_id AS contact_account_id,
-    contact.address_id AS contact_address_id,
-    contact.email_address AS contact_email_address,
-    contact.email_address_hash AS contact_email_address_hash,
-    contact.first_name AS contact_first_name,
-    contact.last_name AS contact_last_name,
-    contact.phone_number AS contact_phone_number,
-    contact.url AS contact_url,
-    contact.created_by AS contact_created_by,
-    event.id AS event_id,
-    event.address_id AS event_address_id,
-    event.description AS event_description,
-    event.start AS event_start,
-    event."end" AS event_end,
-    event.guest_count_maximum AS event_guest_count_maximum,
-    event.is_archived AS event_is_archived,
-    event.is_in_person AS event_is_in_person,
-    event.is_remote AS event_is_remote,
-    event.name AS event_name,
-    event.slug AS event_slug,
-    event.url AS event_url,
-    event.visibility AS event_visibility,
-    event.created_by AS event_created_by
-   FROM ((vibetype.guest
-     JOIN vibetype.contact ON ((guest.contact_id = contact.id)))
-     JOIN vibetype.event ON ((guest.event_id = event.id)));
-
-
-ALTER VIEW vibetype.guest_flat OWNER TO ci;
-
---
--- Name: VIEW guest_flat; Type: COMMENT; Schema: vibetype; Owner: ci
---
-
-COMMENT ON VIEW vibetype.guest_flat IS 'View returning flattened guests.';
 
 
 --
@@ -5368,7 +5637,7 @@ COMMENT ON COLUMN vibetype_private.account.upload_quota_bytes IS 'The account''s
 -- Name: COLUMN account.created_at; Type: COMMENT; Schema: vibetype_private; Owner: ci
 --
 
-COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the account was last active.';
+COMMENT ON COLUMN vibetype_private.account.created_at IS 'Timestamp at which the account was created.';
 
 
 --
@@ -6460,6 +6729,20 @@ COMMENT ON INDEX vibetype.idx_account_username_like IS 'Index useful for trigram
 
 
 --
+-- Name: idx_account_username_lower; Type: INDEX; Schema: vibetype; Owner: ci
+--
+
+CREATE UNIQUE INDEX idx_account_username_lower ON vibetype.account USING btree (lower(username));
+
+
+--
+-- Name: INDEX idx_account_username_lower; Type: COMMENT; Schema: vibetype; Owner: ci
+--
+
+COMMENT ON INDEX vibetype.idx_account_username_lower IS 'Unique index rejecting usernames that differ only in capitalization and serving the case-insensitive username lookup.';
+
+
+--
 -- Name: idx_address_created_by; Type: INDEX; Schema: vibetype; Owner: ci
 --
 
@@ -6967,14 +7250,14 @@ CREATE TRIGGER delete BEFORE DELETE ON vibetype.legal_term FOR EACH ROW EXECUTE 
 -- Name: guest feedback_deadline_insert; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER feedback_deadline_insert BEFORE INSERT ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS NOT NULL) OR (new.feedback_paper IS NOT NULL))) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+CREATE TRIGGER feedback_deadline_insert BEFORE INSERT ON vibetype.guest FOR EACH ROW WHEN ((new.feedback IS NOT NULL)) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
 
 
 --
 -- Name: guest feedback_deadline_update; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
-CREATE TRIGGER feedback_deadline_update BEFORE UPDATE OF feedback, feedback_paper ON vibetype.guest FOR EACH ROW WHEN (((new.feedback IS DISTINCT FROM old.feedback) OR (new.feedback_paper IS DISTINCT FROM old.feedback_paper))) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
+CREATE TRIGGER feedback_deadline_update BEFORE UPDATE OF feedback ON vibetype.guest FOR EACH ROW WHEN ((new.feedback IS DISTINCT FROM old.feedback)) EXECUTE FUNCTION vibetype_private.trigger_guest_feedback_deadline();
 
 
 --
@@ -6992,10 +7275,24 @@ CREATE TRIGGER guest_count_insert AFTER INSERT ON vibetype.guest REFERENCING NEW
 
 
 --
+-- Name: guest guest_count_update; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER guest_count_update AFTER UPDATE ON vibetype.guest REFERENCING OLD TABLE AS guest_updated_old NEW TABLE AS guest_updated_new FOR EACH STATEMENT EXECUTE FUNCTION vibetype_private.trigger_guest_count_update();
+
+
+--
 -- Name: upload insert; Type: TRIGGER; Schema: vibetype; Owner: ci
 --
 
 CREATE TRIGGER insert BEFORE INSERT ON vibetype.upload FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_upload_insert();
+
+
+--
+-- Name: event published_at; Type: TRIGGER; Schema: vibetype; Owner: ci
+--
+
+CREATE TRIGGER published_at BEFORE INSERT OR UPDATE OF published_at ON vibetype.event FOR EACH ROW EXECUTE FUNCTION vibetype.trigger_event_published_at();
 
 
 --
@@ -7990,13 +8287,13 @@ CREATE POLICY event_recommendation_select ON vibetype.event_recommendation FOR S
 -- Name: event event_select; Type: POLICY; Schema: vibetype; Owner: ci
 --
 
-CREATE POLICY event_select ON vibetype.event FOR SELECT USING ((((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
+CREATE POLICY event_select ON vibetype.event FOR SELECT USING (((published_at <= CURRENT_TIMESTAMP) AND (((visibility = 'public'::vibetype.event_visibility) AND ((guest_count_maximum IS NULL) OR (guest_count_maximum > guest_count)) AND (NOT (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.account_block_ids() AS account_block_ids)) b(b)
   WHERE (b.b = event.created_by))))) OR (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.events_invited() AS events_invited)) inv(inv)
   WHERE (inv.inv = event.id))) OR (EXISTS ( SELECT 1
    FROM unnest(( SELECT vibetype_private.events_with_claimed_attendance() AS events_with_claimed_attendance)) att(att)
-  WHERE (att.att = event.id)))));
+  WHERE (att.att = event.id))))));
 
 
 --
@@ -8095,7 +8392,7 @@ CREATE POLICY guest_insert ON vibetype.guest FOR INSERT WITH CHECK (((event_id =
 
 CREATE POLICY guest_insert_join ON vibetype.guest FOR INSERT WITH CHECK (((EXISTS ( SELECT 1
    FROM vibetype.event e
-  WHERE ((e.id = guest.event_id) AND (e.visibility = 'public'::vibetype.event_visibility) AND ((e.guest_count_maximum IS NULL) OR (e.guest_count_maximum > e.guest_count))))) AND (EXISTS ( SELECT 1
+  WHERE ((e.id = guest.event_id) AND (e.published_at <= CURRENT_TIMESTAMP) AND (e.visibility = 'public'::vibetype.event_visibility) AND ((e.guest_count_maximum IS NULL) OR (e.guest_count_maximum > e.guest_count))))) AND (EXISTS ( SELECT 1
    FROM vibetype.contact c
   WHERE ((c.id = guest.contact_id) AND (c.account_id = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)) AND (c.created_by = ( SELECT vibetype.invoker_account_id() AS invoker_account_id)))))));
 
@@ -8487,6 +8784,23 @@ GRANT ALL ON FUNCTION vibetype.attendance_guard() TO vibetype_account;
 
 
 --
+-- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
+GRANT SELECT ON TABLE vibetype.contact TO reccoom;
+
+
+--
+-- Name: FUNCTION contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) FROM PUBLIC;
+GRANT ALL ON FUNCTION vibetype.contact_merge(contact_id uuid, contact_id_merged uuid, contact vibetype.contact) TO vibetype_account;
+
+
+--
 -- Name: TABLE contact_group_member; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8545,15 +8859,6 @@ GRANT ALL ON FUNCTION vibetype.create_contact_groups(names text[]) TO vibetype_a
 
 
 --
--- Name: TABLE contact; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.contact TO vibetype_anonymous;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE vibetype.contact TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.contact TO reccoom;
-
-
---
 -- Name: FUNCTION create_contacts(contacts vibetype.contact[]); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8565,25 +8870,90 @@ GRANT ALL ON FUNCTION vibetype.create_contacts(contacts vibetype.contact[]) TO v
 -- Name: TABLE guest; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT SELECT,INSERT,DELETE ON TABLE vibetype.guest TO vibetype_account;
+GRANT SELECT,DELETE ON TABLE vibetype.guest TO vibetype_account;
 GRANT SELECT ON TABLE vibetype.guest TO vibetype_anonymous;
 GRANT SELECT ON TABLE vibetype.guest TO reccoom;
+
+
+--
+-- Name: COLUMN guest.id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(id) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.contact_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(contact_id) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.event_id; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(event_id) ON TABLE vibetype.guest TO vibetype_account;
 
 
 --
 -- Name: COLUMN guest.feedback; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_account;
+GRANT INSERT(feedback),UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_account;
 GRANT UPDATE(feedback) ON TABLE vibetype.guest TO vibetype_anonymous;
 
 
 --
--- Name: COLUMN guest.feedback_paper; Type: ACL; Schema: vibetype; Owner: ci
+-- Name: COLUMN guest.feedback_override; Type: ACL; Schema: vibetype; Owner: ci
 --
 
-GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_account;
-GRANT UPDATE(feedback_paper) ON TABLE vibetype.guest TO vibetype_anonymous;
+GRANT INSERT(feedback_override),UPDATE(feedback_override) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.feedback_reason; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(feedback_reason),UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(feedback_reason) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.companion_count; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(companion_count) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(companion_count) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.companion_count_requested; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT UPDATE(companion_count_requested) ON TABLE vibetype.guest TO vibetype_account;
+GRANT UPDATE(companion_count_requested) ON TABLE vibetype.guest TO vibetype_anonymous;
+
+
+--
+-- Name: COLUMN guest.created_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(created_at) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.updated_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(updated_at) ON TABLE vibetype.guest TO vibetype_account;
+
+
+--
+-- Name: COLUMN guest.updated_by; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(updated_by) ON TABLE vibetype.guest TO vibetype_account;
 
 
 --
@@ -8632,6 +9002,13 @@ GRANT INSERT("end"),UPDATE("end") ON TABLE vibetype.event TO vibetype_account;
 
 
 --
+-- Name: COLUMN event.feedback_deadline; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(feedback_deadline),UPDATE(feedback_deadline) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
 -- Name: COLUMN event.guest_count_maximum; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8674,6 +9051,13 @@ GRANT INSERT(name),UPDATE(name) ON TABLE vibetype.event TO vibetype_account;
 
 
 --
+-- Name: COLUMN event.published_at; Type: ACL; Schema: vibetype; Owner: ci
+--
+
+GRANT INSERT(published_at),UPDATE(published_at) ON TABLE vibetype.event TO vibetype_account;
+
+
+--
 -- Name: COLUMN event.slug; Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -8713,13 +9097,6 @@ GRANT INSERT(created_at),UPDATE(created_at) ON TABLE vibetype.event TO vibetype_
 --
 
 GRANT INSERT(created_by),UPDATE(created_by) ON TABLE vibetype.event TO vibetype_account;
-
-
---
--- Name: COLUMN event.feedback_deadline; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT INSERT(feedback_deadline),UPDATE(feedback_deadline) ON TABLE vibetype.event TO vibetype_account;
 
 
 --
@@ -8945,6 +9322,13 @@ GRANT ALL ON FUNCTION vibetype.trigger_device_update_fcm_token() TO vibetype_acc
 
 
 --
+-- Name: FUNCTION trigger_event_published_at(); Type: ACL; Schema: vibetype; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype.trigger_event_published_at() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION trigger_event_search_vector(); Type: ACL; Schema: vibetype; Owner: ci
 --
 
@@ -9137,6 +9521,13 @@ REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_delete() FROM PUBLIC
 --
 
 REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_insert() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION trigger_guest_count_update(); Type: ACL; Schema: vibetype_private; Owner: ci
+--
+
+REVOKE ALL ON FUNCTION vibetype_private.trigger_guest_count_update() FROM PUBLIC;
 
 
 --
@@ -9347,14 +9738,6 @@ GRANT UPDATE(status) ON TABLE vibetype.friendship TO vibetype_account;
 --
 
 GRANT INSERT(created_by) ON TABLE vibetype.friendship TO vibetype_account;
-
-
---
--- Name: TABLE guest_flat; Type: ACL; Schema: vibetype; Owner: ci
---
-
-GRANT SELECT ON TABLE vibetype.guest_flat TO vibetype_account;
-GRANT SELECT ON TABLE vibetype.guest_flat TO vibetype_anonymous;
 
 
 --

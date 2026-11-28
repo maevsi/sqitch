@@ -28,8 +28,8 @@ DECLARE
 BEGIN
   PERFORM vibetype_test.invoker_set(_invoker_id);
 
-  INSERT INTO vibetype.contact(created_by, email_address)
-  VALUES (_invoker_id, _email_address)
+  INSERT INTO vibetype.contact(created_by, email_addresses)
+  VALUES (_invoker_id, ARRAY[_email_address])
   RETURNING id INTO _id;
 
   _account_id := vibetype_test.account_select_by_email_address(_email_address);
@@ -72,3 +72,38 @@ BEGIN
 END $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION vibetype_test.contact_test(TEXT, UUID, UUID[]) TO vibetype_account;
+
+
+CREATE OR REPLACE FUNCTION vibetype_test.contact_merge_rejected_test (
+  _test_case TEXT,
+  _account_id UUID,
+  _contact_id UUID,
+  _contact_id_merged UUID,
+  _sqlstate TEXT
+) RETURNS VOID AS $$
+DECLARE
+  _contact vibetype.contact;
+BEGIN
+  -- Rejections are checked before the values apply, so only a value making the row non-null for the strict function is set.
+  _contact.created_by := _account_id;
+
+  IF _account_id IS NULL THEN
+    PERFORM vibetype_test.invoker_set_anonymous();
+  ELSE
+    PERFORM vibetype_test.invoker_set(_account_id);
+  END IF;
+
+  BEGIN
+    PERFORM vibetype.contact_merge(_contact_id, _contact_id_merged, _contact);
+    RAISE EXCEPTION 'Test failed (%): the merge succeeded', _test_case;
+  EXCEPTION
+    WHEN OTHERS THEN
+      IF SQLSTATE <> _sqlstate THEN
+        RAISE EXCEPTION 'Test failed (%): expected error % but got %: %', _test_case, _sqlstate, SQLSTATE, SQLERRM;
+      END IF;
+  END;
+
+  PERFORM vibetype_test.invoker_set_previous();
+END $$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION vibetype_test.contact_merge_rejected_test(TEXT, UUID, UUID, UUID, TEXT) TO vibetype_account, vibetype_anonymous;

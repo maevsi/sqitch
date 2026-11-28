@@ -1,15 +1,16 @@
 BEGIN;
 
 CREATE TABLE vibetype.attendance (
-  id            uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  id                uuid DEFAULT gen_random_uuid() PRIMARY KEY,
 
-  checked_out   boolean,
-  contact_id    uuid REFERENCES vibetype.contact(id) ON DELETE SET NULL,
-  guest_id      uuid NOT NULL REFERENCES vibetype.guest(id) ON DELETE CASCADE,
+  checked_out       boolean,
+  contact_id        uuid REFERENCES vibetype.contact(id) ON DELETE SET NULL,
+  guest_id          uuid NOT NULL REFERENCES vibetype.guest(id) ON DELETE CASCADE,
+  tag_serial_number text CHECK (char_length(tag_serial_number) <= 100),
 
-  created_at    timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
-  updated_at    timestamp with time zone,
-  updated_by    uuid REFERENCES vibetype.account(id) ON DELETE SET NULL,
+  created_at        timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL,
+  updated_at        timestamp with time zone,
+  updated_by        uuid REFERENCES vibetype.account(id) ON DELETE SET NULL,
 
   UNIQUE (guest_id)
 );
@@ -22,6 +23,7 @@ COMMENT ON COLUMN vibetype.attendance.id IS E'@behavior -insert -update\nA uniqu
 COMMENT ON COLUMN vibetype.attendance.checked_out IS E'@behavior -insert\nShows if the person has left. When this turns on, the time is saved automatically.';
 COMMENT ON COLUMN vibetype.attendance.contact_id IS E'@behavior -update\nThe contact information available to anyone with access to this attendance entry. This may differ from the guest information if the guest provided different details at check-in.';
 COMMENT ON COLUMN vibetype.attendance.guest_id IS E'@behavior -update\nWho this entry is for.';
+COMMENT ON COLUMN vibetype.attendance.tag_serial_number IS 'The serial number of the physical tag written for this entry, which tells a tag apart from a copy that carries the same link.';
 COMMENT ON COLUMN vibetype.attendance.created_at IS E'@behavior -insert -update\nWhen the entry was created (the check-in time).';
 COMMENT ON COLUMN vibetype.attendance.updated_at IS E'@behavior -insert -update\nWhen this entry was last changed. If someone checks out, this shows the checkout time.';
 COMMENT ON COLUMN vibetype.attendance.updated_by IS E'@behavior -insert -update\nWho last changed this entry. This may be empty if done without signing in.';
@@ -37,6 +39,7 @@ CREATE TRIGGER vibetype_trigger_attendance_metadata_update
 -- Guard to enforce one-time checkout
 CREATE FUNCTION vibetype.attendance_guard() RETURNS trigger
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 BEGIN
   IF TG_OP = 'UPDATE' THEN
@@ -49,6 +52,11 @@ BEGIN
         AND e.created_by = vibetype.invoker_account_id()
     ) THEN
       RETURN NEW;
+    END IF;
+
+    -- A guest binding their entry to another tag would make a copied tag pass as the original.
+    IF NEW.tag_serial_number IS DISTINCT FROM OLD.tag_serial_number THEN
+      RAISE EXCEPTION 'tag_serial_number can only be modified by the organizer' USING ERRCODE = 'insufficient_privilege';
     END IF;
 
     -- For non-organizers, allow checkout exactly once: transition from FALSE/NULL -> TRUE only

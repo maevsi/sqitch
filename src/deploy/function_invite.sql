@@ -2,11 +2,13 @@ BEGIN;
 
 CREATE FUNCTION vibetype.invite(guest_id uuid, language text) RETURNS void
     LANGUAGE plpgsql STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
 DECLARE
   _contact RECORD;
   _email_address TEXT;
   _event RECORD;
+  _event_creator_display_name TEXT;
   _event_creator_profile_picture_upload_id UUID;
   _event_creator_profile_picture_upload_storage_key TEXT;
   _event_creator_username TEXT;
@@ -39,6 +41,7 @@ BEGIN
     is_in_person,
     is_remote,
     name,
+    published_at,
     slug,
     start,
     url,
@@ -53,8 +56,12 @@ BEGIN
     RAISE 'Event not accessible!' USING ERRCODE = 'no_data_found';
   END IF;
 
+  IF (_event.published_at IS NULL OR _event.published_at > CURRENT_TIMESTAMP) THEN
+    RAISE 'Cannot invite to an unpublished event!' USING ERRCODE = 'VTEUP';
+  END IF;
+
   -- Contact
-  SELECT account_id, email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
+  SELECT account_id, email_addresses[1] AS email_address, contact.language, time_zone INTO _contact FROM vibetype.contact WHERE contact.id = _guest.contact_id;
 
   IF (_contact IS NULL) THEN
     RAISE 'Contact not accessible!' USING ERRCODE = 'no_data_found';
@@ -75,8 +82,8 @@ BEGIN
     END IF;
   END IF;
 
-  -- Event creator username
-  SELECT username INTO _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
+  -- Event creator display name and username
+  SELECT display_name, username INTO _event_creator_display_name, _event_creator_username FROM vibetype.account WHERE account.id = _event.created_by;
 
   -- Event creator profile picture storage key
   SELECT upload_id INTO _event_creator_profile_picture_upload_id FROM vibetype.profile_picture WHERE profile_picture.account_id = _event.created_by;
@@ -92,6 +99,7 @@ BEGIN
             'timeZone', _contact.time_zone
           ),
           'event', _event,
+          'eventCreatorDisplayName', _event_creator_display_name,
           'eventCreatorProfilePictureUploadStorageKey', _event_creator_profile_picture_upload_storage_key,
           'eventCreatorUsername', _event_creator_username,
           'guest', jsonb_build_object(
@@ -104,7 +112,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.';
+COMMENT ON FUNCTION vibetype.invite(UUID, TEXT) IS 'Adds a notification for the invitation channel.\n\nError codes:\n- **P0002** when the guest, event, contact, the contact email address, or the account email address is not accessible.\n- **VTEUP** when the event is a draft or not yet published.';
 
 GRANT EXECUTE ON FUNCTION vibetype.invite(UUID, TEXT) TO vibetype_account;
 

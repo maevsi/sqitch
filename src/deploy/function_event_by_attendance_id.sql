@@ -4,15 +4,17 @@ BEGIN;
 
 CREATE FUNCTION vibetype.event_by_attendance_id(attendance_id uuid) RETURNS vibetype.event
     LANGUAGE sql STABLE STRICT SECURITY DEFINER
+    SET search_path = pg_catalog, public, pg_temp
     AS $$
   SELECT e.*
   FROM vibetype.event e
   JOIN vibetype.guest g ON g.event_id = e.id
   JOIN vibetype.attendance a ON a.guest_id = g.id
   WHERE a.id = event_by_attendance_id.attendance_id
+    AND (e.published_at <= CURRENT_TIMESTAMP OR e.created_by = vibetype.invoker_account_id())
 $$;
 
-COMMENT ON FUNCTION vibetype.event_by_attendance_id(UUID) IS 'Returns the event associated with the given attendance ID.';
+COMMENT ON FUNCTION vibetype.event_by_attendance_id(UUID) IS 'Returns the event associated with the given attendance ID, unless it is a draft or scheduled and not organized by the invoker.';
 
 GRANT EXECUTE ON FUNCTION vibetype.event_by_attendance_id(UUID) TO vibetype_account, vibetype_anonymous;
 
