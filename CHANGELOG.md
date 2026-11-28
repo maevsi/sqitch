@@ -1,3 +1,9 @@
+## [13.14.3](https://github.com/maevsi/sqitch/compare/13.14.2...13.14.3) (2026-11-28)
+
+### Bug Fixes
+
+* **account:** give usernames differing only in case a numeric suffix ([#444](https://github.com/maevsi/sqitch/issues/444)) ([79ea75a](https://github.com/maevsi/sqitch/commit/79ea75a31d5a60f862ba0e10d8e1120d974bf76b))
+
 ## [13.14.2](https://github.com/maevsi/sqitch/compare/13.14.1...13.14.2) (2026-11-25)
 
 ### Bug Fixes
